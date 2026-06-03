@@ -5,19 +5,19 @@ import { ConfirmModal, toast } from '../components/Toast'
 import { supabase } from '../lib/supabase'
 import { canEdit } from '../lib/useAuth'
 
-export default function Athletes({ athletes, coaches, results, onRefresh, onNav, canEdit, initAthleteId, initStatusFilter }) {
-  const [search, setSearch]     = useState('')
-  const [sport, setSport]       = useState('All sports')
-  const [status, setStatus]     = useState('All statuses')
-  const [gender, setGender]     = useState('All genders')
-  const [sort, setSort]         = useState('name-asc')
-  const [selected, setSelected] = useState(initAthleteId || null)
-  const [form, setForm]         = useState(null)
-  const [confirm, setConfirm]   = useState(null)
-  const [medalModal, setMedalModal] = useState(null) // { name, type, results }
+export default function Athletes({ athletes, coaches, results, onRefresh, onNav, initAthleteId, initStatusFilter, profile }) {
+  const [search, setSearch]         = useState('')
+  const [sport, setSport]           = useState('All sports')
+  const [status, setStatus]         = useState('All statuses')
+  const [gender, setGender]         = useState('All genders')
+  const [sort, setSort]             = useState('name-asc')
+  const [selected, setSelected]     = useState(initAthleteId || null)
+  const [form, setForm]             = useState(null)
+  const [confirm, setConfirm]       = useState(null)
+  const [medalModal, setMedalModal] = useState(null)
 
   useEffect(() => {
-    if (initAthleteId) setSelected(initAthleteId)
+    if (initAthleteId)    setSelected(initAthleteId)
     if (initStatusFilter) setStatus(initStatusFilter)
   }, [initAthleteId, initStatusFilter])
 
@@ -71,26 +71,73 @@ export default function Athletes({ athletes, coaches, results, onRefresh, onNav,
   if (selected) {
     const a = athletes.find(x => x.id === selected)
     if (!a) { setSelected(null); return null }
-    const coach = coaches.find(c => c.id === a.coach_id)
-    const myResults = results.filter(r => r.athlete_id === a.id)
+    const coach     = coaches.find(c => c.id === a.coach_id)
+    const myResults = (results || []).filter(r => r.athlete_id === a.id)
 
     return (
       <div>
+        {/* EDIT FORM */}
         {form && (
           <FormModal type="athlete"
-            record={form === 'edit' ? { id:a.id, name:a.name, nameAr:a.name_ar, dob:a.dob, gender:a.gender, nationality:a.nationality, sport:a.sport, classification:a.classification, disability:a.disability, coachId:a.coach_id, status:a.status, phone:a.phone, email:a.email, joinDate:a.join_date } : null}
+            record={form === 'edit' ? {
+              id: a.id, name: a.name, nameAr: a.name_ar, dob: a.dob,
+              gender: a.gender, nationality: a.nationality, sport: a.sport,
+              classification: a.classification, disability: a.disability,
+              coachId: a.coach_id, status: a.status, phone: a.phone,
+              email: a.email, joinDate: a.join_date,
+            } : null}
             coaches={coaches} onSave={handleSave} onClose={() => setForm(null)} />
         )}
+
+        {/* DELETE CONFIRM */}
         {confirm && (
           <ConfirmModal title="Delete athlete" message={`Delete ${a.name}? This cannot be undone.`}
             onConfirm={() => handleDelete(a.id, a.name)} onCancel={() => setConfirm(null)} />
         )}
 
+        {/* MEDAL MODAL */}
+        {medalModal && (
+          <div className="modal-overlay" onClick={() => setMedalModal(null)}>
+            <div className="modal-box modal-sm" onClick={e => e.stopPropagation()}>
+              <div className="modal-header">
+                <div className="modal-title">
+                  {medalModal.type==='gold'?'🥇':medalModal.type==='silver'?'🥈':'🥉'} {medalModal.label} Medals — {medalModal.athleteName}
+                </div>
+                <button className="modal-close" onClick={() => setMedalModal(null)}><i className="ti ti-x" /></button>
+              </div>
+              <div className="modal-body">
+                {medalModal.results.length === 0
+                  ? <div className="empty">No {medalModal.label.toLowerCase()} medals recorded yet.</div>
+                  : medalModal.results.map(r => (
+                    <div key={r.id} style={{ display:'flex', gap:14, alignItems:'flex-start', padding:'14px 0', borderBottom:'1px solid var(--border)' }}>
+                      <div style={{ width:44, height:44, borderRadius:'50%', background:medalModal.color+'18', display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, flexShrink:0 }}>
+                        {medalModal.type==='gold'?'🥇':medalModal.type==='silver'?'🥈':'🥉'}
+                      </div>
+                      <div style={{ flex:1 }}>
+                        <div style={{ fontSize:14, fontWeight:600, marginBottom:4 }}>{r.discipline}</div>
+                        <div style={{ fontSize:12, color:'var(--text2)', marginBottom:8 }}>{r.event_name}</div>
+                        <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+                          <span className="badge badge-blue">{r.result}</span>
+                          <span className="badge badge-gray"><i className="ti ti-calendar" style={{ fontSize:11, verticalAlign:-1, marginRight:3 }} />{r.date}</span>
+                          <span className="badge" style={{ background:medalModal.color+'18', color:medalModal.color }}>Position #{r.position}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                }
+              </div>
+            </div>
+          </div>
+        )}
+
         <button className="back-btn" onClick={() => setSelected(null)}><i className="ti ti-arrow-left" /> Back to athletes</button>
-        {canEdit && <div style={{ display:'flex', gap:10, marginBottom:16 }}>
-          <button className="action-btn action-btn-edit" onClick={() => setForm('edit')}><i className="ti ti-pencil" /> Edit</button>
-          <button className="action-btn action-btn-delete" onClick={() => setConfirm(true)}><i className="ti ti-trash" /> Delete</button>
-        </div>}
+
+        {canEdit(profile) && (
+          <div style={{ display:'flex', gap:10, marginBottom:16 }}>
+            <button className="action-btn action-btn-edit" onClick={() => setForm('edit')}><i className="ti ti-pencil" /> Edit</button>
+            <button className="action-btn action-btn-delete" onClick={() => setConfirm(true)}><i className="ti ti-trash" /> Delete</button>
+          </div>
+        )}
 
         <div className="detail-grid">
           <div>
@@ -109,20 +156,24 @@ export default function Athletes({ athletes, coaches, results, onRefresh, onNav,
             </div>
 
             <div className="info-card" style={{ marginTop:12 }}>
-              <div className="info-title">Medal count <span style={{ fontSize:10, fontWeight:400, textTransform:'none', letterSpacing:0 }}>(click to see details)</span></div>
+              <div className="info-title">
+                Medal count <span style={{ fontSize:10, fontWeight:400, textTransform:'none', letterSpacing:0 }}>(click to see details)</span>
+              </div>
               <div className="medal-row">
                 {[['gold','#f1c40f','Gold'],['silver','#aaa','Silver'],['bronze','#cd7f32','Bronze']].map(([type,color,label]) => {
-                  const count = a[`medals_${type}`] || 0
-                  const myMedals = myResults.filter(r => r.medal === type)
+                  const count    = a[`medals_${type}`] || 0
+                  const typeRes  = myResults.filter(r => r.medal === type)
                   return (
                     <div key={type} className="medal-item"
                       style={{ cursor: count>0?'pointer':'default', borderRadius:10, padding:'8px 4px', transition:'background .15s' }}
                       onMouseEnter={e => { if(count>0) e.currentTarget.style.background='#f4f6f9' }}
                       onMouseLeave={e => { e.currentTarget.style.background='' }}
-                      onClick={() => count>0 && setMedalModal({ name: a.name, type, color, label, results: myResults.filter(r=>r.medal===type) })}>
+                      onClick={() => {
+                        if (count > 0) setMedalModal({ athleteName: a.name, type, color, label, results: typeRes })
+                      }}>
                       <div className="medal-num" style={{ color }}>{count}</div>
                       <div className="medal-lbl">{label}</div>
-                      {count>0 && <div style={{ fontSize:9, color, marginTop:2, opacity:.8 }}>view ↗</div>}
+                      {count > 0 && <div style={{ fontSize:9, color, marginTop:2, opacity:.8 }}>view ↗</div>}
                     </div>
                   )
                 })}
@@ -180,7 +231,9 @@ export default function Athletes({ athletes, coaches, results, onRefresh, onNav,
       {form && <FormModal type="athlete" record={null} coaches={coaches} onSave={handleSave} onClose={() => setForm(null)} />}
       <div className="page-header">
         <div><div className="page-title">Athletes</div><div className="page-sub">{list.length} of {athletes.length} athletes</div></div>
-        {canEdit && <button className="btn btn-blue" onClick={() => setForm('new')}><i className="ti ti-plus" /> Add athlete</button>}
+        {canEdit(profile) && (
+          <button className="btn btn-blue" onClick={() => setForm('new')}><i className="ti ti-plus" /> Add athlete</button>
+        )}
       </div>
       <div className="filters">
         <div className="search-wrap"><i className="ti ti-search" /><input placeholder="Search by name, sport…" value={search} onChange={e => setSearch(e.target.value)} /></div>
