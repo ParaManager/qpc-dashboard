@@ -29,22 +29,25 @@ export default function App() {
   const [events, setEvents]               = useState([])
   const [results, setResults]             = useState([])
   const [registrations, setRegistrations] = useState([])
+  const [documents, setDocuments]         = useState([])
   const [dataLoading, setDataLoading]     = useState(true)
   const [navState, setNavState]           = useState({})
 
   const fetchAll = useCallback(async () => {
-    const [a, c, e, r, reg] = await Promise.all([
+    const [a, c, e, r, reg, docs] = await Promise.all([
       supabase.from('athletes').select('*').order('name'),
       supabase.from('coaches').select('*').order('name'),
       supabase.from('events').select('*').order('start_date'),
       supabase.from('results').select('*').order('date', { ascending: false }),
       supabase.from('event_registrations').select('*'),
+      supabase.from('athlete_documents').select('*').order('uploaded_at', { ascending: false }),
     ])
-    if (a.data)   setAthletes(a.data)
-    if (c.data)   setCoaches(c.data)
-    if (e.data)   setEvents(e.data)
-    if (r.data)   setResults(r.data)
-    if (reg.data) setRegistrations(reg.data)
+    if (a.data)    setAthletes(a.data)
+    if (c.data)    setCoaches(c.data)
+    if (e.data)    setEvents(e.data)
+    if (r.data)    setResults(r.data)
+    if (reg.data)  setRegistrations(reg.data)
+    if (docs.data) setDocuments(docs.data)
     setDataLoading(false)
   }, [])
 
@@ -57,7 +60,6 @@ export default function App() {
 
   const upcomingCount = events.filter(e => e.status === 'Upcoming' || e.status === 'Registration Open').length
 
-  // ── LOADING SCREEN ──
   if (authLoading) return (
     <div style={{ display:'flex', height:'100vh', alignItems:'center', justifyContent:'center', background:'#0a1628' }}>
       <div style={{ textAlign:'center' }}>
@@ -69,10 +71,8 @@ export default function App() {
     </div>
   )
 
-  // ── LOGIN SCREEN ──
   if (!user) return <Login />
 
-  // ── DATA LOADING ──
   if (dataLoading) return (
     <div style={{ display:'flex', height:'100vh', alignItems:'center', justifyContent:'center', background:'var(--bg)' }}>
       <div style={{ textAlign:'center' }}>
@@ -91,7 +91,6 @@ export default function App() {
 
   return (
     <div className="app">
-      {/* SIDEBAR */}
       <div className="sidebar">
         <div className="sb-logo">
           <div className="agitos">
@@ -117,8 +116,6 @@ export default function App() {
             </div>
           ))}
         </div>
-
-        {/* USER INFO + SIGN OUT */}
         <div style={{ padding:'12px 16px', borderTop:'1px solid rgba(255,255,255,.07)' }}>
           <div style={{ display:'flex', alignItems:'center', gap:9, marginBottom:10 }}>
             <div style={{ width:32, height:32, borderRadius:'50%', background:roleColor, display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:600, color:'#fff', flexShrink:0 }}>
@@ -140,14 +137,12 @@ export default function App() {
         </div>
       </div>
 
-      {/* MAIN */}
       <div className="main">
         <div className="topbar">
           <div className="tb-breadcrumb">
             <span>QPC</span> · <span>{page.charAt(0).toUpperCase()+page.slice(1)}</span> · Season 2026
           </div>
           <div className="tb-actions">
-            {/* Role badge */}
             <div style={{ display:'flex', alignItems:'center', gap:5, padding:'4px 10px', background:roleColor+'15', border:`1px solid ${roleColor}40`, borderRadius:20, fontSize:11, color:roleColor, fontWeight:500 }}>
               <i className={`ti ${roleIcon}`} style={{ fontSize:13 }} />
               {role.charAt(0).toUpperCase()+role.slice(1)}
@@ -157,7 +152,7 @@ export default function App() {
         </div>
         <div id="content">
           {page==='dashboard' && <Dashboard athletes={athletes} coaches={coaches} events={events} results={results} onNav={goTo} profile={profile} />}
-          {page==='athletes'  && <Athletes  athletes={athletes} coaches={coaches} results={results} onRefresh={fetchAll} onNav={goTo} initAthleteId={navState.athleteId} initStatusFilter={navState.statusFilter} profile={profile} />}
+          {page==='athletes'  && <Athletes  athletes={athletes} coaches={coaches} results={results} documents={documents} onRefresh={fetchAll} onNav={goTo} initAthleteId={navState.athleteId} initStatusFilter={navState.statusFilter} profile={profile} />}
           {page==='coaches'   && <Coaches   coaches={coaches} athletes={athletes} onRefresh={fetchAll} onNav={goTo} initCoachId={navState.coachId} profile={profile} />}
           {page==='events'    && <Events    events={events} athletes={athletes} results={results} registrations={registrations} onRefresh={fetchAll} onNav={goTo} initEventId={navState.eventId} initStatusFilter={navState.statusFilter} profile={profile} />}
           {page==='results'   && <Results   results={results} athletes={athletes} onRefresh={fetchAll} onNav={goTo} profile={profile} />}
