@@ -28,7 +28,7 @@ function formatFileSize(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-export default function Athletes({ athletes, coaches, results, documents, onRefresh, onNav, initAthleteId, initStatusFilter, profile }) {
+export default function Athletes({ athletes, coaches, results, documents, events, registrations, onRefresh, onNav, initAthleteId, initStatusFilter, profile }) {
   const [search, setSearch]         = useState('')
   const [sport, setSport]           = useState('All sports')
   const [status, setStatus]         = useState('All statuses')
@@ -160,6 +160,10 @@ export default function Athletes({ athletes, coaches, results, documents, onRefr
     const coach     = coaches.find(c => c.id === a.coach_id)
     const myResults = (results || []).filter(r => r.athlete_id === a.id)
     const myDocs    = (documents || []).filter(d => d.athlete_id === a.id)
+
+    // events the athlete is registered for
+    const myEventIds   = (registrations || []).filter(r => r.athlete_id === a.id).map(r => r.event_id)
+    const myEvents     = (events || []).filter(e => myEventIds.includes(e.id)).sort((a,b) => new Date(b.start_date) - new Date(a.start_date))
 
     // group docs by type
     const docsByType = DOC_TYPES.reduce((acc, t) => {
@@ -324,6 +328,59 @@ export default function Athletes({ athletes, coaches, results, documents, onRefr
                 ))}
               </div>
             )}
+
+            {/* ── COMPETITION HISTORY ── */}
+            <div className="info-card">
+              <div className="info-title" style={{ marginBottom: 14 }}>
+                Competition history
+                <span style={{ marginLeft:8, fontSize:11, fontWeight:400, color:'var(--text3)', textTransform:'none', letterSpacing:0 }}>
+                  {myEvents.length} event{myEvents.length !== 1 ? 's' : ''}
+                </span>
+              </div>
+              {myEvents.length === 0
+                ? <div className="empty" style={{ padding:'16px 0' }}>Not registered in any events yet.</div>
+                : <div style={{ position:'relative' }}>
+                    {/* vertical timeline line */}
+                    <div style={{ position:'absolute', left:15, top:6, bottom:6, width:2, background:'var(--border)', borderRadius:2 }} />
+                    {myEvents.map(ev => {
+                      const evResults = (results || []).filter(r => r.athlete_id === a.id && r.event_name === ev.name)
+                      const medals    = evResults.filter(r => r.medal)
+                      const dotColor  = ev.status === 'Completed'
+                        ? medals.length > 0 ? '#f1c40f' : '#009F6B'
+                        : ev.status === 'Upcoming' ? '#0085C7'
+                        : ev.status === 'Registration Open' ? '#8b5cf6'
+                        : '#9aa3b2'
+                      return (
+                        <div key={ev.id} style={{ display:'flex', gap:14, marginBottom:16, position:'relative' }}>
+                          {/* dot */}
+                          <div style={{ width:32, height:32, borderRadius:'50%', background:dotColor+'20', border:`2px solid ${dotColor}`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, zIndex:1 }}>
+                            {ev.status === 'Completed' && medals.length > 0
+                              ? <span style={{ fontSize:14 }}>{medals[0].medal==='gold'?'🥇':medals[0].medal==='silver'?'🥈':'🥉'}</span>
+                              : <i className={`ti ${ev.status==='Completed'?'ti-check':'ti-calendar'}`} style={{ fontSize:13, color:dotColor }} />
+                            }
+                          </div>
+                          <div style={{ flex:1, paddingTop:4 }}>
+                            <div style={{ fontSize:13, fontWeight:600, marginBottom:2 }}>{ev.name}</div>
+                            <div style={{ fontSize:11, color:'var(--text2)', marginBottom:4, display:'flex', gap:10, flexWrap:'wrap' }}>
+                              <span><i className="ti ti-map-pin" style={{ fontSize:11, marginRight:3 }} />{ev.venue}</span>
+                              <span><i className="ti ti-calendar" style={{ fontSize:11, marginRight:3 }} />{ev.start_date}</span>
+                            </div>
+                            <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+                              <span className={`badge badge-blue`} style={{ fontSize:10 }}>{ev.sport}</span>
+                              <span className={`badge`} style={{ fontSize:10, background:dotColor+'15', color:dotColor }}>{ev.status}</span>
+                              {medals.map(r => (
+                                <span key={r.id} style={{ fontSize:11 }}>
+                                  {r.medal==='gold'?'🥇':r.medal==='silver'?'🥈':'🥉'} {r.discipline} — {r.result}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+              }
+            </div>
 
             {/* ── DOCUMENTS ── */}
             <div className="info-card">
