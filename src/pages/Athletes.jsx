@@ -14,6 +14,7 @@ export default function Athletes({ athletes, coaches, results, onRefresh, onNav,
   const [selected, setSelected] = useState(initAthleteId || null)
   const [form, setForm]         = useState(null)
   const [confirm, setConfirm]   = useState(null)
+  const [medalModal, setMedalModal] = useState(null) // { name, type, results }
 
   useEffect(() => {
     if (initAthleteId) setSelected(initAthleteId)
@@ -117,7 +118,8 @@ export default function Athletes({ athletes, coaches, results, onRefresh, onNav,
                     <div key={type} className="medal-item"
                       style={{ cursor: count>0?'pointer':'default', borderRadius:10, padding:'8px 4px', transition:'background .15s' }}
                       onMouseEnter={e => { if(count>0) e.currentTarget.style.background='#f4f6f9' }}
-                      onMouseLeave={e => { e.currentTarget.style.background='' }}>
+                      onMouseLeave={e => { e.currentTarget.style.background='' }}
+                      onClick={() => count>0 && setMedalModal({ name: a.name, type, color, label, results: myResults.filter(r=>r.medal===type) })}>
                       <div className="medal-num" style={{ color }}>{count}</div>
                       <div className="medal-lbl">{label}</div>
                       {count>0 && <div style={{ fontSize:9, color, marginTop:2, opacity:.8 }}>view ↗</div>}
