@@ -5,7 +5,30 @@ import { ConfirmModal, toast } from '../components/Toast'
 import { supabase } from '../lib/supabase'
 import { canEdit } from '../lib/useAuth'
 
-export default function Athletes({ athletes, coaches, results, onRefresh, onNav, initAthleteId, initStatusFilter, profile }) {
+const DOC_TYPES = ['Passport', 'Medical Clearance', 'Classification Certificate', 'Disability Certificate', 'Other']
+const DOC_ICONS = {
+  'Passport': 'ti-id',
+  'Medical Clearance': 'ti-heart-rate-monitor',
+  'Classification Certificate': 'ti-certificate',
+  'Disability Certificate': 'ti-accessible',
+  'Other': 'ti-file',
+}
+const DOC_COLORS = {
+  'Passport': '#0085C7',
+  'Medical Clearance': '#EE334E',
+  'Classification Certificate': '#009F6B',
+  'Disability Certificate': '#8b5cf6',
+  'Other': '#9aa3b2',
+}
+
+function formatFileSize(bytes) {
+  if (!bytes) return ''
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+export default function Athletes({ athletes, coaches, results, documents, onRefresh, onNav, initAthleteId, initStatusFilter, profile }) {
   const [search, setSearch]         = useState('')
   const [sport, setSport]           = useState('All sports')
   const [status, setStatus]         = useState('All statuses')
@@ -16,7 +39,11 @@ export default function Athletes({ athletes, coaches, results, onRefresh, onNav,
   const [confirm, setConfirm]       = useState(null)
   const [medalModal, setMedalModal] = useState(null)
   const [uploading, setUploading]   = useState(false)
+  const [docUploading, setDocUploading] = useState(false)
+  const [docType, setDocType]       = useState('Passport')
+  const [docConfirm, setDocConfirm] = useState(null)
   const photoInput                  = useRef(null)
+  const docInput                    = useRef(null)
 
   useEffect(() => {
     if (initAthleteId)    setSelected(initAthleteId)
@@ -57,8 +84,7 @@ export default function Athletes({ athletes, coaches, results, onRefresh, onNav,
       : await supabase.from('athletes').insert(payload)
     if (error) { toast(error.message, 'error'); return }
     toast(isEdit ? `${payload.name} updated` : `${payload.name} added`)
-    setForm(null)
-    await onRefresh()
+    setForm(null); await onRefresh()
     if (isEdit) setSelected(formData.id)
   }
 
@@ -71,46 +97,60 @@ export default function Athletes({ athletes, coaches, results, onRefresh, onNav,
 
   async function handlePhotoUpload(athleteId, file) {
     if (!file) return
-    // validate
     if (!file.type.startsWith('image/')) { toast('Please select an image file', 'error'); return }
     if (file.size > 5 * 1024 * 1024) { toast('Image must be under 5MB', 'error'); return }
-
     setUploading(true)
     try {
-      const ext      = file.name.split('.').pop()
-      const path     = `${athleteId}.${ext}`
-
-      // upload to supabase storage
-      const { error: upErr } = await supabase.storage
-        .from('athlete-photos')
-        .upload(path, file, { upsert: true })
+      const ext  = file.name.split('.').pop()
+      const path = `${athleteId}.${ext}`
+      const { error: upErr } = await supabase.storage.from('athlete-photos').upload(path, file, { upsert: true })
       if (upErr) throw upErr
-
-      // get public URL
       const { data } = supabase.storage.from('athlete-photos').getPublicUrl(path)
-      const photoUrl = data.publicUrl + '?t=' + Date.now() // cache bust
-
-      // save URL to athlete record
-      const { error: dbErr } = await supabase
-        .from('athletes')
-        .update({ photo_url: photoUrl })
-        .eq('id', athleteId)
+      const photoUrl = data.publicUrl + '?t=' + Date.now()
+      const { error: dbErr } = await supabase.from('athletes').update({ photo_url: photoUrl }).eq('id', athleteId)
       if (dbErr) throw dbErr
-
-      toast('Photo updated!')
-      await onRefresh()
-    } catch (err) {
-      toast(err.message || 'Upload failed', 'error')
-    } finally {
-      setUploading(false)
-    }
+      toast('Photo updated!'); await onRefresh()
+    } catch (err) { toast(err.message || 'Upload failed', 'error') }
+    finally { setUploading(false) }
   }
 
   async function handlePhotoRemove(athleteId) {
     const { error } = await supabase.from('athletes').update({ photo_url: null }).eq('id', athleteId)
     if (error) { toast(error.message, 'error'); return }
-    toast('Photo removed')
-    await onRefresh()
+    toast('Photo removed'); await onRefresh()
+  }
+
+  async function handleDocUpload(athleteId, file) {
+    if (!file) return
+    if (file.size > 20 * 1024 * 1024) { toast('File must be under 20MB', 'error'); return }
+    setDocUploading(true)
+    try {
+      const ext      = file.name.split('.').pop()
+      const path     = `${athleteId}/${Date.now()}.${ext}`
+      const { error: upErr } = await supabase.storage.from('athlete-documents').upload(path, file)
+      if (upErr) throw upErr
+      const { data } = supabase.storage.from('athlete-documents').getPublicUrl(path)
+      const { error: dbErr } = await supabase.from('athlete_documents').insert({
+        athlete_id: athleteId,
+        name: file.name,
+        type: docType,
+        file_url: data.publicUrl,
+        file_path: path,
+        file_size: file.size,
+      })
+      if (dbErr) throw dbErr
+      toast(`${docType} uploaded!`); await onRefresh()
+    } catch (err) { toast(err.message || 'Upload failed', 'error') }
+    finally { setDocUploading(false); if (docInput.current) docInput.current.value = '' }
+  }
+
+  async function handleDocDelete(doc) {
+    // delete from storage
+    await supabase.storage.from('athlete-documents').remove([doc.file_path])
+    // delete from db
+    const { error } = await supabase.from('athlete_documents').delete().eq('id', doc.id)
+    if (error) { toast(error.message, 'error'); return }
+    toast('Document deleted'); setDocConfirm(null); await onRefresh()
   }
 
   // ── DETAIL VIEW ──
@@ -119,31 +159,34 @@ export default function Athletes({ athletes, coaches, results, onRefresh, onNav,
     if (!a) { setSelected(null); return null }
     const coach     = coaches.find(c => c.id === a.coach_id)
     const myResults = (results || []).filter(r => r.athlete_id === a.id)
+    const myDocs    = (documents || []).filter(d => d.athlete_id === a.id)
+
+    // group docs by type
+    const docsByType = DOC_TYPES.reduce((acc, t) => {
+      acc[t] = myDocs.filter(d => d.type === t)
+      return acc
+    }, {})
 
     return (
       <div>
         {form && (
           <FormModal type="athlete"
-            record={form === 'edit' ? {
-              id: a.id, name: a.name, nameAr: a.name_ar, dob: a.dob,
-              gender: a.gender, nationality: a.nationality, sport: a.sport,
-              classification: a.classification, disability: a.disability,
-              coachId: a.coach_id, status: a.status, phone: a.phone,
-              email: a.email, joinDate: a.join_date,
-            } : null}
+            record={form === 'edit' ? { id:a.id, name:a.name, nameAr:a.name_ar, dob:a.dob, gender:a.gender, nationality:a.nationality, sport:a.sport, classification:a.classification, disability:a.disability, coachId:a.coach_id, status:a.status, phone:a.phone, email:a.email, joinDate:a.join_date } : null}
             coaches={coaches} onSave={handleSave} onClose={() => setForm(null)} />
         )}
         {confirm && (
           <ConfirmModal title="Delete athlete" message={`Delete ${a.name}? This cannot be undone.`}
             onConfirm={() => handleDelete(a.id, a.name)} onCancel={() => setConfirm(null)} />
         )}
+        {docConfirm && (
+          <ConfirmModal title="Delete document" message={`Delete "${docConfirm.name}"? This cannot be undone.`}
+            onConfirm={() => handleDocDelete(docConfirm)} onCancel={() => setDocConfirm(null)} />
+        )}
         {medalModal && (
           <div className="modal-overlay" onClick={() => setMedalModal(null)}>
             <div className="modal-box modal-sm" onClick={e => e.stopPropagation()}>
               <div className="modal-header">
-                <div className="modal-title">
-                  {medalModal.type==='gold'?'🥇':medalModal.type==='silver'?'🥈':'🥉'} {medalModal.label} Medals — {medalModal.athleteName}
-                </div>
+                <div className="modal-title">{medalModal.type==='gold'?'🥇':medalModal.type==='silver'?'🥈':'🥉'} {medalModal.label} Medals — {medalModal.athleteName}</div>
                 <button className="modal-close" onClick={() => setMedalModal(null)}><i className="ti ti-x" /></button>
               </div>
               <div className="modal-body">
@@ -181,33 +224,23 @@ export default function Athletes({ athletes, coaches, results, onRefresh, onNav,
 
         <div className="detail-grid">
           <div>
+            {/* PROFILE CARD */}
             <div className="detail-profile">
-
-              {/* PHOTO */}
               <div style={{ position:'relative', width:90, height:90, margin:'0 auto 14px' }}>
                 {a.photo_url
-                  ? <img src={a.photo_url} alt={a.name}
-                      style={{ width:90, height:90, borderRadius:'50%', objectFit:'cover', border:'3px solid var(--border)' }} />
-                  : <div style={{ width:90, height:90, borderRadius:'50%', background:avColor(a.id), display:'flex', alignItems:'center', justifyContent:'center', fontSize:28, fontWeight:600, color:'#fff' }}>
-                      {initials(a.name)}
-                    </div>
+                  ? <img src={a.photo_url} alt={a.name} style={{ width:90, height:90, borderRadius:'50%', objectFit:'cover', border:'3px solid var(--border)' }} />
+                  : <div style={{ width:90, height:90, borderRadius:'50%', background:avColor(a.id), display:'flex', alignItems:'center', justifyContent:'center', fontSize:28, fontWeight:600, color:'#fff' }}>{initials(a.name)}</div>
                 }
                 {canEdit(profile) && (
                   <div style={{ position:'absolute', bottom:0, right:0, display:'flex', gap:3 }}>
-                    <button
-                      onClick={() => photoInput.current.click()}
-                      disabled={uploading}
-                      title="Upload photo"
+                    <button onClick={() => photoInput.current.click()} disabled={uploading} title="Upload photo"
                       style={{ width:26, height:26, borderRadius:'50%', background:'#0085C7', border:'2px solid #fff', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'#fff' }}>
                       {uploading
                         ? <div style={{ width:10, height:10, border:'2px solid rgba(255,255,255,.4)', borderTopColor:'#fff', borderRadius:'50%', animation:'spin .7s linear infinite' }} />
-                        : <i className="ti ti-camera" style={{ fontSize:12 }} />
-                      }
+                        : <i className="ti ti-camera" style={{ fontSize:12 }} />}
                     </button>
                     {a.photo_url && (
-                      <button
-                        onClick={() => handlePhotoRemove(a.id)}
-                        title="Remove photo"
+                      <button onClick={() => handlePhotoRemove(a.id)} title="Remove photo"
                         style={{ width:26, height:26, borderRadius:'50%', background:'#dc2626', border:'2px solid #fff', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'#fff' }}>
                         <i className="ti ti-x" style={{ fontSize:12 }} />
                       </button>
@@ -217,7 +250,6 @@ export default function Athletes({ athletes, coaches, results, onRefresh, onNav,
                 <input ref={photoInput} type="file" accept="image/*" style={{ display:'none' }}
                   onChange={e => { if(e.target.files[0]) handlePhotoUpload(a.id, e.target.files[0]) }} />
               </div>
-
               <div className="detail-name">{a.name}</div>
               {a.name_ar && <div className="detail-sub">{a.name_ar}</div>}
               <div className="detail-badges">
@@ -230,10 +262,9 @@ export default function Athletes({ athletes, coaches, results, onRefresh, onNav,
               </div>
             </div>
 
+            {/* MEDALS */}
             <div className="info-card" style={{ marginTop:12 }}>
-              <div className="info-title">
-                Medal count <span style={{ fontSize:10, fontWeight:400, textTransform:'none', letterSpacing:0 }}>(click to see details)</span>
-              </div>
+              <div className="info-title">Medal count <span style={{ fontSize:10, fontWeight:400, textTransform:'none', letterSpacing:0 }}>(click to see details)</span></div>
               <div className="medal-row">
                 {[['gold','#f1c40f','Gold'],['silver','#aaa','Silver'],['bronze','#cd7f32','Bronze']].map(([type,color,label]) => {
                   const count   = a[`medals_${type}`] || 0
@@ -254,7 +285,8 @@ export default function Athletes({ athletes, coaches, results, onRefresh, onNav,
             </div>
           </div>
 
-          <div>
+          <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+            {/* SPORT */}
             <div className="info-card">
               <div className="info-title">Sport & classification</div>
               {[['Sport',a.sport],['Classification',a.classification],['Disability type',a.disability]].map(([k,v]) => (
@@ -262,7 +294,8 @@ export default function Athletes({ athletes, coaches, results, onRefresh, onNav,
               ))}
             </div>
 
-            <div className="info-card" style={{ marginTop:12 }}>
+            {/* COACH */}
+            <div className="info-card">
               <div className="info-title">Head coach <span style={{ fontSize:10, fontWeight:400, textTransform:'none', letterSpacing:0 }}>— click to view</span></div>
               {coach ? (
                 <DashRow onClick={() => onNav('coaches', { coachId: coach.id })}>
@@ -272,13 +305,12 @@ export default function Athletes({ athletes, coaches, results, onRefresh, onNav,
                     <div style={{ fontSize:11, color:'#9aa3b2' }}>{coach.sport} · {coach.cert_level}</div>
                   </div>
                 </DashRow>
-              ) : (
-                <div style={{ padding:'8px 0', fontSize:13, color:'var(--text3)' }}>No coach assigned</div>
-              )}
+              ) : <div style={{ padding:'8px 0', fontSize:13, color:'var(--text3)' }}>No coach assigned</div>}
             </div>
 
+            {/* RECENT RESULTS */}
             {myResults.length > 0 && (
-              <div className="info-card" style={{ marginTop:12 }}>
+              <div className="info-card">
                 <div className="info-title">Recent results</div>
                 {myResults.slice(0,5).map(r => (
                   <div key={r.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 0', borderBottom:'1px solid var(--border)' }}>
@@ -292,6 +324,84 @@ export default function Athletes({ athletes, coaches, results, onRefresh, onNav,
                 ))}
               </div>
             )}
+
+            {/* ── DOCUMENTS ── */}
+            <div className="info-card">
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
+                <div className="info-title" style={{ margin:0 }}>
+                  Documents
+                  <span style={{ marginLeft:8, fontSize:11, fontWeight:400, color:'var(--text3)', textTransform:'none', letterSpacing:0 }}>
+                    {myDocs.length} file{myDocs.length !== 1 ? 's' : ''}
+                  </span>
+                </div>
+              </div>
+
+              {/* UPLOAD ROW — admins only */}
+              {canEdit(profile) && (
+                <div style={{ display:'flex', gap:8, marginBottom:16, padding:'10px 12px', background:'var(--surface2)', borderRadius:10, alignItems:'center' }}>
+                  <select value={docType} onChange={e => setDocType(e.target.value)}
+                    style={{ flex:1, padding:'7px 10px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface)', fontSize:12, color:'var(--text)', outline:'none' }}>
+                    {DOC_TYPES.map(t => <option key={t}>{t}</option>)}
+                  </select>
+                  <button onClick={() => docInput.current.click()} disabled={docUploading}
+                    style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', background:'#0085C7', color:'#fff', border:'none', borderRadius:8, fontSize:12, fontWeight:500, cursor:'pointer', flexShrink:0, fontFamily:'DM Sans, sans-serif' }}>
+                    {docUploading
+                      ? <><div style={{ width:12, height:12, border:'2px solid rgba(255,255,255,.4)', borderTopColor:'#fff', borderRadius:'50%', animation:'spin .7s linear infinite' }} />Uploading…</>
+                      : <><i className="ti ti-upload" style={{ fontSize:14 }} />Upload</>
+                    }
+                  </button>
+                  <input ref={docInput} type="file" style={{ display:'none' }}
+                    accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                    onChange={e => { if(e.target.files[0]) handleDocUpload(a.id, e.target.files[0]) }} />
+                </div>
+              )}
+
+              {/* DOCUMENT LIST grouped by type */}
+              {myDocs.length === 0
+                ? <div className="empty" style={{ padding:'20px 0' }}>No documents uploaded yet.</div>
+                : DOC_TYPES.map(type => {
+                    const typeDocs = docsByType[type]
+                    if (typeDocs.length === 0) return null
+                    const color = DOC_COLORS[type]
+                    const icon  = DOC_ICONS[type]
+                    return (
+                      <div key={type} style={{ marginBottom:14 }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:6 }}>
+                          <i className={`ti ${icon}`} style={{ fontSize:13, color }} />
+                          <span style={{ fontSize:11, fontWeight:600, color, textTransform:'uppercase', letterSpacing:'.05em' }}>{type}</span>
+                        </div>
+                        {typeDocs.map(doc => (
+                          <div key={doc.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 10px', background:'var(--surface2)', borderRadius:9, marginBottom:6, border:'1px solid var(--border)' }}>
+                            <div style={{ width:34, height:34, borderRadius:8, background:color+'15', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                              <i className={`ti ${icon}`} style={{ fontSize:16, color }} />
+                            </div>
+                            <div style={{ flex:1, minWidth:0 }}>
+                              <div style={{ fontSize:13, fontWeight:500, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{doc.name}</div>
+                              <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>
+                                {formatFileSize(doc.file_size)} · {doc.uploaded_at?.slice(0,10)}
+                              </div>
+                            </div>
+                            <div style={{ display:'flex', gap:6, flexShrink:0 }}>
+                              <a href={doc.file_url} target="_blank" rel="noreferrer"
+                                style={{ display:'flex', alignItems:'center', justifyContent:'center', width:28, height:28, borderRadius:7, background:'var(--surface)', border:'1px solid var(--border)', color:'var(--text2)', textDecoration:'none', fontSize:14 }}
+                                title="View / Download">
+                                <i className="ti ti-external-link" />
+                              </a>
+                              {canEdit(profile) && (
+                                <button onClick={() => setDocConfirm(doc)}
+                                  style={{ display:'flex', alignItems:'center', justifyContent:'center', width:28, height:28, borderRadius:7, background:'#fef2f2', border:'1px solid #fca5a5', color:'#dc2626', cursor:'pointer' }}
+                                  title="Delete">
+                                  <i className="ti ti-trash" style={{ fontSize:14 }} />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  })
+              }
+            </div>
           </div>
         </div>
         <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
@@ -322,32 +432,42 @@ export default function Athletes({ athletes, coaches, results, onRefresh, onNav,
       </div>
       <div className="tbl-wrap">
         <table>
-          <thead><tr><th>Athlete</th><th>Sport</th><th>Class</th><th>Coach</th><th>Medals</th><th>Status</th><th /></tr></thead>
+          <thead><tr><th>Athlete</th><th>Sport</th><th>Class</th><th>Coach</th><th>Medals</th><th>Status</th><th>Docs</th><th /></tr></thead>
           <tbody>
-            {list.map(a => (
-              <tr key={a.id} onClick={() => setSelected(a.id)}>
-                <td>
-                  <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                    {/* photo or initials avatar in list */}
-                    {a.photo_url
-                      ? <img src={a.photo_url} alt={a.name} style={{ width:32, height:32, borderRadius:'50%', objectFit:'cover', flexShrink:0 }} />
-                      : <Avatar name={a.name} id={a.id} />
-                    }
-                    <div>
-                      <div style={{ fontWeight:500 }}>{a.name}</div>
-                      <div style={{ fontSize:11, color:'#9aa3b2' }}>{a.nationality}</div>
+            {list.map(a => {
+              const docCount = (documents || []).filter(d => d.athlete_id === a.id).length
+              return (
+                <tr key={a.id} onClick={() => setSelected(a.id)}>
+                  <td>
+                    <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                      {a.photo_url
+                        ? <img src={a.photo_url} alt={a.name} style={{ width:32, height:32, borderRadius:'50%', objectFit:'cover', flexShrink:0 }} />
+                        : <Avatar name={a.name} id={a.id} />
+                      }
+                      <div>
+                        <div style={{ fontWeight:500 }}>{a.name}</div>
+                        <div style={{ fontSize:11, color:'#9aa3b2' }}>{a.nationality}</div>
+                      </div>
                     </div>
-                  </div>
-                </td>
-                <td>{a.sport}</td>
-                <td><span className="badge badge-blue">{a.classification}</span></td>
-                <td style={{ color:'#5a6272' }}>{coaches.find(c => c.id === a.coach_id)?.name || '—'}</td>
-                <td><MedalDisplay gold={a.medals_gold} silver={a.medals_silver} bronze={a.medals_bronze} /></td>
-                <td><Badge label={a.status} /></td>
-                <td><i className="ti ti-chevron-right" style={{ color:'#ccc', fontSize:16 }} /></td>
-              </tr>
-            ))}
-            {list.length === 0 && <tr><td colSpan={7}><div className="empty">No athletes match</div></td></tr>}
+                  </td>
+                  <td>{a.sport}</td>
+                  <td><span className="badge badge-blue">{a.classification}</span></td>
+                  <td style={{ color:'#5a6272' }}>{coaches.find(c => c.id === a.coach_id)?.name || '—'}</td>
+                  <td><MedalDisplay gold={a.medals_gold} silver={a.medals_silver} bronze={a.medals_bronze} /></td>
+                  <td><Badge label={a.status} /></td>
+                  <td>
+                    {docCount > 0
+                      ? <span style={{ display:'flex', alignItems:'center', gap:4, fontSize:12, color:'#0085C7', fontWeight:500 }}>
+                          <i className="ti ti-files" style={{ fontSize:14 }} />{docCount}
+                        </span>
+                      : <span style={{ fontSize:12, color:'var(--text3)' }}>—</span>
+                    }
+                  </td>
+                  <td><i className="ti ti-chevron-right" style={{ color:'#ccc', fontSize:16 }} /></td>
+                </tr>
+              )
+            })}
+            {list.length === 0 && <tr><td colSpan={8}><div className="empty">No athletes match</div></td></tr>}
           </tbody>
         </table>
       </div>
