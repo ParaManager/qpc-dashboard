@@ -3,8 +3,9 @@ import { Avatar, Badge, statusDot, initials, DashRow } from '../lib/helpers'
 import FormModal from '../components/FormModal'
 import { ConfirmModal, toast } from '../components/Toast'
 import { supabase } from '../lib/supabase'
+import { canEdit } from '../lib/useAuth'
 
-export default function Events({ events, athletes, results, registrations, onRefresh, onNav, initEventId, initStatusFilter }) {
+export default function Events({ events, athletes, results, registrations, onRefresh, onNav, initEventId, initStatusFilter, profile }) {
   const [search, setSearch]   = useState('')
   const [sportF, setSportF]   = useState('All sports')
   const [typeF, setTypeF]     = useState('All types')
@@ -98,10 +99,12 @@ export default function Events({ events, athletes, results, registrations, onRef
         )}
 
         <button className="back-btn" onClick={() => setSelected(null)}><i className="ti ti-arrow-left" /> Back to events</button>
-        <div style={{ display:'flex', gap:10, marginBottom:16 }}>
-          <button className="action-btn action-btn-edit" onClick={() => setForm('edit')}><i className="ti ti-pencil" /> Edit event</button>
-          <button className="action-btn action-btn-delete" onClick={() => setConfirm(true)}><i className="ti ti-trash" /> Delete</button>
-        </div>
+        {canEdit(profile) && (
+          <div style={{ display:'flex', gap:10, marginBottom:16 }}>
+            <button className="action-btn action-btn-edit" onClick={() => setForm('edit')}><i className="ti ti-pencil" /> Edit event</button>
+            <button className="action-btn action-btn-delete" onClick={() => setConfirm(true)}><i className="ti ti-trash" /> Delete</button>
+          </div>
+        )}
 
         <div className="detail-grid">
           <div>
@@ -188,7 +191,7 @@ export default function Events({ events, athletes, results, registrations, onRef
       {form && <FormModal type="event" record={null} onSave={handleSave} onClose={() => setForm(null)} />}
       <div className="page-header">
         <div><div className="page-title">Events</div><div className="page-sub">{list.length} of {events.length} events</div></div>
-        <button className="btn btn-red" onClick={() => setForm('new')}><i className="ti ti-plus" /> New event</button>
+        {canEdit(profile) && <button className="btn btn-red" onClick={() => setForm('new')}><i className="ti ti-plus" /> New event</button>}
       </div>
       <div className="filters">
         <div className="search-wrap"><i className="ti ti-search" /><input placeholder="Search events…" value={search} onChange={e => setSearch(e.target.value)} /></div>

@@ -3,8 +3,9 @@ import { Avatar, MedalDisplay, Badge, initials, DashRow } from '../lib/helpers'
 import FormModal from '../components/FormModal'
 import { ConfirmModal, toast } from '../components/Toast'
 import { supabase } from '../lib/supabase'
+import { canEdit } from '../lib/useAuth'
 
-export default function Coaches({ coaches, athletes, onRefresh, onNav, initCoachId }) {
+export default function Coaches({ coaches, athletes, onRefresh, onNav, initCoachId, profile }) {
   const [search, setSearch]     = useState('')
   const [sport, setSport]       = useState('All sports')
   const [status, setStatus]     = useState('All statuses')
@@ -73,10 +74,12 @@ export default function Coaches({ coaches, athletes, onRefresh, onNav, initCoach
         )}
 
         <button className="back-btn" onClick={() => setSelected(null)}><i className="ti ti-arrow-left" /> Back to coaches</button>
-        <div style={{ display:'flex', gap:10, marginBottom:16 }}>
-          <button className="action-btn action-btn-edit" onClick={() => setForm('edit')}><i className="ti ti-pencil" /> Edit</button>
-          <button className="action-btn action-btn-delete" onClick={() => setConfirm(true)}><i className="ti ti-trash" /> Delete</button>
-        </div>
+        {canEdit(profile) && (
+          <div style={{ display:'flex', gap:10, marginBottom:16 }}>
+            <button className="action-btn action-btn-edit" onClick={() => setForm('edit')}><i className="ti ti-pencil" /> Edit</button>
+            <button className="action-btn action-btn-delete" onClick={() => setConfirm(true)}><i className="ti ti-trash" /> Delete</button>
+          </div>
+        )}
 
         <div className="detail-grid">
           <div className="detail-profile">
@@ -119,7 +122,7 @@ export default function Coaches({ coaches, athletes, onRefresh, onNav, initCoach
       {form && <FormModal type="coach" record={null} coaches={coaches} athletes={athletes} onSave={handleSave} onClose={() => setForm(null)} />}
       <div className="page-header">
         <div><div className="page-title">Coaches</div><div className="page-sub">{list.length} of {coaches.length} coaches</div></div>
-        <button className="btn btn-green" onClick={() => setForm('new')}><i className="ti ti-plus" /> Add coach</button>
+        {canEdit(profile) && <button className="btn btn-green" onClick={() => setForm('new')}><i className="ti ti-plus" /> Add coach</button>}
       </div>
       <div className="filters">
         <div className="search-wrap"><i className="ti ti-search" /><input placeholder="Search by name, sport…" value={search} onChange={e => setSearch(e.target.value)} /></div>

@@ -3,6 +3,7 @@ import { Avatar, MedalDisplay, Badge, statusClass } from '../lib/helpers'
 import FormModal from '../components/FormModal'
 import { ConfirmModal, toast } from '../components/Toast'
 import { supabase } from '../lib/supabase'
+import { canEdit } from '../lib/useAuth'
 
 export default function Results({ results, athletes, onRefresh }) {
   const [search, setSearch] = useState('')
@@ -87,7 +88,7 @@ export default function Results({ results, athletes, onRefresh }) {
 
       <div className="page-header">
         <div><div className="page-title">Results</div><div className="page-sub">{list.length} of {results.length} results</div></div>
-        <button className="btn btn-purple" onClick={() => setForm('new')}><i className="ti ti-plus" /> Add result</button>
+        {canEdit(profile) && <button className="btn btn-purple" onClick={() => setForm('new')}><i className="ti ti-plus" /> Add result</button>}
       </div>
       <div className="filters">
         <div className="search-wrap"><i className="ti ti-search" /><input placeholder="Search by athlete, event…" value={search} onChange={e => setSearch(e.target.value)} /></div>
