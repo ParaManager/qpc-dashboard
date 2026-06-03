@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from './lib/supabase'
+import { useAuth, canEdit } from './lib/useAuth'
 import { ToastContainer } from './components/Toast'
+import Login     from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Athletes  from './pages/Athletes'
 import Coaches   from './pages/Coaches'
@@ -15,14 +17,19 @@ const NAV = [
   { section: 'Competitions', items: [{ id: 'sports',    icon: 'ti-ball-football',    label: 'Sports'    }, { id: 'events',  icon: 'ti-calendar-event', label: 'Events' }, { id: 'results', icon: 'ti-medal', label: 'Results' }] },
 ]
 
+const ROLE_COLORS = { admin: '#0085C7', coach: '#009F6B', athlete: '#EE334E', guest: '#9aa3b2' }
+const ROLE_ICONS  = { admin: 'ti-shield', coach: 'ti-whistle', athlete: 'ti-run', guest: 'ti-eye' }
+
 export default function App() {
+  const { user, profile, loading: authLoading, signOut } = useAuth()
+
   const [page, setPage]                   = useState('dashboard')
   const [athletes, setAthletes]           = useState([])
   const [coaches, setCoaches]             = useState([])
   const [events, setEvents]               = useState([])
   const [results, setResults]             = useState([])
   const [registrations, setRegistrations] = useState([])
-  const [loading, setLoading]             = useState(true)
+  const [dataLoading, setDataLoading]     = useState(true)
   const [navState, setNavState]           = useState({})
 
   const fetchAll = useCallback(async () => {
@@ -38,10 +45,10 @@ export default function App() {
     if (e.data)   setEvents(e.data)
     if (r.data)   setResults(r.data)
     if (reg.data) setRegistrations(reg.data)
-    setLoading(false)
+    setDataLoading(false)
   }, [])
 
-  useEffect(() => { fetchAll() }, [fetchAll])
+  useEffect(() => { if (user) fetchAll() }, [user, fetchAll])
 
   function goTo(targetPage, state = {}) {
     setPage(targetPage)
@@ -50,7 +57,23 @@ export default function App() {
 
   const upcomingCount = events.filter(e => e.status === 'Upcoming' || e.status === 'Registration Open').length
 
-  if (loading) return (
+  // ── LOADING SCREEN ──
+  if (authLoading) return (
+    <div style={{ display:'flex', height:'100vh', alignItems:'center', justifyContent:'center', background:'#0a1628' }}>
+      <div style={{ textAlign:'center' }}>
+        <div style={{ display:'flex', gap:6, marginBottom:16, justifyContent:'center' }}>
+          {['#EE334E','#0085C7','#009F6B'].map(c => <div key={c} style={{ width:14, height:14, borderRadius:'50%', background:c }} />)}
+        </div>
+        <div style={{ fontSize:14, color:'rgba(255,255,255,.5)' }}>Loading…</div>
+      </div>
+    </div>
+  )
+
+  // ── LOGIN SCREEN ──
+  if (!user) return <Login />
+
+  // ── DATA LOADING ──
+  if (dataLoading) return (
     <div style={{ display:'flex', height:'100vh', alignItems:'center', justifyContent:'center', background:'var(--bg)' }}>
       <div style={{ textAlign:'center' }}>
         <div style={{ display:'flex', gap:5, marginBottom:16, justifyContent:'center' }}>
@@ -61,8 +84,14 @@ export default function App() {
     </div>
   )
 
+  const role      = profile?.role || 'guest'
+  const roleColor = ROLE_COLORS[role]
+  const roleIcon  = ROLE_ICONS[role]
+  const userName  = profile?.full_name || user.email
+
   return (
     <div className="app">
+      {/* SIDEBAR */}
       <div className="sidebar">
         <div className="sb-logo">
           <div className="agitos">
@@ -71,7 +100,7 @@ export default function App() {
             <div className="agito" style={{ background:'#009F6B' }} />
           </div>
           <div className="sb-org">Qatar Paralympic</div>
-          <div className="sb-sub">Committee · Admin Portal</div>
+          <div className="sb-sub">Committee · {role.charAt(0).toUpperCase()+role.slice(1)} Portal</div>
         </div>
         <div className="sb-nav">
           {NAV.map(({ section, items }) => (
@@ -88,29 +117,51 @@ export default function App() {
             </div>
           ))}
         </div>
-        <div className="sb-user">
-          <div className="sb-av">MD</div>
-          <div><div className="sb-uname">Managing Director</div><div className="sb-urole">admin@qpc.qa</div></div>
+
+        {/* USER INFO + SIGN OUT */}
+        <div style={{ padding:'12px 16px', borderTop:'1px solid rgba(255,255,255,.07)' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:9, marginBottom:10 }}>
+            <div style={{ width:32, height:32, borderRadius:'50%', background:roleColor, display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:600, color:'#fff', flexShrink:0 }}>
+              {userName.charAt(0).toUpperCase()}
+            </div>
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ color:'#fff', fontSize:12, fontWeight:500, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{userName}</div>
+              <div style={{ display:'flex', alignItems:'center', gap:4, marginTop:2 }}>
+                <i className={`ti ${roleIcon}`} style={{ fontSize:10, color:roleColor }} />
+                <span style={{ color:roleColor, fontSize:10, fontWeight:500, textTransform:'capitalize' }}>{role}</span>
+              </div>
+            </div>
+          </div>
+          <button onClick={signOut} style={{ width:'100%', padding:'7px', background:'rgba(255,255,255,.07)', border:'1px solid rgba(255,255,255,.1)', borderRadius:7, color:'rgba(255,255,255,.6)', fontSize:12, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6, transition:'all .15s', fontFamily:'DM Sans, sans-serif' }}
+            onMouseEnter={e => { e.currentTarget.style.background='rgba(255,255,255,.12)'; e.currentTarget.style.color='#fff' }}
+            onMouseLeave={e => { e.currentTarget.style.background='rgba(255,255,255,.07)'; e.currentTarget.style.color='rgba(255,255,255,.6)' }}>
+            <i className="ti ti-logout" style={{ fontSize:14 }} /> Sign out
+          </button>
         </div>
       </div>
 
+      {/* MAIN */}
       <div className="main">
         <div className="topbar">
           <div className="tb-breadcrumb">
             <span>QPC</span> · <span>{page.charAt(0).toUpperCase()+page.slice(1)}</span> · Season 2026
           </div>
           <div className="tb-actions">
+            {/* Role badge */}
+            <div style={{ display:'flex', alignItems:'center', gap:5, padding:'4px 10px', background:roleColor+'15', border:`1px solid ${roleColor}40`, borderRadius:20, fontSize:11, color:roleColor, fontWeight:500 }}>
+              <i className={`ti ${roleIcon}`} style={{ fontSize:13 }} />
+              {role.charAt(0).toUpperCase()+role.slice(1)}
+            </div>
             <button className="tb-btn"><i className="ti ti-bell" /></button>
-            <button className="tb-btn"><i className="ti ti-settings" /> Settings</button>
           </div>
         </div>
         <div id="content">
-          {page==='dashboard' && <Dashboard athletes={athletes} coaches={coaches} events={events} results={results} onNav={goTo} />}
-          {page==='athletes'  && <Athletes  athletes={athletes} coaches={coaches} results={results} onRefresh={fetchAll} onNav={goTo} initAthleteId={navState.athleteId} initStatusFilter={navState.statusFilter} />}
-          {page==='coaches'   && <Coaches   coaches={coaches} athletes={athletes} onRefresh={fetchAll} onNav={goTo} initCoachId={navState.coachId} />}
-          {page==='events'    && <Events    events={events} athletes={athletes} results={results} registrations={registrations} onRefresh={fetchAll} onNav={goTo} initEventId={navState.eventId} initStatusFilter={navState.statusFilter} />}
-          {page==='results'   && <Results   results={results} athletes={athletes} onRefresh={fetchAll} onNav={goTo} />}
-          {page==='sports'    && <Sports    athletes={athletes} coaches={coaches} events={events} results={results} onNav={goTo} initSport={navState.sport} />}
+          {page==='dashboard' && <Dashboard athletes={athletes} coaches={coaches} events={events} results={results} onNav={goTo} profile={profile} />}
+          {page==='athletes'  && <Athletes  athletes={athletes} coaches={coaches} results={results} onRefresh={fetchAll} onNav={goTo} initAthleteId={navState.athleteId} initStatusFilter={navState.statusFilter} profile={profile} />}
+          {page==='coaches'   && <Coaches   coaches={coaches} athletes={athletes} onRefresh={fetchAll} onNav={goTo} initCoachId={navState.coachId} profile={profile} />}
+          {page==='events'    && <Events    events={events} athletes={athletes} results={results} registrations={registrations} onRefresh={fetchAll} onNav={goTo} initEventId={navState.eventId} initStatusFilter={navState.statusFilter} profile={profile} />}
+          {page==='results'   && <Results   results={results} athletes={athletes} onRefresh={fetchAll} onNav={goTo} profile={profile} />}
+          {page==='sports'    && <Sports    athletes={athletes} coaches={coaches} events={events} results={results} onNav={goTo} initSport={navState.sport} profile={profile} />}
         </div>
       </div>
       <ToastContainer />
