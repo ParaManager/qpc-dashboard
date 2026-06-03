@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Avatar, MedalDisplay, Badge, avColor, initials, DashRow } from '../lib/helpers'
 import FormModal from '../components/FormModal'
 import { ConfirmModal, toast } from '../components/Toast'
@@ -15,6 +15,8 @@ export default function Athletes({ athletes, coaches, results, onRefresh, onNav,
   const [form, setForm]             = useState(null)
   const [confirm, setConfirm]       = useState(null)
   const [medalModal, setMedalModal] = useState(null)
+  const [uploading, setUploading]   = useState(false)
+  const photoInput                  = useRef(null)
 
   useEffect(() => {
     if (initAthleteId)    setSelected(initAthleteId)
@@ -67,6 +69,50 @@ export default function Athletes({ athletes, coaches, results, onRefresh, onNav,
     setSelected(null); setConfirm(null); onRefresh()
   }
 
+  async function handlePhotoUpload(athleteId, file) {
+    if (!file) return
+    // validate
+    if (!file.type.startsWith('image/')) { toast('Please select an image file', 'error'); return }
+    if (file.size > 5 * 1024 * 1024) { toast('Image must be under 5MB', 'error'); return }
+
+    setUploading(true)
+    try {
+      const ext      = file.name.split('.').pop()
+      const path     = `${athleteId}.${ext}`
+
+      // upload to supabase storage
+      const { error: upErr } = await supabase.storage
+        .from('athlete-photos')
+        .upload(path, file, { upsert: true })
+      if (upErr) throw upErr
+
+      // get public URL
+      const { data } = supabase.storage.from('athlete-photos').getPublicUrl(path)
+      const photoUrl = data.publicUrl + '?t=' + Date.now() // cache bust
+
+      // save URL to athlete record
+      const { error: dbErr } = await supabase
+        .from('athletes')
+        .update({ photo_url: photoUrl })
+        .eq('id', athleteId)
+      if (dbErr) throw dbErr
+
+      toast('Photo updated!')
+      await onRefresh()
+    } catch (err) {
+      toast(err.message || 'Upload failed', 'error')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  async function handlePhotoRemove(athleteId) {
+    const { error } = await supabase.from('athletes').update({ photo_url: null }).eq('id', athleteId)
+    if (error) { toast(error.message, 'error'); return }
+    toast('Photo removed')
+    await onRefresh()
+  }
+
   // ── DETAIL VIEW ──
   if (selected) {
     const a = athletes.find(x => x.id === selected)
@@ -76,7 +122,6 @@ export default function Athletes({ athletes, coaches, results, onRefresh, onNav,
 
     return (
       <div>
-        {/* EDIT FORM */}
         {form && (
           <FormModal type="athlete"
             record={form === 'edit' ? {
@@ -88,14 +133,10 @@ export default function Athletes({ athletes, coaches, results, onRefresh, onNav,
             } : null}
             coaches={coaches} onSave={handleSave} onClose={() => setForm(null)} />
         )}
-
-        {/* DELETE CONFIRM */}
         {confirm && (
           <ConfirmModal title="Delete athlete" message={`Delete ${a.name}? This cannot be undone.`}
             onConfirm={() => handleDelete(a.id, a.name)} onCancel={() => setConfirm(null)} />
         )}
-
-        {/* MEDAL MODAL */}
         {medalModal && (
           <div className="modal-overlay" onClick={() => setMedalModal(null)}>
             <div className="modal-box modal-sm" onClick={e => e.stopPropagation()}>
@@ -131,7 +172,6 @@ export default function Athletes({ athletes, coaches, results, onRefresh, onNav,
         )}
 
         <button className="back-btn" onClick={() => setSelected(null)}><i className="ti ti-arrow-left" /> Back to athletes</button>
-
         {canEdit(profile) && (
           <div style={{ display:'flex', gap:10, marginBottom:16 }}>
             <button className="action-btn action-btn-edit" onClick={() => setForm('edit')}><i className="ti ti-pencil" /> Edit</button>
@@ -142,7 +182,42 @@ export default function Athletes({ athletes, coaches, results, onRefresh, onNav,
         <div className="detail-grid">
           <div>
             <div className="detail-profile">
-              <div className="detail-av" style={{ background: avColor(a.id) }}>{initials(a.name)}</div>
+
+              {/* PHOTO */}
+              <div style={{ position:'relative', width:90, height:90, margin:'0 auto 14px' }}>
+                {a.photo_url
+                  ? <img src={a.photo_url} alt={a.name}
+                      style={{ width:90, height:90, borderRadius:'50%', objectFit:'cover', border:'3px solid var(--border)' }} />
+                  : <div style={{ width:90, height:90, borderRadius:'50%', background:avColor(a.id), display:'flex', alignItems:'center', justifyContent:'center', fontSize:28, fontWeight:600, color:'#fff' }}>
+                      {initials(a.name)}
+                    </div>
+                }
+                {canEdit(profile) && (
+                  <div style={{ position:'absolute', bottom:0, right:0, display:'flex', gap:3 }}>
+                    <button
+                      onClick={() => photoInput.current.click()}
+                      disabled={uploading}
+                      title="Upload photo"
+                      style={{ width:26, height:26, borderRadius:'50%', background:'#0085C7', border:'2px solid #fff', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'#fff' }}>
+                      {uploading
+                        ? <div style={{ width:10, height:10, border:'2px solid rgba(255,255,255,.4)', borderTopColor:'#fff', borderRadius:'50%', animation:'spin .7s linear infinite' }} />
+                        : <i className="ti ti-camera" style={{ fontSize:12 }} />
+                      }
+                    </button>
+                    {a.photo_url && (
+                      <button
+                        onClick={() => handlePhotoRemove(a.id)}
+                        title="Remove photo"
+                        style={{ width:26, height:26, borderRadius:'50%', background:'#dc2626', border:'2px solid #fff', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'#fff' }}>
+                        <i className="ti ti-x" style={{ fontSize:12 }} />
+                      </button>
+                    )}
+                  </div>
+                )}
+                <input ref={photoInput} type="file" accept="image/*" style={{ display:'none' }}
+                  onChange={e => { if(e.target.files[0]) handlePhotoUpload(a.id, e.target.files[0]) }} />
+              </div>
+
               <div className="detail-name">{a.name}</div>
               {a.name_ar && <div className="detail-sub">{a.name_ar}</div>}
               <div className="detail-badges">
@@ -161,19 +236,17 @@ export default function Athletes({ athletes, coaches, results, onRefresh, onNav,
               </div>
               <div className="medal-row">
                 {[['gold','#f1c40f','Gold'],['silver','#aaa','Silver'],['bronze','#cd7f32','Bronze']].map(([type,color,label]) => {
-                  const count    = a[`medals_${type}`] || 0
-                  const typeRes  = myResults.filter(r => r.medal === type)
+                  const count   = a[`medals_${type}`] || 0
+                  const typeRes = myResults.filter(r => r.medal === type)
                   return (
                     <div key={type} className="medal-item"
-                      style={{ cursor: count>0?'pointer':'default', borderRadius:10, padding:'8px 4px', transition:'background .15s' }}
+                      style={{ cursor:count>0?'pointer':'default', borderRadius:10, padding:'8px 4px', transition:'background .15s' }}
                       onMouseEnter={e => { if(count>0) e.currentTarget.style.background='#f4f6f9' }}
                       onMouseLeave={e => { e.currentTarget.style.background='' }}
-                      onClick={() => {
-                        if (count > 0) setMedalModal({ athleteName: a.name, type, color, label, results: typeRes })
-                      }}>
+                      onClick={() => { if(count>0) setMedalModal({ athleteName:a.name, type, color, label, results:typeRes }) }}>
                       <div className="medal-num" style={{ color }}>{count}</div>
                       <div className="medal-lbl">{label}</div>
-                      {count > 0 && <div style={{ fontSize:9, color, marginTop:2, opacity:.8 }}>view ↗</div>}
+                      {count>0 && <div style={{ fontSize:9, color, marginTop:2, opacity:.8 }}>view ↗</div>}
                     </div>
                   )
                 })}
@@ -221,6 +294,7 @@ export default function Athletes({ athletes, coaches, results, onRefresh, onNav,
             )}
           </div>
         </div>
+        <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
       </div>
     )
   }
@@ -252,10 +326,19 @@ export default function Athletes({ athletes, coaches, results, onRefresh, onNav,
           <tbody>
             {list.map(a => (
               <tr key={a.id} onClick={() => setSelected(a.id)}>
-                <td><div style={{ display:'flex', alignItems:'center', gap:9 }}>
-                  <Avatar name={a.name} id={a.id} />
-                  <div><div style={{ fontWeight:500 }}>{a.name}</div><div style={{ fontSize:11, color:'#9aa3b2' }}>{a.nationality}</div></div>
-                </div></td>
+                <td>
+                  <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                    {/* photo or initials avatar in list */}
+                    {a.photo_url
+                      ? <img src={a.photo_url} alt={a.name} style={{ width:32, height:32, borderRadius:'50%', objectFit:'cover', flexShrink:0 }} />
+                      : <Avatar name={a.name} id={a.id} />
+                    }
+                    <div>
+                      <div style={{ fontWeight:500 }}>{a.name}</div>
+                      <div style={{ fontSize:11, color:'#9aa3b2' }}>{a.nationality}</div>
+                    </div>
+                  </div>
+                </td>
                 <td>{a.sport}</td>
                 <td><span className="badge badge-blue">{a.classification}</span></td>
                 <td style={{ color:'#5a6272' }}>{coaches.find(c => c.id === a.coach_id)?.name || '—'}</td>
