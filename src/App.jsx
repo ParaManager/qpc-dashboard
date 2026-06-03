@@ -152,7 +152,7 @@ export default function App() {
         </div>
         <div id="content">
           {page==='dashboard' && <Dashboard athletes={athletes} coaches={coaches} events={events} results={results} onNav={goTo} profile={profile} />}
-          {page==='athletes'  && <Athletes  athletes={athletes} coaches={coaches} results={results} documents={documents} onRefresh={fetchAll} onNav={goTo} initAthleteId={navState.athleteId} initStatusFilter={navState.statusFilter} profile={profile} />}
+          {page==='athletes'  && <Athletes  athletes={athletes} coaches={coaches} results={results} documents={documents} events={events} registrations={registrations} onRefresh={fetchAll} onNav={goTo} initAthleteId={navState.athleteId} initStatusFilter={navState.statusFilter} profile={profile} />}
           {page==='coaches'   && <Coaches   coaches={coaches} athletes={athletes} onRefresh={fetchAll} onNav={goTo} initCoachId={navState.coachId} profile={profile} />}
           {page==='events'    && <Events    events={events} athletes={athletes} results={results} registrations={registrations} onRefresh={fetchAll} onNav={goTo} initEventId={navState.eventId} initStatusFilter={navState.statusFilter} profile={profile} />}
           {page==='results'   && <Results   results={results} athletes={athletes} onRefresh={fetchAll} onNav={goTo} profile={profile} />}
