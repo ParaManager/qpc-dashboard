@@ -60,25 +60,6 @@ function exportExcel(athletes, coaches, documents) {
 
   XLSX.utils.book_append_sheet(wb, ws, 'Athletes')
 
-  // summary sheet
-  const sports = [...new Set(athletes.map(a => a.sport))]
-  const summary = sports.map(s => {
-    const group = athletes.filter(a => a.sport === s)
-    return {
-      'Sport':        s,
-      'Total Athletes': group.length,
-      'Active':       group.filter(a => a.status === 'Active').length,
-      'In Training':  group.filter(a => a.status === 'In Training').length,
-      'Inactive':     group.filter(a => a.status === 'Inactive').length,
-      'Gold Medals':  group.reduce((t,a) => t + (a.medals_gold||0), 0),
-      'Silver Medals':group.reduce((t,a) => t + (a.medals_silver||0), 0),
-      'Bronze Medals':group.reduce((t,a) => t + (a.medals_bronze||0), 0),
-    }
-  })
-  const ws2 = XLSX.utils.json_to_sheet(summary)
-  ws2['!cols'] = [{wch:20},{wch:14},{wch:8},{wch:12},{wch:10},{wch:12},{wch:14},{wch:14}]
-  XLSX.utils.book_append_sheet(wb, ws2, 'Summary by Sport')
-
   const date = new Date().toISOString().slice(0,10)
   XLSX.writeFile(wb, `QPC_Athletes_${date}.xlsx`)
 }
