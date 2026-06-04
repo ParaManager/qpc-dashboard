@@ -95,6 +95,27 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
               <Field label="Status" options={['Active','In Training','Inactive']} {...f('status')} />
             </Row>
             <Field label="Join date" type="date" {...f('joinDate')} />
+            <Section label="Passport & ID" />
+            <Row>
+              <Field label="Passport number" placeholder="e.g. A12345678" {...f('passportNumber')} />
+              <Field label="Passport expiry" type="date" {...f('passportExpiry')} />
+            </Row>
+            <Row>
+              <Field label="Qatar ID number" placeholder="e.g. 28412345678" {...f('idNumber')} />
+              <Field label="ID expiry" type="date" {...f('idExpiry')} />
+            </Row>
+            <Section label="Emergency Contact" />
+            <Row>
+              <Field label="Contact name" placeholder="e.g. Mohammed Al-Ansari" {...f('emergencyName')} />
+              <Field label="Relationship" placeholder="e.g. Father, Wife" {...f('emergencyRelation')} />
+            </Row>
+            <Field label="Contact phone" placeholder="+974 XXXX XXXX" {...f('emergencyPhone')} />
+            <Section label="Medical Information" />
+            <Row>
+              <Field label="Blood type" options={['','A+','A-','B+','B-','AB+','AB-','O+','O-','Unknown']} {...f('bloodType')} />
+              <Field label="Known allergies" placeholder="e.g. Penicillin, Nuts" {...f('allergies')} />
+            </Row>
+            <Field label="Medical conditions" placeholder="e.g. Asthma, Diabetes — leave blank if none" {...f('medicalConditions')} />
           </>}
 
           {type === 'coach' && <>
