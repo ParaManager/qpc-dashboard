@@ -13,15 +13,31 @@ export const avColor  = id => AV_COLORS[id % AV_COLORS.length]
 export const initials = n  => n.split(' ').map(w => w[0]).slice(0,2).join('').toUpperCase()
 
 export const statusClass = s => ({
-  Active: 'badge-green', 'In Training': 'badge-blue', Inactive: 'badge-gray',
-  'On Leave': 'badge-amber', Upcoming: 'badge-blue', Completed: 'badge-green',
-  'Registration Open': 'badge-purple', Planning: 'badge-gray',
+  Active:                 'badge-green',
+  Inactive:               'badge-gray',
+  Suspended:              'badge-red',
+  'Under Medical Review': 'badge-amber',
+  Injured:                'badge-amber',
+  Retired:                'badge-gray',
+  'On Leave':             'badge-amber',
+  Upcoming:               'badge-blue',
+  Completed:              'badge-green',
+  'Registration Open':    'badge-purple',
+  Planning:               'badge-gray',
 }[s] || 'badge-gray')
 
 export const statusDot = s => ({
-  Active: '#009F6B', 'In Training': '#0085C7', Inactive: '#aaa',
-  'On Leave': '#e67e22', Upcoming: '#0085C7', Completed: '#009F6B',
-  'Registration Open': '#8b5cf6', Planning: '#aaa',
+  Active:                 '#009F6B',
+  Inactive:               '#aaa',
+  Suspended:              '#EE334E',
+  'Under Medical Review': '#e67e22',
+  Injured:                '#e67e22',
+  Retired:                '#9aa3b2',
+  'On Leave':             '#e67e22',
+  Upcoming:               '#0085C7',
+  Completed:              '#009F6B',
+  'Registration Open':    '#8b5cf6',
+  Planning:               '#aaa',
 }[s] || '#aaa')
 
 export const medalEmoji = m => ({ gold: '🥇', silver: '🥈', bronze: '🥉' }[m] || '')
