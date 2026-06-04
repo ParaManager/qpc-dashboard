@@ -45,6 +45,16 @@ function exportExcel(athletes, coaches, documents) {
       'Documents on File':   docCount,
       'Document Types':      docTypes,
       'Notes':               a.notes || '',
+      'Passport Number':     a.passport_number || '',
+      'Passport Expiry':     a.passport_expiry || '',
+      'Qatar ID Number':     a.id_number || '',
+      'ID Expiry':           a.id_expiry || '',
+      'Emergency Contact':   a.emergency_contact_name || '',
+      'Emergency Relation':  a.emergency_contact_relation || '',
+      'Emergency Phone':     a.emergency_contact_phone || '',
+      'Blood Type':          a.blood_type || '',
+      'Allergies':           a.allergies || '',
+      'Medical Conditions':  a.medical_conditions || '',
     }
   })
 
@@ -56,6 +66,7 @@ function exportExcel(athletes, coaches, documents) {
     {wch:22},{wch:22},{wch:14},{wch:6},{wch:8},{wch:12},{wch:18},{wch:16},
     {wch:20},{wch:14},{wch:20},{wch:6},{wch:6},{wch:6},{wch:6},
     {wch:16},{wch:26},{wch:12},{wch:14},{wch:8},{wch:20},{wch:30},
+    {wch:16},{wch:14},{wch:16},{wch:12},{wch:20},{wch:16},{wch:16},{wch:10},{wch:20},{wch:22},
   ]
 
   XLSX.utils.book_append_sheet(wb, ws, 'Athletes')
@@ -183,6 +194,16 @@ export default function Athletes({ athletes, coaches, results, documents, events
       disability: formData.disability, coach_id: formData.coachId || null,
       status: formData.status, phone: formData.phone, email: formData.email,
       join_date: formData.joinDate || null,
+      passport_number: formData.passportNumber || null,
+      passport_expiry: formData.passportExpiry || null,
+      id_number: formData.idNumber || null,
+      id_expiry: formData.idExpiry || null,
+      emergency_contact_name: formData.emergencyName || null,
+      emergency_contact_relation: formData.emergencyRelation || null,
+      emergency_contact_phone: formData.emergencyPhone || null,
+      blood_type: formData.bloodType || null,
+      allergies: formData.allergies || null,
+      medical_conditions: formData.medicalConditions || null,
     }
     if (!payload.name) { toast('Name is required', 'error'); return }
     const { error } = isEdit
@@ -405,7 +426,20 @@ ${a.notes ? `<div class="section">
       <div>
         {form && (
           <FormModal type="athlete"
-            record={form==='edit' ? { id:a.id, name:a.name, nameAr:a.name_ar, dob:a.dob, gender:a.gender, nationality:a.nationality, sport:a.sport, classification:a.classification, disability:a.disability, coachId:a.coach_id, status:a.status, phone:a.phone, email:a.email, joinDate:a.join_date } : null}
+            record={form==='edit' ? {
+              id:a.id, name:a.name, nameAr:a.name_ar, dob:a.dob,
+              gender:a.gender, nationality:a.nationality, sport:a.sport,
+              classification:a.classification, disability:a.disability,
+              coachId:a.coach_id, status:a.status, phone:a.phone,
+              email:a.email, joinDate:a.join_date,
+              passportNumber:a.passport_number, passportExpiry:a.passport_expiry,
+              idNumber:a.id_number, idExpiry:a.id_expiry,
+              emergencyName:a.emergency_contact_name,
+              emergencyRelation:a.emergency_contact_relation,
+              emergencyPhone:a.emergency_contact_phone,
+              bloodType:a.blood_type, allergies:a.allergies,
+              medicalConditions:a.medical_conditions,
+            } : null}
             coaches={coaches} onSave={handleSave} onClose={() => setForm(null)} />
         )}
         {confirm && <ConfirmModal title="Delete athlete" message={`Delete ${a.name}? This cannot be undone.`} onConfirm={() => handleDelete(a.id, a.name)} onCancel={() => setConfirm(null)} />}
@@ -549,6 +583,70 @@ ${a.notes ? `<div class="section">
                 </DashRow>
               ) : <div style={{ padding:'8px 0', fontSize:13, color:'var(--text3)' }}>No coach assigned</div>}
             </div>
+
+            {/* PASSPORT & ID */}
+            {(a.passport_number || a.id_number) && (
+              <div className="info-card">
+                <div className="info-title">Passport & ID</div>
+                {a.passport_number && (
+                  <>
+                    {[['Passport number', a.passport_number], ['Passport expiry', a.passport_expiry]].map(([k,v]) => (
+                      <div key={k} className="detail-row">
+                        <span className="dk">{k}</span>
+                        <span className="dv" style={{ color: v && new Date(v) < new Date() ? '#dc2626' : 'inherit' }}>
+                          {v || '—'}
+                          {v && new Date(v) < new Date() && <span style={{ marginLeft:6, fontSize:10, color:'#dc2626' }}>EXPIRED</span>}
+                        </span>
+                      </div>
+                    ))}
+                  </>
+                )}
+                {a.id_number && (
+                  <>
+                    {[['Qatar ID number', a.id_number], ['ID expiry', a.id_expiry]].map(([k,v]) => (
+                      <div key={k} className="detail-row">
+                        <span className="dk">{k}</span>
+                        <span className="dv" style={{ color: v && new Date(v) < new Date() ? '#dc2626' : 'inherit' }}>
+                          {v || '—'}
+                          {v && new Date(v) < new Date() && <span style={{ marginLeft:6, fontSize:10, color:'#dc2626' }}>EXPIRED</span>}
+                        </span>
+                      </div>
+                    ))}
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* EMERGENCY CONTACT */}
+            {(a.emergency_contact_name || a.emergency_contact_phone) && (
+              <div className="info-card">
+                <div className="info-title">Emergency contact</div>
+                {[
+                  ['Name', a.emergency_contact_name],
+                  ['Relationship', a.emergency_contact_relation],
+                  ['Phone', a.emergency_contact_phone],
+                ].map(([k,v]) => v ? (
+                  <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv">{v}</span></div>
+                ) : null)}
+              </div>
+            )}
+
+            {/* MEDICAL INFO */}
+            {(a.blood_type || a.allergies || a.medical_conditions) && (
+              <div className="info-card">
+                <div className="info-title" style={{ display:'flex', alignItems:'center', gap:6 }}>
+                  <i className="ti ti-heart-rate-monitor" style={{ fontSize:13, color:'#EE334E' }} />
+                  Medical information
+                </div>
+                {[
+                  ['Blood type', a.blood_type],
+                  ['Allergies', a.allergies],
+                  ['Medical conditions', a.medical_conditions],
+                ].map(([k,v]) => v ? (
+                  <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv">{v}</span></div>
+                ) : null)}
+              </div>
+            )}
 
             {/* PERSONAL BESTS */}
             {bests.length > 0 && (
