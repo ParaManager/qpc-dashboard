@@ -824,55 +824,209 @@ ${a.notes ? `<div class="section">
   }
 
   // ── LIST VIEW ──
+  const [editMode, setEditMode]     = useState(false)
+  const [edits, setEdits]           = useState({})   // { [athleteId]: { field: value } }
+  const [savingAll, setSavingAll]   = useState(false)
+
+  function startEdit() { setEditMode(true); setEdits({}) }
+  function cancelEdit() { setEditMode(false); setEdits({}) }
+  function setEdit(id, field, value) {
+    setEdits(prev => ({ ...prev, [id]: { ...prev[id], [field]: value } }))
+  }
+  function getVal(a, field) {
+    return edits[a.id]?.[field] !== undefined ? edits[a.id][field] : a[field]
+  }
+
+  async function saveAllEdits() {
+    const changed = Object.entries(edits)
+    if (changed.length === 0) { setEditMode(false); return }
+    setSavingAll(true)
+    try {
+      await Promise.all(changed.map(([id, fields]) =>
+        supabase.from('athletes').update(fields).eq('id', parseInt(id))
+      ))
+      toast(`${changed.length} athlete${changed.length > 1 ? 's' : ''} updated`)
+      setEditMode(false)
+      setEdits({})
+      await onRefresh()
+    } catch (err) {
+      toast('Save failed: ' + err.message, 'error')
+    } finally {
+      setSavingAll(false)
+    }
+  }
+
+  const changedCount = Object.keys(edits).length
+  const inlineInput = { padding:'5px 8px', borderRadius:7, border:'1px solid var(--border)', fontSize:12, background:'var(--surface)', color:'var(--text)', outline:'none', width:'100%', fontFamily:'DM Sans, sans-serif' }
+  const inlineSelect = { ...inlineInput, cursor:'pointer' }
+
   return (
     <div>
       {form && <FormModal type="athlete" record={null} coaches={coaches} onSave={handleSave} onClose={() => setForm(null)} />}
       <div className="page-header">
         <div><div className="page-title">Athletes</div><div className="page-sub">{list.length} of {athletes.length} athletes</div></div>
-        <div style={{ display:'flex', gap:8 }}>
-          <button className="btn" style={{ background:'#009F6B' }} onClick={() => exportExcel(list, coaches, documents || [])}>
-            <i className="ti ti-table-export" /> Export Excel
-          </button>
-          {canEdit(profile) && <button className="btn btn-blue" onClick={() => setForm('new')}><i className="ti ti-plus" /> Add athlete</button>}
+        <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+          {!editMode && (
+            <button className="btn" style={{ background:'#009F6B' }} onClick={() => exportExcel(list, coaches, documents || [])}>
+              <i className="ti ti-table-export" /> Export Excel
+            </button>
+          )}
+          {canEdit(profile) && !editMode && (
+            <button className="action-btn action-btn-edit" style={{ padding:'8px 14px', fontSize:13 }} onClick={startEdit}>
+              <i className="ti ti-table-options" /> Edit list
+            </button>
+          )}
+          {editMode && (
+            <>
+              <button className="btn-cancel" onClick={cancelEdit} style={{ padding:'8px 14px' }}>
+                Cancel
+              </button>
+              <button className="btn btn-blue" onClick={saveAllEdits} disabled={savingAll}>
+                {savingAll
+                  ? <><div style={{ width:14, height:14, border:'2px solid rgba(255,255,255,.4)', borderTopColor:'#fff', borderRadius:'50%', animation:'spin .7s linear infinite' }} /> Saving…</>
+                  : <><i className="ti ti-device-floppy" /> Save {changedCount > 0 ? `${changedCount} change${changedCount > 1 ? 's' : ''}` : 'all'}</>
+                }
+              </button>
+            </>
+          )}
+          {canEdit(profile) && !editMode && (
+            <button className="btn btn-blue" onClick={() => setForm('new')}><i className="ti ti-plus" /> Add athlete</button>
+          )}
         </div>
       </div>
+
+      {editMode && (
+        <div style={{ display:'flex', alignItems:'center', gap:8, padding:'10px 14px', background:'#e8f3fb', border:'1px solid #bdd8f0', borderRadius:10, marginBottom:14, fontSize:13 }}>
+          <i className="ti ti-pencil" style={{ color:'#0085C7', fontSize:16 }} />
+          <span style={{ color:'#1565a0' }}>
+            <strong>Edit mode on</strong> — click any cell to edit. Changes are saved together when you click Save.
+          </span>
+          {changedCount > 0 && (
+            <span style={{ marginLeft:'auto', background:'#0085C7', color:'#fff', padding:'2px 10px', borderRadius:20, fontSize:12, fontWeight:600 }}>
+              {changedCount} unsaved change{changedCount > 1 ? 's' : ''}
+            </span>
+          )}
+        </div>
+      )}
+
       <div className="filters">
         <div className="search-wrap"><i className="ti ti-search" /><input placeholder="Search by name, sport…" value={search} onChange={e => setSearch(e.target.value)} /></div>
         <select className="filter" value={sport} onChange={e => setSport(e.target.value)}>{sports.map(s => <option key={s}>{s}</option>)}</select>
         <select className="filter" value={status} onChange={e => setStatus(e.target.value)}>{['All statuses','Active','In Training','Inactive'].map(s => <option key={s}>{s}</option>)}</select>
         <select className="filter" value={gender} onChange={e => setGender(e.target.value)}>{['All genders','Male','Female'].map(s => <option key={s}>{s}</option>)}</select>
-        <select className="filter" value={sort} onChange={e => setSort(e.target.value)}>
-          <option value="name-asc">Name A→Z</option><option value="name-desc">Name Z→A</option>
-          <option value="medals-desc">Most medals</option><option value="gold-desc">Most gold</option>
-          <option value="join-desc">Newest members</option><option value="join-asc">Oldest members</option>
-        </select>
+        {!editMode && (
+          <select className="filter" value={sort} onChange={e => setSort(e.target.value)}>
+            <option value="name-asc">Name A→Z</option><option value="name-desc">Name Z→A</option>
+            <option value="medals-desc">Most medals</option><option value="gold-desc">Most gold</option>
+            <option value="join-desc">Newest members</option><option value="join-asc">Oldest members</option>
+          </select>
+        )}
       </div>
+
       <div className="tbl-wrap">
         <table>
-          <thead><tr><th>Athlete</th><th>Sport</th><th>Class</th><th>Coach</th><th>Medals</th><th>Status</th><th>Docs</th><th /></tr></thead>
+          <thead>
+            <tr>
+              <th>Athlete</th>
+              <th>Sport</th>
+              <th>Classification</th>
+              <th>Nationality</th>
+              <th>Coach</th>
+              <th>Status</th>
+              {!editMode && <th>Medals</th>}
+              {!editMode && <th>Docs</th>}
+              {!editMode && <th />}
+              {editMode && <th style={{ color:'#0085C7' }}>Changed</th>}
+            </tr>
+          </thead>
           <tbody>
             {list.map(a => {
-              const docCount = (documents || []).filter(d => d.athlete_id === a.id).length
+              const docCount  = (documents || []).filter(d => d.athlete_id === a.id).length
+              const isChanged = !!edits[a.id]
               return (
-                <tr key={a.id} onClick={() => setSelected(a.id)}>
-                  <td><div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                    {a.photo_url ? <img src={a.photo_url} alt={a.name} style={{ width:32, height:32, borderRadius:'50%', objectFit:'cover', flexShrink:0 }} /> : <Avatar name={a.name} id={a.id} />}
-                    <div><div style={{ fontWeight:500 }}>{a.name}</div><div style={{ fontSize:11, color:'#9aa3b2' }}>{a.nationality}</div></div>
-                  </div></td>
-                  <td>{a.sport}</td>
-                  <td><span className="badge badge-blue">{a.classification}</span></td>
-                  <td style={{ color:'#5a6272' }}>{coaches.find(c => c.id === a.coach_id)?.name || '—'}</td>
-                  <td><MedalDisplay gold={a.medals_gold} silver={a.medals_silver} bronze={a.medals_bronze} /></td>
-                  <td><Badge label={a.status} /></td>
-                  <td>{docCount > 0 ? <span style={{ display:'flex', alignItems:'center', gap:4, fontSize:12, color:'#0085C7', fontWeight:500 }}><i className="ti ti-files" style={{ fontSize:14 }} />{docCount}</span> : <span style={{ fontSize:12, color:'var(--text3)' }}>—</span>}</td>
-                  <td><i className="ti ti-chevron-right" style={{ color:'#ccc', fontSize:16 }} /></td>
+                <tr key={a.id}
+                  onClick={() => !editMode && setSelected(a.id)}
+                  style={{ cursor: editMode ? 'default' : 'pointer', background: isChanged ? '#f0f7ff' : '' }}>
+
+                  {/* NAME — always show, editable in edit mode */}
+                  <td>
+                    {editMode ? (
+                      <input style={{ ...inlineInput, minWidth:140 }}
+                        value={getVal(a,'name')}
+                        onClick={e => e.stopPropagation()}
+                        onChange={e => setEdit(a.id, 'name', e.target.value)} />
+                    ) : (
+                      <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                        {a.photo_url ? <img src={a.photo_url} alt={a.name} style={{ width:32, height:32, borderRadius:'50%', objectFit:'cover', flexShrink:0 }} /> : <Avatar name={a.name} id={a.id} />}
+                        <div><div style={{ fontWeight:500 }}>{a.name}</div><div style={{ fontSize:11, color:'#9aa3b2' }}>{a.nationality}</div></div>
+                      </div>
+                    )}
+                  </td>
+
+                  {/* SPORT */}
+                  <td>
+                    {editMode ? (
+                      <select style={inlineSelect} value={getVal(a,'sport')} onClick={e => e.stopPropagation()} onChange={e => setEdit(a.id,'sport',e.target.value)}>
+                        {['Athletics','Swimming','Powerlifting','Boccia','Shooting','Wheelchair Tennis'].map(s => <option key={s}>{s}</option>)}
+                      </select>
+                    ) : a.sport}
+                  </td>
+
+                  {/* CLASSIFICATION */}
+                  <td>
+                    {editMode ? (
+                      <input style={{ ...inlineInput, width:100 }} value={getVal(a,'classification') || ''} onClick={e => e.stopPropagation()} onChange={e => setEdit(a.id,'classification',e.target.value)} />
+                    ) : <span className="badge badge-blue">{a.classification}</span>}
+                  </td>
+
+                  {/* NATIONALITY */}
+                  <td>
+                    {editMode ? (
+                      <input style={{ ...inlineInput, width:100 }} value={getVal(a,'nationality') || ''} onClick={e => e.stopPropagation()} onChange={e => setEdit(a.id,'nationality',e.target.value)} />
+                    ) : <span style={{ color:'#5a6272' }}>{a.nationality}</span>}
+                  </td>
+
+                  {/* COACH */}
+                  <td>
+                    {editMode ? (
+                      <select style={inlineSelect} value={getVal(a,'coach_id') || ''} onClick={e => e.stopPropagation()} onChange={e => setEdit(a.id,'coach_id', e.target.value ? parseInt(e.target.value) : null)}>
+                        <option value="">Unassigned</option>
+                        {coaches.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      </select>
+                    ) : <span style={{ color:'#5a6272' }}>{coaches.find(c => c.id === a.coach_id)?.name || '—'}</span>}
+                  </td>
+
+                  {/* STATUS */}
+                  <td>
+                    {editMode ? (
+                      <select style={inlineSelect} value={getVal(a,'status')} onClick={e => e.stopPropagation()} onChange={e => setEdit(a.id,'status',e.target.value)}>
+                        {['Active','In Training','Inactive'].map(s => <option key={s}>{s}</option>)}
+                      </select>
+                    ) : <Badge label={a.status} />}
+                  </td>
+
+                  {/* VIEW MODE ONLY columns */}
+                  {!editMode && <td><MedalDisplay gold={a.medals_gold} silver={a.medals_silver} bronze={a.medals_bronze} /></td>}
+                  {!editMode && <td>{docCount > 0 ? <span style={{ display:'flex', alignItems:'center', gap:4, fontSize:12, color:'#0085C7', fontWeight:500 }}><i className="ti ti-files" style={{ fontSize:14 }} />{docCount}</span> : <span style={{ fontSize:12, color:'var(--text3)' }}>—</span>}</td>}
+                  {!editMode && <td><i className="ti ti-chevron-right" style={{ color:'#ccc', fontSize:16 }} /></td>}
+
+                  {/* EDIT MODE — changed indicator */}
+                  {editMode && (
+                    <td>
+                      {isChanged
+                        ? <span style={{ display:'flex', alignItems:'center', gap:4, color:'#0085C7', fontSize:12, fontWeight:500 }}><i className="ti ti-check" style={{ fontSize:14 }} />Modified</span>
+                        : <span style={{ color:'var(--text3)', fontSize:12 }}>—</span>
+                      }
+                    </td>
+                  )}
                 </tr>
               )
             })}
-            {list.length === 0 && <tr><td colSpan={8}><div className="empty">No athletes match</div></td></tr>}
+            {list.length === 0 && <tr><td colSpan={editMode ? 7 : 9}><div className="empty">No athletes match</div></td></tr>}
           </tbody>
         </table>
       </div>
+      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
   )
 }
