@@ -6,9 +6,54 @@ import { ConfirmModal, toast } from '../components/Toast'
 import { supabase } from '../lib/supabase'
 import { canEdit } from '../lib/useAuth'
 
-const DOC_TYPES  = ['Passport', 'Medical Clearance', 'Classification Certificate', 'Disability Certificate', 'Other']
-const DOC_ICONS  = { 'Passport':'ti-id', 'Medical Clearance':'ti-heart-rate-monitor', 'Classification Certificate':'ti-certificate', 'Disability Certificate':'ti-accessible', 'Other':'ti-file' }
-const DOC_COLORS = { 'Passport':'#0085C7', 'Medical Clearance':'#EE334E', 'Classification Certificate':'#009F6B', 'Disability Certificate':'#8b5cf6', 'Other':'#9aa3b2' }
+const DOC_TYPES  = [
+  'Photo',
+  'Passport',
+  'Qatar ID',
+  'Medical Certificate',
+  'QSS Registration',
+  'Medical Report',
+  'QSS ID',
+  'Birth Certificate',
+  'QSRSN Membership',
+  'Health Card',
+  'MDF',
+  'IPC Athlete Eligibility Agreement',
+  'SDMS License',
+  'Other',
+]
+const DOC_ICONS  = {
+  'Photo':                          'ti-photo',
+  'Passport':                       'ti-id',
+  'Qatar ID':                       'ti-id-badge',
+  'Medical Certificate':            'ti-heart-rate-monitor',
+  'QSS Registration':               'ti-clipboard-list',
+  'Medical Report':                 'ti-stethoscope',
+  'QSS ID':                         'ti-id-badge-2',
+  'Birth Certificate':              'ti-certificate',
+  'QSRSN Membership':               'ti-users',
+  'Health Card':                    'ti-heart',
+  'MDF':                            'ti-file-description',
+  'IPC Athlete Eligibility Agreement': 'ti-file-check',
+  'SDMS License':                   'ti-license',
+  'Other':                          'ti-file',
+}
+const DOC_COLORS = {
+  'Photo':                          '#0085C7',
+  'Passport':                       '#0085C7',
+  'Qatar ID':                       '#009F6B',
+  'Medical Certificate':            '#EE334E',
+  'QSS Registration':               '#8b5cf6',
+  'Medical Report':                 '#EE334E',
+  'QSS ID':                         '#009F6B',
+  'Birth Certificate':              '#e67e22',
+  'QSRSN Membership':               '#8b5cf6',
+  'Health Card':                    '#EE334E',
+  'MDF':                            '#16a085',
+  'IPC Athlete Eligibility Agreement': '#0085C7',
+  'SDMS License':                   '#e67e22',
+  'Other':                          '#9aa3b2',
+}
 
 function formatFileSize(bytes) {
   if (!bytes) return ''
@@ -912,7 +957,7 @@ ${a.notes ? `<div class="section">
       <div className="filters">
         <div className="search-wrap"><i className="ti ti-search" /><input placeholder="Search by name, sport…" value={search} onChange={e => setSearch(e.target.value)} /></div>
         <select className="filter" value={sport} onChange={e => setSport(e.target.value)}>{sports.map(s => <option key={s}>{s}</option>)}</select>
-        <select className="filter" value={status} onChange={e => setStatus(e.target.value)}>{['All statuses','Active','In Training','Inactive'].map(s => <option key={s}>{s}</option>)}</select>
+        <select className="filter" value={status} onChange={e => setStatus(e.target.value)}>{['All statuses','Active','Inactive','Suspended','Under Medical Review','Injured','Retired'].map(s => <option key={s}>{s}</option>)}</select>
         <select className="filter" value={gender} onChange={e => setGender(e.target.value)}>{['All genders','Male','Female'].map(s => <option key={s}>{s}</option>)}</select>
         {!editMode && (
           <select className="filter" value={sort} onChange={e => setSort(e.target.value)}>
@@ -1000,7 +1045,7 @@ ${a.notes ? `<div class="section">
                   <td>
                     {editMode ? (
                       <select style={inlineSelect} value={getVal(a,'status')} onClick={e => e.stopPropagation()} onChange={e => setEdit(a.id,'status',e.target.value)}>
-                        {['Active','In Training','Inactive'].map(s => <option key={s}>{s}</option>)}
+                        {['','Active','Inactive','Suspended','Under Medical Review','Injured','Retired'].map(s => <option key={s} value={s}>{s || '— None —'}</option>)}
                       </select>
                     ) : <Badge label={a.status} />}
                   </td>
