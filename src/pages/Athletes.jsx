@@ -612,9 +612,12 @@ ${a.notes ? `<div class="section">
                               <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>{formatFileSize(doc.file_size)} · {doc.uploaded_at?.slice(0,10)}</div>
                             </div>
                             <div style={{ display:'flex', gap:6, flexShrink:0 }}>
-                              <a href={doc.file_url} target="_blank" rel="noreferrer"
-                                style={{ display:'flex', alignItems:'center', justifyContent:'center', width:28, height:28, borderRadius:7, background:'var(--surface)', border:'1px solid var(--border)', color:'var(--text2)', textDecoration:'none', fontSize:14 }} title="View">
-                                <i className="ti ti-external-link" />
+                              <a
+                                href={doc.file_url}
+                                download={`${a.name.replace(/\s+/g,'_')}_${doc.type.replace(/\s+/g,'_')}${doc.name.includes('.')? '.'+doc.name.split('.').pop() : ''}`}
+                                target="_blank" rel="noreferrer"
+                                style={{ display:'flex', alignItems:'center', justifyContent:'center', width:28, height:28, borderRadius:7, background:'var(--surface)', border:'1px solid var(--border)', color:'var(--text2)', textDecoration:'none', fontSize:14 }} title="Download">
+                                <i className="ti ti-download" />
                               </a>
                               {canEdit(profile) && (
                                 <button onClick={() => setDocConfirm(doc)}
