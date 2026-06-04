@@ -195,6 +195,9 @@ export default function Athletes({ athletes, coaches, results, documents, events
   const [notes, setNotes]           = useState('')
   const [savingNotes, setSavingNotes] = useState(false)
   const [notesChanged, setNotesChanged] = useState(false)
+  const [editMode, setEditMode]     = useState(false)
+  const [edits, setEdits]           = useState({})
+  const [savingAll, setSavingAll]   = useState(false)
   const photoInput = useRef(null)
   const docInput   = useRef(null)
 
@@ -869,10 +872,6 @@ ${a.notes ? `<div class="section">
   }
 
   // ── LIST VIEW ──
-  const [editMode, setEditMode]     = useState(false)
-  const [edits, setEdits]           = useState({})   // { [athleteId]: { field: value } }
-  const [savingAll, setSavingAll]   = useState(false)
-
   function startEdit() { setEditMode(true); setEdits({}) }
   function cancelEdit() { setEditMode(false); setEdits({}) }
   function setEdit(id, field, value) {
