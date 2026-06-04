@@ -16,6 +16,24 @@ function formatFileSize(bytes) {
   return `${(bytes/(1024*1024)).toFixed(1)} MB`
 }
 
+async function downloadDoc(url, athleteName, docType, originalName) {
+  try {
+    const res  = await fetch(url)
+    const blob = await res.blob()
+    const ext  = originalName.split('.').pop()
+    const filename = `${athleteName.replace(/\s+/g,'_')}_${docType.replace(/\s+/g,'_')}.${ext}`
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(a.href)
+  } catch (e) {
+    window.open(url, '_blank')
+  }
+}
+
 function calcAge(dob) {
   if (!dob) return null
   const today = new Date()
@@ -612,13 +630,11 @@ ${a.notes ? `<div class="section">
                               <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>{formatFileSize(doc.file_size)} · {doc.uploaded_at?.slice(0,10)}</div>
                             </div>
                             <div style={{ display:'flex', gap:6, flexShrink:0 }}>
-                              <a
-                                href={doc.file_url}
-                                download={`${a.name.replace(/\s+/g,'_')}_${doc.type.replace(/\s+/g,'_')}.${doc.name.split('.').pop()}`}
-                                target="_blank" rel="noreferrer"
-                                style={{ display:'flex', alignItems:'center', justifyContent:'center', width:28, height:28, borderRadius:7, background:'var(--surface)', border:'1px solid var(--border)', color:'var(--text2)', textDecoration:'none', fontSize:14 }} title="Download">
+                              <button
+                                onClick={() => downloadDoc(doc.file_url, a.name, doc.type, doc.name)}
+                                style={{ display:'flex', alignItems:'center', justifyContent:'center', width:28, height:28, borderRadius:7, background:'var(--surface)', border:'1px solid var(--border)', color:'var(--text2)', cursor:'pointer', fontSize:14 }} title="Download">
                                 <i className="ti ti-download" />
-                              </a>
+                              </button>
                               {canEdit(profile) && (
                                 <button onClick={() => setDocConfirm(doc)}
                                   style={{ display:'flex', alignItems:'center', justifyContent:'center', width:28, height:28, borderRadius:7, background:'#fef2f2', border:'1px solid #fca5a5', color:'#dc2626', cursor:'pointer' }} title="Delete">
