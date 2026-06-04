@@ -92,7 +92,7 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
             <Field label="Disability type" placeholder="e.g. Spinal Cord Injury" {...f('disability')} />
             <Row>
               <Field label="Coach" options={[{ value:'', label:'Unassigned' }, ...(coaches||[]).map(c => ({ value: c.id, label: c.name }))]} {...f('coachId')} />
-              <Field label="Status" options={['Active','In Training','Inactive']} {...f('status')} />
+              <Field label="Status" options={['','Active','Inactive','Suspended','Under Medical Review','Injured','Retired']} {...f('status')} />
             </Row>
             <Field label="Join date" type="date" {...f('joinDate')} />
             <Section label="Passport & ID" />
