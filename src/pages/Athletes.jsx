@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import * as XLSX from 'xlsx'
 import { Avatar, MedalDisplay, Badge, avColor, initials, DashRow } from '../lib/helpers'
 import FormModal from '../components/FormModal'
 import { ConfirmModal, toast } from '../components/Toast'
@@ -14,6 +15,72 @@ function formatFileSize(bytes) {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes/1024).toFixed(1)} KB`
   return `${(bytes/(1024*1024)).toFixed(1)} MB`
+}
+
+function exportExcel(athletes, coaches, documents) {
+  const rows = athletes.map(a => {
+    const coach    = coaches.find(c => c.id === a.coach_id)
+    const docCount = documents.filter(d => d.athlete_id === a.id).length
+    const docTypes = [...new Set(documents.filter(d => d.athlete_id === a.id).map(d => d.type))].join(', ')
+    return {
+      'Full Name':           a.name,
+      'Arabic Name':         a.name_ar || '',
+      'Date of Birth':       a.dob || '',
+      'Age':                 a.dob ? calcAge(a.dob) : '',
+      'Gender':              a.gender || '',
+      'Nationality':         a.nationality || '',
+      'Sport':               a.sport || '',
+      'Classification':      a.classification || '',
+      'Disability Type':     a.disability || '',
+      'Status':              a.status || '',
+      'Coach':               coach?.name || '',
+      'Gold Medals':         a.medals_gold || 0,
+      'Silver Medals':       a.medals_silver || 0,
+      'Bronze Medals':       a.medals_bronze || 0,
+      'Total Medals':        (a.medals_gold || 0) + (a.medals_silver || 0) + (a.medals_bronze || 0),
+      'Phone':               a.phone || '',
+      'Email':               a.email || '',
+      'Joined QPC':          a.join_date || '',
+      'Years with QPC':      a.join_date ? calcYearsActive(a.join_date) : '',
+      'Documents on File':   docCount,
+      'Document Types':      docTypes,
+      'Notes':               a.notes || '',
+    }
+  })
+
+  const ws   = XLSX.utils.json_to_sheet(rows)
+  const wb   = XLSX.utils.book_new()
+
+  // column widths
+  ws['!cols'] = [
+    {wch:22},{wch:22},{wch:14},{wch:6},{wch:8},{wch:12},{wch:18},{wch:16},
+    {wch:20},{wch:14},{wch:20},{wch:6},{wch:6},{wch:6},{wch:6},
+    {wch:16},{wch:26},{wch:12},{wch:14},{wch:8},{wch:20},{wch:30},
+  ]
+
+  XLSX.utils.book_append_sheet(wb, ws, 'Athletes')
+
+  // summary sheet
+  const sports = [...new Set(athletes.map(a => a.sport))]
+  const summary = sports.map(s => {
+    const group = athletes.filter(a => a.sport === s)
+    return {
+      'Sport':        s,
+      'Total Athletes': group.length,
+      'Active':       group.filter(a => a.status === 'Active').length,
+      'In Training':  group.filter(a => a.status === 'In Training').length,
+      'Inactive':     group.filter(a => a.status === 'Inactive').length,
+      'Gold Medals':  group.reduce((t,a) => t + (a.medals_gold||0), 0),
+      'Silver Medals':group.reduce((t,a) => t + (a.medals_silver||0), 0),
+      'Bronze Medals':group.reduce((t,a) => t + (a.medals_bronze||0), 0),
+    }
+  })
+  const ws2 = XLSX.utils.json_to_sheet(summary)
+  ws2['!cols'] = [{wch:20},{wch:14},{wch:8},{wch:12},{wch:10},{wch:12},{wch:14},{wch:14}]
+  XLSX.utils.book_append_sheet(wb, ws2, 'Summary by Sport')
+
+  const date = new Date().toISOString().slice(0,10)
+  XLSX.writeFile(wb, `QPC_Athletes_${date}.xlsx`)
 }
 
 async function downloadDoc(url, athleteName, docType, originalName) {
@@ -662,7 +729,12 @@ ${a.notes ? `<div class="section">
       {form && <FormModal type="athlete" record={null} coaches={coaches} onSave={handleSave} onClose={() => setForm(null)} />}
       <div className="page-header">
         <div><div className="page-title">Athletes</div><div className="page-sub">{list.length} of {athletes.length} athletes</div></div>
-        {canEdit(profile) && <button className="btn btn-blue" onClick={() => setForm('new')}><i className="ti ti-plus" /> Add athlete</button>}
+        <div style={{ display:'flex', gap:8 }}>
+          <button className="btn" style={{ background:'#009F6B' }} onClick={() => exportExcel(list, coaches, documents || [])}>
+            <i className="ti ti-table-export" /> Export Excel
+          </button>
+          {canEdit(profile) && <button className="btn btn-blue" onClick={() => setForm('new')}><i className="ti ti-plus" /> Add athlete</button>}
+        </div>
       </div>
       <div className="filters">
         <div className="search-wrap"><i className="ti ti-search" /><input placeholder="Search by name, sport…" value={search} onChange={e => setSearch(e.target.value)} /></div>
