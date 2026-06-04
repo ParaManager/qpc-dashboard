@@ -366,6 +366,27 @@ export default function Athletes({ athletes, coaches, results, documents, events
   </div>
 </div>
 
+${(a.passport_number || a.id_number) ? `<div class="section">
+  <div class="section-title">Passport & ID</div>
+  <div class="grid-2">
+    ${[['Passport number',a.passport_number],['Passport expiry',a.passport_expiry],['Qatar ID number',a.id_number],['ID expiry',a.id_expiry]].filter(([k,v])=>v).map(([k,v])=>`<div class="field"><span class="k">${k}</span><span class="v" style="${v && new Date(v) < new Date() ? 'color:#dc2626' : ''}">${v}${v && new Date(v) < new Date() ? ' ⚠ EXPIRED' : ''}</span></div>`).join('')}
+  </div>
+</div>` : ''}
+
+${(a.emergency_contact_name || a.emergency_contact_phone) ? `<div class="section">
+  <div class="section-title">Emergency Contact</div>
+  <div class="grid-2">
+    ${[['Name',a.emergency_contact_name],['Relationship',a.emergency_contact_relation],['Phone',a.emergency_contact_phone]].filter(([k,v])=>v).map(([k,v])=>`<div class="field"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('')}
+  </div>
+</div>` : ''}
+
+${(a.blood_type || a.allergies || a.medical_conditions) ? `<div class="section">
+  <div class="section-title">Medical Information</div>
+  <div class="grid-2">
+    ${[['Blood type',a.blood_type],['Allergies',a.allergies],['Medical conditions',a.medical_conditions]].filter(([k,v])=>v).map(([k,v])=>`<div class="field"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('')}
+  </div>
+</div>` : ''}
+
 <div class="section">
   <div class="section-title">Medal Count</div>
   <div class="medal-row">
