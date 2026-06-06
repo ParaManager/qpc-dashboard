@@ -107,7 +107,10 @@ export default function App() {
               <div className="nav-section">{section}</div>
               {items.map(({ id, icon, label }) => (
                 <div key={id} className={`nav-item${page===id?' active':''}`}
-                  onClick={() => { setPage(id); setNavState({}) }}>
+                  onClick={() => {
+                    setNavState({ reset: true })
+                    setPage(id)
+                  }}>
                   <i className={`ti ${icon}`} />
                   {label}
                   {id==='events' && upcomingCount>0 && <span className="nav-badge">{upcomingCount}</span>}
@@ -152,7 +155,7 @@ export default function App() {
         </div>
         <div id="content">
           {page==='dashboard' && <Dashboard athletes={athletes} coaches={coaches} events={events} results={results} onNav={goTo} profile={profile} />}
-          {page==='athletes'  && <Athletes  athletes={athletes} coaches={coaches} results={results} documents={documents} events={events} registrations={registrations} onRefresh={fetchAll} onNav={goTo} initAthleteId={navState.athleteId} initStatusFilter={navState.statusFilter} profile={profile} />}
+          {page==='athletes'  && <Athletes  athletes={athletes} coaches={coaches} results={results} documents={documents} events={events} registrations={registrations} onRefresh={fetchAll} onNav={goTo} initAthleteId={navState.athleteId} initStatusFilter={navState.statusFilter} navState={navState} profile={profile} />}
           {page==='coaches'   && <Coaches   coaches={coaches} athletes={athletes} onRefresh={fetchAll} onNav={goTo} initCoachId={navState.coachId} profile={profile} />}
           {page==='events'    && <Events    events={events} athletes={athletes} results={results} registrations={registrations} onRefresh={fetchAll} onNav={goTo} initEventId={navState.eventId} initStatusFilter={navState.statusFilter} profile={profile} />}
           {page==='results'   && <Results   results={results} athletes={athletes} onRefresh={fetchAll} onNav={goTo} profile={profile} />}
