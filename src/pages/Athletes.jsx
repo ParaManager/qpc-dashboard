@@ -65,22 +65,30 @@ function formatFileSize(bytes) {
 function exportExcel(athletes, coaches, documents, visibleCols, allCols) {
   const colMap = {
     name:             a => a.name,
+    name_ar:          a => a.name_ar || '',
+    qss_number:       a => a.qss_number || '',
+    id_number:        a => a.id_number || '',
+    career_profile:   a => a.career_profile || '',
     sport:            a => a.sport || '',
     classification:   a => a.classification || '',
+    disability:       a => a.disability || '',
     nationality:      a => a.nationality || '',
     gender:           a => a.gender || '',
     dob:              a => a.dob || '',
-    disability:       a => a.disability || '',
+    age_category:     a => a.age_category || '',
     coach_id:         a => coaches.find(c => c.id === a.coach_id)?.name || '',
     status:           a => a.status || '',
+    medical_status:   a => a.medical_status || '',
     phone:            a => a.phone || '',
     email:            a => a.email || '',
     join_date:        a => a.join_date || '',
     passport_number:  a => a.passport_number || '',
     passport_expiry:  a => a.passport_expiry || '',
-    id_number:        a => a.id_number || '',
+    id_expiry:        a => a.id_expiry || '',
     blood_type:       a => a.blood_type || '',
-    medals:           a => `🥇${a.medals_gold||0} 🥈${a.medals_silver||0} 🥉${a.medals_bronze||0}`,
+    emergency_contact_name:  a => a.emergency_contact_name || '',
+    emergency_contact_phone: a => a.emergency_contact_phone || '',
+    medals:           a => `Gold:${a.medals_gold||0} Silver:${a.medals_silver||0} Bronze:${a.medals_bronze||0}`,
     docs:             a => documents.filter(d => d.athlete_id === a.id).length,
   }
   const visibleDefs = allCols.filter(c => visibleCols.includes(c.key))
@@ -179,8 +187,7 @@ export default function Athletes({ athletes, coaches, results, documents, events
   const [edits, setEdits]           = useState({})
   const [savingAll, setSavingAll]   = useState(false)
   const [visibleCols, setVisibleCols] = useState(['name','sport','classification','nationality','coach_id','status','medals','docs'])
-  const [colPickerOpen, setColPickerOpen] = useState(false)
-  const photoInput = useRef(null)
+  const [colPickerOpen, setColPickerOpen] = useState(false)  const photoInput = useRef(null)
   const docInput   = useRef(null)
 
   useEffect(() => {
@@ -880,21 +887,29 @@ ${a.notes ? `<div class="section">
   // ── COLUMN DEFINITIONS ──
   const ALL_COLS = [
     { key:'name',            label:'Athlete',          default:true,  editable:true  },
+    { key:'name_ar',         label:'Arabic Name',      default:false, editable:false },
+    { key:'qss_number',      label:'QSS #',            default:false, editable:false },
+    { key:'id_number',       label:'Qatar ID',         default:false, editable:false },
+    { key:'career_profile',  label:'Career Profile #', default:false, editable:false },
     { key:'sport',           label:'Sport',            default:true,  editable:true  },
     { key:'classification',  label:'Classification',   default:true,  editable:true  },
+    { key:'disability',      label:'Disability',       default:false, editable:false },
     { key:'nationality',     label:'Nationality',      default:true,  editable:true  },
     { key:'gender',          label:'Gender',           default:false, editable:false },
     { key:'dob',             label:'Date of Birth',    default:false, editable:false },
-    { key:'disability',      label:'Disability',       default:false, editable:false },
+    { key:'age_category',    label:'Age Category',     default:false, editable:false },
     { key:'coach_id',        label:'Coach',            default:true,  editable:true  },
     { key:'status',          label:'Status',           default:true,  editable:true  },
+    { key:'medical_status',  label:'Medical Status',   default:false, editable:false },
     { key:'phone',           label:'Phone',            default:false, editable:false },
     { key:'email',           label:'Email',            default:false, editable:false },
     { key:'join_date',       label:'Joined QPC',       default:false, editable:false },
     { key:'passport_number', label:'Passport No',      default:false, editable:false },
     { key:'passport_expiry', label:'Passport Expiry',  default:false, editable:false },
-    { key:'id_number',       label:'Qatar ID',         default:false, editable:false },
+    { key:'id_expiry',       label:'ID Expiry',        default:false, editable:false },
     { key:'blood_type',      label:'Blood Type',       default:false, editable:false },
+    { key:'emergency_contact_name',  label:'Emergency Contact', default:false, editable:false },
+    { key:'emergency_contact_phone', label:'Emergency Phone',   default:false, editable:false },
     { key:'medals',          label:'Medals',           default:true,  editable:false },
     { key:'docs',            label:'Documents',        default:true,  editable:false },
   ]
@@ -912,6 +927,7 @@ ${a.notes ? `<div class="section">
   // Render a cell value in view mode
   function renderCell(a, key) {
     const docCount = (documents || []).filter(d => d.athlete_id === a.id).length
+    const expired = v => v && new Date(v) < new Date()
     switch(key) {
       case 'name': return (
         <div style={{ display:'flex', alignItems:'center', gap:10 }}>
@@ -919,23 +935,31 @@ ${a.notes ? `<div class="section">
           <div><div style={{ fontWeight:500 }}>{a.name}</div><div style={{ fontSize:11, color:'#9aa3b2' }}>{a.nationality}</div></div>
         </div>
       )
-      case 'sport':           return a.sport || '—'
-      case 'classification':  return a.classification ? <span className="badge badge-blue">{a.classification}</span> : '—'
-      case 'nationality':     return <span style={{ color:'#5a6272' }}>{a.nationality || '—'}</span>
-      case 'gender':          return <span style={{ color:'#5a6272' }}>{a.gender || '—'}</span>
-      case 'dob':             return <span style={{ color:'#5a6272' }}>{a.dob || '—'}</span>
-      case 'disability':      return <span style={{ color:'#5a6272' }}>{a.disability || '—'}</span>
-      case 'coach_id':        return <span style={{ color:'#5a6272' }}>{coaches.find(c => c.id === a.coach_id)?.name || '—'}</span>
-      case 'status':          return <Badge label={a.status} />
-      case 'phone':           return <span style={{ color:'#5a6272' }}>{a.phone || '—'}</span>
-      case 'email':           return <span style={{ color:'#5a6272', fontSize:12, wordBreak:'break-all' }}>{a.email || '—'}</span>
-      case 'join_date':       return <span style={{ color:'#5a6272' }}>{a.join_date || '—'}</span>
-      case 'passport_number': return <span style={{ color:'#5a6272', fontFamily:'monospace', fontSize:12 }}>{a.passport_number || '—'}</span>
-      case 'passport_expiry': return <span style={{ color: a.passport_expiry && new Date(a.passport_expiry) < new Date() ? '#dc2626' : '#5a6272' }}>{a.passport_expiry || '—'}</span>
-      case 'id_number':       return <span style={{ color:'#5a6272', fontFamily:'monospace', fontSize:12 }}>{a.id_number || '—'}</span>
-      case 'blood_type':      return <span style={{ color:'#5a6272' }}>{a.blood_type || '—'}</span>
-      case 'medals':          return <MedalDisplay gold={a.medals_gold} silver={a.medals_silver} bronze={a.medals_bronze} />
-      case 'docs':            return docCount > 0 ? <span style={{ display:'flex', alignItems:'center', gap:4, fontSize:12, color:'#0085C7', fontWeight:500 }}><i className="ti ti-files" style={{ fontSize:14 }} />{docCount}</span> : <span style={{ fontSize:12, color:'var(--text3)' }}>—</span>
+      case 'name_ar':          return <span style={{ color:'var(--text2)', direction:'rtl' }}>{a.name_ar || '—'}</span>
+      case 'qss_number':       return <span style={{ color:'var(--text2)', fontFamily:'monospace', fontSize:12 }}>{a.qss_number || '—'}</span>
+      case 'career_profile':   return <span style={{ color:'var(--text2)', fontFamily:'monospace', fontSize:12 }}>{a.career_profile || '—'}</span>
+      case 'sport':            return a.sport || '—'
+      case 'classification':   return a.classification ? <span className="badge badge-blue">{a.classification}</span> : '—'
+      case 'disability':       return <span style={{ color:'var(--text2)' }}>{a.disability || '—'}</span>
+      case 'nationality':      return <span style={{ color:'var(--text2)' }}>{a.nationality || '—'}</span>
+      case 'gender':           return <span style={{ color:'var(--text2)' }}>{a.gender || '—'}</span>
+      case 'dob':              return <span style={{ color:'var(--text2)' }}>{a.dob || '—'}</span>
+      case 'age_category':     return <span style={{ color:'var(--text2)' }}>{a.age_category || '—'}</span>
+      case 'coach_id':         return <span style={{ color:'var(--text2)' }}>{coaches.find(c => c.id === a.coach_id)?.name || '—'}</span>
+      case 'status':           return <Badge label={a.status} />
+      case 'medical_status':   return a.medical_status ? <span className={`badge ${a.medical_status.toLowerCase().includes('none') ? 'badge-gray' : a.medical_status.toLowerCase().includes('review') ? 'badge-amber' : 'badge-green'}`}>{a.medical_status}</span> : '—'
+      case 'phone':            return <span style={{ color:'var(--text2)' }}>{a.phone || '—'}</span>
+      case 'email':            return <span style={{ color:'var(--text2)', fontSize:12, wordBreak:'break-all' }}>{a.email || '—'}</span>
+      case 'join_date':        return <span style={{ color:'var(--text2)' }}>{a.join_date || '—'}</span>
+      case 'passport_number':  return <span style={{ color:'var(--text2)', fontFamily:'monospace', fontSize:12 }}>{a.passport_number || '—'}</span>
+      case 'passport_expiry':  return <span style={{ color: expired(a.passport_expiry) ? '#dc2626' : 'var(--text2)' }}>{a.passport_expiry || '—'}{expired(a.passport_expiry) && <span style={{ marginLeft:4, fontSize:10, color:'#dc2626' }}>⚠</span>}</span>
+      case 'id_number':        return <span style={{ color:'var(--text2)', fontFamily:'monospace', fontSize:12 }}>{a.id_number || '—'}</span>
+      case 'id_expiry':        return <span style={{ color: expired(a.id_expiry) ? '#dc2626' : 'var(--text2)' }}>{a.id_expiry || '—'}{expired(a.id_expiry) && <span style={{ marginLeft:4, fontSize:10, color:'#dc2626' }}>⚠</span>}</span>
+      case 'blood_type':       return <span style={{ color:'var(--text2)' }}>{a.blood_type || '—'}</span>
+      case 'emergency_contact_name':  return <span style={{ color:'var(--text2)' }}>{a.emergency_contact_name || '—'}</span>
+      case 'emergency_contact_phone': return <span style={{ color:'var(--text2)' }}>{a.emergency_contact_phone || '—'}</span>
+      case 'medals':           return <MedalDisplay gold={a.medals_gold} silver={a.medals_silver} bronze={a.medals_bronze} />
+      case 'docs':             return docCount > 0 ? <span style={{ display:'flex', alignItems:'center', gap:4, fontSize:12, color:'#0085C7', fontWeight:500 }}><i className="ti ti-files" style={{ fontSize:14 }} />{docCount}</span> : <span style={{ fontSize:12, color:'var(--text3)' }}>—</span>
       default: return '—'
     }
   }
