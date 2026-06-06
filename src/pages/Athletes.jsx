@@ -879,6 +879,25 @@ ${a.notes ? `<div class="section">
 
   // ── COLUMN DEFINITIONS ──
   const ALL_COLS = [
+    { key:'name',            label:'Athlete',          default:true,  editable:true  },
+    { key:'sport',           label:'Sport',            default:true,  editable:true  },
+    { key:'classification',  label:'Classification',   default:true,  editable:true  },
+    { key:'nationality',     label:'Nationality',      default:true,  editable:true  },
+    { key:'gender',          label:'Gender',           default:false, editable:false },
+    { key:'dob',             label:'Date of Birth',    default:false, editable:false },
+    { key:'disability',      label:'Disability',       default:false, editable:false },
+    { key:'coach_id',        label:'Coach',            default:true,  editable:true  },
+    { key:'status',          label:'Status',           default:true,  editable:true  },
+    { key:'phone',           label:'Phone',            default:false, editable:false },
+    { key:'email',           label:'Email',            default:false, editable:false },
+    { key:'join_date',       label:'Joined QPC',       default:false, editable:false },
+    { key:'passport_number', label:'Passport No',      default:false, editable:false },
+    { key:'passport_expiry', label:'Passport Expiry',  default:false, editable:false },
+    { key:'id_number',       label:'Qatar ID',         default:false, editable:false },
+    { key:'blood_type',      label:'Blood Type',       default:false, editable:false },
+    { key:'medals',          label:'Medals',           default:true,  editable:false },
+    { key:'docs',            label:'Documents',        default:true,  editable:false },
+  ]
 
   function toggleCol(key) {
     if (key === 'name') return // always visible
