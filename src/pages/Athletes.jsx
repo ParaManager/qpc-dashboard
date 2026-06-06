@@ -5,6 +5,7 @@ import FormModal from '../components/FormModal'
 import { ConfirmModal, toast } from '../components/Toast'
 import { supabase } from '../lib/supabase'
 import { canEdit } from '../lib/useAuth'
+import AthleteCardButton from '../components/AthleteCard'
 
 const DOC_TYPES  = [
   'Photo',
@@ -515,6 +516,8 @@ ${a.notes ? `<div class="section">
               classification:a.classification, disability:a.disability,
               coachId:a.coach_id, status:a.status, phone:a.phone,
               email:a.email, joinDate:a.join_date,
+              club:a.club, designation:a.designation,
+              residencyStatus:a.residency_status, qssNumber:a.qss_number,
               passportNumber:a.passport_number, passportExpiry:a.passport_expiry,
               idNumber:a.id_number, idExpiry:a.id_expiry,
               emergencyName:a.emergency_contact_name,
@@ -571,6 +574,7 @@ ${a.notes ? `<div class="section">
             onMouseLeave={e => { e.currentTarget.style.background='' }}>
             <i className="ti ti-printer" /> Export PDF
           </button>
+          <AthleteCardButton athlete={a} />
         </div>
 
         <div className="detail-grid">
@@ -651,7 +655,7 @@ ${a.notes ? `<div class="section">
             {/* SPORT */}
             <div className="info-card">
               <div className="info-title">Sport & classification</div>
-              {[['Sport',a.sport],['Classification',a.classification],['Disability type',a.disability]].map(([k,v]) => (
+              {[['Sport',a.sport],['Classification',a.classification],['Disability type',a.disability],['Club',a.club],['Designation',a.designation],['Residency status',a.residency_status]].map(([k,v]) => (
                 <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv">{v||'—'}</span></div>
               ))}
             </div>
