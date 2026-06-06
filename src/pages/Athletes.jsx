@@ -992,13 +992,34 @@ ${a.notes ? `<div class="section">
   // Render editable cell in edit mode
   function renderEditCell(a, key) {
     switch(key) {
-      case 'name':    return <input style={{ ...inlineInput, minWidth:140 }} value={getVal(a,'name')} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'name',e.target.value)} />
-      case 'sport':   return <select style={inlineSelect} value={getVal(a,'sport')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'sport',e.target.value)}>{['Athletics','Swimming','Powerlifting','Boccia','Goalball','Table Tennis','Special Olympics','Shooting','Wheelchair Tennis'].map(s=><option key={s}>{s}</option>)}</select>
+      case 'name':         return <input style={{ ...inlineInput, minWidth:140 }} value={getVal(a,'name')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'name',e.target.value)} />
+      case 'name_ar':      return <input style={{ ...inlineInput, direction:'rtl' }} value={getVal(a,'name_ar')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'name_ar',e.target.value)} />
+      case 'sport':        return <select style={inlineSelect} value={getVal(a,'sport')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'sport',e.target.value)}>{['Athletics','Swimming','Powerlifting','Boccia','Goalball','Table Tennis','Special Olympics','Shooting','Wheelchair Tennis'].map(s=><option key={s}>{s}</option>)}</select>
       case 'classification': return <input style={{ ...inlineInput, width:100 }} value={getVal(a,'classification')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'classification',e.target.value)} />
-      case 'nationality':    return <input style={{ ...inlineInput, width:100 }} value={getVal(a,'nationality')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'nationality',e.target.value)} />
-      case 'coach_id': return <select style={inlineSelect} value={getVal(a,'coach_id')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'coach_id',e.target.value?parseInt(e.target.value):null)}><option value="">Unassigned</option>{coaches.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select>
-      case 'status':   return <select style={inlineSelect} value={getVal(a,'status')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'status',e.target.value)}>{['','Active','Inactive','Suspended','Under Medical Review','Injured','Retired'].map(s=><option key={s} value={s}>{s||'— None —'}</option>)}</select>
-      default: return renderCell(a, key)
+      case 'disability':   return <input style={inlineInput} value={getVal(a,'disability')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'disability',e.target.value)} />
+      case 'nationality':  return <input style={{ ...inlineInput, width:100 }} value={getVal(a,'nationality')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'nationality',e.target.value)} />
+      case 'gender':       return <select style={inlineSelect} value={getVal(a,'gender')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'gender',e.target.value)}>{['','Male','Female'].map(s=><option key={s} value={s}>{s||'—'}</option>)}</select>
+      case 'dob':          return <input style={inlineInput} type="date" value={getVal(a,'dob')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'dob',e.target.value)} />
+      case 'age_category': return <input style={inlineInput} value={getVal(a,'age_category')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'age_category',e.target.value)} />
+      case 'coach_id':     return <select style={inlineSelect} value={getVal(a,'coach_id')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'coach_id',e.target.value?parseInt(e.target.value):null)}><option value="">Unassigned</option>{coaches.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select>
+      case 'status':       return <select style={inlineSelect} value={getVal(a,'status')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'status',e.target.value)}>{['','Active','Inactive','Suspended','Under Medical Review','Injured','Retired'].map(s=><option key={s} value={s}>{s||'— None —'}</option>)}</select>
+      case 'medical_status': return <input style={inlineInput} value={getVal(a,'medical_status')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'medical_status',e.target.value)} />
+      case 'phone':        return <input style={inlineInput} value={getVal(a,'phone')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'phone',e.target.value)} />
+      case 'email':        return <input style={inlineInput} type="email" value={getVal(a,'email')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'email',e.target.value)} />
+      case 'join_date':    return <input style={inlineInput} type="date" value={getVal(a,'join_date')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'join_date',e.target.value)} />
+      case 'passport_number': return <input style={inlineInput} value={getVal(a,'passport_number')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'passport_number',e.target.value)} />
+      case 'passport_expiry': return <input style={inlineInput} type="date" value={getVal(a,'passport_expiry')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'passport_expiry',e.target.value)} />
+      case 'id_number':    return <input style={inlineInput} value={getVal(a,'id_number')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'id_number',e.target.value)} />
+      case 'id_expiry':    return <input style={inlineInput} type="date" value={getVal(a,'id_expiry')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'id_expiry',e.target.value)} />
+      case 'blood_type':   return <select style={inlineSelect} value={getVal(a,'blood_type')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'blood_type',e.target.value)}>{['','A+','A-','B+','B-','AB+','AB-','O+','O-','Unknown'].map(s=><option key={s} value={s}>{s||'—'}</option>)}</select>
+      case 'qss_number':   return <input style={inlineInput} value={getVal(a,'qss_number')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'qss_number',e.target.value)} />
+      case 'career_profile': return <input style={inlineInput} value={getVal(a,'career_profile')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'career_profile',e.target.value)} />
+      case 'emergency_contact_name':  return <input style={inlineInput} value={getVal(a,'emergency_contact_name')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'emergency_contact_name',e.target.value)} />
+      case 'emergency_contact_phone': return <input style={inlineInput} value={getVal(a,'emergency_contact_phone')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'emergency_contact_phone',e.target.value)} />
+      // read-only in edit mode
+      case 'medals': return renderCell(a, key)
+      case 'docs':   return renderCell(a, key)
+      default:       return renderCell(a, key)
     }
   }
 
@@ -1117,7 +1138,7 @@ ${a.notes ? `<div class="section">
                   style={{ cursor:editMode?'default':'pointer', background:isChanged?'#f0f7ff':'' }}>
                   {cols.map(c => (
                     <td key={c.key}>
-                      {editMode && c.editable ? renderEditCell(a, c.key) : renderCell(a, c.key)}
+                      {editMode ? renderEditCell(a, c.key) : renderCell(a, c.key)}
                     </td>
                   ))}
                   {!editMode && <td><i className="ti ti-chevron-right" style={{ color:'#ccc', fontSize:16 }} /></td>}
@@ -1130,7 +1151,10 @@ ${a.notes ? `<div class="section">
                 </tr>
               )
             })}
-            {list.length === 0 && <tr><td colSpan={cols?.length + 1 || 8}><div className="empty">No athletes match</div></td></tr>}
+            {(() => {
+              const cols = ALL_COLS.filter(c => isVisible(c.key))
+              return list.length === 0 && <tr><td colSpan={cols.length + 1}><div className="empty">No athletes match</div></td></tr>
+            })()}
           </tbody>
         </table>
       </div>
