@@ -166,7 +166,7 @@ function getPersonalBests(results) {
   return Object.values(bests)
 }
 
-export default function Athletes({ athletes, coaches, results, documents, events, registrations, onRefresh, onNav, initAthleteId, initStatusFilter, profile }) {
+export default function Athletes({ athletes, coaches, results, documents, events, registrations, onRefresh, onNav, initAthleteId, initStatusFilter, navState, profile }) {
   const [search, setSearch]         = useState('')
   const [sport, setSport]           = useState('All sports')
   const [status, setStatus]         = useState('All statuses')
@@ -196,6 +196,18 @@ export default function Athletes({ athletes, coaches, results, documents, events
     if (initStatusFilter) setStatus(initStatusFilter)
   }, [initAthleteId, initStatusFilter])
 
+  // reset everything when nav clicked while already on athletes page
+  useEffect(() => {
+    if (navState?.reset) {
+      setSelected(null)
+      setSearch('')
+      setSport('All sports')
+      setStatus('All statuses')
+      setGender('All genders')
+      setSort('name-asc')
+    }
+  }, [navState])
+
   // sync notes when selected athlete changes
   useEffect(() => {
     if (selected) {
@@ -205,13 +217,25 @@ export default function Athletes({ athletes, coaches, results, documents, events
     }
   }, [selected, athletes])
 
-  const sports = ['All sports', ...new Set(athletes.map(a => a.sport))]
+  function resetFilters() {
+    setSearch('')
+    setSport('All sports')
+    setStatus('All statuses')
+    setGender('All genders')
+    setSort('name-asc')
+  }
+
+  const hasActiveFilters = search || sport !== 'All sports' || status !== 'All statuses' || gender !== 'All genders' || sort !== 'name-asc'
+
+  // filter out blank/null sports
+  const sports = ['All sports', ...new Set(athletes.map(a => a.sport).filter(Boolean))]
 
   let list = athletes.filter(a =>
     (sport  === 'All sports'   || a.sport  === sport)  &&
     (status === 'All statuses' || a.status === status) &&
     (gender === 'All genders'  || a.gender === gender) &&
-    (a.name.toLowerCase().includes(search.toLowerCase()) || a.sport.toLowerCase().includes(search.toLowerCase()))
+    a.name && // exclude blank names
+    (a.name.toLowerCase().includes(search.toLowerCase()) || (a.sport||'').toLowerCase().includes(search.toLowerCase()))
   )
   list = [...list].sort((a, b) => {
     if (sort === 'name-asc')    return a.name.localeCompare(b.name)
@@ -998,7 +1022,7 @@ ${a.notes ? `<div class="section">
                 <i className="ti ti-columns" /> Columns {visibleCols.length !== ALL_COLS.length && `(${visibleCols.length})`}
               </button>
               {colPickerOpen && (
-                <div style={{ position:'absolute', top:'calc(100% + 6px)', right:0, background:'var(--surface)', border:'1px solid var(--border)', borderRadius:12, padding:'12px 4px', zIndex:200, boxShadow:'0 8px 24px rgba(0,0,0,.12)', minWidth:200 }}
+                <div style={{ position:'absolute', top:'calc(100% + 6px)', right:0, background:'var(--surface)', border:'1px solid var(--border)', borderRadius:12, padding:'12px 4px', zIndex:200, boxShadow:'0 8px 24px rgba(0,0,0,.12)', minWidth:200, maxHeight:420, overflowY:'auto' }}
                   onMouseLeave={() => setColPickerOpen(false)}>
                   <div style={{ fontSize:11, fontWeight:600, color:'var(--text3)', textTransform:'uppercase', letterSpacing:'.06em', padding:'0 12px 8px' }}>Show / hide columns</div>
                   {ALL_COLS.map(col => (
@@ -1011,9 +1035,10 @@ ${a.notes ? `<div class="section">
                       {col.key==='name' && <span style={{ fontSize:10, color:'var(--text3)', marginLeft:'auto' }}>always</span>}
                     </label>
                   ))}
-                  <div style={{ padding:'8px 12px 0', borderTop:'1px solid var(--border)', marginTop:4, display:'flex', gap:8 }}>
+                  <div style={{ padding:'8px 12px 0', borderTop:'1px solid var(--border)', marginTop:4, display:'flex', gap:6, flexWrap:'wrap' }}>
                     <button onClick={() => setVisibleCols(ALL_COLS.map(c=>c.key))} style={{ flex:1, padding:'5px', fontSize:11, background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:7, cursor:'pointer', color:'var(--text2)' }}>All</button>
                     <button onClick={() => setVisibleCols(ALL_COLS.filter(c=>c.default).map(c=>c.key))} style={{ flex:1, padding:'5px', fontSize:11, background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:7, cursor:'pointer', color:'var(--text2)' }}>Default</button>
+                    <button onClick={() => setVisibleCols(['name'])} style={{ flex:1, padding:'5px', fontSize:11, background:'#fef2f2', border:'1px solid #fca5a5', borderRadius:7, cursor:'pointer', color:'#dc2626' }}>None</button>
                   </div>
                 </div>
               )}
@@ -1053,7 +1078,9 @@ ${a.notes ? `<div class="section">
       <div className="filters">
         <div className="search-wrap"><i className="ti ti-search" /><input placeholder="Search by name, sport…" value={search} onChange={e => setSearch(e.target.value)} /></div>
         <select className="filter" value={sport} onChange={e => setSport(e.target.value)}>{sports.map(s => <option key={s}>{s}</option>)}</select>
-        <select className="filter" value={status} onChange={e => setStatus(e.target.value)}>{['All statuses','Active','Inactive','Suspended','Under Medical Review','Injured','Retired'].map(s => <option key={s}>{s}</option>)}</select>
+        <select className="filter" value={status} onChange={e => setStatus(e.target.value)}>
+          {['All statuses','Active','Inactive','Suspended','Under Medical Review','Injured','Retired'].map(s => <option key={s}>{s}</option>)}
+        </select>
         <select className="filter" value={gender} onChange={e => setGender(e.target.value)}>{['All genders','Male','Female'].map(s => <option key={s}>{s}</option>)}</select>
         {!editMode && (
           <select className="filter" value={sort} onChange={e => setSort(e.target.value)}>
@@ -1062,13 +1089,19 @@ ${a.notes ? `<div class="section">
             <option value="join-desc">Newest members</option><option value="join-asc">Oldest members</option>
           </select>
         )}
+        {hasActiveFilters && (
+          <button onClick={resetFilters}
+            style={{ display:'flex', alignItems:'center', gap:5, padding:'8px 12px', borderRadius:9, border:'1px solid #fca5a5', background:'#fef2f2', color:'#dc2626', fontSize:12, cursor:'pointer', fontFamily:'DM Sans, sans-serif', whiteSpace:'nowrap' }}>
+            <i className="ti ti-x" style={{ fontSize:13 }} /> Reset filters
+          </button>
+        )}
       </div>
 
       <div className="tbl-wrap">
         <table>
           <thead>
             <tr>
-              {ALL_COLS.filter(c => isVisible(c.key) && (editMode ? c.editable || c.key==='name' : true)).map(c => (
+              {ALL_COLS.filter(c => isVisible(c.key)).map(c => (
                 <th key={c.key}>{c.label}</th>
               ))}
               {!editMode && <th />}
@@ -1078,7 +1111,7 @@ ${a.notes ? `<div class="section">
           <tbody>
             {list.map(a => {
               const isChanged = !!edits[a.id]
-              const cols = ALL_COLS.filter(c => isVisible(c.key) && (editMode ? c.editable || c.key==='name' : true))
+              const cols = ALL_COLS.filter(c => isVisible(c.key))
               return (
                 <tr key={a.id} onClick={() => !editMode && setSelected(a.id)}
                   style={{ cursor:editMode?'default':'pointer', background:isChanged?'#f0f7ff':'' }}>
