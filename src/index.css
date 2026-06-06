@@ -84,8 +84,8 @@ button, input, select, textarea { font-family: 'DM Sans', sans-serif; }
 .stat-hint { font-size: 11px; color: var(--text3); margin-top: 3px; }
 
 /* TABLE */
-.tbl-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow); }
-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.tbl-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: auto; box-shadow: var(--shadow); max-width: 100%; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 600px; }
 thead tr { background: var(--surface2); }
 th { padding: 11px 14px; text-align: left; font-weight: 500; font-size: 11.5px; color: var(--text2); border-bottom: 1px solid var(--border); white-space: nowrap; text-transform: uppercase; letter-spacing: .04em; }
 td { padding: 11px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
