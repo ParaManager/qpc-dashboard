@@ -187,7 +187,8 @@ export default function Athletes({ athletes, coaches, results, documents, events
   const [edits, setEdits]           = useState({})
   const [savingAll, setSavingAll]   = useState(false)
   const [visibleCols, setVisibleCols] = useState(['name','sport','classification','nationality','coach_id','status','medals','docs'])
-  const [colPickerOpen, setColPickerOpen] = useState(false)  const photoInput = useRef(null)
+  const [colPickerOpen, setColPickerOpen] = useState(false)
+  const photoInput = useRef(null)
   const docInput   = useRef(null)
 
   useEffect(() => {
