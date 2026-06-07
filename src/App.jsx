@@ -9,11 +9,12 @@ import Coaches   from './pages/Coaches'
 import Events    from './pages/Events'
 import Results   from './pages/Results'
 import Sports    from './pages/Sports'
+import Employees from './pages/Employees'
 import './index.css'
 
 const NAV = [
   { section: 'Overview',     items: [{ id: 'dashboard', icon: 'ti-layout-dashboard', label: 'Dashboard' }] },
-  { section: 'People',       items: [{ id: 'athletes',  icon: 'ti-run',              label: 'Athletes'  }, { id: 'coaches', icon: 'ti-whistle', label: 'Coaches' }] },
+  { section: 'People',       items: [{ id: 'athletes',  icon: 'ti-run',              label: 'Athletes'  }, { id: 'coaches', icon: 'ti-user-star', label: 'Coaches' }, { id: 'employees', icon: 'ti-users', label: 'Employees' }] },
   { section: 'Competitions', items: [{ id: 'sports',    icon: 'ti-ball-football',    label: 'Sports'    }, { id: 'events',  icon: 'ti-calendar-event', label: 'Events' }, { id: 'results', icon: 'ti-medal', label: 'Results' }] },
 ]
 
@@ -30,17 +31,19 @@ export default function App() {
   const [results, setResults]             = useState([])
   const [registrations, setRegistrations] = useState([])
   const [documents, setDocuments]         = useState([])
+  const [employees, setEmployees]         = useState([])
   const [dataLoading, setDataLoading]     = useState(true)
   const [navState, setNavState]           = useState({})
 
   const fetchAll = useCallback(async () => {
-    const [a, c, e, r, reg, docs] = await Promise.all([
+    const [a, c, e, r, reg, docs, emp] = await Promise.all([
       supabase.from('athletes').select('*').order('name'),
       supabase.from('coaches').select('*').order('name'),
       supabase.from('events').select('*').order('start_date'),
       supabase.from('results').select('*').order('date', { ascending: false }),
       supabase.from('event_registrations').select('*'),
       supabase.from('athlete_documents').select('*').order('uploaded_at', { ascending: false }),
+      supabase.from('employees').select('*').order('name'),
     ])
     if (a.data)    setAthletes(a.data)
     if (c.data)    setCoaches(c.data)
@@ -48,6 +51,7 @@ export default function App() {
     if (r.data)    setResults(r.data)
     if (reg.data)  setRegistrations(reg.data)
     if (docs.data) setDocuments(docs.data)
+    if (emp.data)  setEmployees(emp.data)
     setDataLoading(false)
   }, [])
 
@@ -160,6 +164,7 @@ export default function App() {
           {page==='events'    && <Events    events={events} athletes={athletes} results={results} registrations={registrations} onRefresh={fetchAll} onNav={goTo} initEventId={navState.eventId} initStatusFilter={navState.statusFilter} profile={profile} />}
           {page==='results'   && <Results   results={results} athletes={athletes} onRefresh={fetchAll} onNav={goTo} profile={profile} />}
           {page==='sports'    && <Sports    athletes={athletes} coaches={coaches} events={events} results={results} onNav={goTo} initSport={navState.sport} profile={profile} />}
+          {page==='employees' && <Employees employees={employees} onRefresh={fetchAll} onNav={goTo} navState={navState} profile={profile} />}
         </div>
       </div>
       <ToastContainer />
