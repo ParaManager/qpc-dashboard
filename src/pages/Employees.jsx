@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
-import { Badge, initials, avColor, statusClass } from '../lib/helpers'
+import { initials } from '../lib/helpers'
 import { ConfirmModal, toast } from '../components/Toast'
 import { supabase } from '../lib/supabase'
 import { canEdit } from '../lib/useAuth'
+import * as XLSX from 'xlsx'
 
 const DESIGNATIONS = [
   'All designations',
@@ -37,40 +38,112 @@ function DesigBadge({ label }) {
   )
 }
 
+function exportEmployeesPDF(emp) {
+  const color = DESIG_COLORS[emp.designation] || '#9aa3b2'
+  const html = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"/>
+<style>
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:Arial,sans-serif; color:#1a1d23; padding:32px; font-size:13px; }
+  .header { display:flex; align-items:center; gap:20px; margin-bottom:24px; padding-bottom:20px; border-bottom:3px solid #0085C7; }
+  .dots { display:flex; gap:5px; }
+  .dot { width:14px; height:14px; border-radius:50%; }
+  h1 { font-size:20px; font-weight:700; color:#0a1628; }
+  .sub { font-size:12px; color:#9aa3b2; margin-top:2px; }
+  .profile { display:flex; gap:20px; margin-bottom:24px; }
+  .photo { width:80px; height:80px; border-radius:50%; background:${color}; display:flex; align-items:center; justify-content:center; color:#fff; font-size:28px; font-weight:700; flex-shrink:0; overflow:hidden; }
+  .photo img { width:100%; height:100%; object-fit:cover; }
+  .section-title { font-size:11px; font-weight:700; color:#9aa3b2; text-transform:uppercase; letter-spacing:.06em; margin-bottom:10px; padding-bottom:6px; border-bottom:1px solid #e2e5ea; margin-top:20px; }
+  .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:6px 20px; }
+  .field { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #f0f1f3; font-size:12px; }
+  .field .k { color:#5a6272; } .field .v { font-weight:600; }
+  .footer { margin-top:32px; padding-top:12px; border-top:1px solid #e2e5ea; font-size:10px; color:#9aa3b2; text-align:center; }
+</style></head><body>
+<div class="header">
+  <div class="dots">
+    <div class="dot" style="background:#EE334E"></div>
+    <div class="dot" style="background:#0085C7"></div>
+    <div class="dot" style="background:#009F6B"></div>
+  </div>
+  <div><h1>Qatar Paralympic Committee</h1><p class="sub">Employee Profile · Generated ${new Date().toLocaleDateString()}</p></div>
+</div>
+<div class="profile">
+  <div class="photo">${emp.photo_url ? `<img src="${emp.photo_url}"/>` : initials(emp.name)}</div>
+  <div>
+    <div style="font-size:22px;font-weight:700">${emp.name}</div>
+    ${emp.name_ar ? `<div style="font-size:14px;color:#5a6272;margin-top:3px">${emp.name_ar}</div>` : ''}
+    <div style="margin-top:8px;font-size:13px;font-weight:600;color:${color}">${emp.designation||''}</div>
+    ${emp.designation_ar ? `<div style="font-size:12px;color:#5a6272;margin-top:2px">${emp.designation_ar}</div>` : ''}
+  </div>
+</div>
+<div class="section-title">Employee Information</div>
+<div class="grid-2">
+  ${[['Employee #',emp.employee_number],['QSS #',emp.qss_number],['Gender',emp.gender],['Nationality',emp.nationality],['Status',emp.status],['Phone',emp.phone],['Email',emp.email]].map(([k,v])=>`<div class="field"><span class="k">${k}</span><span class="v">${v||'—'}</span></div>`).join('')}
+</div>
+${emp.notes ? `<div class="section-title">Notes</div><p style="font-size:12px;color:#5a6272;line-height:1.6;margin-top:8px">${emp.notes}</p>` : ''}
+<div class="footer">Qatar Paralympic Committee · Confidential · ${new Date().getFullYear()}</div>
+</body></html>`
+  const win = window.open('', '_blank')
+  win.document.write(html)
+  win.document.close()
+  setTimeout(() => win.print(), 500)
+}
+
+function exportEmployeesExcel(list) {
+  const rows = list.map(e => ({
+    'Name':           e.name,
+    'Arabic Name':    e.name_ar || '',
+    'Designation':    e.designation || '',
+    'Designation AR': e.designation_ar || '',
+    'Gender':         e.gender || '',
+    'Nationality':    e.nationality || '',
+    'Employee #':     e.employee_number || '',
+    'QSS #':          e.qss_number || '',
+    'Phone':          e.phone || '',
+    'Email':          e.email || '',
+    'Status':         e.status || '',
+    'Notes':          e.notes || '',
+  }))
+  const ws = XLSX.utils.json_to_sheet(rows)
+  ws['!cols'] = [{wch:24},{wch:24},{wch:28},{wch:24},{wch:8},{wch:14},{wch:12},{wch:10},{wch:16},{wch:26},{wch:10},{wch:30}]
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Employees')
+  XLSX.writeFile(wb, `QPC_Employees_${new Date().toISOString().slice(0,10)}.xlsx`)
+}
+
 export default function Employees({ employees, onRefresh, onNav, navState, profile }) {
-  const [search, setSearch]     = useState('')
-  const [desigF, setDesigF]     = useState('All designations')
-  const [genderF, setGenderF]   = useState('All genders')
-  const [natF, setNatF]         = useState('All nationalities')
-  const [sort, setSort]         = useState('name-asc')
-  const [selected, setSelected] = useState(null)
-  const [confirm, setConfirm]   = useState(null)
-  const [uploading, setUploading] = useState(false)
-  const [editForm, setEditForm] = useState(null)
-  const [addModal, setAddModal] = useState(false)
-  const [newEmp, setNewEmp]     = useState({})
+  const [search, setSearch]         = useState('')
+  const [sort, setSort]             = useState('name-asc')
+  const [colFilters, setColFilters] = useState({})
+  const [selected, setSelected]     = useState(null)
+  const [confirm, setConfirm]       = useState(null)
+  const [uploading, setUploading]   = useState(false)
+  const [editForm, setEditForm]     = useState(null)
+  const [addModal, setAddModal]     = useState(false)
   const photoInput = useRef(null)
 
   useEffect(() => {
     if (navState?.reset) {
-      setSelected(null)
-      setSearch('')
-      setDesigF('All designations')
-      setGenderF('All genders')
-      setNatF('All nationalities')
-      setSort('name-asc')
+      setSelected(null); setSearch(''); setSort('name-asc'); setColFilters({})
     }
   }, [navState])
 
-  const nationalities = ['All nationalities', ...new Set(employees.map(e => e.nationality).filter(Boolean))].sort()
-  const hasFilters    = search || desigF !== 'All designations' || genderF !== 'All genders' || natF !== 'All nationalities'
+  const hasFilters = search || Object.values(colFilters).some(v => v && v !== 'All')
+
+  const COL_FILTERS = {
+    designation: ['All', ...DESIGNATIONS.slice(1)],
+    nationality: ['All', ...new Set(employees.map(e => e.nationality).filter(Boolean))].sort(),
+    gender:      ['All','Male','Female'],
+    status:      ['All','Active','On Leave','Inactive'],
+  }
 
   let list = employees.filter(e =>
-    (desigF  === 'All designations' || e.designation === desigF)   &&
-    (genderF === 'All genders'      || e.gender      === genderF)  &&
-    (natF    === 'All nationalities'|| e.nationality === natF)     &&
     (!search || e.name.toLowerCase().includes(search.toLowerCase()) ||
-               (e.designation||'').toLowerCase().includes(search.toLowerCase()))
+               (e.designation||'').toLowerCase().includes(search.toLowerCase())) &&
+    (!colFilters.designation || colFilters.designation === 'All' || e.designation === colFilters.designation) &&
+    (!colFilters.nationality || colFilters.nationality === 'All' || e.nationality === colFilters.nationality) &&
+    (!colFilters.gender      || colFilters.gender === 'All'      || e.gender === colFilters.gender) &&
+    (!colFilters.status      || colFilters.status === 'All'      || e.status === colFilters.status)
   )
   list = [...list].sort((a, b) => {
     if (sort === 'name-asc')   return a.name.localeCompare(b.name)
@@ -78,6 +151,7 @@ export default function Employees({ employees, onRefresh, onNav, navState, profi
     if (sort === 'desig-asc')  return (a.designation||'').localeCompare(b.designation||'')
     if (sort === 'desig-desc') return (b.designation||'').localeCompare(a.designation||'')
     if (sort === 'nat-asc')    return (a.nationality||'').localeCompare(b.nationality||'')
+    if (sort === 'nat-desc')   return (b.nationality||'').localeCompare(a.nationality||'')
     return 0
   })
 
@@ -103,7 +177,7 @@ export default function Employees({ employees, onRefresh, onNav, navState, profi
       : await supabase.from('employees').insert(payload)
     if (error) { toast(error.message, 'error'); return }
     toast(isEdit ? `${payload.name} updated` : `${payload.name} added`)
-    setEditForm(null); setAddModal(false); setNewEmp({})
+    setEditForm(null); setAddModal(false)
     await onRefresh()
     if (isEdit) setSelected(formData.id)
   }
@@ -114,8 +188,8 @@ export default function Employees({ employees, onRefresh, onNav, navState, profi
     if (file.size > 5 * 1024 * 1024) { toast('Image must be under 5MB', 'error'); return }
     setUploading(true)
     try {
-      const ext  = file.name.split('.').pop()
-      const path = `${empId}.${ext}`
+      const ext = file.name.split('.').pop()
+      const path = `emp_${empId}.${ext}`
       const { error: upErr } = await supabase.storage.from('coach-photos').upload(path, file, { upsert: true })
       if (upErr) throw upErr
       const { data } = supabase.storage.from('coach-photos').getPublicUrl(path)
@@ -125,15 +199,30 @@ export default function Employees({ employees, onRefresh, onNav, navState, profi
     finally { setUploading(false) }
   }
 
-  // ── EMPLOYEE FORM MODAL ──
+  function SortTh({ field, children }) {
+    const isAsc  = sort === `${field}-asc`
+    const isDesc = sort === `${field}-desc`
+    return (
+      <th onClick={() => isAsc ? setSort(`${field}-desc`) : setSort(`${field}-asc`)}
+        style={{ cursor:'pointer', userSelect:'none', whiteSpace:'nowrap' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:4 }}>
+          {children}
+          <span style={{ fontSize:9, color:(isAsc||isDesc)?'#0085C7':'#ccc' }}>
+            {isAsc?'▲':isDesc?'▼':'▲▼'}
+          </span>
+        </div>
+      </th>
+    )
+  }
+
   function EmpModal({ data, isEdit, onClose }) {
-    const [form, setForm] = useState(data || { status: 'Active' })
+    const [form, setForm] = useState(data || { status:'Active' })
     const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
-    const F = ({ label, name, type = 'text', placeholder, options }) => (
+    const F = ({ label, name, type='text', placeholder, options }) => (
       <div className="form-group">
         <label className="form-label">{label}</label>
         {options
-          ? <select className="form-input" value={form[name]||''} onChange={e => set(name, e.target.value)}>{options.map(o => <option key={o}>{o}</option>)}</select>
+          ? <select className="form-input" value={form[name]||''} onChange={e => set(name, e.target.value)}>{options.map(o=><option key={o}>{o}</option>)}</select>
           : <input className="form-input" type={type} placeholder={placeholder} value={form[name]||''} onChange={e => set(name, e.target.value)} />
         }
       </div>
@@ -157,16 +246,14 @@ export default function Employees({ employees, onRefresh, onNav, navState, profi
             </div>
             <div className="form-section">Role & Employment</div>
             <div className="form-row">
-              <F label="Designation (English)" name="designation" options={['', ...DESIGNATIONS.slice(1)]} />
+              <F label="Designation (English)" name="designation" options={['',...DESIGNATIONS.slice(1)]} />
               <F label="Designation (Arabic)" name="designation_ar" placeholder="e.g. مدرب" />
             </div>
             <div className="form-row">
               <F label="Employee number" name="employee_number" placeholder="e.g. 12501" />
               <F label="QSS number" name="qss_number" placeholder="e.g. 50112" />
             </div>
-            <div className="form-row">
-              <F label="Status" name="status" options={['Active','On Leave','Inactive']} />
-            </div>
+            <F label="Status" name="status" options={['Active','On Leave','Inactive']} />
             <div className="form-section">Contact</div>
             <div className="form-row">
               <F label="Phone" name="phone" placeholder="+974 XXXX XXXX" />
@@ -174,7 +261,7 @@ export default function Employees({ employees, onRefresh, onNav, navState, profi
             </div>
             <div className="form-group">
               <label className="form-label">Notes</label>
-              <textarea className="form-input" rows={3} placeholder="Optional notes…" value={form.notes||''} onChange={e => set('notes', e.target.value)} style={{ resize:'vertical' }} />
+              <textarea className="form-input" rows={3} value={form.notes||''} onChange={e => set('notes', e.target.value)} style={{ resize:'vertical' }} />
             </div>
           </div>
           <div className="modal-footer">
@@ -193,26 +280,29 @@ export default function Employees({ employees, onRefresh, onNav, navState, profi
     const emp = employees.find(x => x.id === selected)
     if (!emp) { setSelected(null); return null }
     const color = DESIG_COLORS[emp.designation] || '#9aa3b2'
-
     return (
       <div>
         {editForm && <EmpModal data={editForm} isEdit={true} onClose={() => setEditForm(null)} />}
         {confirm && (
-          <ConfirmModal title="Delete employee" message={`Delete ${emp.name}? This cannot be undone.`}
+          <ConfirmModal title="Delete employee" message={`Delete ${emp.name}?`}
             onConfirm={() => handleDelete(emp.id, emp.name)} onCancel={() => setConfirm(null)} />
         )}
-
         <button className="back-btn" onClick={() => setSelected(null)}><i className="ti ti-arrow-left" /> Back to employees</button>
-        {canEdit(profile) && (
-          <div style={{ display:'flex', gap:10, marginBottom:16 }}>
+        <div style={{ display:'flex', gap:10, marginBottom:16, flexWrap:'wrap' }}>
+          {canEdit(profile) && <>
             <button className="action-btn action-btn-edit" onClick={() => setEditForm({ ...emp })}><i className="ti ti-pencil" /> Edit</button>
             <button className="action-btn action-btn-delete" onClick={() => setConfirm(true)}><i className="ti ti-trash" /> Delete</button>
-          </div>
-        )}
-
+          </>}
+          <button className="action-btn action-btn-edit"
+            style={{ borderColor:'#009F6B', color:'#009F6B' }}
+            onMouseEnter={e => e.currentTarget.style.background='#e6f4ee'}
+            onMouseLeave={e => e.currentTarget.style.background=''}
+            onClick={() => exportEmployeesPDF(emp)}>
+            <i className="ti ti-printer" /> Export PDF
+          </button>
+        </div>
         <div className="detail-grid">
           <div className="detail-profile">
-            {/* Photo */}
             <div style={{ position:'relative', width:90, height:90, margin:'0 auto 14px' }}>
               {emp.photo_url
                 ? <img src={emp.photo_url} alt={emp.name} style={{ width:90, height:90, borderRadius:'50%', objectFit:'cover', border:'3px solid var(--border)' }} />
@@ -225,7 +315,7 @@ export default function Employees({ employees, onRefresh, onNav, navState, profi
                     {uploading ? <div style={{ width:10, height:10, border:'2px solid rgba(255,255,255,.4)', borderTopColor:'#fff', borderRadius:'50%', animation:'spin .7s linear infinite' }} /> : <i className="ti ti-camera" style={{ fontSize:12 }} />}
                   </button>
                   {emp.photo_url && (
-                    <button onClick={async () => { await supabase.from('employees').update({ photo_url: null }).eq('id', emp.id); await onRefresh() }}
+                    <button onClick={async () => { await supabase.from('employees').update({ photo_url:null }).eq('id', emp.id); await onRefresh() }}
                       style={{ width:26, height:26, borderRadius:'50%', background:'#dc2626', border:'2px solid #fff', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'#fff' }}>
                       <i className="ti ti-x" style={{ fontSize:12 }} />
                     </button>
@@ -234,43 +324,22 @@ export default function Employees({ employees, onRefresh, onNav, navState, profi
               )}
               <input ref={photoInput} type="file" accept="image/*" style={{ display:'none' }} onChange={e => { if(e.target.files[0]) handlePhotoUpload(emp.id, e.target.files[0]) }} />
             </div>
-
             <div className="detail-name">{emp.name}</div>
             {emp.name_ar && <div className="detail-sub">{emp.name_ar}</div>}
             <div style={{ margin:'10px 0' }}><DesigBadge label={emp.designation} /></div>
-
+            {emp.designation_ar && <div style={{ fontSize:13, color:'var(--text2)', marginBottom:8, direction:'rtl' }}>{emp.designation_ar}</div>}
             <div className="detail-fields">
-              {[
-                ['Employee #', emp.employee_number],
-                ['QSS #', emp.qss_number],
-                ['Gender', emp.gender],
-                ['Nationality', emp.nationality],
-                ['Phone', emp.phone],
-                ['Email', emp.email],
-                ['Status', emp.status],
-              ].map(([k,v]) => (
-                <div key={k} className="detail-row">
-                  <span className="dk">{k}</span>
-                  <span className="dv" style={{ fontSize:12 }}>{v||'—'}</span>
-                </div>
+              {[['Employee #',emp.employee_number],['QSS #',emp.qss_number],['Gender',emp.gender],['Nationality',emp.nationality],['Phone',emp.phone],['Email',emp.email],['Status',emp.status]].map(([k,v]) => (
+                <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv" style={{ fontSize:12 }}>{v||'—'}</span></div>
               ))}
             </div>
           </div>
-
-          <div>
-            {emp.designation_ar && (
-              <div className="info-card" style={{ marginBottom:12 }}>
-                <div className="info-title">Arabic designation</div>
-                <div style={{ fontSize:16, fontWeight:600, direction:'rtl', color:'var(--text)' }}>{emp.designation_ar}</div>
-              </div>
-            )}
-            {emp.notes && (
-              <div className="info-card">
-                <div className="info-title">Notes</div>
-                <p style={{ fontSize:13, color:'var(--text2)', lineHeight:1.6 }}>{emp.notes}</p>
-              </div>
-            )}
-          </div>
+          {emp.notes && (
+            <div className="info-card">
+              <div className="info-title">Notes</div>
+              <p style={{ fontSize:13, color:'var(--text2)', lineHeight:1.6 }}>{emp.notes}</p>
+            </div>
+          )}
         </div>
         <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
       </div>
@@ -280,13 +349,17 @@ export default function Employees({ employees, onRefresh, onNav, navState, profi
   // ── LIST VIEW ──
   return (
     <div>
-      {addModal && <EmpModal data={newEmp} isEdit={false} onClose={() => { setAddModal(false); setNewEmp({}) }} />}
-
+      {(addModal || editForm) && (
+        <EmpModal data={editForm||{}} isEdit={!!editForm} onClose={() => { setAddModal(false); setEditForm(null) }} />
+      )}
       <div className="page-header">
         <div><div className="page-title">Employees</div><div className="page-sub">{list.length} of {employees.length} employees</div></div>
         <div style={{ display:'flex', gap:8 }}>
+          <button className="btn" style={{ background:'#009F6B' }} onClick={() => exportEmployeesExcel(list)}>
+            <i className="ti ti-table-export" /> Export Excel
+          </button>
           {hasFilters && (
-            <button onClick={() => { setSearch(''); setDesigF('All designations'); setGenderF('All genders'); setNatF('All nationalities') }}
+            <button onClick={() => { setSearch(''); setColFilters({}) }}
               style={{ display:'flex', alignItems:'center', gap:5, padding:'8px 12px', borderRadius:9, border:'1px solid #fca5a5', background:'#fef2f2', color:'#dc2626', fontSize:12, cursor:'pointer', fontFamily:'DM Sans, sans-serif' }}>
               <i className="ti ti-x" style={{ fontSize:13 }} /> Reset filters
             </button>
@@ -298,35 +371,24 @@ export default function Employees({ employees, onRefresh, onNav, navState, profi
       </div>
 
       <div className="filters">
-        <div className="search-wrap"><i className="ti ti-search" /><input placeholder="Search by name, designation…" value={search} onChange={e => setSearch(e.target.value)} /></div>
-        <select className="filter" value={desigF} onChange={e => setDesigF(e.target.value)}>
-          {DESIGNATIONS.map(d => <option key={d}>{d}</option>)}
-        </select>
-        <select className="filter" value={genderF} onChange={e => setGenderF(e.target.value)}>
-          {['All genders','Male','Female'].map(s => <option key={s}>{s}</option>)}
-        </select>
-        <select className="filter" value={natF} onChange={e => setNatF(e.target.value)}>
-          {nationalities.map(n => <option key={n}>{n}</option>)}
-        </select>
-        <select className="filter" value={sort} onChange={e => setSort(e.target.value)}>
-          <option value="name-asc">Name A→Z</option>
-          <option value="name-desc">Name Z→A</option>
-          <option value="desig-asc">Designation A→Z</option>
-          <option value="nat-asc">Nationality A→Z</option>
-        </select>
+        <div className="search-wrap">
+          <i className="ti ti-search" />
+          <input placeholder="Search by name, designation…" value={search} onChange={e => setSearch(e.target.value)} />
+        </div>
       </div>
 
-      {/* Stats row */}
+      {/* Stats — all neutral */}
       <div style={{ display:'flex', gap:10, marginBottom:16, flexWrap:'wrap' }}>
         {[
-          { label:'Total', val:employees.length, color:'#0085C7' },
-          { label:'Male', val:employees.filter(e=>e.gender==='Male').length, color:'#0085C7' },
-          { label:'Female', val:employees.filter(e=>e.gender==='Female').length, color:'#EE334E' },
-          { label:'Coaches', val:employees.filter(e=>e.designation?.includes('Coach')).length, color:'#009F6B' },
-          { label:'Admin', val:employees.filter(e=>e.designation?.includes('Admin')).length, color:'#e67e22' },
-        ].map(({ label, val, color }) => (
+          { label:'Total',   val:employees.length },
+          { label:'Male',    val:employees.filter(e=>e.gender==='Male').length },
+          { label:'Female',  val:employees.filter(e=>e.gender==='Female').length },
+          { label:'Coaches', val:employees.filter(e=>e.designation?.includes('Coach')).length },
+          { label:'Admin',   val:employees.filter(e=>e.designation?.includes('Admin')).length },
+          { label:'Active',  val:employees.filter(e=>e.status==='Active').length },
+        ].map(({ label, val }) => (
           <div key={label} style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:10, padding:'10px 16px', display:'flex', gap:8, alignItems:'center', boxShadow:'var(--shadow)' }}>
-            <span style={{ fontSize:20, fontWeight:700, color }}>{val}</span>
+            <span style={{ fontSize:20, fontWeight:700, color:'var(--text)' }}>{val}</span>
             <span style={{ fontSize:12, color:'var(--text2)' }}>{label}</span>
           </div>
         ))}
@@ -336,13 +398,36 @@ export default function Employees({ employees, onRefresh, onNav, navState, profi
         <table>
           <thead>
             <tr>
-              <th>Employee</th>
-              <th>Designation</th>
-              <th>Nationality</th>
+              <SortTh field="name">Employee</SortTh>
+              <SortTh field="desig">Designation</SortTh>
+              <SortTh field="nat">Nationality</SortTh>
               <th>Gender</th>
               <th>Employee #</th>
               <th>QSS #</th>
               <th>Status</th>
+              <th />
+            </tr>
+            <tr style={{ background:'#f8f9fb' }}>
+              <th />
+              {[
+                { key:'designation', span:1 },
+                { key:'nationality', span:1 },
+                { key:'gender',      span:1 },
+                { key:null,          span:1 },
+                { key:null,          span:1 },
+                { key:'status',      span:1 },
+              ].map(({ key }, i) => (
+                <th key={i} style={{ padding:'4px 8px' }}>
+                  {key && COL_FILTERS[key] ? (
+                    <select
+                      value={colFilters[key] || 'All'}
+                      onChange={e => setColFilters(f => ({ ...f, [key]: e.target.value }))}
+                      style={{ fontSize:11, border:'1px solid var(--border)', borderRadius:6, padding:'3px 4px', background:'var(--surface)', color:(colFilters[key]&&colFilters[key]!=='All')?'#0085C7':'var(--text3)', cursor:'pointer', outline:'none', fontWeight:(colFilters[key]&&colFilters[key]!=='All')?600:400, maxWidth:130 }}>
+                      {COL_FILTERS[key].map(o => <option key={o}>{o}</option>)}
+                    </select>
+                  ) : null}
+                </th>
+              ))}
               <th />
             </tr>
           </thead>
@@ -353,7 +438,7 @@ export default function Employees({ employees, onRefresh, onNav, navState, profi
                   <div style={{ display:'flex', alignItems:'center', gap:10 }}>
                     {emp.photo_url
                       ? <img src={emp.photo_url} alt={emp.name} style={{ width:32, height:32, borderRadius:'50%', objectFit:'cover', flexShrink:0 }} />
-                      : <div className="av" style={{ width:32, height:32, fontSize:11, background: DESIG_COLORS[emp.designation]||'#9aa3b2', flexShrink:0 }}>{initials(emp.name)}</div>
+                      : <div className="av" style={{ width:32, height:32, fontSize:11, background:DESIG_COLORS[emp.designation]||'#9aa3b2', flexShrink:0 }}>{initials(emp.name)}</div>
                     }
                     <div>
                       <div style={{ fontWeight:500, fontSize:13 }}>{emp.name}</div>
@@ -362,11 +447,11 @@ export default function Employees({ employees, onRefresh, onNav, navState, profi
                   </div>
                 </td>
                 <td><DesigBadge label={emp.designation} /></td>
-                <td style={{ fontSize:13, color:'#5a6272' }}>{emp.nationality || '—'}</td>
-                <td style={{ fontSize:13, color:'#5a6272' }}>{emp.gender || '—'}</td>
-                <td style={{ fontSize:12, color:'#5a6272', fontFamily:'monospace' }}>{emp.employee_number || '—'}</td>
-                <td style={{ fontSize:12, color:'#5a6272', fontFamily:'monospace' }}>{emp.qss_number || '—'}</td>
-                <td><span className={`badge ${emp.status==='Active'?'badge-green':emp.status==='On Leave'?'badge-amber':'badge-gray'}`}>{emp.status}</span></td>
+                <td style={{ fontSize:13, color:'#5a6272' }}>{emp.nationality||'—'}</td>
+                <td style={{ fontSize:13, color:'#5a6272' }}>{emp.gender||'—'}</td>
+                <td style={{ fontSize:12, color:'#5a6272', fontFamily:'monospace' }}>{emp.employee_number||'—'}</td>
+                <td style={{ fontSize:12, color:'#5a6272', fontFamily:'monospace' }}>{emp.qss_number||'—'}</td>
+                <td><span className={`badge ${emp.status==='Active'?'badge-green':emp.status==='On Leave'?'badge-amber':'badge-gray'}`}>{emp.status||'—'}</span></td>
                 <td><i className="ti ti-chevron-right" style={{ color:'#ccc', fontSize:16 }} /></td>
               </tr>
             ))}
