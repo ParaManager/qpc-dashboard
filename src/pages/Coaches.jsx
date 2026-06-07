@@ -16,16 +16,20 @@ export default function Coaches({ coaches, athletes, onRefresh, onNav, initCoach
 
   useEffect(() => { if (initCoachId) setSelected(initCoachId) }, [initCoachId])
 
-  const sports = ['All sports', ...new Set(coaches.map(c => c.sport))]
+  const sports = ['All sports', ...new Set(coaches.map(c => c.sport).filter(Boolean))]
+  const hasFilters = search || sport !== 'All sports' || status !== 'All statuses'
+
   let list = coaches.filter(c =>
     (sport  === 'All sports'   || c.sport  === sport)  &&
     (status === 'All statuses' || c.status === status) &&
-    (c.name.toLowerCase().includes(search.toLowerCase()) || c.sport.toLowerCase().includes(search.toLowerCase()))
+    (!search || c.name.toLowerCase().includes(search.toLowerCase()) || (c.sport||'').toLowerCase().includes(search.toLowerCase()))
   )
   list = [...list].sort((a, b) => {
+    const aC = athletes.filter(x => x.coach_id === a.id).length
+    const bC = athletes.filter(x => x.coach_id === b.id).length
     if (sort === 'name-asc')      return a.name.localeCompare(b.name)
     if (sort === 'name-desc')     return b.name.localeCompare(a.name)
-    if (sort === 'athletes-desc') return athletes.filter(x=>x.coach_id===b.id).length - athletes.filter(x=>x.coach_id===a.id).length
+    if (sort === 'athletes-desc') return bC - aC
     if (sort === 'since-asc')     return new Date(a.since) - new Date(b.since)
     return 0
   })
@@ -33,10 +37,12 @@ export default function Coaches({ coaches, athletes, onRefresh, onNav, initCoach
   async function handleSave(formData) {
     const isEdit = !!formData.id
     const payload = {
-      name: formData.name, nationality: formData.nationality, sport: formData.sport,
-      cert_level: formData.certLevel, license: formData.license,
-      since: formData.since || null, email: formData.email, phone: formData.phone,
-      status: formData.status,
+      name: formData.name, name_ar: formData.nameAr,
+      nationality: formData.nationality, gender: formData.gender,
+      sport: formData.sport, cert_level: formData.certLevel,
+      license: formData.license, since: formData.since || null,
+      email: formData.email, phone: formData.phone, status: formData.status,
+      qss_number: formData.qssNumber, employee_number: formData.employeeNumber,
     }
     if (!payload.name) { toast('Name is required', 'error'); return }
     const { error } = isEdit
@@ -65,7 +71,12 @@ export default function Coaches({ coaches, athletes, onRefresh, onNav, initCoach
       <div>
         {form && (
           <FormModal type="coach"
-            record={form==='edit' ? { id:c.id, name:c.name, nationality:c.nationality, sport:c.sport, certLevel:c.cert_level, license:c.license, since:c.since, email:c.email, phone:c.phone, status:c.status } : null}
+            record={form==='edit' ? {
+              id:c.id, name:c.name, nameAr:c.name_ar, nationality:c.nationality,
+              gender:c.gender, sport:c.sport, certLevel:c.cert_level,
+              license:c.license, since:c.since, email:c.email, phone:c.phone,
+              status:c.status, qssNumber:c.qss_number, employeeNumber:c.employee_number,
+            } : null}
             coaches={coaches} athletes={athletes} onSave={handleSave} onClose={() => setForm(null)} />
         )}
         {confirm && (
@@ -85,17 +96,33 @@ export default function Coaches({ coaches, athletes, onRefresh, onNav, initCoach
           <div className="detail-profile">
             <div className="detail-av" style={{ background:'#009F6B' }}>{initials(c.name)}</div>
             <div className="detail-name">{c.name}</div>
+            {c.name_ar && <div className="detail-sub">{c.name_ar}</div>}
             <div className="detail-sub">{c.sport} Coach</div>
             <div className="detail-badges"><Badge label={c.status} /></div>
             <div className="detail-fields">
-              {[['License',c.license],['Cert. level',c.cert_level],['Nationality',c.nationality],['With QPC since',c.since],['Email',c.email],['Phone',c.phone]].map(([k,v]) => (
-                <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv" style={{ fontSize:12 }}>{v||'—'}</span></div>
+              {[
+                ['Employee #', c.employee_number],
+                ['QSS #', c.qss_number],
+                ['Cert. level', c.cert_level],
+                ['License', c.license],
+                ['Nationality', c.nationality],
+                ['With QPC since', c.since],
+                ['Email', c.email],
+                ['Phone', c.phone],
+              ].map(([k,v]) => (
+                <div key={k} className="detail-row">
+                  <span className="dk">{k}</span>
+                  <span className="dv" style={{ fontSize:12 }}>{v||'—'}</span>
+                </div>
               ))}
             </div>
           </div>
 
           <div className="info-card">
-            <div className="info-title">Assigned athletes ({myAthletes.length}) <span style={{ fontSize:10, fontWeight:400, textTransform:'none', letterSpacing:0 }}>— click to view</span></div>
+            <div className="info-title">
+              Assigned athletes ({myAthletes.length})
+              <span style={{ fontSize:10, fontWeight:400, textTransform:'none', letterSpacing:0, marginLeft:4 }}>— click to view</span>
+            </div>
             {myAthletes.length === 0
               ? <div className="empty">No athletes assigned</div>
               : myAthletes.map(a => (
@@ -116,21 +143,33 @@ export default function Coaches({ coaches, athletes, onRefresh, onNav, initCoach
     )
   }
 
-  // ── LIST VIEW ──
+  // ── LIST VIEW (cards) ──
   return (
     <div>
       {form && <FormModal type="coach" record={null} coaches={coaches} athletes={athletes} onSave={handleSave} onClose={() => setForm(null)} />}
       <div className="page-header">
         <div><div className="page-title">Coaches</div><div className="page-sub">{list.length} of {coaches.length} coaches</div></div>
-        {canEdit(profile) && <button className="btn btn-green" onClick={() => setForm('new')}><i className="ti ti-plus" /> Add coach</button>}
+        <div style={{ display:'flex', gap:8 }}>
+          {hasFilters && (
+            <button onClick={() => { setSearch(''); setSport('All sports'); setStatus('All statuses') }}
+              style={{ display:'flex', alignItems:'center', gap:5, padding:'8px 12px', borderRadius:9, border:'1px solid #fca5a5', background:'#fef2f2', color:'#dc2626', fontSize:12, cursor:'pointer', fontFamily:'DM Sans, sans-serif' }}>
+              <i className="ti ti-x" style={{ fontSize:13 }} /> Reset filters
+            </button>
+          )}
+          {canEdit(profile) && (
+            <button className="btn btn-green" onClick={() => setForm('new')}><i className="ti ti-plus" /> Add coach</button>
+          )}
+        </div>
       </div>
       <div className="filters">
         <div className="search-wrap"><i className="ti ti-search" /><input placeholder="Search by name, sport…" value={search} onChange={e => setSearch(e.target.value)} /></div>
         <select className="filter" value={sport} onChange={e => setSport(e.target.value)}>{sports.map(s => <option key={s}>{s}</option>)}</select>
-        <select className="filter" value={status} onChange={e => setStatus(e.target.value)}>{['All statuses','Active','On Leave'].map(s => <option key={s}>{s}</option>)}</select>
+        <select className="filter" value={status} onChange={e => setStatus(e.target.value)}>{['All statuses','Active','On Leave','Inactive'].map(s => <option key={s}>{s}</option>)}</select>
         <select className="filter" value={sort} onChange={e => setSort(e.target.value)}>
-          <option value="name-asc">Name A→Z</option><option value="name-desc">Name Z→A</option>
-          <option value="athletes-desc">Most athletes</option><option value="since-asc">Longest with QPC</option>
+          <option value="name-asc">Name A→Z</option>
+          <option value="name-desc">Name Z→A</option>
+          <option value="athletes-desc">Most athletes</option>
+          <option value="since-asc">Longest with QPC</option>
         </select>
       </div>
       <div className="coach-grid">
@@ -140,12 +179,24 @@ export default function Coaches({ coaches, athletes, onRefresh, onNav, initCoach
             <div key={c.id} className="coach-card" onClick={() => setSelected(c.id)}>
               <div className="coach-head">
                 <div className="av" style={{ width:42, height:42, fontSize:13, background:'#009F6B' }}>{initials(c.name)}</div>
-                <div style={{ flex:1 }}><div style={{ fontSize:13, fontWeight:600 }}>{c.name}</div><div style={{ fontSize:11, color:'#9aa3b2', marginTop:2 }}>{c.nationality}</div></div>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontSize:13, fontWeight:600 }}>{c.name}</div>
+                  {c.name_ar && <div style={{ fontSize:11, color:'#9aa3b2', marginTop:1 }}>{c.name_ar}</div>}
+                  <div style={{ fontSize:11, color:'#9aa3b2', marginTop:1 }}>{c.nationality}</div>
+                </div>
                 <Badge label={c.status} />
               </div>
               <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
-                {[['Sport',c.sport],['Cert.',c.cert_level],['License',c.license],['Athletes',count]].map(([k,v]) => (
-                  <div key={k} className="coach-row"><span>{k}</span><span style={k==='Athletes'?{color:'#0085C7'}:{}}>{v||'—'}</span></div>
+                {[
+                  ['Sport', c.sport],
+                  ['Cert.', c.cert_level],
+                  ['Employee #', c.employee_number],
+                  ['Athletes', count],
+                ].map(([k,v]) => (
+                  <div key={k} className="coach-row">
+                    <span>{k}</span>
+                    <span style={k==='Athletes'?{color:'#0085C7',fontWeight:600}:{}}>{v||'—'}</span>
+                  </div>
                 ))}
               </div>
             </div>

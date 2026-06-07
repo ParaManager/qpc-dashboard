@@ -189,6 +189,7 @@ export default function Athletes({ athletes, coaches, results, documents, events
   const [savingAll, setSavingAll]   = useState(false)
   const [visibleCols, setVisibleCols] = useState(['name','sport','classification','nationality','coach_id','status','medals','docs'])
   const [colPickerOpen, setColPickerOpen] = useState(false)
+  const [colFilters, setColFilters] = useState({})
   const photoInput = useRef(null)
   const docInput   = useRef(null)
 
@@ -206,6 +207,7 @@ export default function Athletes({ athletes, coaches, results, documents, events
       setStatus('All statuses')
       setGender('All genders')
       setSort('name-asc')
+      setColFilters({})
     }
   }, [navState])
 
@@ -224,9 +226,10 @@ export default function Athletes({ athletes, coaches, results, documents, events
     setStatus('All statuses')
     setGender('All genders')
     setSort('name-asc')
+    setColFilters({})
   }
 
-  const hasActiveFilters = search || sport !== 'All sports' || status !== 'All statuses' || gender !== 'All genders' || sort !== 'name-asc'
+  const hasActiveFilters = search || sport !== 'All sports' || status !== 'All statuses' || gender !== 'All genders' || sort !== 'name-asc' || Object.values(colFilters).some(v => v && v !== 'All')
 
   // filter out blank/null sports
   const sports = ['All sports', ...new Set(athletes.map(a => a.sport).filter(Boolean))]
@@ -236,15 +239,33 @@ export default function Athletes({ athletes, coaches, results, documents, events
     (status === 'All statuses' || a.status === status) &&
     (gender === 'All genders'  || a.gender === gender) &&
     a.name && // exclude blank names
-    (a.name.toLowerCase().includes(search.toLowerCase()) || (a.sport||'').toLowerCase().includes(search.toLowerCase()))
+    (a.name.toLowerCase().includes(search.toLowerCase()) || (a.sport||'').toLowerCase().includes(search.toLowerCase())) &&
+    // column-level filters
+    (!colFilters.sport        || colFilters.sport === 'All'        || a.sport === colFilters.sport) &&
+    (!colFilters.status       || colFilters.status === 'All'       || a.status === colFilters.status) &&
+    (!colFilters.gender       || colFilters.gender === 'All'       || a.gender === colFilters.gender) &&
+    (!colFilters.nationality  || colFilters.nationality === 'All'  || a.nationality === colFilters.nationality) &&
+    (!colFilters.disability   || colFilters.disability === 'All'   || a.disability === colFilters.disability) &&
+    (!colFilters.age_category || colFilters.age_category === 'All' || a.age_category === colFilters.age_category) &&
+    (!colFilters.coachName    || colFilters.coachName === 'All'    || coaches.find(c => c.id === a.coach_id)?.name === colFilters.coachName)
   )
   list = [...list].sort((a, b) => {
-    if (sort === 'name-asc')    return a.name.localeCompare(b.name)
-    if (sort === 'name-desc')   return b.name.localeCompare(a.name)
-    if (sort === 'medals-desc') return (b.medals_gold+b.medals_silver+b.medals_bronze)-(a.medals_gold+a.medals_silver+a.medals_bronze)
-    if (sort === 'gold-desc')   return b.medals_gold - a.medals_gold
-    if (sort === 'join-desc')   return new Date(b.join_date) - new Date(a.join_date)
-    if (sort === 'join-asc')    return new Date(a.join_date) - new Date(b.join_date)
+    if (sort === 'name-asc')         return a.name.localeCompare(b.name)
+    if (sort === 'name-desc')        return b.name.localeCompare(a.name)
+    if (sort === 'sport-asc')        return (a.sport||'').localeCompare(b.sport||'')
+    if (sort === 'sport-desc')       return (b.sport||'').localeCompare(a.sport||'')
+    if (sort === 'status-asc')       return (a.status||'').localeCompare(b.status||'')
+    if (sort === 'status-desc')      return (b.status||'').localeCompare(a.status||'')
+    if (sort === 'nationality-asc')  return (a.nationality||'').localeCompare(b.nationality||'')
+    if (sort === 'nationality-desc') return (b.nationality||'').localeCompare(a.nationality||'')
+    if (sort === 'dob-asc')          return new Date(a.dob||0) - new Date(b.dob||0)
+    if (sort === 'dob-desc')         return new Date(b.dob||0) - new Date(a.dob||0)
+    if (sort === 'medals-desc')      return (b.medals_gold+b.medals_silver+b.medals_bronze)-(a.medals_gold+a.medals_silver+a.medals_bronze)
+    if (sort === 'gold-desc')        return b.medals_gold - a.medals_gold
+    if (sort === 'join_date-asc')    return new Date(a.join_date||0) - new Date(b.join_date||0)
+    if (sort === 'join_date-desc')   return new Date(b.join_date||0) - new Date(a.join_date||0)
+    if (sort === 'join-desc')        return new Date(b.join_date) - new Date(a.join_date)
+    if (sort === 'join-asc')         return new Date(a.join_date) - new Date(b.join_date)
     return 0
   })
 
@@ -1126,12 +1147,69 @@ ${a.notes ? `<div class="section">
         <table>
           <thead>
             <tr>
-              {ALL_COLS.filter(c => isVisible(c.key)).map(c => (
-                <th key={c.key}>{c.label}</th>
-              ))}
+              {ALL_COLS.filter(c => isVisible(c.key)).map(c => {
+                const isSortable = ['name','sport','classification','nationality','status','dob','join_date','age_category'].includes(c.key)
+                const isAsc  = sort === `${c.key}-asc`
+                const isDesc = sort === `${c.key}-desc`
+                const active = isAsc || isDesc
+                return (
+                  <th key={c.key}
+                    onClick={() => isSortable && (isAsc ? setSort(`${c.key}-desc`) : setSort(`${c.key}-asc`))}
+                    style={{ cursor: isSortable ? 'pointer' : 'default', userSelect:'none', whiteSpace:'nowrap' }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:4 }}>
+                      {c.label}
+                      {isSortable && (
+                        <span style={{ fontSize:9, color: active ? '#0085C7' : '#ccc' }}>
+                          {isAsc ? '▲' : isDesc ? '▼' : '▲▼'}
+                        </span>
+                      )}
+                    </div>
+                  </th>
+                )
+              })}
               {!editMode && <th />}
               {editMode && <th style={{ color:'#0085C7' }}>Changed</th>}
             </tr>
+            {/* INLINE FILTER ROW */}
+            {!editMode && (
+              <tr style={{ background:'#f8f9fb' }}>
+                {ALL_COLS.filter(c => isVisible(c.key)).map(c => {
+                  const filterOpts = {
+                    sport:       ['All', ...new Set(athletes.map(a => a.sport).filter(Boolean))],
+                    status:      ['All','Active','Inactive','Suspended','Under Medical Review','Injured','Retired'],
+                    gender:      ['All','Male','Female'],
+                    nationality: ['All', ...new Set(athletes.map(a => a.nationality).filter(Boolean)).values()].sort(),
+                    coach_id:    ['All', ...coaches.map(c => c.name)],
+                    disability:  ['All', ...new Set(athletes.map(a => a.disability).filter(Boolean))],
+                    age_category:['All', ...new Set(athletes.map(a => a.age_category).filter(Boolean))],
+                  }
+                  const opts = filterOpts[c.key]
+                  if (!opts) return <th key={c.key} />
+                  const filterKey = c.key === 'coach_id' ? 'coachName' : c.key
+                  const filterVal = c.key === 'coach_id'
+                    ? (colFilters.coachName || 'All')
+                    : (colFilters[c.key] || 'All')
+                  return (
+                    <th key={c.key} style={{ padding:'4px 8px' }}>
+                      <select
+                        value={filterVal}
+                        onChange={e => {
+                          const val = e.target.value
+                          if (c.key === 'coach_id') {
+                            setColFilters(f => ({ ...f, coachName: val }))
+                          } else {
+                            setColFilters(f => ({ ...f, [c.key]: val }))
+                          }
+                        }}
+                        style={{ fontSize:11, border:'1px solid var(--border)', borderRadius:6, padding:'3px 4px', background:'var(--surface)', color: filterVal !== 'All' ? '#0085C7' : 'var(--text3)', cursor:'pointer', outline:'none', fontWeight: filterVal !== 'All' ? 600 : 400, maxWidth:120 }}>
+                        {opts.map(o => <option key={o}>{o}</option>)}
+                      </select>
+                    </th>
+                  )
+                })}
+                <th />
+              </tr>
+            )}
           </thead>
           <tbody>
             {list.map(a => {
