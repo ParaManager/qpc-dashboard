@@ -377,22 +377,7 @@ export default function Employees({ employees, onRefresh, onNav, navState, profi
         </div>
       </div>
 
-      {/* Stats — all neutral */}
-      <div style={{ display:'flex', gap:10, marginBottom:16, flexWrap:'wrap' }}>
-        {[
-          { label:'Total',   val:employees.length },
-          { label:'Male',    val:employees.filter(e=>e.gender==='Male').length },
-          { label:'Female',  val:employees.filter(e=>e.gender==='Female').length },
-          { label:'Coaches', val:employees.filter(e=>e.designation?.includes('Coach')).length },
-          { label:'Admin',   val:employees.filter(e=>e.designation?.includes('Admin')).length },
-          { label:'Active',  val:employees.filter(e=>e.status==='Active').length },
-        ].map(({ label, val }) => (
-          <div key={label} style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:10, padding:'10px 16px', display:'flex', gap:8, alignItems:'center', boxShadow:'var(--shadow)' }}>
-            <span style={{ fontSize:20, fontWeight:700, color:'var(--text)' }}>{val}</span>
-            <span style={{ fontSize:12, color:'var(--text2)' }}>{label}</span>
-          </div>
-        ))}
-      </div>
+
 
       <div className="tbl-wrap">
         <table>
@@ -446,7 +431,10 @@ export default function Employees({ employees, onRefresh, onNav, navState, profi
                     </div>
                   </div>
                 </td>
-                <td><DesigBadge label={emp.designation} /></td>
+                <td>
+                  <div><DesigBadge label={emp.designation} /></div>
+                  {emp.designation_ar && <div style={{ fontSize:11, color:'#9aa3b2', marginTop:3, direction:'rtl' }}>{emp.designation_ar}</div>}
+                </td>
                 <td style={{ fontSize:13, color:'#5a6272' }}>{emp.nationality||'—'}</td>
                 <td style={{ fontSize:13, color:'#5a6272' }}>{emp.gender||'—'}</td>
                 <td style={{ fontSize:12, color:'#5a6272', fontFamily:'monospace' }}>{emp.employee_number||'—'}</td>
