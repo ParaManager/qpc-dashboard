@@ -252,12 +252,20 @@ export default function Athletes({ athletes, coaches, results, documents, events
   list = [...list].sort((a, b) => {
     if (sort === 'name-asc')         return a.name.localeCompare(b.name)
     if (sort === 'name-desc')        return b.name.localeCompare(a.name)
+    if (sort === 'name_ar-asc')      return (a.name_ar||'').localeCompare(b.name_ar||'')
+    if (sort === 'name_ar-desc')     return (b.name_ar||'').localeCompare(a.name_ar||'')
     if (sort === 'sport-asc')        return (a.sport||'').localeCompare(b.sport||'')
     if (sort === 'sport-desc')       return (b.sport||'').localeCompare(a.sport||'')
     if (sort === 'status-asc')       return (a.status||'').localeCompare(b.status||'')
     if (sort === 'status-desc')      return (b.status||'').localeCompare(a.status||'')
     if (sort === 'nationality-asc')  return (a.nationality||'').localeCompare(b.nationality||'')
     if (sort === 'nationality-desc') return (b.nationality||'').localeCompare(a.nationality||'')
+    if (sort === 'disability-asc')   return (a.disability||'').localeCompare(b.disability||'')
+    if (sort === 'disability-desc')  return (b.disability||'').localeCompare(a.disability||'')
+    if (sort === 'coach_id-asc')     return (coaches.find(c=>c.id===a.coach_id)?.name||'').localeCompare(coaches.find(c=>c.id===b.coach_id)?.name||'')
+    if (sort === 'coach_id-desc')    return (coaches.find(c=>c.id===b.coach_id)?.name||'').localeCompare(coaches.find(c=>c.id===a.coach_id)?.name||'')
+    if (sort === 'gender-asc')       return (a.gender||'').localeCompare(b.gender||'')
+    if (sort === 'gender-desc')      return (b.gender||'').localeCompare(a.gender||'')
     if (sort === 'dob-asc')          return new Date(a.dob||0) - new Date(b.dob||0)
     if (sort === 'dob-desc')         return new Date(b.dob||0) - new Date(a.dob||0)
     if (sort === 'medals-desc')      return (b.medals_gold+b.medals_silver+b.medals_bronze)-(a.medals_gold+a.medals_silver+a.medals_bronze)
@@ -1123,18 +1131,6 @@ ${a.notes ? `<div class="section">
 
       <div className="filters">
         <div className="search-wrap"><i className="ti ti-search" /><input placeholder="Search by name, sport…" value={search} onChange={e => setSearch(e.target.value)} /></div>
-        <select className="filter" value={sport} onChange={e => setSport(e.target.value)}>{sports.map(s => <option key={s}>{s}</option>)}</select>
-        <select className="filter" value={status} onChange={e => setStatus(e.target.value)}>
-          {['All statuses','Active','Inactive','Suspended','Under Medical Review','Injured','Retired'].map(s => <option key={s}>{s}</option>)}
-        </select>
-        <select className="filter" value={gender} onChange={e => setGender(e.target.value)}>{['All genders','Male','Female'].map(s => <option key={s}>{s}</option>)}</select>
-        {!editMode && (
-          <select className="filter" value={sort} onChange={e => setSort(e.target.value)}>
-            <option value="name-asc">Name A→Z</option><option value="name-desc">Name Z→A</option>
-            <option value="medals-desc">Most medals</option><option value="gold-desc">Most gold</option>
-            <option value="join-desc">Newest members</option><option value="join-asc">Oldest members</option>
-          </select>
-        )}
         {hasActiveFilters && (
           <button onClick={resetFilters}
             style={{ display:'flex', alignItems:'center', gap:5, padding:'8px 12px', borderRadius:9, border:'1px solid #fca5a5', background:'#fef2f2', color:'#dc2626', fontSize:12, cursor:'pointer', fontFamily:'DM Sans, sans-serif', whiteSpace:'nowrap' }}>
@@ -1148,7 +1144,7 @@ ${a.notes ? `<div class="section">
           <thead>
             <tr>
               {ALL_COLS.filter(c => isVisible(c.key)).map(c => {
-                const isSortable = ['name','sport','classification','nationality','status','dob','join_date','age_category'].includes(c.key)
+                const isSortable = ['name','name_ar','sport','classification','nationality','status','dob','join_date','age_category','disability','coach_id','gender','blood_type'].includes(c.key)
                 const isAsc  = sort === `${c.key}-asc`
                 const isDesc = sort === `${c.key}-desc`
                 const active = isAsc || isDesc
