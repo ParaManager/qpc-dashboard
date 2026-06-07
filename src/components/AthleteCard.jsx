@@ -131,8 +131,8 @@ export function generateAthleteCard(athlete) {
         <td valign="middle" style="direction:rtl;padding-right:10px">
           <table cellpadding="0" cellspacing="0">
             <tr>
-              <td style="font-size:13px;font-weight:bold;color:#888;padding-right:8px;white-space:nowrap">الرقم الشخصي</td>
-              <td style="font-size:13px;font-weight:bold;color:#111;direction:ltr">${athlete.id_number || '—'}</td>
+              <td style="font-size:13px;font-weight:bold;color:#888;padding-right:12px;white-space:nowrap">الرقم الشخصي</td>
+              <td style="font-size:13px;font-weight:500;color:#111;direction:ltr;padding-left:8px">${athlete.id_number || '—'}</td>
             </tr>
           </table>
         </td>
