@@ -99,7 +99,7 @@ ${myAthletes.length > 0 ? `<div class="section">
   setTimeout(() => win.print(), 500)
 }
 
-export default function Coaches({ coaches, athletes, onRefresh, onNav, initCoachId, profile }) {
+export default function Coaches({ coaches, athletes, onRefresh, onNav, initCoachId, navState, profile }) {
   const [search, setSearch]     = useState('')
   const [sport, setSport]       = useState('All sports')
   const [status, setStatus]     = useState('All statuses')
@@ -111,6 +111,16 @@ export default function Coaches({ coaches, athletes, onRefresh, onNav, initCoach
   const photoInput = useRef(null)
 
   useEffect(() => { if (initCoachId) setSelected(initCoachId) }, [initCoachId])
+
+  useEffect(() => {
+    if (navState?.reset) {
+      setSelected(null)
+      setSearch('')
+      setSport('All sports')
+      setStatus('All statuses')
+      setSort('name-asc')
+    }
+  }, [navState])
 
   const sports     = ['All sports', ...new Set(coaches.map(c => c.sport).filter(Boolean))]
   const hasFilters = search || sport !== 'All sports' || status !== 'All statuses'
