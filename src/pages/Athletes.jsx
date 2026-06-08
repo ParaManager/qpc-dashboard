@@ -5,6 +5,7 @@ import FormModal from '../components/FormModal'
 import { ConfirmModal, toast } from '../components/Toast'
 import { supabase } from '../lib/supabase'
 import { canEdit } from '../lib/useAuth'
+import { useLang } from '../lib/LangContext.jsx'
 import AthleteCardButton from '../components/AthleteCard'
 
 const DOC_TYPES  = [
@@ -168,6 +169,7 @@ function getPersonalBests(results) {
 }
 
 export default function Athletes({ athletes, coaches, results, documents, events, registrations, onRefresh, onNav, initAthleteId, initStatusFilter, navState, profile }) {
+  const { tx } = useLang()
   const [search, setSearch]         = useState('')
   const [sport, setSport]           = useState('All sports')
   const [status, setStatus]         = useState('All statuses')
@@ -591,17 +593,17 @@ ${a.notes ? `<div class="section">
           </div>
         )}
 
-        <button className="back-btn" onClick={() => setSelected(null)}><i className="ti ti-arrow-left" /> Back to athletes</button>
+        <button className="back-btn" onClick={() => setSelected(null)}><i className="ti ti-arrow-left" /> {tx('actions.back','Back')}</button>
         <div style={{ display:'flex', gap:10, marginBottom:16, flexWrap:'wrap' }}>
           {canEdit(profile) && <>
-            <button className="action-btn action-btn-edit" onClick={() => setForm('edit')}><i className="ti ti-pencil" /> Edit</button>
+            <button className="action-btn action-btn-edit" onClick={() => setForm('edit')}><i className="ti ti-pencil" /> {tx('actions.edit','Edit')}</button>
             <button className="action-btn action-btn-delete" onClick={() => setConfirm(true)}><i className="ti ti-trash" /> Delete</button>
           </>}
           <button className="action-btn action-btn-edit" onClick={() => exportPDF(a, coach, myResults, myDocs, myEvents)}
             style={{ borderColor:'#009F6B', color:'#009F6B' }}
             onMouseEnter={e => { e.currentTarget.style.background='#e6f4ee' }}
             onMouseLeave={e => { e.currentTarget.style.background='' }}>
-            <i className="ti ti-printer" /> Export PDF
+            <i className="ti ti-printer" /> {tx('actions.exportPDF','Export PDF')}
           </button>
           <AthleteCardButton athlete={a} />
         </div>
@@ -1061,11 +1063,11 @@ ${a.notes ? `<div class="section">
       {form && <FormModal type="athlete" record={null} coaches={coaches} onSave={handleSave} onClose={() => setForm(null)} />}
 
       <div className="page-header">
-        <div><div className="page-title">Athletes</div><div className="page-sub">{list.length} of {athletes.length} athletes</div></div>
+        <div><div className="page-title">{tx('pages.athletes','Athletes')}</div><div className="page-sub">{list.length} of {athletes.length} {tx('pages.athletes','athletes')}</div></div>
         <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
           {!editMode && (
             <button className="btn" style={{ background:'#009F6B' }} onClick={() => exportExcel(list, coaches, documents||[], visibleCols, ALL_COLS)}>
-              <i className="ti ti-table-export" /> Export Excel
+              <i className="ti ti-table-export" /> {tx('actions.exportExcel','Export Excel')}
             </button>
           )}
 
@@ -1101,7 +1103,7 @@ ${a.notes ? `<div class="section">
 
           {canEdit(profile) && !editMode && (
             <button className="action-btn action-btn-edit" style={{ padding:'8px 14px', fontSize:13 }} onClick={startEdit}>
-              <i className="ti ti-table-options" /> Edit list
+              <i className="ti ti-table-options" /> {tx('actions.editList','Edit list')}
             </button>
           )}
           {editMode && (
@@ -1116,7 +1118,7 @@ ${a.notes ? `<div class="section">
             </>
           )}
           {canEdit(profile) && !editMode && (
-            <button className="btn btn-blue" onClick={() => setForm('new')}><i className="ti ti-plus" /> Add athlete</button>
+            <button className="btn btn-blue" onClick={() => setForm('new')}><i className="ti ti-plus" /> {tx('athletes.addAthlete','Add athlete')}</button>
           )}
         </div>
       </div>
@@ -1130,11 +1132,11 @@ ${a.notes ? `<div class="section">
       )}
 
       <div className="filters">
-        <div className="search-wrap"><i className="ti ti-search" /><input placeholder="Search by name, sport…" value={search} onChange={e => setSearch(e.target.value)} /></div>
+        <div className="search-wrap"><i className="ti ti-search" /><input placeholder={tx('filters.searchAthletes','Search by name, sport…')} value={search} onChange={e => setSearch(e.target.value)} /></div>
         {hasActiveFilters && (
           <button onClick={resetFilters}
             style={{ display:'flex', alignItems:'center', gap:5, padding:'8px 12px', borderRadius:9, border:'1px solid #fca5a5', background:'#fef2f2', color:'#dc2626', fontSize:12, cursor:'pointer', fontFamily:'DM Sans, sans-serif', whiteSpace:'nowrap' }}>
-            <i className="ti ti-x" style={{ fontSize:13 }} /> Reset filters
+            <i className="ti ti-x" style={{ fontSize:13 }} /> {tx('actions.resetFilters','Reset filters')}
           </button>
         )}
       </div>

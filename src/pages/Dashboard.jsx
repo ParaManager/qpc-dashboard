@@ -18,10 +18,10 @@ export default function Dashboard({ athletes, coaches, events, results, onNav })
 
       <div className="stat-grid">
         {[
-          { label:'Total Athletes', val:athletes.length, hint:`${active} active this season`, color:'#0085C7', click:() => onNav('athletes', { statusFilter:'Active' }) },
-          { label:'Active Events',  val:upcoming,        hint:`${upcoming} upcoming`,         color:'#EE334E', click:() => onNav('events',  { statusFilter:'Upcoming' }) },
-          { label:'Coaches',        val:coaches.length,  hint:`${[...new Set(coaches.map(c=>c.sport))].length} sports covered`, color:'#009F6B', click:() => onNav('coaches') },
-          { label:'Gold Medals',    val:gold,            hint:'season total',                 color:'#f1c40f', click:() => onNav('results') },
+          { label:tx('dashboard.totalAthletes','Total Athletes'), val:athletes.length, hint:`${active} active this season`, color:'#0085C7', click:() => onNav('athletes', { statusFilter:'Active' }) },
+          { label:tx('dashboard.activeEvents','Active Events'),  val:upcoming,        hint:`${upcoming} upcoming`,         color:'#EE334E', click:() => onNav('events',  { statusFilter:'Upcoming' }) },
+          { label:tx('nav.coaches','Coaches'),        val:coaches.length,  hint:`${[...new Set(coaches.map(c=>c.sport))].length} sports covered`, color:'#009F6B', click:() => onNav('coaches') },
+          { label:tx('dashboard.goldMedals','Gold Medals'),    val:gold,            hint:tx('dashboard.seasonTotal','season total'),                 color:'#f1c40f', click:() => onNav('results') },
         ].map(({ label, val, hint, color, click }) => (
           <div key={label} className="stat-card" onClick={click}>
             <div className="stat-label"><div className="stat-dot" style={{ background:color }} />{label}</div>

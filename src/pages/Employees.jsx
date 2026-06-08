@@ -3,6 +3,7 @@ import { initials } from '../lib/helpers'
 import { ConfirmModal, toast } from '../components/Toast'
 import { supabase } from '../lib/supabase'
 import { canEdit } from '../lib/useAuth'
+import { useLang } from '../lib/LangContext.jsx'
 import PersonDocuments from '../components/PersonDocuments'
 import * as XLSX from 'xlsx'
 
@@ -113,6 +114,7 @@ function exportEmployeesExcel(list) {
 }
 
 export default function Employees({ employees, personDocs, onRefresh, onNav, navState, profile }) {
+  const { tx } = useLang()
   const [search, setSearch]         = useState('')
   const [sort, setSort]             = useState('name-asc')
   const [colFilters, setColFilters] = useState({})
@@ -288,7 +290,7 @@ export default function Employees({ employees, personDocs, onRefresh, onNav, nav
           <ConfirmModal title="Delete employee" message={`Delete ${emp.name}?`}
             onConfirm={() => handleDelete(emp.id, emp.name)} onCancel={() => setConfirm(null)} />
         )}
-        <button className="back-btn" onClick={() => setSelected(null)}><i className="ti ti-arrow-left" /> Back to employees</button>
+        <button className="back-btn" onClick={() => setSelected(null)}><i className="ti ti-arrow-left" /> {tx('actions.back','Back')}</button>
         <div style={{ display:'flex', gap:10, marginBottom:16, flexWrap:'wrap' }}>
           {canEdit(profile) && <>
             <button className="action-btn action-btn-edit" onClick={() => setEditForm({ ...emp })}><i className="ti ti-pencil" /> Edit</button>
@@ -362,7 +364,7 @@ export default function Employees({ employees, personDocs, onRefresh, onNav, nav
         <EmpModal data={editForm||{}} isEdit={!!editForm} onClose={() => { setAddModal(false); setEditForm(null) }} />
       )}
       <div className="page-header">
-        <div><div className="page-title">Employees</div><div className="page-sub">{list.length} of {employees.length} employees</div></div>
+        <div><div className="page-title">{tx('pages.employees','Employees')}</div><div className="page-sub">{list.length} of {employees.length} employees</div></div>
         <div style={{ display:'flex', gap:8 }}>
           <button className="btn" style={{ background:'#009F6B' }} onClick={() => exportEmployeesExcel(list)}>
             <i className="ti ti-table-export" /> Export Excel
@@ -374,7 +376,7 @@ export default function Employees({ employees, personDocs, onRefresh, onNav, nav
             </button>
           )}
           {canEdit(profile) && (
-            <button className="btn btn-blue" onClick={() => setAddModal(true)}><i className="ti ti-plus" /> Add employee</button>
+            <button className="btn btn-blue" onClick={() => setAddModal(true)}><i className="ti ti-plus" /> {tx('employees.addEmployee','Add employee')}</button>
           )}
         </div>
       </div>

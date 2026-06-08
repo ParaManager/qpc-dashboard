@@ -4,6 +4,7 @@ import FormModal from '../components/FormModal'
 import { ConfirmModal, toast } from '../components/Toast'
 import { supabase } from '../lib/supabase'
 import { canEdit } from '../lib/useAuth'
+import { useLang } from '../lib/LangContext.jsx'
 import PersonDocuments from '../components/PersonDocuments'
 
 function exportCoachPDF(coach, myAthletes) {
@@ -111,6 +112,7 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
   const [uploading, setUploading] = useState(false)
   const photoInput = useRef(null)
 
+  const { tx } = useLang()
   useEffect(() => { if (initCoachId) setSelected(initCoachId) }, [initCoachId])
 
   useEffect(() => {
@@ -222,7 +224,7 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
             onConfirm={() => handleDelete(c.id, c.name)} onCancel={() => setConfirm(null)} />
         )}
 
-        <button className="back-btn" onClick={() => setSelected(null)}><i className="ti ti-arrow-left" /> Back to coaches</button>
+        <button className="back-btn" onClick={() => setSelected(null)}><i className="ti ti-arrow-left" /> {tx('actions.back','Back')}</button>
         <div style={{ display:'flex', gap:10, marginBottom:16, flexWrap:'wrap' }}>
           {canEdit(profile) && <>
             <button className="action-btn action-btn-edit" onClick={() => setForm('edit')}><i className="ti ti-pencil" /> Edit</button>
@@ -351,7 +353,7 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
     <div>
       {form && <FormModal type="coach" record={null} coaches={coaches} athletes={athletes} onSave={handleSave} onClose={() => setForm(null)} />}
       <div className="page-header">
-        <div><div className="page-title">Coaches</div><div className="page-sub">{list.length} of {coaches.length} coaches</div></div>
+        <div><div className="page-title">{tx('pages.coaches','Coaches')}</div><div className="page-sub">{list.length} of {coaches.length} coaches</div></div>
         <div style={{ display:'flex', gap:8 }}>
           {hasFilters && (
             <button onClick={() => { setSearch(''); setSport('All sports'); setStatus('All statuses') }}
@@ -360,7 +362,7 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
             </button>
           )}
           {canEdit(profile) && (
-            <button className="btn btn-green" onClick={() => setForm('new')}><i className="ti ti-plus" /> Add coach</button>
+            <button className="btn btn-green" onClick={() => setForm('new')}><i className="ti ti-plus" /> {tx('coaches.addCoach','Add coach')}</button>
           )}
         </div>
       </div>
