@@ -29,8 +29,14 @@ export function LangProvider({ children }) {
     return t(arPath) || enFallback
   }
 
+  // Translate country name
+  const tc = (country) => {
+    if (!country || lang === 'en') return country
+    return AR.countries?.[country] || country
+  }
+
   return (
-    <LangContext.Provider value={{ lang, setLang, t, tx }}>
+    <LangContext.Provider value={{ lang, setLang, t, tx, tc }}>
       {children}
     </LangContext.Provider>
   )
@@ -38,4 +44,9 @@ export function LangProvider({ children }) {
 
 export function useLang() {
   return useContext(LangContext)
+}
+
+export function useCountry() {
+  const { tc } = useLang()
+  return tc
 }

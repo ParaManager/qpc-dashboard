@@ -234,3 +234,23 @@ export const AR = {
 }
 
 export default AR
+  countries: {
+    'Qatar':'قطر', 'Egypt':'مصر', 'Algeria':'الجزائر', 'Morocco':'المغرب',
+    'Tunisia':'تونس', 'Libya':'ليبيا', 'Sudan':'السودان', 'Jordan':'الأردن',
+    'Saudi Arabia':'المملكة العربية السعودية', 'UAE':'الإمارات', 'Kuwait':'الكويت',
+    'Bahrain':'البحرين', 'Oman':'عُمان', 'Iraq':'العراق', 'Syria':'سوريا',
+    'Lebanon':'لبنان', 'Palestine':'فلسطين', 'Yemen':'اليمن', 'Somalia':'الصومال',
+    'Pakistan':'باكستان', 'India':'الهند', 'Bangladesh':'بنغلاديش',
+    'Philippines':'الفلبين', 'Indonesia':'إندونيسيا', 'Sri Lanka':'سريلانكا',
+    'Nepal':'نيبال', 'Iran':'إيران', 'Turkey':'تركيا', 'Afghanistan':'أفغانستان',
+    'Nigeria':'نيجيريا', 'Ghana':'غانا', 'Kenya':'كينيا', 'Ethiopia':'إثيوبيا',
+    'Cameroon':'الكاميرون', 'Senegal':'السنغال', 'Tanzania':'تنزانيا',
+    'Uganda':'أوغندا', 'Rwanda':'رواندا', 'Mali':'مالي', 'Guinea':'غينيا',
+    'France':'فرنسا', 'Spain':'إسبانيا', 'Germany':'ألمانيا', 'Italy':'إيطاليا',
+    'UK':'المملكة المتحدة', 'USA':'الولايات المتحدة', 'Canada':'كندا',
+    'Australia':'أستراليا', 'Brazil':'البرازيل', 'Argentina':'الأرجنتين',
+    'Russia':'روسيا', 'China':'الصين', 'Japan':'اليابان', 'South Korea':'كوريا الجنوبية',
+    'Azerbaijan':'أذربيجان', 'Kazakhstan':'كازاخستان', 'Uzbekistan':'أوزبكستان',
+    'KSA':'المملكة العربية السعودية',
+  },
+}
