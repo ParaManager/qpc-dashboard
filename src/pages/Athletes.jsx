@@ -1092,9 +1092,9 @@ ${a.notes ? `<div class="section">
                     </label>
                   ))}
                   <div style={{ padding:'8px 12px 0', borderTop:'1px solid var(--border)', marginTop:4, display:'flex', gap:6, flexWrap:'wrap' }}>
-                    <button onClick={() => setVisibleCols(ALL_COLS.map(c=>c.key))} style={{ flex:1, padding:'5px', fontSize:11, background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:7, cursor:'pointer', color:'var(--text2)' }}>All</button>
-                    <button onClick={() => setVisibleCols(ALL_COLS.filter(c=>c.default).map(c=>c.key))} style={{ flex:1, padding:'5px', fontSize:11, background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:7, cursor:'pointer', color:'var(--text2)' }}>Default</button>
-                    <button onClick={() => setVisibleCols(['name'])} style={{ flex:1, padding:'5px', fontSize:11, background:'#fef2f2', border:'1px solid #fca5a5', borderRadius:7, cursor:'pointer', color:'#dc2626' }}>None</button>
+                    <button onClick={() => setVisibleCols(ALL_COLS.map(c=>c.key))} style={{ flex:1, padding:'5px', fontSize:11, background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:7, cursor:'pointer', color:'var(--text2)' }}>{tx('filters.all','All')}</button>
+                    <button onClick={() => setVisibleCols(ALL_COLS.filter(c=>c.default).map(c=>c.key))} style={{ flex:1, padding:'5px', fontSize:11, background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:7, cursor:'pointer', color:'var(--text2)' }}>{tx('filters.default','Default')}</button>
+                    <button onClick={() => setVisibleCols(['name'])} style={{ flex:1, padding:'5px', fontSize:11, background:'#fef2f2', border:'1px solid #fca5a5', borderRadius:7, cursor:'pointer', color:'#dc2626' }}>{tx('filters.none','None')}</button>
                   </div>
                 </div>
               )}
@@ -1132,7 +1132,7 @@ ${a.notes ? `<div class="section">
       )}
 
       <div className="filters">
-        <div className="search-wrap"><i className="ti ti-search" /><input placeholder={tx('filters.searchAthletes','Search by name, sport…')} value={search} onChange={e => setSearch(e.target.value)} /></div>
+        <div className="search-wrap"><i className="ti ti-search" /><input placeholder={tx('athletes.searchAthletes','Search by name, sport…')} value={search} onChange={e => setSearch(e.target.value)} /></div>
         {hasActiveFilters && (
           <button onClick={resetFilters}
             style={{ display:'flex', alignItems:'center', gap:5, padding:'8px 12px', borderRadius:9, border:'1px solid #fca5a5', background:'#fef2f2', color:'#dc2626', fontSize:12, cursor:'pointer', fontFamily:'DM Sans, sans-serif', whiteSpace:'nowrap' }}>
@@ -1200,7 +1200,7 @@ ${a.notes ? `<div class="section">
                           }
                         }}
                         style={{ fontSize:11, border:'1px solid var(--border)', borderRadius:6, padding:'3px 4px', background:'var(--surface)', color: filterVal !== 'All' ? '#0085C7' : 'var(--text3)', cursor:'pointer', outline:'none', fontWeight: filterVal !== 'All' ? 600 : 400, maxWidth:120 }}>
-                        {opts.map(o => <option key={o}>{o}</option>)}
+                        {opts.map(o => <option key={o} value={o}>{(filterLabels[c.key]?.[o]) || o}</option>)}
                       </select>
                     </th>
                   )

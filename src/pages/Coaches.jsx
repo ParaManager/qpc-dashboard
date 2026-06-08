@@ -125,7 +125,8 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
     }
   }, [navState])
 
-  const sports     = ['All sports', ...new Set(coaches.map(c => c.sport).filter(Boolean))]
+  const sportsRaw  = ['All sports', ...new Set(coaches.map(c => c.sport).filter(Boolean))]
+  const sportLabel = s => s === 'All sports' ? tx('filters.allSports','All sports') : s
   const hasFilters = search || sport !== 'All sports' || status !== 'All statuses'
 
   let list = coaches.filter(c =>
@@ -368,8 +369,8 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
       </div>
       <div className="filters">
         <div className="search-wrap"><i className="ti ti-search" /><input placeholder={tx("coaches.searchCoaches","Search by name, sport…")} value={search} onChange={e => setSearch(e.target.value)} /></div>
-        <select className="filter" value={sport} onChange={e => setSport(e.target.value)}>{sports.map(s => <option key={s}>{s}</option>)}</select>
-        <select className="filter" value={status} onChange={e => setStatus(e.target.value)}>{[tx('filters.allStatuses','All statuses'),tx('status.active','Active'),tx('status.onLeave','On Leave'),tx('status.inactive','Inactive')].map(s => <option key={s}>{s}</option>)}</select>
+        <select className="filter" value={sport} onChange={e => setSport(e.target.value)}>{sportsRaw.map(s => <option key={s} value={s}>{sportLabel(s)}</option>)}</select>
+        <select className="filter" value={status} onChange={e => setStatus(e.target.value)}>{[['All statuses',tx('filters.allStatuses','All statuses')],['Active',tx('status.active','Active')],['On Leave',tx('status.onLeave','On Leave')],['Inactive',tx('status.inactive','Inactive')]].map(([val,lbl]) => <option key={val} value={val}>{lbl}</option>)}</select>
         <select className="filter" value={sort} onChange={e => setSort(e.target.value)}>
           <option value="name-asc">{tx('filters.nameAZ','Name A→Z')}</option>
           <option value="name-desc">{tx('filters.nameZA','Name Z→A')}</option>

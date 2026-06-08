@@ -132,12 +132,17 @@ export default function Employees({ employees, personDocs, onRefresh, onNav, nav
   }, [navState])
 
   const hasFilters = search || Object.values(colFilters).some(v => v && v !== 'All')
+  const statusLabels = { 'All statuses':tx('filters.allStatuses','All statuses'), 'Active':tx('status.active','Active'), 'On Leave':tx('status.onLeave','On Leave'), 'Inactive':tx('status.inactive','Inactive') }
 
   const COL_FILTERS = {
     designation: ['All', ...DESIGNATIONS.slice(1)],
     nationality: ['All', ...new Set(employees.map(e => e.nationality).filter(Boolean))].sort(),
     gender:      ['All','Male','Female'],
     status:      ['All','Active','On Leave','Inactive'],
+  }
+  const COL_FILTER_LABELS = {
+    gender: { 'All':tx('filters.all','All'), 'Male':tx('form.male','Male'), 'Female':tx('form.female','Female') },
+    status: { 'All':tx('filters.all','All'), 'Active':tx('status.active','Active'), 'On Leave':tx('status.onLeave','On Leave'), 'Inactive':tx('status.inactive','Inactive') },
   }
 
   let list = employees.filter(e =>
@@ -394,13 +399,13 @@ export default function Employees({ employees, personDocs, onRefresh, onNav, nav
         <table>
           <thead>
             <tr>
-              <SortTh field="name">Employee</SortTh>
-              <SortTh field="desig">Designation</SortTh>
-              <SortTh field="nat">Nationality</SortTh>
-              <th>Gender</th>
-              <th>Employee #</th>
-              <th>QSS #</th>
-              <th>Status</th>
+              <SortTh field="name">{tx('employees.employee','Employee')}</SortTh>
+              <SortTh field="desig">{tx('employees.designation','Designation')}</SortTh>
+              <SortTh field="nat">{tx('employees.nationality','Nationality')}</SortTh>
+              <th>{tx('employees.gender','Gender')}</th>
+              <th>{tx('employees.employeeNum','Employee #')}</th>
+              <th>{tx('employees.qssNum','QSS #')}</th>
+              <th>{tx('employees.status','Status')}</th>
               <th />
             </tr>
             <tr style={{ background:'#f8f9fb' }}>
@@ -419,7 +424,7 @@ export default function Employees({ employees, personDocs, onRefresh, onNav, nav
                       value={colFilters[key] || 'All'}
                       onChange={e => setColFilters(f => ({ ...f, [key]: e.target.value }))}
                       style={{ fontSize:11, border:'1px solid var(--border)', borderRadius:6, padding:'3px 4px', background:'var(--surface)', color:(colFilters[key]&&colFilters[key]!=='All')?'#0085C7':'var(--text3)', cursor:'pointer', outline:'none', fontWeight:(colFilters[key]&&colFilters[key]!=='All')?600:400, maxWidth:130 }}>
-                      {COL_FILTERS[key].map(o => <option key={o}>{o}</option>)}
+                      {COL_FILTERS[key].map(o => <option key={o} value={o}>{COL_FILTER_LABELS[key]?.[o] || o}</option>)}
                     </select>
                   ) : null}
                 </th>

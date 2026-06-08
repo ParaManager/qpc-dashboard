@@ -17,7 +17,7 @@ export default function Dashboard({ athletes, coaches, events, results, onNav, p
       <div className="page-header">
         <div>
           <div className="page-title">{tx('pages.dashboard','Dashboard')}</div>
-          <div className="page-sub">Qatar Paralympic Committee · {tx('nav.season','Season')} 2026</div>
+          <div className="page-sub">{tx('dashboard.qpc','Qatar Paralympic Committee')} · {tx('nav.season','Season')} 2026</div>
         </div>
       </div>
 
