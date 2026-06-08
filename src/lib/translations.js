@@ -68,6 +68,16 @@ export const AR = {
     noCoachesMatch:'لا يوجد مدربون مطابقون', searchCoaches:'بحث عن مدرب...',
   },
   employees: {
+    assistantCoach:'مدرب مساعد', technicalExpert:'خبير تقني',
+    physiotherapist:'معالج فيزيائي', doctor:'طبيب',
+    secretaryGeneral:'الأمين العام', executiveManager:'مدير تنفيذي',
+    adminSecretary:'سكرتير إداري', secretaryAssistant:'مساعد سكرتير',
+    adminNational:'إداري الفريق الوطني', adminYouth:'إداري فريق الشباب',
+    adminCenter:'إداري المركز والتطوير', accountant:'محاسب',
+    pr:'مسؤول علاقات عامة', receptionist:'موظف استقبال',
+    boardMember:'عضو مجلس إدارة', official:'مسؤول', delegate:'مندوب',
+    employeeRole:'موظف', storeKeeper:'أمين مخزن', waiter:'نادل',
+    worker:'عامل', driver:'سائق',
     employee:'الموظف', designation:'المسمى الوظيفي', nationality:'الجنسية',
     gender:'الجنس', employeeNum:'رقم الموظف', qssNum:'رقم QSS',
     status:'الحالة', addEmployee:'إضافة موظف',
@@ -105,7 +115,7 @@ export const AR = {
     noAthletes:'لا يوجد رياضيون', noEvents:'لا توجد فعاليات',
   },
   status: {
-    'On Leave':'في إجازة',
+    'On Leave':'في إجازة', onLeave:'في إجازة', suspended:'موقوف',
         onLeave:'في إجازة', 'On Leave':'في إجازة',
     
     active:'نشط', inactive:'غير نشط', suspended:'موقوف',
