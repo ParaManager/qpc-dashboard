@@ -4,6 +4,7 @@ import FormModal from '../components/FormModal'
 import { ConfirmModal, toast } from '../components/Toast'
 import { supabase } from '../lib/supabase'
 import { canEdit } from '../lib/useAuth'
+import PersonDocuments from '../components/PersonDocuments'
 
 function exportCoachPDF(coach, myAthletes) {
   const totalMedals = myAthletes.reduce((s,a) => s + (a.medals_gold||0) + (a.medals_silver||0) + (a.medals_bronze||0), 0)
@@ -99,7 +100,7 @@ ${myAthletes.length > 0 ? `<div class="section">
   setTimeout(() => win.print(), 500)
 }
 
-export default function Coaches({ coaches, athletes, onRefresh, onNav, initCoachId, navState, profile }) {
+export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNav, initCoachId, navState, profile }) {
   const [search, setSearch]     = useState('')
   const [sport, setSport]       = useState('All sports')
   const [status, setStatus]     = useState('All statuses')
@@ -149,6 +150,10 @@ export default function Coaches({ coaches, athletes, onRefresh, onNav, initCoach
       license: formData.license, since: formData.since || null,
       email: formData.email, phone: formData.phone, status: formData.status,
       qss_number: formData.qssNumber, employee_number: formData.employeeNumber,
+      passport_number: formData.passportNumber || null,
+      passport_expiry: formData.passportExpiry || null,
+      id_number: formData.idNumber || null,
+      id_expiry: formData.idExpiry || null,
     }
     if (!payload.name) { toast('Name is required', 'error'); return }
     const { error } = isEdit
@@ -207,6 +212,8 @@ export default function Coaches({ coaches, athletes, onRefresh, onNav, initCoach
               gender:c.gender, sport:c.sport, certLevel:c.cert_level,
               license:c.license, since:c.since, email:c.email, phone:c.phone,
               status:c.status, qssNumber:c.qss_number, employeeNumber:c.employee_number,
+              passportNumber:c.passport_number, passportExpiry:c.passport_expiry,
+              idNumber:c.id_number, idExpiry:c.id_expiry,
             } : null}
             coaches={coaches} athletes={athletes} onSave={handleSave} onClose={() => setForm(null)} />
         )}
@@ -270,6 +277,10 @@ export default function Coaches({ coaches, athletes, onRefresh, onNav, initCoach
                 ['Nationality', c.nationality],
                 ['Gender', c.gender],
                 ['With QPC since', c.since],
+                ['Passport #', c.passport_number],
+                ['Passport expiry', c.passport_expiry],
+                ['ID / Residence #', c.id_number],
+                ['ID expiry', c.id_expiry],
                 ['Email', c.email],
                 ['Phone', c.phone],
               ].map(([k,v]) => (
@@ -320,6 +331,16 @@ export default function Coaches({ coaches, athletes, onRefresh, onNav, initCoach
             }
           </div>
         </div>
+
+        {/* DOCUMENTS */}
+        <PersonDocuments
+          personId={c.id}
+          personType="coach"
+          personName={c.name}
+          docs={personDocs}
+          onRefresh={onRefresh}
+          profile={profile}
+        />
         <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
       </div>
     )

@@ -3,6 +3,7 @@ import { initials } from '../lib/helpers'
 import { ConfirmModal, toast } from '../components/Toast'
 import { supabase } from '../lib/supabase'
 import { canEdit } from '../lib/useAuth'
+import PersonDocuments from '../components/PersonDocuments'
 import * as XLSX from 'xlsx'
 
 const DESIGNATIONS = [
@@ -111,7 +112,7 @@ function exportEmployeesExcel(list) {
   XLSX.writeFile(wb, `QPC_Employees_${new Date().toISOString().slice(0,10)}.xlsx`)
 }
 
-export default function Employees({ employees, onRefresh, onNav, navState, profile }) {
+export default function Employees({ employees, personDocs, onRefresh, onNav, navState, profile }) {
   const [search, setSearch]         = useState('')
   const [sort, setSort]             = useState('name-asc')
   const [colFilters, setColFilters] = useState({})
@@ -340,6 +341,14 @@ export default function Employees({ employees, onRefresh, onNav, navState, profi
               <p style={{ fontSize:13, color:'var(--text2)', lineHeight:1.6 }}>{emp.notes}</p>
             </div>
           )}
+          <PersonDocuments
+            personId={emp.id}
+            personType="employee"
+            personName={emp.name}
+            docs={personDocs}
+            onRefresh={onRefresh}
+            profile={profile}
+          />
         </div>
         <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
       </div>
