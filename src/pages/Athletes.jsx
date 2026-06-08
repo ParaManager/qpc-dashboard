@@ -597,7 +597,7 @@ ${a.notes ? `<div class="section">
         <div style={{ display:'flex', gap:10, marginBottom:16, flexWrap:'wrap' }}>
           {canEdit(profile) && <>
             <button className="action-btn action-btn-edit" onClick={() => setForm('edit')}><i className="ti ti-pencil" /> {tx('actions.edit','Edit')}</button>
-            <button className="action-btn action-btn-delete" onClick={() => setConfirm(true)}><i className="ti ti-trash" /> Delete</button>
+            <button className="action-btn action-btn-delete" onClick={() => setConfirm(true)}><i className="ti ti-trash" /> {tx('actions.delete','Delete')}</button>
           </>}
           <button className="action-btn action-btn-edit" onClick={() => exportPDF(a, coach, myResults, myDocs, myEvents)}
             style={{ borderColor:'#009F6B', color:'#009F6B' }}
@@ -653,7 +653,7 @@ ${a.notes ? `<div class="section">
               )}
 
               <div className="detail-fields">
-                {[['Date of birth',a.dob],['Gender',a.gender],['Nationality',a.nationality],['Phone',a.phone],['Email',a.email],['Joined QPC',a.join_date]].map(([k,v]) => (
+                {[[tx('form.dateOfBirth','Date of birth'),a.dob],[tx('form.gender','Gender'),a.gender],[tx('form.nationality','Nationality'),a.nationality],[tx('form.phone','Phone'),a.phone],[tx('form.email','Email'),a.email],[tx('athletes.joinedQPC','Joined QPC'),a.join_date]].map(([k,v]) => (
                   <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv">{v||'—'}</span></div>
                 ))}
               </div>
@@ -685,21 +685,21 @@ ${a.notes ? `<div class="section">
           <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
             {/* SPORT */}
             <div className="info-card">
-              <div className="info-title">Sport & classification</div>
-              {[['Sport',a.sport],['Classification',a.classification],['Disability type',a.disability],['Club',a.club],['Designation',a.designation],['Residency status',a.residency_status]].map(([k,v]) => (
+              <div className="info-title">{tx('athletes.sportClassification','Sport & classification')}</div>
+              {[[tx('form.sport','Sport'),a.sport],[tx('form.classification','Classification'),a.classification],[tx('form.disability','Disability type'),a.disability],[tx('form.club','Club'),a.club],[tx('form.designation','Designation'),a.designation],[tx('form.residencyStatus','Residency status'),a.residency_status]].map(([k,v]) => (
                 <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv">{v||'—'}</span></div>
               ))}
             </div>
 
             {/* COACH */}
             <div className="info-card">
-              <div className="info-title">Head coach <span style={{ fontSize:10, fontWeight:400, textTransform:'none', letterSpacing:0 }}>— click to view</span></div>
+              <div className="info-title">{tx('profile.headCoach','Head coach')} <span style={{ fontSize:10, fontWeight:400, textTransform:'none', letterSpacing:0 }}>— {tx('athletes.clickToView','click to view')}</span></div>
               {coach ? (
                 <DashRow onClick={() => onNav('coaches', { coachId: coach.id })}>
                   <div className="av" style={{ width:28, height:28, fontSize:10, background:'#009F6B', flexShrink:0 }}>{initials(coach.name)}</div>
                   <div style={{ flex:1 }}><div style={{ fontSize:13, fontWeight:500 }}>{coach.name}</div><div style={{ fontSize:11, color:'#9aa3b2' }}>{coach.sport} · {coach.cert_level}</div></div>
                 </DashRow>
-              ) : <div style={{ padding:'8px 0', fontSize:13, color:'var(--text3)' }}>No coach assigned</div>}
+              ) : <div style={{ padding:'8px 0', fontSize:13, color:'var(--text3)' }}>{tx('athletes.noCoachAssigned','No coach assigned')}</div>}
             </div>
 
             {/* PASSPORT & ID */}
@@ -708,7 +708,7 @@ ${a.notes ? `<div class="section">
                 <div className="info-title">Passport & ID</div>
                 {a.passport_number && (
                   <>
-                    {[['Passport number', a.passport_number], ['Passport expiry', a.passport_expiry]].map(([k,v]) => (
+                    {[[tx('form.passportNumber','Passport number'), a.passport_number], [tx('form.passportExpiry','Passport expiry'), a.passport_expiry]].map(([k,v]) => (
                       <div key={k} className="detail-row">
                         <span className="dk">{k}</span>
                         <span className="dv" style={{ color: v && new Date(v) < new Date() ? '#dc2626' : 'inherit' }}>
@@ -742,7 +742,7 @@ ${a.notes ? `<div class="section">
                 {[
                   ['Name', a.emergency_contact_name],
                   ['Relationship', a.emergency_contact_relation],
-                  ['Phone', a.emergency_contact_phone],
+                  [tx('form.contactPhone','Phone'), a.emergency_contact_phone],
                 ].map(([k,v]) => v ? (
                   <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv">{v}</span></div>
                 ) : null)}
@@ -759,7 +759,7 @@ ${a.notes ? `<div class="section">
                 {[
                   ['Blood type', a.blood_type],
                   ['Allergies', a.allergies],
-                  ['Medical conditions', a.medical_conditions],
+                  [tx('form.medicalConditions','Medical conditions'), a.medical_conditions],
                 ].map(([k,v]) => v ? (
                   <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv">{v}</span></div>
                 ) : null)}
@@ -769,7 +769,7 @@ ${a.notes ? `<div class="section">
             {/* PERSONAL BESTS */}
             {bests.length > 0 && (
               <div className="info-card">
-                <div className="info-title">Personal bests</div>
+                <div className="info-title">{tx('profile.personalBests','Personal bests')}</div>
                 {bests.map(r => (
                   <div key={r.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 0', borderBottom:'1px solid var(--border)' }}>
                     <span style={{ fontSize:16, flexShrink:0 }}>{r.medal==='gold'?'🥇':r.medal==='silver'?'🥈':r.medal==='bronze'?'🥉':'📋'}</span>
@@ -786,11 +786,11 @@ ${a.notes ? `<div class="section">
             {/* COMPETITION HISTORY */}
             <div className="info-card">
               <div className="info-title" style={{ marginBottom:14 }}>
-                Competition history
-                <span style={{ marginLeft:8, fontSize:11, fontWeight:400, color:'var(--text3)', textTransform:'none', letterSpacing:0 }}>{myEvents.length} event{myEvents.length !== 1 ? 's' : ''}</span>
+                {tx('profile.competitionHistory','Competition history')}
+                <span style={{ marginLeft:8, fontSize:11, fontWeight:400, color:'var(--text3)', textTransform:'none', letterSpacing:0 }}>{myEvents.length}</span>
               </div>
               {myEvents.length === 0
-                ? <div className="empty" style={{ padding:'16px 0' }}>Not registered in any events yet.</div>
+                ? <div className="empty" style={{ padding:'16px 0' }}>{tx('athletes.notRegistered','Not registered in any events yet.')}</div>
                 : <div style={{ position:'relative' }}>
                     <div style={{ position:'absolute', left:15, top:6, bottom:6, width:2, background:'var(--border)', borderRadius:2 }} />
                     {myEvents.map(ev => {
@@ -834,7 +834,7 @@ ${a.notes ? `<div class="section">
                 {notesChanged && canEdit(profile) && (
                   <button onClick={() => saveNotes(a.id)} disabled={savingNotes}
                     style={{ padding:'4px 12px', background:'#0085C7', color:'#fff', border:'none', borderRadius:7, fontSize:12, fontWeight:500, cursor:'pointer', display:'flex', alignItems:'center', gap:5, fontFamily:'DM Sans, sans-serif' }}>
-                    {savingNotes ? 'Saving…' : <><i className="ti ti-device-floppy" style={{ fontSize:13 }} /> Save</>}
+                    {savingNotes ? tx('actions.saving','Saving…') : <><i className="ti ti-device-floppy" style={{ fontSize:13 }} /> {tx('actions.save','Save')}</>}
                   </button>
                 )}
               </div>
@@ -842,7 +842,7 @@ ${a.notes ? `<div class="section">
                 ? <textarea
                     value={notes}
                     onChange={e => { setNotes(e.target.value); setNotesChanged(true) }}
-                    placeholder="Add notes about this athlete — injury history, training observations, personal bests context…"
+                    placeholder={tx("athletes.notesPlaceholder","Add notes about this athlete…")}
                     style={{ width:'100%', minHeight:100, padding:'10px 12px', borderRadius:9, border:'1px solid var(--border)', background:'var(--surface)', fontSize:13, color:'var(--text)', outline:'none', resize:'vertical', fontFamily:'DM Sans, sans-serif', lineHeight:1.6, transition:'border .15s' }}
                     onFocus={e => e.target.style.borderColor='#0085C7'}
                     onBlur={e => e.target.style.borderColor='var(--border)'}
@@ -872,7 +872,7 @@ ${a.notes ? `<div class="section">
                 </div>
               )}
               {myDocs.length === 0
-                ? <div className="empty" style={{ padding:'20px 0' }}>No documents uploaded yet.</div>
+                ? <div className="empty" style={{ padding:'20px 0' }}>{tx('docs.noDocuments','No documents uploaded yet.')}</div>
                 : DOC_TYPES.map(type => {
                     const typeDocs = docsByType[type]
                     if (typeDocs.length === 0) return null
@@ -946,32 +946,32 @@ ${a.notes ? `<div class="section">
 
   // ── COLUMN DEFINITIONS ──
   const ALL_COLS = [
-    { key:'name',            label:'Athlete',          default:true,  editable:true  },
-    { key:'name_ar',         label:'Arabic Name',      default:false, editable:false },
-    { key:'qss_number',      label:'QSS #',            default:false, editable:false },
-    { key:'id_number',       label:'Qatar ID',         default:false, editable:false },
-    { key:'career_profile',  label:'Career Profile #', default:false, editable:false },
-    { key:'sport',           label:'Sport',            default:true,  editable:true  },
-    { key:'classification',  label:'Classification',   default:true,  editable:true  },
-    { key:'disability',      label:'Disability',       default:false, editable:false },
-    { key:'nationality',     label:'Nationality',      default:true,  editable:true  },
-    { key:'gender',          label:'Gender',           default:false, editable:false },
-    { key:'dob',             label:'Date of Birth',    default:false, editable:false },
-    { key:'age_category',    label:'Age Category',     default:false, editable:false },
-    { key:'coach_id',        label:'Coach',            default:true,  editable:true  },
-    { key:'status',          label:'Status',           default:true,  editable:true  },
-    { key:'medical_status',  label:'Medical Status',   default:false, editable:false },
-    { key:'phone',           label:'Phone',            default:false, editable:false },
-    { key:'email',           label:'Email',            default:false, editable:false },
-    { key:'join_date',       label:'Joined QPC',       default:false, editable:false },
-    { key:'passport_number', label:'Passport No',      default:false, editable:false },
-    { key:'passport_expiry', label:'Passport Expiry',  default:false, editable:false },
-    { key:'id_expiry',       label:'ID Expiry',        default:false, editable:false },
-    { key:'blood_type',      label:'Blood Type',       default:false, editable:false },
-    { key:'emergency_contact_name',  label:'Emergency Contact', default:false, editable:false },
-    { key:'emergency_contact_phone', label:'Emergency Phone',   default:false, editable:false },
-    { key:'medals',          label:'Medals',           default:true,  editable:false },
-    { key:'docs',            label:'Documents',        default:true,  editable:false },
+    { key:'name',            label:tx('athletes.athlete','Athlete'),          default:true,  editable:true  },
+    { key:'name_ar',         label:tx('athletes.arabicName','Arabic Name'),   default:false, editable:false },
+    { key:'qss_number',      label:tx('athletes.qssNumber','QSS #'),          default:false, editable:false },
+    { key:'id_number',       label:tx('athletes.qatarID','Qatar ID'),         default:false, editable:false },
+    { key:'career_profile',  label:tx('athletes.careerProfile','Career Profile #'), default:false, editable:false },
+    { key:'sport',           label:tx('athletes.sport','Sport'),              default:true,  editable:true  },
+    { key:'classification',  label:tx('athletes.classification','Classification'), default:true, editable:true },
+    { key:'disability',      label:tx('athletes.disability','Disability'),    default:false, editable:false },
+    { key:'nationality',     label:tx('athletes.nationality','Nationality'),  default:true,  editable:true  },
+    { key:'gender',          label:tx('athletes.gender','Gender'),            default:false, editable:false },
+    { key:'dob',             label:tx('athletes.dob','Date of Birth'),        default:false, editable:false },
+    { key:'age_category',    label:tx('athletes.ageCategory','Age Category'), default:false, editable:false },
+    { key:'coach_id',        label:tx('athletes.coach','Coach'),              default:true,  editable:true  },
+    { key:'status',          label:tx('athletes.status','Status'),            default:true,  editable:true  },
+    { key:'medical_status',  label:tx('athletes.medicalStatus','Medical Status'), default:false, editable:false },
+    { key:'phone',           label:tx('athletes.phone','Phone'),              default:false, editable:false },
+    { key:'email',           label:tx('athletes.email','Email'),              default:false, editable:false },
+    { key:'join_date',       label:tx('athletes.joinedQPC','Joined QPC'),     default:false, editable:false },
+    { key:'passport_number', label:tx('athletes.passportNo','Passport No'),   default:false, editable:false },
+    { key:'passport_expiry', label:tx('athletes.passportExpiry','Passport Expiry'), default:false, editable:false },
+    { key:'id_expiry',       label:tx('athletes.idExpiry','ID Expiry'),       default:false, editable:false },
+    { key:'blood_type',      label:tx('athletes.bloodType','Blood Type'),     default:false, editable:false },
+    { key:'emergency_contact_name',  label:tx('athletes.emergencyContact','Emergency Contact'), default:false, editable:false },
+    { key:'emergency_contact_phone', label:tx('athletes.emergencyPhone','Emergency Phone'),     default:false, editable:false },
+    { key:'medals',          label:tx('athletes.medals','Medals'),            default:true,  editable:false },
+    { key:'docs',            label:tx('athletes.documents','Documents'),      default:true,  editable:false },
   ]
 
   function toggleCol(key) {
@@ -1080,7 +1080,7 @@ ${a.notes ? `<div class="section">
               {colPickerOpen && (
                 <div style={{ position:'absolute', top:'calc(100% + 6px)', right:0, background:'var(--surface)', border:'1px solid var(--border)', borderRadius:12, padding:'12px 4px', zIndex:200, boxShadow:'0 8px 24px rgba(0,0,0,.12)', minWidth:200, maxHeight:420, overflowY:'auto' }}
                   onMouseLeave={() => setColPickerOpen(false)}>
-                  <div style={{ fontSize:11, fontWeight:600, color:'var(--text3)', textTransform:'uppercase', letterSpacing:'.06em', padding:'0 12px 8px' }}>Show / hide columns</div>
+                  <div style={{ fontSize:11, fontWeight:600, color:'var(--text3)', textTransform:'uppercase', letterSpacing:'.06em', padding:'0 12px 8px' }}>{tx('actions.columns','Show / hide columns')}</div>
                   {ALL_COLS.map(col => (
                     <label key={col.key} style={{ display:'flex', alignItems:'center', gap:10, padding:'7px 12px', cursor:col.key==='name'?'not-allowed':'pointer', borderRadius:8, transition:'background .1s' }}
                       onMouseEnter={e => { if(col.key!=='name') e.currentTarget.style.background='var(--surface2)' }}
@@ -1088,7 +1088,7 @@ ${a.notes ? `<div class="section">
                       <input type="checkbox" checked={isVisible(col.key)} disabled={col.key==='name'} onChange={() => toggleCol(col.key)}
                         style={{ width:14, height:14, cursor:col.key==='name'?'not-allowed':'pointer', accentColor:'#0085C7' }} />
                       <span style={{ fontSize:13, color:col.key==='name'?'var(--text3)':'var(--text)' }}>{col.label}</span>
-                      {col.key==='name' && <span style={{ fontSize:10, color:'var(--text3)', marginLeft:'auto' }}>always</span>}
+                      {col.key==='name' && <span style={{ fontSize:10, color:'var(--text3)', marginLeft:'auto' }}>{tx('filters.always','always')}</span>}
                     </label>
                   ))}
                   <div style={{ padding:'8px 12px 0', borderTop:'1px solid var(--border)', marginTop:4, display:'flex', gap:6, flexWrap:'wrap' }}>
@@ -1126,7 +1126,7 @@ ${a.notes ? `<div class="section">
       {editMode && (
         <div style={{ display:'flex', alignItems:'center', gap:8, padding:'10px 14px', background:'#e8f3fb', border:'1px solid #bdd8f0', borderRadius:10, marginBottom:14, fontSize:13 }}>
           <i className="ti ti-pencil" style={{ color:'#0085C7', fontSize:16 }} />
-          <span style={{ color:'#1565a0' }}><strong>Edit mode on</strong> — click any cell to edit. Changes saved together when you click Save.</span>
+          <span style={{ color:'#1565a0' }}><strong>{tx('athletes.editMode','Edit mode on')}</strong> — {tx('athletes.editModeDesc','click any cell to edit.')}</span>
           {changedCount > 0 && <span style={{ marginLeft:'auto', background:'#0085C7', color:'#fff', padding:'2px 10px', borderRadius:20, fontSize:12, fontWeight:600 }}>{changedCount} unsaved change{changedCount>1?'s':''}</span>}
         </div>
       )}
@@ -1224,7 +1224,7 @@ ${a.notes ? `<div class="section">
                   {!editMode && <td><i className="ti ti-chevron-right" style={{ color:'#ccc', fontSize:16 }} /></td>}
                   {editMode && (
                     <td>{isChanged
-                      ? <span style={{ display:'flex', alignItems:'center', gap:4, color:'#0085C7', fontSize:12, fontWeight:500 }}><i className="ti ti-check" style={{ fontSize:14 }} />Modified</span>
+                      ? <span style={{ display:'flex', alignItems:'center', gap:4, color:'#0085C7', fontSize:12, fontWeight:500 }}><i className="ti ti-check" style={{ fontSize:14 }} />{tx('athletes.modified','Modified')}</span>
                       : <span style={{ color:'var(--text3)', fontSize:12 }}>—</span>
                     }</td>
                   )}
@@ -1233,7 +1233,7 @@ ${a.notes ? `<div class="section">
             })}
             {(() => {
               const cols = ALL_COLS.filter(c => isVisible(c.key))
-              return list.length === 0 && <tr><td colSpan={cols.length + 1}><div className="empty">No athletes match</div></td></tr>
+              return list.length === 0 && <tr><td colSpan={cols.length + 1}><div className="empty">{tx('athletes.noAthletesMatch','No athletes match')}</div></td></tr>
             })()}
           </tbody>
         </table>

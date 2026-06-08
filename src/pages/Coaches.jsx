@@ -227,15 +227,15 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
         <button className="back-btn" onClick={() => setSelected(null)}><i className="ti ti-arrow-left" /> {tx('actions.back','Back')}</button>
         <div style={{ display:'flex', gap:10, marginBottom:16, flexWrap:'wrap' }}>
           {canEdit(profile) && <>
-            <button className="action-btn action-btn-edit" onClick={() => setForm('edit')}><i className="ti ti-pencil" /> Edit</button>
-            <button className="action-btn action-btn-delete" onClick={() => setConfirm(true)}><i className="ti ti-trash" /> Delete</button>
+            <button className="action-btn action-btn-edit" onClick={() => setForm('edit')}><i className="ti ti-pencil" /> {tx('actions.edit','Edit')}</button>
+            <button className="action-btn action-btn-delete" onClick={() => setConfirm(true)}><i className="ti ti-trash" /> {tx('actions.delete','Delete')}</button>
           </>}
           <button className="action-btn action-btn-edit"
             style={{ borderColor:'#009F6B', color:'#009F6B' }}
             onMouseEnter={e => e.currentTarget.style.background='#e6f4ee'}
             onMouseLeave={e => e.currentTarget.style.background=''}
             onClick={() => exportCoachPDF(c, myAthletes)}>
-            <i className="ti ti-printer" /> Export PDF
+            <i className="ti ti-printer" /> {tx('actions.exportPDF','Export PDF')}
           </button>
         </div>
 
@@ -269,7 +269,7 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
 
             <div className="detail-name">{c.name}</div>
             {c.name_ar && <div className="detail-sub">{c.name_ar}</div>}
-            <div className="detail-sub">{c.sport} Coach</div>
+            <div className="detail-sub">{c.sport} {tx('nav.coaches','Coach')}</div>
             <div className="detail-badges"><Badge label={c.status} /></div>
             <div className="detail-fields">
               {[
@@ -279,10 +279,10 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
                 ['Nationality', c.nationality],
                 ['Gender', c.gender],
                 ['With QPC since', c.since],
-                ['Passport #', c.passport_number],
-                ['Passport expiry', c.passport_expiry],
-                ['ID / Residence #', c.id_number],
-                ['ID expiry', c.id_expiry],
+                [tx('athletes.passportNo','Passport #'), c.passport_number],
+                [tx('athletes.passportExpiry','Passport expiry'), c.passport_expiry],
+                [tx('form.idNumber','ID / Residence #'), c.id_number],
+                [tx('athletes.idExpiry','ID expiry'), c.id_expiry],
                 ['Email', c.email],
                 ['Phone', c.phone],
               ].map(([k,v]) => (
@@ -298,10 +298,10 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
             {/* Medals summary */}
             <div style={{ display:'flex', justifyContent:'space-around', padding:'10px 0 16px', borderBottom:'1px solid var(--border)', marginBottom:14 }}>
               {[
-                ['Athletes', myAthletes.length, '#0085C7'],
-                ['Gold', myAthletes.reduce((s,a)=>s+(a.medals_gold||0),0), '#f1c40f'],
-                ['Silver', myAthletes.reduce((s,a)=>s+(a.medals_silver||0),0), '#aaa'],
-                ['Bronze', myAthletes.reduce((s,a)=>s+(a.medals_bronze||0),0), '#cd7f32'],
+                [tx('coaches.athletes','Athletes'), myAthletes.length, '#0085C7'],
+                [tx('medals.gold','Gold'), myAthletes.reduce((s,a)=>s+(a.medals_gold||0),0), '#f1c40f'],
+                [tx('medals.silver','Silver'), myAthletes.reduce((s,a)=>s+(a.medals_silver||0),0), '#aaa'],
+                [tx('medals.bronze','Bronze'), myAthletes.reduce((s,a)=>s+(a.medals_bronze||0),0), '#cd7f32'],
               ].map(([label, val, color]) => (
                 <div key={label} style={{ textAlign:'center' }}>
                   <div style={{ fontSize:22, fontWeight:600, color }}>{val}</div>
@@ -311,11 +311,11 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
             </div>
 
             <div className="info-title">
-              Assigned athletes ({myAthletes.length})
-              <span style={{ fontSize:10, fontWeight:400, textTransform:'none', letterSpacing:0, marginLeft:4 }}>— click to view</span>
+              {tx('profile.assignedAthletes','Assigned athletes')} ({myAthletes.length})
+              <span style={{ fontSize:10, fontWeight:400, textTransform:'none', letterSpacing:0, marginLeft:4 }}>— {tx('athletes.clickToView','click to view')}</span>
             </div>
             {myAthletes.length === 0
-              ? <div className="empty">No athletes assigned</div>
+              ? <div className="empty">{tx('coaches.noAthletes','No athletes assigned')}</div>
               : myAthletes.map(a => (
                 <DashRow key={a.id} onClick={() => onNav('athletes', { athleteId: a.id })}>
                   {a.photo_url
@@ -353,12 +353,12 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
     <div>
       {form && <FormModal type="coach" record={null} coaches={coaches} athletes={athletes} onSave={handleSave} onClose={() => setForm(null)} />}
       <div className="page-header">
-        <div><div className="page-title">{tx('pages.coaches','Coaches')}</div><div className="page-sub">{list.length} of {coaches.length} coaches</div></div>
+        <div><div className="page-title">{tx('pages.coaches','Coaches')}</div><div className="page-sub">{list.length} {tx('coaches.ofCoaches','of')} {coaches.length} {tx('pages.coaches','coaches')}</div></div>
         <div style={{ display:'flex', gap:8 }}>
           {hasFilters && (
             <button onClick={() => { setSearch(''); setSport('All sports'); setStatus('All statuses') }}
               style={{ display:'flex', alignItems:'center', gap:5, padding:'8px 12px', borderRadius:9, border:'1px solid #fca5a5', background:'#fef2f2', color:'#dc2626', fontSize:12, cursor:'pointer', fontFamily:'DM Sans, sans-serif' }}>
-              <i className="ti ti-x" style={{ fontSize:13 }} /> Reset filters
+              <i className="ti ti-x" style={{ fontSize:13 }} /> {tx('actions.resetFilters','Reset filters')}
             </button>
           )}
           {canEdit(profile) && (
@@ -367,14 +367,14 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
         </div>
       </div>
       <div className="filters">
-        <div className="search-wrap"><i className="ti ti-search" /><input placeholder="Search by name, sport…" value={search} onChange={e => setSearch(e.target.value)} /></div>
+        <div className="search-wrap"><i className="ti ti-search" /><input placeholder={tx("coaches.searchCoaches","Search by name, sport…")} value={search} onChange={e => setSearch(e.target.value)} /></div>
         <select className="filter" value={sport} onChange={e => setSport(e.target.value)}>{sports.map(s => <option key={s}>{s}</option>)}</select>
-        <select className="filter" value={status} onChange={e => setStatus(e.target.value)}>{['All statuses','Active','On Leave','Inactive'].map(s => <option key={s}>{s}</option>)}</select>
+        <select className="filter" value={status} onChange={e => setStatus(e.target.value)}>{[tx('filters.allStatuses','All statuses'),tx('status.active','Active'),tx('status.onLeave','On Leave'),tx('status.inactive','Inactive')].map(s => <option key={s}>{s}</option>)}</select>
         <select className="filter" value={sort} onChange={e => setSort(e.target.value)}>
-          <option value="name-asc">Name A→Z</option>
-          <option value="name-desc">Name Z→A</option>
-          <option value="athletes-desc">Most athletes</option>
-          <option value="since-asc">Longest with QPC</option>
+          <option value="name-asc">{tx('filters.nameAZ','Name A→Z')}</option>
+          <option value="name-desc">{tx('filters.nameZA','Name Z→A')}</option>
+          <option value="athletes-desc">{tx('filters.mostAthletes','Most athletes')}</option>
+          <option value="since-asc">{tx('filters.longestWithQPC','Longest with QPC')}</option>
         </select>
       </div>
       <div className="coach-grid">
@@ -396,10 +396,10 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
               </div>
               <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
                 {[
-                  ['Sport', c.sport],
-                  ['Cert.', c.cert_level],
-                  ['Employee #', c.employee_number],
-                  ['Athletes', count],
+                  [tx('form.sport','Sport'), c.sport],
+                  [tx('form.certLevel','Cert.'), c.cert_level],
+                  [tx('coaches.employeeNum','Employee #'), c.employee_number],
+                  [tx('coaches.athletes','Athletes'), count],
                 ].map(([k,v]) => (
                   <div key={k} className="coach-row">
                     <span>{k}</span>
@@ -410,7 +410,7 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
             </div>
           )
         })}
-        {list.length === 0 && <div className="empty">No coaches match</div>}
+        {list.length === 0 && <div className="empty">{tx('coaches.noCoachesMatch','No coaches match')}</div>}
       </div>
     </div>
   )

@@ -293,15 +293,15 @@ export default function Employees({ employees, personDocs, onRefresh, onNav, nav
         <button className="back-btn" onClick={() => setSelected(null)}><i className="ti ti-arrow-left" /> {tx('actions.back','Back')}</button>
         <div style={{ display:'flex', gap:10, marginBottom:16, flexWrap:'wrap' }}>
           {canEdit(profile) && <>
-            <button className="action-btn action-btn-edit" onClick={() => setEditForm({ ...emp })}><i className="ti ti-pencil" /> Edit</button>
-            <button className="action-btn action-btn-delete" onClick={() => setConfirm(true)}><i className="ti ti-trash" /> Delete</button>
+            <button className="action-btn action-btn-edit" onClick={() => setEditForm({ ...emp })}><i className="ti ti-pencil" /> {tx('actions.edit','Edit')}</button>
+            <button className="action-btn action-btn-delete" onClick={() => setConfirm(true)}><i className="ti ti-trash" /> {tx('actions.delete','Delete')}</button>
           </>}
           <button className="action-btn action-btn-edit"
             style={{ borderColor:'#009F6B', color:'#009F6B' }}
             onMouseEnter={e => e.currentTarget.style.background='#e6f4ee'}
             onMouseLeave={e => e.currentTarget.style.background=''}
             onClick={() => exportEmployeesPDF(emp)}>
-            <i className="ti ti-printer" /> Export PDF
+            <i className="ti ti-printer" /> {tx('actions.exportPDF','Export PDF')}
           </button>
         </div>
         <div className="detail-grid">
@@ -332,14 +332,14 @@ export default function Employees({ employees, personDocs, onRefresh, onNav, nav
             <div style={{ margin:'10px 0' }}><DesigBadge label={emp.designation} /></div>
             {emp.designation_ar && <div style={{ fontSize:13, color:'var(--text2)', marginBottom:8, direction:'rtl' }}>{emp.designation_ar}</div>}
             <div className="detail-fields">
-              {[['Employee #',emp.employee_number],['QSS #',emp.qss_number],['Gender',emp.gender],['Nationality',emp.nationality],['Phone',emp.phone],['Email',emp.email],['Status',emp.status]].map(([k,v]) => (
+              {[[tx('employees.employeeNum','Employee #'),emp.employee_number],[tx('employees.qssNum','QSS #'),emp.qss_number],[tx('form.gender','Gender'),emp.gender],[tx('form.nationality','Nationality'),emp.nationality],[tx('form.phone','Phone'),emp.phone],[tx('form.email','Email'),emp.email],[tx('employees.status','Status'),emp.status]].map(([k,v]) => (
                 <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv" style={{ fontSize:12 }}>{v||'—'}</span></div>
               ))}
             </div>
           </div>
           {emp.notes && (
             <div className="info-card">
-              <div className="info-title">Notes</div>
+              <div className="info-title">{tx('employees.notes','Notes')}</div>
               <p style={{ fontSize:13, color:'var(--text2)', lineHeight:1.6 }}>{emp.notes}</p>
             </div>
           )}
@@ -364,15 +364,15 @@ export default function Employees({ employees, personDocs, onRefresh, onNav, nav
         <EmpModal data={editForm||{}} isEdit={!!editForm} onClose={() => { setAddModal(false); setEditForm(null) }} />
       )}
       <div className="page-header">
-        <div><div className="page-title">{tx('pages.employees','Employees')}</div><div className="page-sub">{list.length} of {employees.length} employees</div></div>
+        <div><div className="page-title">{tx('pages.employees','Employees')}</div><div className="page-sub">{list.length} {tx('employees.ofEmployees','of')} {employees.length} {tx('pages.employees','employees')}</div></div>
         <div style={{ display:'flex', gap:8 }}>
           <button className="btn" style={{ background:'#009F6B' }} onClick={() => exportEmployeesExcel(list)}>
-            <i className="ti ti-table-export" /> Export Excel
+            <i className="ti ti-table-export" /> {tx('actions.exportExcel','Export Excel')}
           </button>
           {hasFilters && (
             <button onClick={() => { setSearch(''); setColFilters({}) }}
               style={{ display:'flex', alignItems:'center', gap:5, padding:'8px 12px', borderRadius:9, border:'1px solid #fca5a5', background:'#fef2f2', color:'#dc2626', fontSize:12, cursor:'pointer', fontFamily:'DM Sans, sans-serif' }}>
-              <i className="ti ti-x" style={{ fontSize:13 }} /> Reset filters
+              <i className="ti ti-x" style={{ fontSize:13 }} /> {tx('actions.resetFilters','Reset filters')}
             </button>
           )}
           {canEdit(profile) && (
@@ -384,7 +384,7 @@ export default function Employees({ employees, personDocs, onRefresh, onNav, nav
       <div className="filters">
         <div className="search-wrap">
           <i className="ti ti-search" />
-          <input placeholder="Search by name, designation…" value={search} onChange={e => setSearch(e.target.value)} />
+          <input placeholder={tx("employees.searchEmployees","Search by name, designation…")} value={search} onChange={e => setSearch(e.target.value)} />
         </div>
       </div>
 
@@ -454,7 +454,7 @@ export default function Employees({ employees, personDocs, onRefresh, onNav, nav
                 <td><i className="ti ti-chevron-right" style={{ color:'#ccc', fontSize:16 }} /></td>
               </tr>
             ))}
-            {list.length === 0 && <tr><td colSpan={8}><div className="empty">No employees match</div></td></tr>}
+            {list.length === 0 && <tr><td colSpan={8}><div className="empty">{tx('employees.noEmployeesMatch','No employees match')}</div></td></tr>}
           </tbody>
         </table>
       </div>
