@@ -1171,7 +1171,7 @@ ${a.notes ? `<div class="section">
             {/* INLINE FILTER ROW */}
             {!editMode && (
               <tr style={{ background:'#f8f9fb' }}>
-                {ALL_COLS.filter(c => isVisible(c.key)).map(c => {
+                {ALL_COLS.filter(col => isVisible(col.key)).map(col => {
                   const filterOpts = {
                     sport:       ['All', ...new Set(athletes.map(a => a.sport).filter(Boolean))],
                     status:      ['All','Active','Inactive','Suspended','Under Medical Review','Injured','Retired'],
@@ -1181,26 +1181,32 @@ ${a.notes ? `<div class="section">
                     disability:  ['All', ...new Set(athletes.map(a => a.disability).filter(Boolean))],
                     age_category:['All', ...new Set(athletes.map(a => a.age_category).filter(Boolean))],
                   }
-                  const opts = filterOpts[c.key]
-                  if (!opts) return <th key={c.key} />
-                  const filterKey = c.key === 'coach_id' ? 'coachName' : c.key
-                  const filterVal = c.key === 'coach_id'
+                  const opts = filterOpts[col.key]
+                  if (!opts) return <th key={col.key} />
+                  const filterKey = col.key === 'coach_id' ? 'coachName' : col.key
+                  const filterVal = col.key === 'coach_id'
                     ? (colFilters.coachName || 'All')
-                    : (colFilters[c.key] || 'All')
+                    : (colFilters[col.key] || 'All')
                   return (
-                    <th key={c.key} style={{ padding:'4px 8px' }}>
+                    <th key={col.key} style={{ padding:'4px 8px' }}>
                       <select
                         value={filterVal}
                         onChange={e => {
                           const val = e.target.value
-                          if (c.key === 'coach_id') {
+                          if (col.key === 'coach_id') {
                             setColFilters(f => ({ ...f, coachName: val }))
                           } else {
-                            setColFilters(f => ({ ...f, [c.key]: val }))
+                            setColFilters(f => ({ ...f, [col.key]: val }))
                           }
                         }}
                         style={{ fontSize:11, border:'1px solid var(--border)', borderRadius:6, padding:'3px 4px', background:'var(--surface)', color: filterVal !== 'All' ? '#0085C7' : 'var(--text3)', cursor:'pointer', outline:'none', fontWeight: filterVal !== 'All' ? 600 : 400, maxWidth:120 }}>
-                        {opts.map(o => <option key={o} value={o}>{(filterLabels[c.key]?.[o]) || o}</option>)}
+                        {opts.map(o => {
+                          const LABELS = {
+                            status: { 'All':tx('filters.all','All'), 'Active':tx('status.active','Active'), 'Inactive':tx('status.inactive','Inactive'), 'Suspended':tx('status.suspended','Suspended'), 'Under Medical Review':tx('status.underMedicalReview','Under Medical Review'), 'Injured':tx('status.injured','Injured'), 'Retired':tx('status.retired','Retired') },
+                            gender: { 'All':tx('filters.all','All'), 'Male':tx('form.male','Male'), 'Female':tx('form.female','Female') },
+                          }
+                          return <option key={o} value={o}>{LABELS[col.key]?.[o] || o}</option>
+                        })}
                       </select>
                     </th>
                   )

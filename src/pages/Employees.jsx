@@ -31,11 +31,11 @@ const DESIG_COLORS = {
   'Store Keeper': '#9aa3b2', 'Waiter': '#9aa3b2', 'Worker': '#9aa3b2', 'Driver': '#9aa3b2',
 }
 
-function DesigBadge({ label }) {
+function DesigBadge({ label, displayLabel }) {
   const color = DESIG_COLORS[label] || '#9aa3b2'
   return (
     <span style={{ display:'inline-flex', alignItems:'center', fontSize:11, padding:'3px 9px', borderRadius:20, fontWeight:500, background:color+'18', color }}>
-      {label}
+      {displayLabel || label}
     </span>
   )
 }
@@ -132,7 +132,27 @@ export default function Employees({ employees, personDocs, onRefresh, onNav, nav
   }, [navState])
 
   const hasFilters = search || Object.values(colFilters).some(v => v && v !== 'All')
-  const statusLabels = { 'All statuses':tx('filters.allStatuses','All statuses'), 'Active':tx('status.active','Active'), 'On Leave':tx('status.onLeave','On Leave'), 'Inactive':tx('status.inactive','Inactive') }
+  const DESIG_LABELS = {
+    'All designations':tx('filters.allDesignations','All designations'),
+    'Coach':tx('nav.coaches','Coach'), 'Assistant Coach':tx('coaches.assistantCoach','Assistant Coach'),
+    'Technical Expert':tx('employees.technicalExpert','Technical Expert'),
+    'Physiotherapist':tx('employees.physiotherapist','Physiotherapist'), 'Doctor':tx('employees.doctor','Doctor'),
+    'Secretary General':tx('employees.secretaryGeneral','Secretary General'),
+    'Executive Manager':tx('employees.executiveManager','Executive Manager'),
+    'Administration Secretary':tx('employees.adminSecretary','Administration Secretary'),
+    'Secretary Assistant':tx('employees.secretaryAssistant','Secretary Assistant'),
+    'Administrative National Team':tx('employees.adminNational','Administrative National Team'),
+    'Administrative Youth Team':tx('employees.adminYouth','Administrative Youth Team'),
+    'Administrative Center & Development':tx('employees.adminCenter','Administrative Center & Development'),
+    'Accountant':tx('employees.accountant','Accountant'),
+    'Public Relation Officer':tx('employees.pr','Public Relation Officer'),
+    'Receptionist':tx('employees.receptionist','Receptionist'),
+    'Board Member':tx('employees.boardMember','Board Member'),
+    'Official':tx('employees.official','Official'), 'Delegate':tx('employees.delegate','Delegate'),
+    'Employee':tx('employees.employeeRole','Employee'), 'Store Keeper':tx('employees.storeKeeper','Store Keeper'),
+    'Waiter':tx('employees.waiter','Waiter'), 'Worker':tx('employees.worker','Worker'),
+    'Driver':tx('employees.driver','Driver'),
+  }
 
   const COL_FILTERS = {
     designation: ['All', ...DESIGNATIONS.slice(1)],
@@ -334,7 +354,7 @@ export default function Employees({ employees, personDocs, onRefresh, onNav, nav
             </div>
             <div className="detail-name">{emp.name}</div>
             {emp.name_ar && <div className="detail-sub">{emp.name_ar}</div>}
-            <div style={{ margin:'10px 0' }}><DesigBadge label={emp.designation} /></div>
+            <div style={{ margin:'10px 0' }}><DesigBadge label={emp.designation} displayLabel={DESIG_LABELS[emp.designation]} /></div>
             {emp.designation_ar && <div style={{ fontSize:13, color:'var(--text2)', marginBottom:8, direction:'rtl' }}>{emp.designation_ar}</div>}
             <div className="detail-fields">
               {[[tx('employees.employeeNum','Employee #'),emp.employee_number],[tx('employees.qssNum','QSS #'),emp.qss_number],[tx('form.gender','Gender'),emp.gender],[tx('form.nationality','Nationality'),emp.nationality],[tx('form.phone','Phone'),emp.phone],[tx('form.email','Email'),emp.email],[tx('employees.status','Status'),emp.status]].map(([k,v]) => (
@@ -424,7 +444,7 @@ export default function Employees({ employees, personDocs, onRefresh, onNav, nav
                       value={colFilters[key] || 'All'}
                       onChange={e => setColFilters(f => ({ ...f, [key]: e.target.value }))}
                       style={{ fontSize:11, border:'1px solid var(--border)', borderRadius:6, padding:'3px 4px', background:'var(--surface)', color:(colFilters[key]&&colFilters[key]!=='All')?'#0085C7':'var(--text3)', cursor:'pointer', outline:'none', fontWeight:(colFilters[key]&&colFilters[key]!=='All')?600:400, maxWidth:130 }}>
-                      {COL_FILTERS[key].map(o => <option key={o} value={o}>{COL_FILTER_LABELS[key]?.[o] || o}</option>)}
+                      {COL_FILTERS[key].map(o => <option key={o} value={o}>{key==='designation' ? (DESIG_LABELS[o]||o) : (COL_FILTER_LABELS[key]?.[o]||o)}</option>)}
                     </select>
                   ) : null}
                 </th>
@@ -448,7 +468,7 @@ export default function Employees({ employees, personDocs, onRefresh, onNav, nav
                   </div>
                 </td>
                 <td>
-                  <div><DesigBadge label={emp.designation} /></div>
+                  <div><DesigBadge label={emp.designation} displayLabel={DESIG_LABELS[emp.designation]} /></div>
                   {emp.designation_ar && <div style={{ fontSize:11, color:'#9aa3b2', marginTop:3, direction:'rtl' }}>{emp.designation_ar}</div>}
                 </td>
                 <td style={{ fontSize:13, color:'#5a6272' }}>{emp.nationality||'—'}</td>

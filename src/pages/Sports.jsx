@@ -4,6 +4,21 @@ import { useLang } from '../lib/LangContext.jsx'
 
 export default function Sports({ athletes, coaches, events, results, onNav, initSport, profile }) {
   const { tx } = useLang()
+
+  const SPORT_NAMES = {
+    'Athletics':         tx('sports.athletics','Athletics'),
+    'Swimming':          tx('sports.swimming','Swimming'),
+    'Powerlifting':      tx('sports.powerlifting','Powerlifting'),
+    'Boccia':            tx('sports.boccia','Boccia'),
+    'Goalball':          tx('sports.goalball','Goalball'),
+    'Table Tennis':      tx('sports.tableTennis','Table Tennis'),
+    'Special Olympics':  tx('sports.specialOlympics','Special Olympics'),
+    'Shooting':          tx('sports.shooting','Shooting'),
+    'Wheelchair Tennis': tx('sports.wheelchairTennis','Wheelchair Tennis'),
+  }
+
+  // Only show sports that actually have athletes in the database
+  const activeSports = SPORTS.filter(s => athletes.some(a => a.sport === s))
   const [selected, setSelected] = useState(initSport || null)
   useEffect(() => { if (initSport) setSelected(initSport) }, [initSport])
 
@@ -22,7 +37,7 @@ export default function Sports({ athletes, coaches, events, results, onNav, init
             <i className={`ti ${meta.icon}`} style={{ fontSize:30, color:meta.color }} />
           </div>
           <div>
-            <div style={{ fontSize:22, fontWeight:600 }}>{selected}</div>
+            <div style={{ fontSize:22, fontWeight:600 }}>{SPORT_NAMES[selected] || selected}</div>
             <div style={{ fontSize:13, color:'var(--text2)', marginTop:3 }}>{meta.desc}</div>
           </div>
         </div>
@@ -83,7 +98,7 @@ export default function Sports({ athletes, coaches, events, results, onNav, init
       <div className="page-header">
         <div><div className="page-title">{tx('pages.sports','Sports')}</div><div className="page-sub">Qatar Paralympic Committee</div></div>
       </div>
-      {SPORTS.map(s => {
+      {activeSports.map(s => {
         const meta     = SPORT_META[s]
         const myAths   = athletes.filter(a => a.sport === s)
         const myEvents = events.filter(e => e.sport === s)
@@ -98,7 +113,7 @@ export default function Sports({ athletes, coaches, events, results, onNav, init
                 <i className={`ti ${meta.icon}`} style={{ fontSize:26, color:meta.color }} />
               </div>
               <div style={{ flex:1 }}>
-                <div style={{ fontSize:16, fontWeight:600, marginBottom:3 }}>{s}</div>
+                <div style={{ fontSize:16, fontWeight:600, marginBottom:3 }}>{SPORT_NAMES[s] || s}</div>
                 <div style={{ fontSize:12, color:'var(--text2)' }}>{meta.desc}</div>
               </div>
               <div style={{ display:'flex', gap:20, flexShrink:0, textAlign:'center' }}>
