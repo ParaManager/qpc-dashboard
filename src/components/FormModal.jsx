@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { SPORTS } from '../lib/helpers'
+import { useLang } from '../lib/LangContext.jsx'
 
 const COLORS = { athlete: '#0085C7', coach: '#009F6B', event: '#EE334E', result: '#8b5cf6' }
 
@@ -33,6 +34,7 @@ function Section({ label }) { return <div className="form-section">{label}</div>
 
 export default function FormModal({ type, record, coaches, athletes, onSave, onClose }) {
   const isEdit = !!record
+  const { tx } = useLang()
   const [form, setForm] = useState({})
 
   useEffect(() => {
@@ -55,7 +57,7 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-box" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <div className="modal-title">{isEdit ? 'Edit' : 'New'} {type.charAt(0).toUpperCase() + type.slice(1)}</div>
+          <div className="modal-title">{isEdit ? tx('actions.edit','Edit') : tx('actions.add','New')} {type === 'athlete' ? tx('pages.athletes','Athlete') : type === 'coach' ? tx('pages.coaches','Coach') : type === 'event' ? tx('pages.events','Event') : tx('pages.results','Result')}</div>
           <button className="modal-close" onClick={onClose}><i className="ti ti-x" /></button>
         </div>
 
@@ -63,7 +65,7 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
 
           {/* ── ATHLETE FORM ── */}
           {type === 'athlete' && <>
-            <Section label="Personal Information" />
+            <Section label={tx('form.personalInfo','Personal Information')} />
             <Row>
               <Field label="Full name (English)" placeholder="e.g. Ahmed Al-Ansari" {...f('name')} />
               <Field label="Full name (Arabic)" placeholder="e.g. أحمد الأنصاري" {...f('nameAr')} />
@@ -99,7 +101,7 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
               <Field label="Career profile #" placeholder="e.g. 12345" {...f('careerProfile')} />
             </Row>
 
-            <Section label="Club & Role" />
+            <Section label={tx('form.clubRole','Club & Role')} />
             <Row>
               <Field label="Club (النادي)" placeholder="e.g. Al Wakrah SC" {...f('club')} />
               <Field label="Designation (الوظيفة)" options={['','Player','Female Player','Coach','Female Coach','Referee','Female Referee','Admin Staff','Technical Staff','Medical Staff','Board Member','Female Board Member','Member','Female Member','Employee','Female Employee','Expert']} {...f('designation')} />
@@ -109,7 +111,7 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
               <Field label="QSS number" placeholder="e.g. 12345" {...f('qssNumber')} />
             </Row>
 
-            <Section label="Passport & ID" />
+            <Section label={tx('form.passportID','Passport & ID')} />
             <Row>
               <Field label="Passport number" placeholder="e.g. A12345678" {...f('passportNumber')} />
               <Field label="Passport expiry" type="date" {...f('passportExpiry')} />
@@ -119,14 +121,14 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
               <Field label="ID expiry" type="date" {...f('idExpiry')} />
             </Row>
 
-            <Section label="Emergency Contact" />
+            <Section label={tx('form.emergencyContact','Emergency Contact')} />
             <Row>
               <Field label="Contact name" placeholder="e.g. Mohammed Al-Ansari" {...f('emergencyName')} />
               <Field label="Relationship" placeholder="e.g. Father, Wife" {...f('emergencyRelation')} />
             </Row>
             <Field label="Contact phone" placeholder="+974 XXXX XXXX" {...f('emergencyPhone')} />
 
-            <Section label="Medical Information" />
+            <Section label={tx('form.medicalInfo','Medical Information')} />
             <Row>
               <Field label="Blood type" options={['','A+','A-','B+','B-','AB+','AB-','O+','O-','Unknown']} {...f('bloodType')} />
               <Field label="Known allergies" placeholder="e.g. Penicillin, Nuts" {...f('allergies')} />
@@ -136,7 +138,7 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
 
           {/* ── COACH FORM ── */}
           {type === 'coach' && <>
-            <Section label="Personal Information" />
+            <Section label={tx('form.personalInfo','Personal Information')} />
             <Row>
               <Field label="Full name (English)" placeholder="e.g. Carlos Mendez" {...f('name')} />
               <Field label="Full name (Arabic)" placeholder="e.g. كارلوس مينديز" {...f('nameAr')} />
@@ -150,7 +152,7 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
               <Field label="Email" type="email" placeholder="coach@qpc.qa" {...f('email')} />
             </Row>
 
-            <Section label="Employment" />
+            <Section label={tx('form.employment','Employment')} />
             <Row>
               <Field label="Sport" options={SPORTS} {...f('sport')} />
               <Field label="Cert. level" options={['Level 1','Level 2','Level 3']} {...f('certLevel')} />
@@ -164,7 +166,7 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
               <Field label="Status" options={['Active','On Leave','Inactive']} {...f('status')} />
             </Row>
 
-            <Section label="Passport & ID" />
+            <Section label={tx('form.passportID','Passport & ID')} />
             <Row>
               <Field label="Passport number" placeholder="e.g. A12345678" {...f('passportNumber')} />
               <Field label="Passport expiry" type="date" {...f('passportExpiry')} />
@@ -177,7 +179,7 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
 
           {/* ── EVENT FORM ── */}
           {type === 'event' && <>
-            <Section label="Event Details" />
+            <Section label={tx('form.eventDetails','Event Details')} />
             <Field label="Event name" placeholder="e.g. Qatar Open Athletics Championships" {...f('name')} />
             <Row>
               <Field label="Sport" options={SPORTS} {...f('sport')} />
@@ -196,7 +198,7 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
 
           {/* ── RESULT FORM ── */}
           {type === 'result' && <>
-            <Section label="Result Information" />
+            <Section label={tx('form.resultInfo','Result Information')} />
             <Row>
               <Field label="Athlete" options={(athletes||[]).map(a => a.name)} {...f('athleteName')} />
               <Field label="Medal" options={['gold','silver','bronze']} {...f('medal')} />
@@ -215,7 +217,7 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
         </div>
 
         <div className="modal-footer">
-          <button className="btn-cancel" onClick={onClose}>Cancel</button>
+          <button className="btn-cancel" onClick={onClose}>{tx('actions.cancel','Cancel')}</button>
           <button className="btn" style={{ background: COLORS[type] }} onClick={() => onSave(form)}>
             {isEdit ? 'Save changes' : 'Add record'}
           </button>

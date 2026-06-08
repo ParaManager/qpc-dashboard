@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
 import { supabase } from '../lib/supabase'
+import { useLang } from '../lib/LangContext.jsx'
 import { toast } from './Toast'
 import { canEdit } from '../lib/useAuth'
 
@@ -55,6 +56,7 @@ async function downloadDoc(url, personName, docType, originalName) {
 }
 
 export default function PersonDocuments({ personId, personType, personName, docs, onRefresh, profile }) {
+  const { tx } = useLang()
   const [docType, setDocType]         = useState('Passport')
   const [uploading, setUploading]     = useState(false)
   const [confirmDel, setConfirmDel]   = useState(null)
@@ -103,10 +105,10 @@ export default function PersonDocuments({ personId, personType, personName, docs
           <div className="confirm-box" onClick={e => e.stopPropagation()}>
             <div className="confirm-icon">⚠️</div>
             <div className="confirm-title">Delete document</div>
-            <div className="confirm-msg">Delete "{confirmDel.name}"? This cannot be undone.</div>
+            <div className="confirm-msg">{tx('confirm.deleteDocument','Delete')} "{confirmDel.name}"?</div>
             <div className="confirm-btns">
-              <button className="btn-cancel" onClick={() => setConfirmDel(null)}>Cancel</button>
-              <button className="btn" style={{ background:'#dc2626' }} onClick={() => handleDelete(confirmDel)}>Delete</button>
+              <button className="btn-cancel" onClick={() => setConfirmDel(null)}>{tx('actions.cancel','Cancel')}</button>
+              <button className="btn" style={{ background:'#dc2626' }} onClick={() => handleDelete(confirmDel)}>{tx('actions.delete','Delete')}</button>
             </div>
           </div>
         </div>
@@ -131,8 +133,8 @@ export default function PersonDocuments({ personId, personType, personName, docs
           <button onClick={() => docInput.current.click()} disabled={uploading}
             style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', background:'#0085C7', color:'#fff', border:'none', borderRadius:8, fontSize:12, fontWeight:500, cursor:'pointer', flexShrink:0, fontFamily:'DM Sans, sans-serif' }}>
             {uploading
-              ? <><div style={{ width:12, height:12, border:'2px solid rgba(255,255,255,.4)', borderTopColor:'#fff', borderRadius:'50%', animation:'spin .7s linear infinite' }} />Uploading…</>
-              : <><i className="ti ti-upload" style={{ fontSize:14 }} />Upload</>
+              ? <><div style={{ width:12, height:12, border:'2px solid rgba(255,255,255,.4)', borderTopColor:'#fff', borderRadius:'50%', animation:'spin .7s linear infinite' }} />{tx('actions.uploading','Uploading…')}</>
+              : <><i className="ti ti-upload" style={{ fontSize:14 }} />{tx('actions.upload','Upload')}</>
             }
           </button>
           <input ref={docInput} type="file" style={{ display:'none' }}
@@ -142,7 +144,7 @@ export default function PersonDocuments({ personId, personType, personName, docs
       )}
 
       {myDocs.length === 0
-        ? <div className="empty" style={{ padding:'16px 0' }}>No documents uploaded yet.</div>
+        ? <div className="empty" style={{ padding:'16px 0' }}>{tx('docs.noDocuments','No documents uploaded yet.')}</div>
         : DOC_TYPES.map(type => {
             const typeDocs = docsByType[type]
             if (!typeDocs || typeDocs.length === 0) return null
