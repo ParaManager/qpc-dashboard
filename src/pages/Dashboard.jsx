@@ -1,6 +1,8 @@
 import { Avatar, MedalDisplay, statusClass, statusDot, DashRow, SPORT_META, SPORTS } from '../lib/helpers'
+import { useLang } from '../lib/LangContext.jsx'
 
-export default function Dashboard({ athletes, coaches, events, results, onNav }) {
+export default function Dashboard({ athletes, coaches, events, results, onNav, profile }) {
+  const { tx } = useLang()
   const active   = athletes.filter(a => a.status === 'Active').length
   const upcoming = events.filter(e => e.status === 'Upcoming' || e.status === 'Registration Open').length
   const gold     = athletes.reduce((s, a) => s + (a.medals_gold || 0), 0)
