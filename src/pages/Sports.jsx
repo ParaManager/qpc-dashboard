@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import { SPORTS, SPORT_META, Avatar, Badge, MedalDisplay, statusDot, initials, DashRow } from '../lib/helpers'
+import { useLang } from '../lib/LangContext.jsx'
 
-export default function Sports({ athletes, coaches, events, results, onNav, initSport }) {
+export default function Sports({ athletes, coaches, events, results, onNav, initSport, profile }) {
+  const { tx } = useLang()
   const [selected, setSelected] = useState(initSport || null)
-
   useEffect(() => { if (initSport) setSelected(initSport) }, [initSport])
 
   if (selected) {
@@ -15,7 +16,7 @@ export default function Sports({ athletes, coaches, events, results, onNav, init
 
     return (
       <div>
-        <button className="back-btn" onClick={() => setSelected(null)}><i className="ti ti-arrow-left" /> Back to sports</button>
+        <button className="back-btn" onClick={() => setSelected(null)}><i className="ti ti-arrow-left" /> {tx('sports.backToSports','Back to sports')}</button>
         <div style={{ display:'flex', alignItems:'center', gap:16, marginBottom:20 }}>
           <div style={{ width:60, height:60, borderRadius:16, background:meta.color+'15', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
             <i className={`ti ${meta.icon}`} style={{ fontSize:30, color:meta.color }} />
@@ -25,19 +26,17 @@ export default function Sports({ athletes, coaches, events, results, onNav, init
             <div style={{ fontSize:13, color:'var(--text2)', marginTop:3 }}>{meta.desc}</div>
           </div>
         </div>
-
         <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:10, marginBottom:18 }}>
-          {[['Athletes',myAths.length,meta.color],['Events',myEvents.length,'#555'],['Total Medals',myMedals.length,'#f1c40f'],['Coach',myCoach?'✓':'—','#009F6B']].map(([l,v,c]) => (
+          {[[tx('sports.athletes','Athletes'),myAths.length,meta.color],[tx('sports.events','Events'),myEvents.length,'#555'],[tx('sports.medals','Total Medals'),myMedals.length,'#f1c40f'],[tx('sports.headCoach','Coach'),myCoach?'✓':'—','#009F6B']].map(([l,v,c]) => (
             <div key={l} style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:12, padding:14, textAlign:'center', boxShadow:'var(--shadow)' }}>
               <div style={{ fontSize:24, fontWeight:600, color:c }}>{v}</div>
               <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>{l}</div>
             </div>
           ))}
         </div>
-
         {myCoach && (
           <div className="info-card" style={{ marginBottom:12 }}>
-            <div className="info-title">Head coach <span style={{ fontSize:10, fontWeight:400, textTransform:'none', letterSpacing:0 }}>— click to view</span></div>
+            <div className="info-title">{tx('sports.headCoach','Head coach')} <span style={{ fontSize:10, fontWeight:400, textTransform:'none', letterSpacing:0 }}>— {tx('athletes.clickToView','click to view')}</span></div>
             <DashRow onClick={() => onNav('coaches', { coachId: myCoach.id })}>
               <div className="av" style={{ width:34, height:34, fontSize:11, background:'#009F6B', flexShrink:0 }}>{initials(myCoach.name)}</div>
               <div style={{ flex:1 }}>
@@ -48,11 +47,10 @@ export default function Sports({ athletes, coaches, events, results, onNav, init
             </DashRow>
           </div>
         )}
-
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
           <div className="info-card">
-            <div className="info-title">Athletes ({myAths.length}) <span style={{ fontSize:10, fontWeight:400, textTransform:'none', letterSpacing:0 }}>— click to view</span></div>
-            {myAths.length === 0 ? <div className="empty">No athletes</div> :
+            <div className="info-title">{tx('sports.athletes','Athletes')} ({myAths.length}) <span style={{ fontSize:10, fontWeight:400, textTransform:'none', letterSpacing:0 }}>— {tx('athletes.clickToView','click to view')}</span></div>
+            {myAths.length === 0 ? <div className="empty">{tx('sports.noAthletes','No athletes')}</div> :
               myAths.map(a => (
                 <DashRow key={a.id} onClick={() => onNav('athletes', { athleteId: a.id })}>
                   <Avatar name={a.name} id={a.id} size={32} fs={10} />
@@ -64,8 +62,8 @@ export default function Sports({ athletes, coaches, events, results, onNav, init
             }
           </div>
           <div className="info-card">
-            <div className="info-title">Events ({myEvents.length}) <span style={{ fontSize:10, fontWeight:400, textTransform:'none', letterSpacing:0 }}>— click to view</span></div>
-            {myEvents.length === 0 ? <div className="empty" style={{ padding:10 }}>No events</div> :
+            <div className="info-title">{tx('sports.events','Events')} ({myEvents.length}) <span style={{ fontSize:10, fontWeight:400, textTransform:'none', letterSpacing:0 }}>— {tx('athletes.clickToView','click to view')}</span></div>
+            {myEvents.length === 0 ? <div className="empty" style={{ padding:10 }}>{tx('sports.noEvents','No events')}</div> :
               myEvents.map(ev => (
                 <DashRow key={ev.id} onClick={() => onNav('events', { eventId: ev.id })}>
                   <div style={{ width:8, height:8, borderRadius:'50%', background:statusDot(ev.status), flexShrink:0 }} />
@@ -83,7 +81,7 @@ export default function Sports({ athletes, coaches, events, results, onNav, init
   return (
     <div>
       <div className="page-header">
-        <div><div className="page-title">Sports</div><div className="page-sub">All Paralympic sports at QPC</div></div>
+        <div><div className="page-title">{tx('pages.sports','Sports')}</div><div className="page-sub">Qatar Paralympic Committee</div></div>
       </div>
       {SPORTS.map(s => {
         const meta     = SPORT_META[s]
@@ -104,9 +102,9 @@ export default function Sports({ athletes, coaches, events, results, onNav, init
                 <div style={{ fontSize:12, color:'var(--text2)' }}>{meta.desc}</div>
               </div>
               <div style={{ display:'flex', gap:20, flexShrink:0, textAlign:'center' }}>
-                <div><div style={{ fontSize:20, fontWeight:600, color:meta.color }}>{myAths.length}</div><div style={{ fontSize:11, color:'var(--text3)' }}>Athletes</div></div>
-                <div><div style={{ fontSize:20, fontWeight:600 }}>{myEvents.length}</div><div style={{ fontSize:11, color:'var(--text3)' }}>Events</div></div>
-                <div><div style={{ fontSize:20, fontWeight:600, color:'#f1c40f' }}>{myMedals.length}</div><div style={{ fontSize:11, color:'var(--text3)' }}>Medals</div></div>
+                <div><div style={{ fontSize:20, fontWeight:600, color:meta.color }}>{myAths.length}</div><div style={{ fontSize:11, color:'var(--text3)' }}>{tx('sports.athletes','Athletes')}</div></div>
+                <div><div style={{ fontSize:20, fontWeight:600 }}>{myEvents.length}</div><div style={{ fontSize:11, color:'var(--text3)' }}>{tx('sports.events','Events')}</div></div>
+                <div><div style={{ fontSize:20, fontWeight:600, color:'#f1c40f' }}>{myMedals.length}</div><div style={{ fontSize:11, color:'var(--text3)' }}>{tx('sports.medals','Medals')}</div></div>
               </div>
               <i className="ti ti-chevron-right" style={{ color:'#ccc', fontSize:18, marginLeft:8 }} />
             </div>
