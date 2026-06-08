@@ -32,11 +32,12 @@ export default function App() {
   const [registrations, setRegistrations] = useState([])
   const [documents, setDocuments]         = useState([])
   const [employees, setEmployees]         = useState([])
+  const [personDocs, setPersonDocs]         = useState([])
   const [dataLoading, setDataLoading]     = useState(true)
   const [navState, setNavState]           = useState({})
 
   const fetchAll = useCallback(async () => {
-    const [a, c, e, r, reg, docs, emp] = await Promise.all([
+    const [a, c, e, r, reg, docs, emp, pdocs] = await Promise.all([
       supabase.from('athletes').select('*').order('name'),
       supabase.from('coaches').select('*').order('name'),
       supabase.from('events').select('*').order('start_date'),
@@ -44,6 +45,7 @@ export default function App() {
       supabase.from('event_registrations').select('*'),
       supabase.from('athlete_documents').select('*').order('uploaded_at', { ascending: false }),
       supabase.from('employees').select('*').order('name'),
+      supabase.from('person_documents').select('*').order('uploaded_at', { ascending: false }),
     ])
     if (a.data)    setAthletes(a.data)
     if (c.data)    setCoaches(c.data)
@@ -51,7 +53,8 @@ export default function App() {
     if (r.data)    setResults(r.data)
     if (reg.data)  setRegistrations(reg.data)
     if (docs.data) setDocuments(docs.data)
-    if (emp.data)  setEmployees(emp.data)
+    if (emp.data)   setEmployees(emp.data)
+    if (pdocs.data) setPersonDocs(pdocs.data)
     setDataLoading(false)
   }, [])
 
@@ -160,11 +163,11 @@ export default function App() {
         <div id="content">
           {page==='dashboard' && <Dashboard athletes={athletes} coaches={coaches} events={events} results={results} onNav={goTo} profile={profile} />}
           {page==='athletes'  && <Athletes  athletes={athletes} coaches={coaches} results={results} documents={documents} events={events} registrations={registrations} onRefresh={fetchAll} onNav={goTo} initAthleteId={navState.athleteId} initStatusFilter={navState.statusFilter} navState={navState} profile={profile} />}
-          {page==='coaches'   && <Coaches   coaches={coaches} athletes={athletes} onRefresh={fetchAll} onNav={goTo} initCoachId={navState.coachId} navState={navState} profile={profile} />}
+          {page==='coaches'   && <Coaches   coaches={coaches} athletes={athletes} personDocs={personDocs} onRefresh={fetchAll} onNav={goTo} initCoachId={navState.coachId} navState={navState} profile={profile} />}
           {page==='events'    && <Events    events={events} athletes={athletes} results={results} registrations={registrations} onRefresh={fetchAll} onNav={goTo} initEventId={navState.eventId} initStatusFilter={navState.statusFilter} profile={profile} />}
           {page==='results'   && <Results   results={results} athletes={athletes} onRefresh={fetchAll} onNav={goTo} profile={profile} />}
           {page==='sports'    && <Sports    athletes={athletes} coaches={coaches} events={events} results={results} onNav={goTo} initSport={navState.sport} profile={profile} />}
-          {page==='employees' && <Employees employees={employees} onRefresh={fetchAll} onNav={goTo} navState={navState} profile={profile} />}
+          {page==='employees' && <Employees employees={employees} personDocs={personDocs} onRefresh={fetchAll} onNav={goTo} navState={navState} profile={profile} />}
         </div>
       </div>
       <ToastContainer />
