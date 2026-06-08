@@ -3,7 +3,15 @@ import { SPORTS } from '../lib/helpers'
 
 const COLORS = { athlete: '#0085C7', coach: '#009F6B', event: '#EE334E', result: '#8b5cf6' }
 
-// ── These MUST be outside FormModal so React doesn't remount them on each keystroke ──
+const DESIGNATIONS_EN = [
+  'Coach', 'Assistant Coach', 'Technical Expert',
+  'Physiotherapist', 'Doctor',
+  'Secretary General', 'Executive Manager', 'Administration Secretary', 'Secretary Assistant',
+  'Administrative National Team', 'Administrative Youth Team', 'Administrative Center & Development',
+  'Accountant', 'Public Relation Officer', 'Receptionist',
+  'Board Member', 'Official', 'Delegate',
+  'Employee', 'Store Keeper', 'Waiter', 'Worker', 'Driver',
+]
 
 function Field({ label, name, type = 'text', placeholder, options, value, onChange }) {
   return (
@@ -14,36 +22,22 @@ function Field({ label, name, type = 'text', placeholder, options, value, onChan
           {options.map(o => <option key={o.value ?? o} value={o.value ?? o}>{o.label ?? o}</option>)}
         </select>
       ) : (
-        <input
-          className="form-input"
-          type={type}
-          placeholder={placeholder}
-          value={value ?? ''}
-          onChange={e => onChange(name, e.target.value)}
-        />
+        <input className="form-input" type={type} placeholder={placeholder} value={value ?? ''} onChange={e => onChange(name, e.target.value)} />
       )}
     </div>
   )
 }
 
-function Row({ children }) {
-  return <div className="form-row">{children}</div>
-}
-
-function Section({ label }) {
-  return <div className="form-section">{label}</div>
-}
-
-// ── Main modal ──
+function Row({ children }) { return <div className="form-row">{children}</div> }
+function Section({ label }) { return <div className="form-section">{label}</div> }
 
 export default function FormModal({ type, record, coaches, athletes, onSave, onClose }) {
   const isEdit = !!record
   const [form, setForm] = useState({})
 
   useEffect(() => {
-    if (record) {
-      setForm({ ...record })
-    } else {
+    if (record) { setForm({ ...record }) }
+    else {
       const defaults = {
         athlete: { gender: 'Male', nationality: 'Qatari', sport: SPORTS[0], status: 'Active' },
         coach:   { sport: SPORTS[0], certLevel: 'Level 2', status: 'Active' },
@@ -55,8 +49,6 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
   }, [record, type])
 
   const set = (name, value) => setForm(f => ({ ...f, [name]: value }))
-
-  // Helper to pass consistent props to Field
   const f = (name) => ({ name, value: form[name], onChange: set })
 
   return (
@@ -69,6 +61,7 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
 
         <div className="modal-body">
 
+          {/* ── ATHLETE FORM ── */}
           {type === 'athlete' && <>
             <Section label="Personal Information" />
             <Row>
@@ -83,18 +76,39 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
               <Field label="Nationality" placeholder="e.g. Qatari" {...f('nationality')} />
               <Field label="Phone" placeholder="+974 XXXX XXXX" {...f('phone')} />
             </Row>
-            <Field label="Email" type="email" placeholder="athlete@qpc.qa" {...f('email')} />
-            <Section label="Sport Classification" />
+            <Row>
+              <Field label="Email" type="email" placeholder="athlete@qpc.qa" {...f('email')} />
+              <Field label="Join date" type="date" {...f('joinDate')} />
+            </Row>
+
+            <Section label="Sport & Classification" />
             <Row>
               <Field label="Sport" options={SPORTS} {...f('sport')} />
               <Field label="Classification" placeholder="e.g. T54, S6, BC2" {...f('classification')} />
             </Row>
-            <Field label="Disability type" placeholder="e.g. Spinal Cord Injury" {...f('disability')} />
+            <Row>
+              <Field label="Disability type" placeholder="e.g. Spinal Cord Injury" {...f('disability')} />
+              <Field label="Age category" placeholder="e.g. رجال (20+)" {...f('ageCategory')} />
+            </Row>
             <Row>
               <Field label="Coach" options={[{ value:'', label:'Unassigned' }, ...(coaches||[]).map(c => ({ value: c.id, label: c.name }))]} {...f('coachId')} />
               <Field label="Status" options={['','Active','Inactive','Suspended','Under Medical Review','Injured','Retired']} {...f('status')} />
             </Row>
-            <Field label="Join date" type="date" {...f('joinDate')} />
+            <Row>
+              <Field label="Medical status" placeholder="e.g. Completed" {...f('medicalStatus')} />
+              <Field label="Career profile #" placeholder="e.g. 12345" {...f('careerProfile')} />
+            </Row>
+
+            <Section label="Club & Role" />
+            <Row>
+              <Field label="Club (النادي)" placeholder="e.g. Al Wakrah SC" {...f('club')} />
+              <Field label="Designation (الوظيفة)" options={['','Player','Female Player','Coach','Female Coach','Referee','Female Referee','Admin Staff','Technical Staff','Medical Staff','Board Member','Female Board Member','Member','Female Member','Employee','Female Employee','Expert']} {...f('designation')} />
+            </Row>
+            <Row>
+              <Field label="Residency status (الصفة)" options={['','Qatari Male','Qatari Female','Resident Male','Resident Female','Professional Male','Professional Female','Born in Qatar','Qatari Mother']} {...f('residencyStatus')} />
+              <Field label="QSS number" placeholder="e.g. 12345" {...f('qssNumber')} />
+            </Row>
+
             <Section label="Passport & ID" />
             <Row>
               <Field label="Passport number" placeholder="e.g. A12345678" {...f('passportNumber')} />
@@ -104,12 +118,14 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
               <Field label="Qatar ID number" placeholder="e.g. 28412345678" {...f('idNumber')} />
               <Field label="ID expiry" type="date" {...f('idExpiry')} />
             </Row>
+
             <Section label="Emergency Contact" />
             <Row>
               <Field label="Contact name" placeholder="e.g. Mohammed Al-Ansari" {...f('emergencyName')} />
               <Field label="Relationship" placeholder="e.g. Father, Wife" {...f('emergencyRelation')} />
             </Row>
             <Field label="Contact phone" placeholder="+974 XXXX XXXX" {...f('emergencyPhone')} />
+
             <Section label="Medical Information" />
             <Row>
               <Field label="Blood type" options={['','A+','A-','B+','B-','AB+','AB-','O+','O-','Unknown']} {...f('bloodType')} />
@@ -118,27 +134,48 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
             <Field label="Medical conditions" placeholder="e.g. Asthma, Diabetes — leave blank if none" {...f('medicalConditions')} />
           </>}
 
+          {/* ── COACH FORM ── */}
           {type === 'coach' && <>
-            <Section label="Coach Information" />
+            <Section label="Personal Information" />
             <Row>
-              <Field label="Full name" placeholder="e.g. Carlos Mendez" {...f('name')} />
-              <Field label="Nationality" placeholder="e.g. Spanish" {...f('nationality')} />
+              <Field label="Full name (English)" placeholder="e.g. Carlos Mendez" {...f('name')} />
+              <Field label="Full name (Arabic)" placeholder="e.g. كارلوس مينديز" {...f('nameAr')} />
             </Row>
+            <Row>
+              <Field label="Nationality" placeholder="e.g. Spanish" {...f('nationality')} />
+              <Field label="Gender" options={['','Male','Female']} {...f('gender')} />
+            </Row>
+            <Row>
+              <Field label="Phone" placeholder="+974 XXXX XXXX" {...f('phone')} />
+              <Field label="Email" type="email" placeholder="coach@qpc.qa" {...f('email')} />
+            </Row>
+
+            <Section label="Employment" />
             <Row>
               <Field label="Sport" options={SPORTS} {...f('sport')} />
               <Field label="Cert. level" options={['Level 1','Level 2','Level 3']} {...f('certLevel')} />
             </Row>
             <Row>
-              <Field label="License number" placeholder="e.g. IPC-ATH-2024" {...f('license')} />
-              <Field label="Start date with QPC" type="date" {...f('since')} />
+              <Field label="Employee number" placeholder="e.g. 12501" {...f('employeeNumber')} />
+              <Field label="QSS number" placeholder="e.g. 50112" {...f('qssNumber')} />
             </Row>
             <Row>
-              <Field label="Email" type="email" placeholder="coach@qpc.qa" {...f('email')} />
-              <Field label="Phone" placeholder="+974 XXXX XXXX" {...f('phone')} />
+              <Field label="Start date with QPC" type="date" {...f('since')} />
+              <Field label="Status" options={['Active','On Leave','Inactive']} {...f('status')} />
             </Row>
-            <Field label="Status" options={['Active','On Leave']} {...f('status')} />
+
+            <Section label="Passport & ID" />
+            <Row>
+              <Field label="Passport number" placeholder="e.g. A12345678" {...f('passportNumber')} />
+              <Field label="Passport expiry" type="date" {...f('passportExpiry')} />
+            </Row>
+            <Row>
+              <Field label="Qatar ID / Residence number" placeholder="e.g. 28412345678" {...f('idNumber')} />
+              <Field label="ID expiry" type="date" {...f('idExpiry')} />
+            </Row>
           </>}
 
+          {/* ── EVENT FORM ── */}
           {type === 'event' && <>
             <Section label="Event Details" />
             <Field label="Event name" placeholder="e.g. Qatar Open Athletics Championships" {...f('name')} />
@@ -157,6 +194,7 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
             </Row>
           </>}
 
+          {/* ── RESULT FORM ── */}
           {type === 'result' && <>
             <Section label="Result Information" />
             <Row>
