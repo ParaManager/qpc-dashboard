@@ -152,7 +152,7 @@ export default function App() {
       <div className="main">
         <div className="topbar">
           <div className="tb-breadcrumb">
-            <span>QPC</span> · <span>{tx(`pages.${page}`, page.charAt(0).toUpperCase()+page.slice(1))}</span> · {tx('nav.season','Season')} 2026
+            <span>{lang==='ar'?'QPC':'QPC'}</span> · <span>{tx(`pages.${page}`, page.charAt(0).toUpperCase()+page.slice(1))}</span> · {tx('nav.season','Season')} 2026
           </div>
           <div className="tb-actions">
             <div style={{ display:'flex', alignItems:'center', gap:5, padding:'4px 10px', background:roleColor+'15', border:`1px solid ${roleColor}40`, borderRadius:20, fontSize:11, color:roleColor, fontWeight:500 }}>
