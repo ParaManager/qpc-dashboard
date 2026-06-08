@@ -11,6 +11,29 @@
   --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
 }
 body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); height: 100vh; overflow: hidden; }
+
+/* RTL support */
+[dir="rtl"] .app { flex-direction: row-reverse; }
+[dir="rtl"] .sb-nav .nav-item { flex-direction: row-reverse; }
+[dir="rtl"] .nav-badge { margin-left: 0; margin-right: auto; }
+[dir="rtl"] .page-header { flex-direction: row-reverse; }
+[dir="rtl"] .filters { flex-direction: row-reverse; }
+[dir="rtl"] .topbar { flex-direction: row-reverse; }
+[dir="rtl"] .tb-breadcrumb { direction: rtl; }
+[dir="rtl"] th, [dir="rtl"] td { text-align: right; }
+[dir="rtl"] .detail-grid { direction: rtl; }
+[dir="rtl"] .detail-row { flex-direction: row-reverse; }
+[dir="rtl"] .detail-row .dv { text-align: left; }
+[dir="rtl"] .back-btn { flex-direction: row-reverse; }
+[dir="rtl"] .badge { direction: rtl; }
+[dir="rtl"] .info-title { direction: rtl; }
+[dir="rtl"] .modal-header { flex-direction: row-reverse; }
+[dir="rtl"] .modal-footer { flex-direction: row-reverse; }
+[dir="rtl"] .form-label { direction: rtl; text-align: right; }
+[dir="rtl"] .page-title, [dir="rtl"] .page-sub { direction: rtl; }
+[dir="rtl"] .coach-row { flex-direction: row-reverse; }
+[dir="rtl"] .search-wrap i { left: auto; right: 10px; }
+[dir="rtl"] .search-wrap input { padding: 8px 34px 8px 10px; }
 button, input, select, textarea { font-family: 'DM Sans', sans-serif; }
 
 /* LAYOUT */

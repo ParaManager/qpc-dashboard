@@ -11,11 +11,12 @@ import Results   from './pages/Results'
 import Sports    from './pages/Sports'
 import Employees from './pages/Employees'
 import './index.css'
+import { useLang } from './lib/LangContext.jsx'
 
-const NAV = [
-  { section: 'Overview',     items: [{ id: 'dashboard', icon: 'ti-layout-dashboard', label: 'Dashboard' }] },
-  { section: 'People',       items: [{ id: 'athletes',  icon: 'ti-run',              label: 'Athletes'  }, { id: 'coaches', icon: 'ti-user-star', label: 'Coaches' }, { id: 'employees', icon: 'ti-users', label: 'Employees' }] },
-  { section: 'Competitions', items: [{ id: 'sports',    icon: 'ti-ball-football',    label: 'Sports'    }, { id: 'events',  icon: 'ti-calendar-event', label: 'Events' }, { id: 'results', icon: 'ti-medal', label: 'Results' }] },
+const NAV = (tx) => [
+  { section: tx('nav.overview','Overview'),     items: [{ id: 'dashboard', icon: 'ti-layout-dashboard', label: tx('nav.dashboard','Dashboard') }] },
+  { section: tx('nav.people','People'),         items: [{ id: 'athletes',  icon: 'ti-run',              label: tx('nav.athletes','Athletes')  }, { id: 'coaches', icon: 'ti-user-star', label: tx('nav.coaches','Coaches') }, { id: 'employees', icon: 'ti-users', label: tx('nav.employees','Employees') }] },
+  { section: tx('nav.competitions','Competitions'), items: [{ id: 'sports', icon: 'ti-ball-football', label: tx('nav.sports','Sports') }, { id: 'events', icon: 'ti-calendar-event', label: tx('nav.events','Events') }, { id: 'results', icon: 'ti-medal', label: tx('nav.results','Results') }] },
 ]
 
 const ROLE_COLORS = { admin: '#0085C7', coach: '#009F6B', athlete: '#EE334E', guest: '#9aa3b2' }
@@ -23,6 +24,7 @@ const ROLE_ICONS  = { admin: 'ti-shield', coach: 'ti-whistle', athlete: 'ti-run'
 
 export default function App() {
   const { user, profile, loading: authLoading, signOut } = useAuth()
+  const { lang, setLang, tx } = useLang()
 
   const [page, setPage]                   = useState('dashboard')
   const [athletes, setAthletes]           = useState([])
@@ -106,10 +108,10 @@ export default function App() {
             <div className="agito" style={{ background:'#009F6B' }} />
           </div>
           <div className="sb-org">Qatar Paralympic</div>
-          <div className="sb-sub">Committee · {role.charAt(0).toUpperCase()+role.slice(1)} Portal</div>
+          <div className="sb-sub">{tx('nav.adminPortal', 'Admin Portal')} · {role}</div>
         </div>
         <div className="sb-nav">
-          {NAV.map(({ section, items }) => (
+          {NAV(tx).map(({ section, items }) => (
             <div key={section}>
               <div className="nav-section">{section}</div>
               {items.map(({ id, icon, label }) => (
@@ -142,7 +144,7 @@ export default function App() {
           <button onClick={signOut} style={{ width:'100%', padding:'7px', background:'rgba(255,255,255,.07)', border:'1px solid rgba(255,255,255,.1)', borderRadius:7, color:'rgba(255,255,255,.6)', fontSize:12, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6, transition:'all .15s', fontFamily:'DM Sans, sans-serif' }}
             onMouseEnter={e => { e.currentTarget.style.background='rgba(255,255,255,.12)'; e.currentTarget.style.color='#fff' }}
             onMouseLeave={e => { e.currentTarget.style.background='rgba(255,255,255,.07)'; e.currentTarget.style.color='rgba(255,255,255,.6)' }}>
-            <i className="ti ti-logout" style={{ fontSize:14 }} /> Sign out
+            <i className="ti ti-logout" style={{ fontSize:14 }} /> {tx('nav.signOut','Sign out')}
           </button>
         </div>
       </div>
@@ -150,13 +152,20 @@ export default function App() {
       <div className="main">
         <div className="topbar">
           <div className="tb-breadcrumb">
-            <span>QPC</span> · <span>{page.charAt(0).toUpperCase()+page.slice(1)}</span> · Season 2026
+            <span>QPC</span> · <span>{tx(`pages.${page}`, page.charAt(0).toUpperCase()+page.slice(1))}</span> · {tx('nav.season','Season')} 2026
           </div>
           <div className="tb-actions">
             <div style={{ display:'flex', alignItems:'center', gap:5, padding:'4px 10px', background:roleColor+'15', border:`1px solid ${roleColor}40`, borderRadius:20, fontSize:11, color:roleColor, fontWeight:500 }}>
               <i className={`ti ${roleIcon}`} style={{ fontSize:13 }} />
               {role.charAt(0).toUpperCase()+role.slice(1)}
             </div>
+            {/* Language toggle */}
+            <button
+              onClick={() => setLang(lang === 'en' ? 'ar' : 'en')}
+              style={{ display:'flex', alignItems:'center', gap:5, padding:'5px 12px', borderRadius:8, border:'1px solid var(--border)', background: lang === 'ar' ? '#0085C7' : 'var(--surface)', color: lang === 'ar' ? '#fff' : 'var(--text2)', fontSize:13, fontWeight:600, cursor:'pointer', transition:'all .15s', fontFamily:'DM Sans, sans-serif' }}
+              title="Switch language">
+              {lang === 'en' ? 'عربي' : 'EN'}
+            </button>
             <button className="tb-btn"><i className="ti ti-bell" /></button>
           </div>
         </div>
