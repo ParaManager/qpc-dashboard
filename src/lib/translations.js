@@ -29,6 +29,8 @@ export const AR = {
     unsavedChanges:'تغييرات غير محفوظة', saving:'جارٍ الحفظ', uploading:'جارٍ الرفع',
   },
   athletes: {
+        emergencyPhone:'هاتف الطوارئ', notesPlaceholder:'أضف ملاحظات عن هذا الرياضي…',
+    
     athlete:'الرياضي', sport:'الرياضة', classification:'التصنيف',
     nationality:'الجنسية', coach:'المدرب', status:'الحالة',
     medals:'الميداليات', documents:'الوثائق', gender:'الجنس',
@@ -100,6 +102,8 @@ export const AR = {
     noAthletes:'لا يوجد رياضيون', noEvents:'لا توجد فعاليات',
   },
   status: {
+        onLeave:'في إجازة', 'On Leave':'في إجازة',
+    
     active:'نشط', inactive:'غير نشط', suspended:'موقوف',
     'under medical review':'تحت المراجعة الطبية', injured:'مصاب',
     retired:'متقاعد', 'on leave':'في إجازة', upcoming:'قادم',
@@ -107,6 +111,8 @@ export const AR = {
   },
   medals: { gold:'ذهب', silver:'فضة', bronze:'برونز' },
   filters: {
+        nameZA:'الاسم ي→أ', always:'دائماً', mostParticipants:'أكثر مشاركين',
+    
     allSports:'جميع الرياضات', allStatuses:'جميع الحالات',
     allGenders:'جميع الأجناس', allNationalities:'جميع الجنسيات',
     allDesignations:'جميع المسميات', allCoaches:'جميع المدربين',
@@ -118,6 +124,8 @@ export const AR = {
     newest:'الأحدث', oldest:'الأقدم',
   },
   profile: {
+        withQPC:'مع QPC منذ',
+    
     personalInfo:'المعلومات الشخصية', sportClassification:'الرياضة والتصنيف',
     passportID:'الجواز والهوية', emergencyContact:'جهة الاتصال في حالات الطوارئ',
     medicalInfo:'المعلومات الطبية', clubRole:'النادي والدور',
