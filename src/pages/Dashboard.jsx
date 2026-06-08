@@ -69,7 +69,7 @@ export default function Dashboard({ athletes, coaches, events, results, onNav, p
           <span style={{ fontSize:10, fontWeight:400, color:'var(--text3)', textTransform:'none', letterSpacing:0, marginLeft:4 }}>— {tx('dashboard.clickToExplore','click to explore')}</span>
         </div>
         <div className="sports-grid">
-          {['Goalball','Special Olympics','Athletics','Boccia','Swimming','Powerlifting','Table Tennis'].map(s => {
+          {['Goalball','Special Olympics','Athletics','Boccia','Swimming','Powerlifting','Table Tennis'].filter(s => SPORT_META[s]).map(s => {
             const meta  = SPORT_META[s]
             const count = athletes.filter(a => a.sport === s).length
             return (

@@ -114,7 +114,7 @@ function exportEmployeesExcel(list) {
 }
 
 export default function Employees({ employees, personDocs, onRefresh, onNav, navState, profile }) {
-  const { tx } = useLang()
+  const { tx, tc } = useLang()
   const [search, setSearch]         = useState('')
   const [sort, setSort]             = useState('name-asc')
   const [colFilters, setColFilters] = useState({})
@@ -358,7 +358,7 @@ export default function Employees({ employees, personDocs, onRefresh, onNav, nav
             <div style={{ margin:'10px 0' }}><DesigBadge label={emp.designation} displayLabel={DESIG_LABELS[emp.designation]} /></div>
             {emp.designation_ar && <div style={{ fontSize:13, color:'var(--text2)', marginBottom:8, direction:'rtl' }}>{emp.designation_ar}</div>}
             <div className="detail-fields">
-              {[[tx('profile.employeeNum','Employee #'),emp.employee_number],[tx('profile.qssNumber','QSS #'),emp.qss_number],[tx('profile.gender','Gender'),emp.gender],[tx('profile.nationality','Nationality'),emp.nationality],[tx('profile.phone','Phone'),emp.phone],[tx('profile.email','Email'),emp.email],[tx('employees.status','Status'),emp.status]].map(([k,v]) => (
+              {[[tx('profile.employeeNum','Employee #'),emp.employee_number],[tx('profile.qssNumber','QSS #'),emp.qss_number],[tx('profile.gender','Gender'),emp.gender],[tx('profile.nationality','Nationality'),tc(emp.nationality)],[tx('profile.phone','Phone'),emp.phone],[tx('profile.email','Email'),emp.email],[tx('employees.status','Status'),emp.status]].map(([k,v]) => (
                 <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv" style={{ fontSize:12 }}>{v||'—'}</span></div>
               ))}
             </div>
@@ -472,7 +472,7 @@ export default function Employees({ employees, personDocs, onRefresh, onNav, nav
                   <div><DesigBadge label={emp.designation} displayLabel={DESIG_LABELS[emp.designation]} /></div>
                   {emp.designation_ar && <div style={{ fontSize:11, color:'#9aa3b2', marginTop:3, direction:'rtl' }}>{emp.designation_ar}</div>}
                 </td>
-                <td style={{ fontSize:13, color:'#5a6272' }}>{emp.nationality||'—'}</td>
+                <td style={{ fontSize:13, color:'#5a6272' }}>{tc(emp.nationality)||'—'}</td>
                 <td style={{ fontSize:13, color:'#5a6272' }}>{emp.gender||'—'}</td>
                 <td style={{ fontSize:12, color:'#5a6272', fontFamily:'monospace' }}>{emp.employee_number||'—'}</td>
                 <td style={{ fontSize:12, color:'#5a6272', fontFamily:'monospace' }}>{emp.qss_number||'—'}</td>

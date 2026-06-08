@@ -112,7 +112,7 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
   const [uploading, setUploading] = useState(false)
   const photoInput = useRef(null)
 
-  const { tx } = useLang()
+  const { tx, tc, lang } = useLang()
   const SPORT_NAMES = {
     'Athletics':tx('sports.athletics','Athletics'), 'Swimming':tx('sports.swimming','Swimming'),
     'Powerlifting':tx('sports.powerlifting','Powerlifting'), 'Boccia':tx('sports.boccia','Boccia'),
@@ -274,8 +274,8 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
                 onChange={e => { if(e.target.files[0]) handlePhotoUpload(c.id, e.target.files[0]) }} />
             </div>
 
-            <div className="detail-name">{c.name}</div>
-            {c.name_ar && <div className="detail-sub">{c.name_ar}</div>}
+            <div className="detail-name">{lang==='ar' && c.name_ar ? c.name_ar : c.name}</div>
+            <div className="detail-sub">{lang==='ar' && c.name_ar ? c.name : c.name_ar}</div>
             <div className="detail-sub">{SPORT_NAMES[c.sport]||c.sport} {tx('nav.coaches','Coach')}</div>
             <div className="detail-badges"><Badge label={c.status} /></div>
             <div className="detail-fields">
@@ -397,7 +397,7 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
                 <div style={{ flex:1 }}>
                   <div style={{ fontSize:13, fontWeight:600 }}>{c.name}</div>
                   {c.name_ar && <div style={{ fontSize:11, color:'#9aa3b2', marginTop:1 }}>{c.name_ar}</div>}
-                  <div style={{ fontSize:11, color:'#9aa3b2', marginTop:1 }}>{c.nationality}</div>
+                  <div style={{ fontSize:11, color:'#9aa3b2', marginTop:1 }}>{tc(c.nationality)}</div>
                 </div>
                 <Badge label={c.status} />
               </div>

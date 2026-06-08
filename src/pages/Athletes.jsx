@@ -169,7 +169,7 @@ function getPersonalBests(results) {
 }
 
 export default function Athletes({ athletes, coaches, results, documents, events, registrations, onRefresh, onNav, initAthleteId, initStatusFilter, navState, profile }) {
-  const { tx, lang } = useLang()
+  const { tx, lang, tc } = useLang()
   const SPORT_NAMES = {
     'Athletics':tx('sports.athletics','Athletics'), 'Swimming':tx('sports.swimming','Swimming'),
     'Powerlifting':tx('sports.powerlifting','Powerlifting'), 'Boccia':tx('sports.boccia','Boccia'),
@@ -660,7 +660,7 @@ ${a.notes ? `<div class="section">
               )}
 
               <div className="detail-fields">
-                {[[tx('profile.dateOfBirth','Date of birth'),a.dob],[tx('profile.gender','Gender'),a.gender],[tx('profile.nationality','Nationality'),a.nationality],[tx('profile.phone','Phone'),a.phone],[tx('profile.email','Email'),a.email],[tx('athletes.joinedQPC','Joined QPC'),a.join_date]].map(([k,v]) => (
+                {[[tx('profile.dateOfBirth','Date of birth'),a.dob],[tx('profile.gender','Gender'),a.gender],[tx('profile.nationality','Nationality'),tc(a.nationality)],[tx('profile.phone','Phone'),a.phone],[tx('profile.email','Email'),a.email],[tx('athletes.joinedQPC','Joined QPC'),a.join_date]].map(([k,v]) => (
                   <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv">{v||'—'}</span></div>
                 ))}
               </div>
@@ -1184,7 +1184,7 @@ ${a.notes ? `<div class="section">
                     status:      ['All','Active','Inactive','Suspended','Under Medical Review','Injured','Retired'],
                     gender:      ['All','Male','Female'],
                     nationality: ['All', ...new Set(athletes.map(a => a.nationality).filter(Boolean)).values()].sort(),
-                    coach_id:    ['All', ...coaches.map(c => c.name)],
+                    coach_id:    ['All', ...coaches.map(co => co.name)],
                     disability:  ['All', ...new Set(athletes.map(a => a.disability).filter(Boolean))],
                     age_category:['All', ...new Set(athletes.map(a => a.age_category).filter(Boolean))],
                   }
@@ -1213,7 +1213,10 @@ ${a.notes ? `<div class="section">
                             status: { 'All':tx('filters.all','الكل'), 'Active':tx('status.active','Active'), 'Inactive':tx('status.inactive','Inactive'), 'Suspended':tx('status.suspended','Suspended'), 'Under Medical Review':tx('status.underMedicalReview','Under Medical Review'), 'Injured':tx('status.injured','Injured'), 'Retired':tx('status.retired','Retired') },
                             gender: { 'All':tx('filters.all','All'), 'Male':tx('form.male','Male'), 'Female':tx('form.female','Female') },
                             nationality: { 'All':tx('filters.all','الكل') },
-                            coach_id: { 'All':tx('filters.all','الكل') },
+                            coach_id: { 
+                              'All':tx('filters.all','الكل'),
+                              ...Object.fromEntries(coaches.map(co => [co.name, lang==='ar' && co.name_ar ? co.name_ar : co.name]))
+                            },
                           }
                           return <option key={o} value={o}>{LABELS[col.key]?.[o] || o}</option>
                         })}
