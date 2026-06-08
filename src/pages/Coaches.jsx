@@ -305,10 +305,10 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
             {/* Medals summary */}
             <div style={{ display:'flex', justifyContent:'space-around', padding:'10px 0 16px', borderBottom:'1px solid var(--border)', marginBottom:14 }}>
               {[
-                [tx('coaches.athletes','Athletes'), myAthletes.length, '#0085C7'],
-                [tx('medals.gold','Gold'), myAthletes.reduce((s,a)=>s+(a.medals_gold||0),0), '#f1c40f'],
-                [tx('medals.silver','Silver'), myAthletes.reduce((s,a)=>s+(a.medals_silver||0),0), '#aaa'],
-                [tx('medals.bronze','Bronze'), myAthletes.reduce((s,a)=>s+(a.medals_bronze||0),0), '#cd7f32'],
+                [tx('coaches.athletes','الرياضيون'), myAthletes.length, '#0085C7'],
+                [tx('medals.gold','ذهب'), myAthletes.reduce((s,a)=>s+(a.medals_gold||0),0), '#f1c40f'],
+                [tx('medals.silver','فضة'), myAthletes.reduce((s,a)=>s+(a.medals_silver||0),0), '#aaa'],
+                [tx('medals.bronze','برونز'), myAthletes.reduce((s,a)=>s+(a.medals_bronze||0),0), '#cd7f32'],
               ].map(([label, val, color]) => (
                 <div key={label} style={{ textAlign:'center' }}>
                   <div style={{ fontSize:22, fontWeight:600, color }}>{val}</div>

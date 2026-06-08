@@ -2,7 +2,7 @@ import { Avatar, MedalDisplay, statusClass, statusDot, DashRow, SPORT_META, SPOR
 import { useLang } from '../lib/LangContext.jsx'
 
 export default function Dashboard({ athletes, coaches, events, results, onNav, profile }) {
-  const { tx } = useLang()
+  const { tx, lang } = useLang()
   const active   = athletes.filter(a => a.status === 'Active').length
   const upcoming = events.filter(e => e.status === 'Upcoming' || e.status === 'Registration Open').length
   const gold     = athletes.reduce((s, a) => s + (a.medals_gold || 0), 0)
@@ -69,7 +69,7 @@ export default function Dashboard({ athletes, coaches, events, results, onNav, p
           <span style={{ fontSize:10, fontWeight:400, color:'var(--text3)', textTransform:'none', letterSpacing:0, marginLeft:4 }}>— {tx('dashboard.clickToExplore','click to explore')}</span>
         </div>
         <div className="sports-grid">
-          {SPORTS.map(s => {
+          {['Goalball','Special Olympics','Athletics','Boccia','Swimming','Powerlifting','Table Tennis'].map(s => {
             const meta  = SPORT_META[s]
             const count = athletes.filter(a => a.sport === s).length
             return (
@@ -79,7 +79,17 @@ export default function Dashboard({ athletes, coaches, events, results, onNav, p
                 onMouseLeave={e => { e.currentTarget.style.borderColor='transparent'; e.currentTarget.style.background='' }}>
                 <div style={{ fontSize:20, marginBottom:4 }}><i className={`ti ${meta.icon}`} style={{ color:meta.color }} /></div>
                 <div className="sport-num" style={{ color:meta.color }}>{count}</div>
-                <div className="sport-name">{s}</div>
+                <div className="sport-name">{
+                  {'Athletics':'ألعاب القوى','Swimming':'السباحة','Powerlifting':'رفع الأثقال',
+                   'Boccia':'البوتشيا','Goalball':'كرة الهدف','Table Tennis':'تنس الطاولة',
+                   'Special Olympics':'الأولمبياد الخاص','Shooting':'الرماية',
+                   'Wheelchair Tennis':'تنس الكراسي المتحركة'}[s] && lang==='ar'
+                  ? {'Athletics':'ألعاب القوى','Swimming':'السباحة','Powerlifting':'رفع الأثقال',
+                     'Boccia':'البوتشيا','Goalball':'كرة الهدف','Table Tennis':'تنس الطاولة',
+                     'Special Olympics':'الأولمبياد الخاص','Shooting':'الرماية',
+                     'Wheelchair Tennis':'تنس الكراسي المتحركة'}[s]
+                  : s
+                }</div>
               </div>
             )
           })}

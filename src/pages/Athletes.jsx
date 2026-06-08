@@ -169,7 +169,7 @@ function getPersonalBests(results) {
 }
 
 export default function Athletes({ athletes, coaches, results, documents, events, registrations, onRefresh, onNav, initAthleteId, initStatusFilter, navState, profile }) {
-  const { tx } = useLang()
+  const { tx, lang } = useLang()
   const SPORT_NAMES = {
     'Athletics':tx('sports.athletics','Athletics'), 'Swimming':tx('sports.swimming','Swimming'),
     'Powerlifting':tx('sports.powerlifting','Powerlifting'), 'Boccia':tx('sports.boccia','Boccia'),
@@ -693,7 +693,7 @@ ${a.notes ? `<div class="section">
             {/* SPORT */}
             <div className="info-card">
               <div className="info-title">{tx('athletes.sportClassification','Sport & classification')}</div>
-              {[[tx('form.sport','Sport'),SPORT_NAMES[a.sport]||a.sport],[tx('form.classification','Classification'),a.classification],[tx('form.disability','Disability type'),a.disability],[tx('form.club','Club'),a.club],[tx('form.designation','Designation'),a.designation],[tx('form.residencyStatus','Residency status'),a.residency_status]].map(([k,v]) => (
+              {[[tx('form.sport','Sport'),SPORT_NAMES[a.sport]||a.sport],[tx('form.classification','Classification'),a.classification],[tx('form.disability','Disability type'),({'Visual Impairment':tx('athletes.disVisual','Visual Impairment'),'Hearing Impairment':tx('athletes.disHearing','Hearing Impairment'),'Physical Impairment':tx('athletes.disPhysical','Physical Impairment'),'Intellectual Disability':tx('athletes.disIntellectual','Intellectual Disability'),'Spinal Cord Injury':tx('athletes.disSpinal','Spinal Cord Injury'),'Cerebral Palsy':tx('athletes.disCerebral','Cerebral Palsy'),'Amputation':tx('athletes.disAmputation','Amputation'),'Down Syndrome':tx('athletes.disDown','Down Syndrome'),'Autism':tx('athletes.disAutism','Autism'),'Multiple Disabilities':tx('athletes.disMultiple','Multiple Disabilities')}[a.disability]||a.disability)],[tx('form.club','Club'),a.club],[tx('form.designation','Designation'),a.designation],[tx('form.residencyStatus','Residency status'),a.residency_status]].map(([k,v]) => (
                 <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv">{v||'—'}</span></div>
               ))}
             </div>
@@ -712,7 +712,7 @@ ${a.notes ? `<div class="section">
             {/* PASSPORT & ID */}
             {(a.passport_number || a.id_number) && (
               <div className="info-card">
-                <div className="info-title">Passport & ID</div>
+                <div className="info-title">{tx('profile.passportID','Passport & ID')}</div>
                 {a.passport_number && (
                   <>
                     {[[tx('form.passportNumber','Passport number'), a.passport_number], [tx('form.passportExpiry','Passport expiry'), a.passport_expiry]].map(([k,v]) => (
@@ -745,7 +745,7 @@ ${a.notes ? `<div class="section">
             {/* EMERGENCY CONTACT */}
             {(a.emergency_contact_name || a.emergency_contact_phone) && (
               <div className="info-card">
-                <div className="info-title">Emergency contact</div>
+                <div className="info-title">{tx('profile.emergencyContact','Emergency contact')}</div>
                 {[
                   ['Name', a.emergency_contact_name],
                   ['Relationship', a.emergency_contact_relation],
@@ -764,8 +764,8 @@ ${a.notes ? `<div class="section">
                   Medical information
                 </div>
                 {[
-                  ['Blood type', a.blood_type],
-                  ['Allergies', a.allergies],
+                  [tx('form.bloodType','Blood type'), a.blood_type],
+                  [tx('form.allergies','Allergies'), a.allergies],
                   [tx('form.medicalConditions','Medical conditions'), a.medical_conditions],
                 ].map(([k,v]) => v ? (
                   <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv">{v}</span></div>
@@ -1210,10 +1210,10 @@ ${a.notes ? `<div class="section">
                         {opts.map(o => {
                           const LABELS = {
                             sport:  { 'All':tx('filters.all','All'), ...Object.fromEntries(Object.entries(SPORT_NAMES)) },
-                            status: { 'All':tx('filters.all','All'), 'Active':tx('status.active','Active'), 'Inactive':tx('status.inactive','Inactive'), 'Suspended':tx('status.suspended','Suspended'), 'Under Medical Review':tx('status.underMedicalReview','Under Medical Review'), 'Injured':tx('status.injured','Injured'), 'Retired':tx('status.retired','Retired') },
+                            status: { 'All':tx('filters.all','الكل'), 'Active':tx('status.active','Active'), 'Inactive':tx('status.inactive','Inactive'), 'Suspended':tx('status.suspended','Suspended'), 'Under Medical Review':tx('status.underMedicalReview','Under Medical Review'), 'Injured':tx('status.injured','Injured'), 'Retired':tx('status.retired','Retired') },
                             gender: { 'All':tx('filters.all','All'), 'Male':tx('form.male','Male'), 'Female':tx('form.female','Female') },
-                            nationality: { 'All':tx('filters.all','All') },
-                            coach_id: { 'All':tx('filters.all','All') },
+                            nationality: { 'All':tx('filters.all','الكل') },
+                            coach_id: { 'All':tx('filters.all','الكل') },
                           }
                           return <option key={o} value={o}>{LABELS[col.key]?.[o] || o}</option>
                         })}

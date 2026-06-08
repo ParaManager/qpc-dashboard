@@ -135,7 +135,7 @@ export default function Employees({ employees, personDocs, onRefresh, onNav, nav
   const DESIG_LABELS = {
     'All designations':tx('filters.allDesignations','جميع المسميات'),
     'All':tx('filters.all','الكل'),
-    'Coach':tx('nav.coaches','Coach'), 'Assistant Coach':tx('coaches.assistantCoach','Assistant Coach'),
+    'Coach':tx('nav.coaches','مدرب'), 'Assistant Coach':tx('employees.assistantCoach','مدرب مساعد'),
     'Technical Expert':tx('employees.technicalExpert','Technical Expert'),
     'Physiotherapist':tx('employees.physiotherapist','Physiotherapist'), 'Doctor':tx('employees.doctor','Doctor'),
     'Secretary General':tx('employees.secretaryGeneral','Secretary General'),
