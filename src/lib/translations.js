@@ -231,9 +231,6 @@ export const AR = {
     saveChanges:'حفظ التغييرات', addRecord:'إضافة سجل',
     required:'مطلوب', nameRequired:'الاسم مطلوب',
   },
-}
-
-export default AR
   countries: {
     'Qatar':'قطر', 'Egypt':'مصر', 'Algeria':'الجزائر', 'Morocco':'المغرب',
     'Tunisia':'تونس', 'Libya':'ليبيا', 'Sudan':'السودان', 'Jordan':'الأردن',
@@ -254,3 +251,5 @@ export default AR
     'KSA':'المملكة العربية السعودية',
   },
 }
+
+export default AR
