@@ -11,6 +11,7 @@ export const AR = {
   },
   roles: { admin:'مسؤول', coach:'مدرب', athlete:'رياضي', guest:'زائر' },
   dashboard: {
+    qpc:'الاتحاد القطري لذوي الاحتياجات الخاصة',
     totalAthletes:'إجمالي الرياضيين', activeEvents:'الفعاليات النشطة',
     coaches:'المدربون', goldMedals:'الميداليات الذهبية',
     activeThisSeason:'نشط هذا الموسم', upcoming:'قادم',
@@ -29,6 +30,8 @@ export const AR = {
     unsavedChanges:'تغييرات غير محفوظة', saving:'جارٍ الحفظ', uploading:'جارٍ الرفع',
   },
   athletes: {
+    emergencyPhone:'هاتف الطوارئ', notesPlaceholder:'أضف ملاحظات عن هذا الرياضي…',
+    editMode:'وضع التعديل نشط', editModeDesc:'انقر على أي خلية للتعديل.',
         emergencyPhone:'هاتف الطوارئ', notesPlaceholder:'أضف ملاحظات عن هذا الرياضي…',
     
     athlete:'الرياضي', sport:'الرياضة', classification:'التصنيف',
@@ -102,6 +105,7 @@ export const AR = {
     noAthletes:'لا يوجد رياضيون', noEvents:'لا توجد فعاليات',
   },
   status: {
+    'On Leave':'في إجازة',
         onLeave:'في إجازة', 'On Leave':'في إجازة',
     
     active:'نشط', inactive:'غير نشط', suspended:'موقوف',
@@ -111,6 +115,7 @@ export const AR = {
   },
   medals: { gold:'ذهب', silver:'فضة', bronze:'برونز' },
   filters: {
+    always:'دائماً', mostParticipants:'أكثر مشاركين', nameZA:'الاسم ي→أ',
         nameZA:'الاسم ي→أ', always:'دائماً', mostParticipants:'أكثر مشاركين',
     
     allSports:'جميع الرياضات', allStatuses:'جميع الحالات',
@@ -124,6 +129,7 @@ export const AR = {
     newest:'الأحدث', oldest:'الأقدم',
   },
   profile: {
+    withQPC:'مع QPC منذ',
         withQPC:'مع QPC منذ',
     
     personalInfo:'المعلومات الشخصية', sportClassification:'الرياضة والتصنيف',
@@ -152,6 +158,7 @@ export const AR = {
     photo:'صورة', other:'أخرى',
   },
   form: {
+    male:'ذكر', female:'أنثى',
     personalInfo:'المعلومات الشخصية', sportClassification:'الرياضة والتصنيف',
     clubRole:'النادي والدور', passportID:'الجواز والهوية',
     emergencyContact:'جهة الاتصال في حالات الطوارئ',
