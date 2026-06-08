@@ -170,6 +170,13 @@ function getPersonalBests(results) {
 
 export default function Athletes({ athletes, coaches, results, documents, events, registrations, onRefresh, onNav, initAthleteId, initStatusFilter, navState, profile }) {
   const { tx } = useLang()
+  const SPORT_NAMES = {
+    'Athletics':tx('sports.athletics','Athletics'), 'Swimming':tx('sports.swimming','Swimming'),
+    'Powerlifting':tx('sports.powerlifting','Powerlifting'), 'Boccia':tx('sports.boccia','Boccia'),
+    'Goalball':tx('sports.goalball','Goalball'), 'Table Tennis':tx('sports.tableTennis','Table Tennis'),
+    'Special Olympics':tx('sports.specialOlympics','Special Olympics'),
+    'Shooting':tx('sports.shooting','Shooting'), 'Wheelchair Tennis':tx('sports.wheelchairTennis','Wheelchair Tennis'),
+  }
   const [search, setSearch]         = useState('')
   const [sport, setSport]           = useState('All sports')
   const [status, setStatus]         = useState('All statuses')
@@ -635,7 +642,7 @@ ${a.notes ? `<div class="section">
               </div>
               <div className="detail-name">{a.name}</div>
               {a.name_ar && <div className="detail-sub">{a.name_ar}</div>}
-              <div className="detail-badges"><Badge label={a.status} /><span className="badge badge-blue">{a.sport}</span></div>
+              <div className="detail-badges"><Badge label={a.status} /><span className="badge badge-blue">{SPORT_NAMES[a.sport]||a.sport}</span></div>
 
               {/* AGE & YEARS ACTIVE */}
               {(age || yearsActive) && (
@@ -653,7 +660,7 @@ ${a.notes ? `<div class="section">
               )}
 
               <div className="detail-fields">
-                {[[tx('form.dateOfBirth','Date of birth'),a.dob],[tx('form.gender','Gender'),a.gender],[tx('form.nationality','Nationality'),a.nationality],[tx('form.phone','Phone'),a.phone],[tx('form.email','Email'),a.email],[tx('athletes.joinedQPC','Joined QPC'),a.join_date]].map(([k,v]) => (
+                {[[tx('profile.dateOfBirth','Date of birth'),a.dob],[tx('profile.gender','Gender'),a.gender],[tx('profile.nationality','Nationality'),a.nationality],[tx('profile.phone','Phone'),a.phone],[tx('profile.email','Email'),a.email],[tx('athletes.joinedQPC','Joined QPC'),a.join_date]].map(([k,v]) => (
                   <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv">{v||'—'}</span></div>
                 ))}
               </div>
@@ -686,7 +693,7 @@ ${a.notes ? `<div class="section">
             {/* SPORT */}
             <div className="info-card">
               <div className="info-title">{tx('athletes.sportClassification','Sport & classification')}</div>
-              {[[tx('form.sport','Sport'),a.sport],[tx('form.classification','Classification'),a.classification],[tx('form.disability','Disability type'),a.disability],[tx('form.club','Club'),a.club],[tx('form.designation','Designation'),a.designation],[tx('form.residencyStatus','Residency status'),a.residency_status]].map(([k,v]) => (
+              {[[tx('form.sport','Sport'),SPORT_NAMES[a.sport]||a.sport],[tx('form.classification','Classification'),a.classification],[tx('form.disability','Disability type'),a.disability],[tx('form.club','Club'),a.club],[tx('form.designation','Designation'),a.designation],[tx('form.residencyStatus','Residency status'),a.residency_status]].map(([k,v]) => (
                 <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv">{v||'—'}</span></div>
               ))}
             </div>
@@ -1202,8 +1209,11 @@ ${a.notes ? `<div class="section">
                         style={{ fontSize:11, border:'1px solid var(--border)', borderRadius:6, padding:'3px 4px', background:'var(--surface)', color: filterVal !== 'All' ? '#0085C7' : 'var(--text3)', cursor:'pointer', outline:'none', fontWeight: filterVal !== 'All' ? 600 : 400, maxWidth:120 }}>
                         {opts.map(o => {
                           const LABELS = {
+                            sport:  { 'All':tx('filters.all','All'), ...Object.fromEntries(Object.entries(SPORT_NAMES)) },
                             status: { 'All':tx('filters.all','All'), 'Active':tx('status.active','Active'), 'Inactive':tx('status.inactive','Inactive'), 'Suspended':tx('status.suspended','Suspended'), 'Under Medical Review':tx('status.underMedicalReview','Under Medical Review'), 'Injured':tx('status.injured','Injured'), 'Retired':tx('status.retired','Retired') },
                             gender: { 'All':tx('filters.all','All'), 'Male':tx('form.male','Male'), 'Female':tx('form.female','Female') },
+                            nationality: { 'All':tx('filters.all','All') },
+                            coach_id: { 'All':tx('filters.all','All') },
                           }
                           return <option key={o} value={o}>{LABELS[col.key]?.[o] || o}</option>
                         })}

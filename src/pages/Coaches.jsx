@@ -113,6 +113,13 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
   const photoInput = useRef(null)
 
   const { tx } = useLang()
+  const SPORT_NAMES = {
+    'Athletics':tx('sports.athletics','Athletics'), 'Swimming':tx('sports.swimming','Swimming'),
+    'Powerlifting':tx('sports.powerlifting','Powerlifting'), 'Boccia':tx('sports.boccia','Boccia'),
+    'Goalball':tx('sports.goalball','Goalball'), 'Table Tennis':tx('sports.tableTennis','Table Tennis'),
+    'Special Olympics':tx('sports.specialOlympics','Special Olympics'),
+    'Shooting':tx('sports.shooting','Shooting'), 'Wheelchair Tennis':tx('sports.wheelchairTennis','Wheelchair Tennis'),
+  }
   useEffect(() => { if (initCoachId) setSelected(initCoachId) }, [initCoachId])
 
   useEffect(() => {
@@ -126,7 +133,6 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
   }, [navState])
 
   const sportsRaw  = ['All sports', ...new Set(coaches.map(c => c.sport).filter(Boolean))]
-  const sportLabel = s => s === 'All sports' ? tx('filters.allSports','All sports') : s
   const hasFilters = search || sport !== 'All sports' || status !== 'All statuses'
 
   let list = coaches.filter(c =>
@@ -270,7 +276,7 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
 
             <div className="detail-name">{c.name}</div>
             {c.name_ar && <div className="detail-sub">{c.name_ar}</div>}
-            <div className="detail-sub">{c.sport} {tx('nav.coaches','Coach')}</div>
+            <div className="detail-sub">{SPORT_NAMES[c.sport]||c.sport} {tx('nav.coaches','Coach')}</div>
             <div className="detail-badges"><Badge label={c.status} /></div>
             <div className="detail-fields">
               {[
@@ -280,10 +286,10 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
                 ['Nationality', c.nationality],
                 ['Gender', c.gender],
                 ['With QPC since', c.since],
-                [tx('athletes.passportNo','Passport #'), c.passport_number],
-                [tx('athletes.passportExpiry','Passport expiry'), c.passport_expiry],
-                [tx('form.idNumber','ID / Residence #'), c.id_number],
-                [tx('athletes.idExpiry','ID expiry'), c.id_expiry],
+                [tx('profile.passportNumber','Passport #'), c.passport_number],
+                [tx('profile.passportExpiry','Passport expiry'), c.passport_expiry],
+                [tx('profile.idNumber','ID / Residence #'), c.id_number],
+                [tx('profile.idExpiry','ID expiry'), c.id_expiry],
                 ['Email', c.email],
                 ['Phone', c.phone],
               ].map(([k,v]) => (
@@ -369,7 +375,7 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
       </div>
       <div className="filters">
         <div className="search-wrap"><i className="ti ti-search" /><input placeholder={tx("coaches.searchCoaches","Search by name, sport…")} value={search} onChange={e => setSearch(e.target.value)} /></div>
-        <select className="filter" value={sport} onChange={e => setSport(e.target.value)}>{sportsRaw.map(s => <option key={s} value={s}>{sportLabel(s)}</option>)}</select>
+        <select className="filter" value={sport} onChange={e => setSport(e.target.value)}>{sportsRaw.map(s => <option key={s} value={s}>{s === 'All sports' ? tx('filters.allSports','All sports') : (SPORT_NAMES[s]||s)}</option>)}</select>
         <select className="filter" value={status} onChange={e => setStatus(e.target.value)}>{[['All statuses',tx('filters.allStatuses','All statuses')],['Active',tx('status.active','Active')],['On Leave',tx('status.onLeave','On Leave')],['Inactive',tx('status.inactive','Inactive')]].map(([val,lbl]) => <option key={val} value={val}>{lbl}</option>)}</select>
         <select className="filter" value={sort} onChange={e => setSort(e.target.value)}>
           <option value="name-asc">{tx('filters.nameAZ','Name A→Z')}</option>
@@ -397,7 +403,7 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
               </div>
               <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
                 {[
-                  [tx('form.sport','Sport'), c.sport],
+                  [tx('form.sport','Sport'), SPORT_NAMES[c.sport]||c.sport],
                   [tx('form.certLevel','Cert.'), c.cert_level],
                   [tx('coaches.employeeNum','Employee #'), c.employee_number],
                   [tx('coaches.athletes','Athletes'), count],

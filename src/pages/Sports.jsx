@@ -17,8 +17,8 @@ export default function Sports({ athletes, coaches, events, results, onNav, init
     'Wheelchair Tennis': tx('sports.wheelchairTennis','Wheelchair Tennis'),
   }
 
-  // Only show sports that actually have athletes in the database
-  const activeSports = SPORTS.filter(s => athletes.some(a => a.sport === s))
+  // Show all sports
+  const activeSports = SPORTS
   const [selected, setSelected] = useState(initSport || null)
   useEffect(() => { if (initSport) setSelected(initSport) }, [initSport])
 
@@ -38,7 +38,7 @@ export default function Sports({ athletes, coaches, events, results, onNav, init
           </div>
           <div>
             <div style={{ fontSize:22, fontWeight:600 }}>{SPORT_NAMES[selected] || selected}</div>
-            <div style={{ fontSize:13, color:'var(--text2)', marginTop:3 }}>{meta.desc}</div>
+            <div style={{ fontSize:13, color:'var(--text2)', marginTop:3 }}>{tx('dashboard.qpc','Qatar Paralympic Committee')}</div>
           </div>
         </div>
         <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:10, marginBottom:18 }}>
@@ -96,7 +96,7 @@ export default function Sports({ athletes, coaches, events, results, onNav, init
   return (
     <div>
       <div className="page-header">
-        <div><div className="page-title">{tx('pages.sports','Sports')}</div><div className="page-sub">Qatar Paralympic Committee</div></div>
+        <div><div className="page-title">{tx('pages.sports','Sports')}</div><div className="page-sub">{tx('dashboard.qpc','Qatar Paralympic Committee')}</div></div>
       </div>
       {activeSports.map(s => {
         const meta     = SPORT_META[s]

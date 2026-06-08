@@ -133,7 +133,8 @@ export default function Employees({ employees, personDocs, onRefresh, onNav, nav
 
   const hasFilters = search || Object.values(colFilters).some(v => v && v !== 'All')
   const DESIG_LABELS = {
-    'All designations':tx('filters.allDesignations','All designations'),
+    'All designations':tx('filters.allDesignations','جميع المسميات'),
+    'All':tx('filters.all','الكل'),
     'Coach':tx('nav.coaches','Coach'), 'Assistant Coach':tx('coaches.assistantCoach','Assistant Coach'),
     'Technical Expert':tx('employees.technicalExpert','Technical Expert'),
     'Physiotherapist':tx('employees.physiotherapist','Physiotherapist'), 'Doctor':tx('employees.doctor','Doctor'),
@@ -357,7 +358,7 @@ export default function Employees({ employees, personDocs, onRefresh, onNav, nav
             <div style={{ margin:'10px 0' }}><DesigBadge label={emp.designation} displayLabel={DESIG_LABELS[emp.designation]} /></div>
             {emp.designation_ar && <div style={{ fontSize:13, color:'var(--text2)', marginBottom:8, direction:'rtl' }}>{emp.designation_ar}</div>}
             <div className="detail-fields">
-              {[[tx('employees.employeeNum','Employee #'),emp.employee_number],[tx('employees.qssNum','QSS #'),emp.qss_number],[tx('form.gender','Gender'),emp.gender],[tx('form.nationality','Nationality'),emp.nationality],[tx('form.phone','Phone'),emp.phone],[tx('form.email','Email'),emp.email],[tx('employees.status','Status'),emp.status]].map(([k,v]) => (
+              {[[tx('profile.employeeNum','Employee #'),emp.employee_number],[tx('profile.qssNumber','QSS #'),emp.qss_number],[tx('profile.gender','Gender'),emp.gender],[tx('profile.nationality','Nationality'),emp.nationality],[tx('profile.phone','Phone'),emp.phone],[tx('profile.email','Email'),emp.email],[tx('employees.status','Status'),emp.status]].map(([k,v]) => (
                 <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv" style={{ fontSize:12 }}>{v||'—'}</span></div>
               ))}
             </div>
