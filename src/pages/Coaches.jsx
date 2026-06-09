@@ -113,13 +113,13 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
   const photoInput = useRef(null)
 
   const { tx, tc, lang } = useLang()
-  const SPORT_NAMES = {
-    'Athletics':tx('sports.athletics','Athletics'), 'Swimming':tx('sports.swimming','Swimming'),
-    'Powerlifting':tx('sports.powerlifting','Powerlifting'), 'Boccia':tx('sports.boccia','Boccia'),
-    'Goalball':tx('sports.goalball','Goalball'), 'Table Tennis':tx('sports.tableTennis','Table Tennis'),
-    'Special Olympics':tx('sports.specialOlympics','Special Olympics'),
-    'Shooting':tx('sports.shooting','Shooting'), 'Wheelchair Tennis':tx('sports.wheelchairTennis','Wheelchair Tennis'),
-  }
+  const STATUS_AR = {'Active':'نشط','Inactive':'غير نشط','Suspended':'موقوف','Under Medical Review':'تحت المراجعة الطبية','Injured':'مصاب','Retired':'متقاعد','On Leave':'في إجازة'}
+  const SPORT_NAMES = lang==='ar' ? {
+    'Athletics':'ألعاب القوى', 'Swimming':'السباحة', 'Powerlifting':'رفع الأثقال',
+    'Boccia':'البوتشيا', 'Goalball':'كرة الهدف', 'Table Tennis':'تنس الطاولة',
+    'Special Olympics':'الأولمبياد الخاص', 'Shooting':'الرماية',
+    'Wheelchair Tennis':'تنس الكراسي المتحركة',
+  } : {}
   useEffect(() => { if (initCoachId) setSelected(initCoachId) }, [initCoachId])
 
   useEffect(() => {
@@ -344,7 +344,7 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
                     <div style={{ fontSize:11, color:'#9aa3b2' }}>{a.sport} · {a.classification}</div>
                   </div>
                   <MedalDisplay gold={a.medals_gold} silver={a.medals_silver} bronze={a.medals_bronze} />
-                  <Badge label={STATUS_AR[a.status]||a.status} />
+                  <Badge label={lang==='ar' ? (STATUS_AR[a.status]||a.status) : a.status} />
                 </DashRow>
               ))
             }
