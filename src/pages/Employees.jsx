@@ -18,6 +18,20 @@ const DESIGNATIONS = [
   'Employee', 'Store Keeper', 'Waiter', 'Worker', 'Driver',
 ]
 
+const DESIG_AR = {
+  'Coach':'مدرب', 'Assistant Coach':'مدرب مساعد', 'Technical Expert':'خبير تقني',
+  'Physiotherapist':'معالج فيزيائي', 'Doctor':'طبيب',
+  'Secretary General':'الأمين العام', 'Executive Manager':'مدير تنفيذي',
+  'Administration Secretary':'سكرتير إداري', 'Secretary Assistant':'مساعد سكرتير',
+  'Administrative National Team':'إداري الفريق الوطني',
+  'Administrative Youth Team':'إداري فريق الشباب',
+  'Administrative Center & Development':'إداري المركز والتطوير',
+  'Accountant':'محاسب', 'Public Relation Officer':'مسؤول علاقات عامة',
+  'Receptionist':'موظف استقبال', 'Board Member':'عضو مجلس إدارة',
+  'Official':'مسؤول', 'Delegate':'مندوب', 'Employee':'موظف',
+  'Store Keeper':'أمين مخزن', 'Waiter':'نادل', 'Worker':'عامل', 'Driver':'سائق',
+}
+
 const DESIG_COLORS = {
   'Coach': '#009F6B', 'Assistant Coach': '#009F6B', 'Technical Expert': '#009F6B',
   'Physiotherapist': '#EE334E', 'Doctor': '#EE334E',
@@ -288,7 +302,7 @@ export default function Employees({ employees, personDocs, onRefresh, onNav, nav
             </div>
             <div className="form-section">{ar?'الدور والتوظيف':'Role & Employment'}</div>
             <div className="form-row">
-              <F label={ar?'المسمى الوظيفي (إنجليزي)':'Designation (English)'} name="designation" options={['',...DESIGNATIONS.slice(1)]} />
+              <F label={ar?'المسمى الوظيفي (إنجليزي)':'Designation (English)'} name="designation" options={[{value:'',label:''},...DESIGNATIONS.slice(1).map(d => ({ value:d, label: ar ? (DESIG_AR[d]||d) : d }))]} />
               <F label={ar?'المسمى الوظيفي (عربي)':'Designation (Arabic)'} name="designation_ar" placeholder="e.g. مدرب" />
             </div>
             <div className="form-row">
