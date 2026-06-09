@@ -32,7 +32,11 @@ export function LangProvider({ children }) {
   // Translate country name
   const tc = (country) => {
     if (!country || lang === 'en') return country
-    return AR.countries?.[country] || country
+    // Try exact match first, then case-insensitive
+    if (AR.countries?.[country]) return AR.countries[country]
+    const lower = country.toLowerCase()
+    const found = Object.keys(AR.countries || {}).find(k => k.toLowerCase() === lower)
+    return found ? AR.countries[found] : country
   }
 
   return (
