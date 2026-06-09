@@ -18,6 +18,46 @@ const DESIGNATIONS = [
   'Employee', 'Store Keeper', 'Waiter', 'Worker', 'Driver',
 ]
 
+const COUNTRIES_EN = [
+  'Afghanistan','Algeria','Argentina','Armenia','Australia','Azerbaijan',
+  'Bahrain','Bangladesh','Belarus','Belgium','Brazil','Cameroon','Canada',
+  'Chile','China','Colombia','Croatia','Czech Republic','Denmark','Egypt',
+  'Eritrea','Ethiopia','Finland','France','Georgia','Germany','Ghana',
+  'Greece','Guinea','Hungary','India','Indonesia','Iran','Iraq','Ireland',
+  'Italy','Japan','Jordan','Kazakhstan','Kenya','Kuwait','Kyrgyzstan',
+  'Lebanon','Libya','Malaysia','Mali','Mauritania','Mexico','Mongolia',
+  'Morocco','Myanmar','Nepal','Netherlands','New Zealand','Nigeria',
+  'Norway','Oman','Pakistan','Palestine','Peru','Philippines','Poland',
+  'Portugal','Qatar','Romania','Russia','Rwanda','Saudi Arabia','Scotland',
+  'Senegal','Serbia','Singapore','Slovakia','Somalia','South Africa',
+  'South Korea','Spain','Sri Lanka','Sudan','Sweden','Syria','Tajikistan',
+  'Tanzania','Thailand','Tunisia','Turkey','Turkmenistan','UAE','Uganda',
+  'UK','Ukraine','USA','Uzbekistan','Venezuela','Vietnam','Wales',
+  'Yemen','Zambia','Zimbabwe',
+]
+const COUNTRIES_AR_MAP = {
+  'Qatar':'قطر','Egypt':'مصر','Algeria':'الجزائر','Morocco':'المغرب',
+  'Tunisia':'تونس','Jordan':'الأردن','Saudi Arabia':'المملكة العربية السعودية',
+  'UAE':'الإمارات','Kuwait':'الكويت','Bahrain':'البحرين','Oman':'عُمان',
+  'Iraq':'العراق','Syria':'سوريا','Lebanon':'لبنان','Palestine':'فلسطين',
+  'Yemen':'اليمن','Somalia':'الصومال','Sudan':'السودان','Libya':'ليبيا',
+  'Pakistan':'باكستان','India':'الهند','Bangladesh':'بنغلاديش',
+  'Iran':'إيران','Turkey':'تركيا','Afghanistan':'أفغانستان',
+  'Nigeria':'نيجيريا','Ghana':'غانا','Kenya':'كينيا','Ethiopia':'إثيوبيا',
+  'Cameroon':'الكاميرون','Senegal':'السنغال','Tanzania':'تنزانيا',
+  'France':'فرنسا','Spain':'إسبانيا','Germany':'ألمانيا','Italy':'إيطاليا',
+  'UK':'المملكة المتحدة','USA':'الولايات المتحدة','Canada':'كندا',
+  'Australia':'أستراليا','Brazil':'البرازيل','Russia':'روسيا',
+  'China':'الصين','Japan':'اليابان','South Korea':'كوريا الجنوبية',
+  'Azerbaijan':'أذربيجان','Kazakhstan':'كازاخستان','Ireland':'أيرلندا',
+  'Netherlands':'هولندا','Belgium':'بلجيكا','Sweden':'السويد',
+  'Norway':'النرويج','Denmark':'الدنمارك','Poland':'بولندا',
+  'Portugal':'البرتغال','Greece':'اليونان','Ukraine':'أوكرانيا',
+  'Indonesia':'إندونيسيا','Malaysia':'ماليزيا','Philippines':'الفلبين',
+  'Thailand':'تايلاند','Vietnam':'فيتنام','Sri Lanka':'سريلانكا',
+  'Nepal':'نيبال','Mongolia':'منغوليا','South Africa':'جنوب أفريقيا',
+}
+
 const DESIG_AR = {
   'Coach':'مدرب', 'Assistant Coach':'مدرب مساعد', 'Technical Expert':'خبير تقني',
   'Physiotherapist':'معالج فيزيائي', 'Doctor':'طبيب',
@@ -298,7 +338,7 @@ export default function Employees({ employees, personDocs, onRefresh, onNav, nav
             </div>
             <div className="form-row">
               <F label={ar?'الجنس':'Gender'} name="gender" options={genderOpts} />
-              <F label={ar?'الجنسية':'Nationality'} name="nationality" placeholder={ar?'مثال: قطري':'e.g. Qatari'} />
+              <F label={ar?'الجنسية':'Nationality'} name="nationality" options={[{value:'',label:''}, ...COUNTRIES_EN.map(cn => ({value:cn, label: ar?(COUNTRIES_AR_MAP[cn]||cn):cn}))]} />
             </div>
             <div className="form-section">{ar?'الدور والتوظيف':'Role & Employment'}</div>
             <div className="form-row">
