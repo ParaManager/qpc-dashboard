@@ -132,11 +132,7 @@ export default function PersonDocuments({ personId, personType, personName, docs
 
       {/* Upload row — admins only */}
       {canEdit(profile) && (
-        <div style={{ display:'flex', gap:8, marginBottom:16, padding:'10px 12px', background:'var(--surface2)', borderRadius:10, alignItems:'center', direction:'ltr' }}>
-          <select value={docType} onChange={e => setDocType(e.target.value)}
-            style={{ flex:1, padding:'7px 10px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface)', fontSize:12, color:'var(--text)', outline:'none', direction: lang==='ar' ? 'rtl' : 'ltr' }}>
-            {DOC_TYPES.map(t => <option key={t} value={t}>{lang==='ar'?(DOC_TYPES_AR[t]||t):t}</option>)}
-          </select>
+        <div style={{ display:'flex', gap:8, marginBottom:16, padding:'10px 12px', background:'var(--surface2)', borderRadius:10, alignItems:'center', direction:'ltr', position:'relative' }}>
           <button onClick={() => docInput.current.click()} disabled={uploading}
             style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', background:'#0085C7', color:'#fff', border:'none', borderRadius:8, fontSize:12, fontWeight:500, cursor:'pointer', flexShrink:0, fontFamily:'DM Sans, sans-serif' }}>
             {uploading
@@ -144,6 +140,10 @@ export default function PersonDocuments({ personId, personType, personName, docs
               : <><i className="ti ti-upload" style={{ fontSize:14 }} />{lang==='ar'?'رفع':'Upload'}</>
             }
           </button>
+          <select value={docType} onChange={e => setDocType(e.target.value)}
+            style={{ flex:1, padding:'7px 10px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface)', fontSize:12, color:'var(--text)', outline:'none', direction: lang==='ar' ? 'rtl' : 'ltr' }}>
+            {DOC_TYPES.map(t => <option key={t} value={t}>{lang==='ar'?(DOC_TYPES_AR[t]||t):t}</option>)}
+          </select>
           <input ref={docInput} type="file" style={{ display:'none' }}
             accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
             onChange={e => { if(e.target.files[0]) handleUpload(e.target.files[0]) }} />
