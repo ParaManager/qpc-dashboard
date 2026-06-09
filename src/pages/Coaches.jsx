@@ -409,8 +409,8 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
                   : <div className="av" style={{ width:42, height:42, fontSize:13, background:'#009F6B' }}>{initials(c.name)}</div>
                 }
                 <div style={{ flex:1 }}>
-                  <div style={{ fontSize:13, fontWeight:600 }}>{c.name}</div>
-                  {c.name_ar && <div style={{ fontSize:11, color:'#9aa3b2', marginTop:1 }}>{c.name_ar}</div>}
+                  <div style={{ fontSize:13, fontWeight:600 }}>{lang==='ar' && c.name_ar ? c.name_ar : c.name}</div>
+                  <div style={{ fontSize:11, color:'#9aa3b2', marginTop:1 }}>{lang==='ar' && c.name_ar ? c.name : (c.name_ar || tc(c.nationality))}</div>
                   <div style={{ fontSize:11, color:'#9aa3b2', marginTop:1 }}>{tc(c.nationality)}</div>
                 </div>
                 <Badge label={lang==='ar'?(STATUS_AR[c.status]||c.status):c.status} />
