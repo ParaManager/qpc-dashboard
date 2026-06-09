@@ -677,9 +677,12 @@ ${a.notes ? `<div class="section">
                 )}
                 <input ref={photoInput} type="file" accept="image/*" style={{ display:'none' }} onChange={e => { if(e.target.files[0]) handlePhotoUpload(a.id, e.target.files[0]) }} />
               </div>
-              <div className="detail-name">{a.name}</div>
-              {a.name_ar && <div className="detail-sub">{a.name_ar}</div>}
-              <div className="detail-badges"><Badge label={a.status} /><span className="badge badge-blue">{SPORT_NAMES[a.sport]||a.sport}</span></div>
+              <div className="detail-name">{lang==='ar' && a.name_ar ? a.name_ar : a.name}</div>
+              {(lang==='ar' && a.name_ar ? a.name : a.name_ar) && <div className="detail-sub">{lang==='ar' && a.name_ar ? a.name : a.name_ar}</div>}
+              <div className="detail-badges">
+                <Badge label={{'Active':lang==='ar'?'نشط':'Active','Inactive':lang==='ar'?'غير نشط':'Inactive','Suspended':lang==='ar'?'موقوف':'Suspended','Under Medical Review':lang==='ar'?'تحت المراجعة الطبية':'Under Medical Review','Injured':lang==='ar'?'مصاب':'Injured','Retired':lang==='ar'?'متقاعد':'Retired'}[a.status]||a.status} />
+                <span className="badge badge-blue">{SPORT_NAMES[a.sport]||a.sport}</span>
+              </div>
 
               {/* AGE & YEARS ACTIVE */}
               {(age || yearsActive) && (
@@ -691,7 +694,7 @@ ${a.notes ? `<div class="section">
                   {age && yearsActive && <div style={{ width:1, background:'var(--border)' }} />}
                   {yearsActive && <div style={{ textAlign:'center' }}>
                     <div style={{ fontSize:16, fontWeight:600, color:'#009F6B' }}>{yearsActive}</div>
-                    <div style={{ fontSize:10, color:'var(--text3)' }}>with QPC</div>
+                    <div style={{ fontSize:10, color:'var(--text3)' }}>{lang==='ar'?'مع QPC':'with QPC'}</div>
                   </div>}
                 </div>
               )}
@@ -707,7 +710,7 @@ ${a.notes ? `<div class="section">
             <div className="info-card" style={{ marginTop:12 }}>
               <div className="info-title">{lang==='ar'?'عدد الميداليات':'Medal count'} <span style={{ fontSize:10, fontWeight:400, textTransform:'none', letterSpacing:0 }}>({lang==='ar'?'انقر للتفاصيل':'click to see details'})</span></div>
               <div className="medal-row">
-                {[['gold','#f1c40f','Gold'],['silver','#aaa','Silver'],['bronze','#cd7f32','Bronze']].map(([type,color,label]) => {
+                {[['gold','#f1c40f',lang==='ar'?'ذهب':'Gold'],['silver','#aaa',lang==='ar'?'فضة':'Silver'],['bronze','#cd7f32',lang==='ar'?'برونز':'Bronze']].map(([type,color,label]) => {
                   const count   = a[`medals_${type}`] || 0
                   const typeRes = myResults.filter(r => r.medal === type)
                   return (
@@ -718,7 +721,7 @@ ${a.notes ? `<div class="section">
                       onClick={() => { if(count>0) setMedalModal({ athleteName:a.name, type, color, label, results:typeRes }) }}>
                       <div className="medal-num" style={{ color }}>{count}</div>
                       <div className="medal-lbl">{label}</div>
-                      {count>0 && <div style={{ fontSize:9, color, marginTop:2, opacity:.8 }}>view ↗</div>}
+                      {count>0 && <div style={{ fontSize:9, color, marginTop:2, opacity:.8 }}>{lang==='ar'?'عرض ↗':'view ↗'}</div>}
                     </div>
                   )
                 })}
@@ -730,7 +733,7 @@ ${a.notes ? `<div class="section">
             {/* SPORT */}
             <div className="info-card">
               <div className="info-title">{lang==='ar'?'الرياضة والتصنيف':'Sport & classification'}</div>
-              {[[tx('form.sport','Sport'),SPORT_NAMES[a.sport]||a.sport],[tx('form.classification','Classification'),a.classification],[tx('form.disability','Disability type'), tDis(a.disability)],[tx('form.club','Club'),a.club],[tx('form.designation','Designation'),a.designation],[tx('form.residencyStatus','Residency status'),a.residency_status]].map(([k,v]) => (
+              {[[tx('form.sport','Sport'),SPORT_NAMES[a.sport]||a.sport],[tx('form.classification','Classification'),a.classification],[tx('form.disability','Disability type'), tDis(a.disability)],[tx('form.club','Club'),a.club],[lang==='ar'?'الوظيفة':'Designation', {'Player':'لاعب','Female Player':'لاعبة','Coach':'مدرب','Female Coach':'مدربة','Referee':'حكم','Admin Staff':'جهاز إداري','Technical Staff':'جهاز في','Medical Staff':'جهاز طبي'}[a.designation]||a.designation],[tx('form.residencyStatus','Residency status'),a.residency_status]].map(([k,v]) => (
                 <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv">{v||'—'}</span></div>
               ))}
             </div>
@@ -757,7 +760,7 @@ ${a.notes ? `<div class="section">
                         <span className="dk">{k}</span>
                         <span className="dv" style={{ color: v && new Date(v) < new Date() ? '#dc2626' : 'inherit' }}>
                           {v || '—'}
-                          {v && new Date(v) < new Date() && <span style={{ marginLeft:6, fontSize:10, color:'#dc2626' }}>EXPIRED</span>}
+                          {v && new Date(v) < new Date() && <span style={{ marginLeft:6, fontSize:10, color:'#dc2626' }}>{lang==='ar'?'منتهية':'EXPIRED'}</span>}
                         </span>
                       </div>
                     ))}
@@ -765,12 +768,12 @@ ${a.notes ? `<div class="section">
                 )}
                 {a.id_number && (
                   <>
-                    {[['Qatar ID number', a.id_number], ['ID expiry', a.id_expiry]].map(([k,v]) => (
+                    {[[lang==='ar'?'الرقم الشخصي':'Qatar ID number', a.id_number], [lang==='ar'?'انتهاء الهوية':'ID expiry', a.id_expiry]].map(([k,v]) => (
                       <div key={k} className="detail-row">
                         <span className="dk">{k}</span>
                         <span className="dv" style={{ color: v && new Date(v) < new Date() ? '#dc2626' : 'inherit' }}>
                           {v || '—'}
-                          {v && new Date(v) < new Date() && <span style={{ marginLeft:6, fontSize:10, color:'#dc2626' }}>EXPIRED</span>}
+                          {v && new Date(v) < new Date() && <span style={{ marginLeft:6, fontSize:10, color:'#dc2626' }}>{lang==='ar'?'منتهية':'EXPIRED'}</span>}
                         </span>
                       </div>
                     ))}
@@ -784,8 +787,8 @@ ${a.notes ? `<div class="section">
               <div className="info-card">
                 <div className="info-title">{tx('profile.emergencyContact','Emergency contact')}</div>
                 {[
-                  ['Name', a.emergency_contact_name],
-                  ['Relationship', a.emergency_contact_relation],
+                  [lang==='ar'?'الاسم':'Name', a.emergency_contact_name],
+                  [lang==='ar'?'صلة القرابة':'Relationship', a.emergency_contact_relation],
                   [tx('form.contactPhone','Phone'), a.emergency_contact_phone],
                 ].map(([k,v]) => v ? (
                   <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv">{v}</span></div>
@@ -801,9 +804,9 @@ ${a.notes ? `<div class="section">
                   {lang==='ar'?'المعلومات الطبية':'Medical information'}
                 </div>
                 {[
-                  [tx('form.bloodType','Blood type'), a.blood_type],
-                  [tx('form.allergies','Allergies'), a.allergies],
-                  [tx('form.medicalConditions','Medical conditions'), a.medical_conditions],
+                  [lang==='ar'?'فصيلة الدم':'Blood type', a.blood_type],
+                  [lang==='ar'?'الحساسية':'Allergies', a.allergies],
+                  [lang==='ar'?'الحالات الطبية':'Medical conditions', a.medical_conditions],
                 ].map(([k,v]) => v ? (
                   <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv">{v}</span></div>
                 ) : null)}
@@ -893,14 +896,14 @@ ${a.notes ? `<div class="section">
                   />
                 : a.notes
                   ? <p style={{ fontSize:13, color:'var(--text2)', lineHeight:1.6 }}>{a.notes}</p>
-                  : <div style={{ fontSize:13, color:'var(--text3)', fontStyle:'italic' }}>No notes added yet.</div>
+                  : <div style={{ fontSize:13, color:'var(--text3)', fontStyle:'italic' }}>{lang==='ar'?'لا توجد ملاحظات بعد.':'No notes added yet.'}</div>
               }
             </div>
 
             {/* DOCUMENTS */}
             <div className="info-card">
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
-                <div className="info-title" style={{ margin:0 }}>Documents <span style={{ marginLeft:8, fontSize:11, fontWeight:400, color:'var(--text3)', textTransform:'none', letterSpacing:0 }}>{myDocs.length} file{myDocs.length !== 1 ? 's' : ''}</span></div>
+                <div className="info-title" style={{ margin:0 }}>{lang==='ar'?'الوثائق':'Documents'} <span style={{ marginLeft:8, fontSize:11, fontWeight:400, color:'var(--text3)', textTransform:'none', letterSpacing:0 }}>{myDocs.length} {lang==='ar'?'ملف':`file${myDocs.length!==1?'s':''}`}</span></div>
               </div>
               {canEdit(profile) && (
                 <div style={{ display:'flex', gap:8, marginBottom:16, padding:'10px 12px', background:'var(--surface2)', borderRadius:10, alignItems:'center' }}>
@@ -910,7 +913,7 @@ ${a.notes ? `<div class="section">
                   </select>
                   <button onClick={() => docInput.current.click()} disabled={docUploading}
                     style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', background:'#0085C7', color:'#fff', border:'none', borderRadius:8, fontSize:12, fontWeight:500, cursor:'pointer', flexShrink:0, fontFamily:'DM Sans, sans-serif' }}>
-                    {docUploading ? <><div style={{ width:12, height:12, border:'2px solid rgba(255,255,255,.4)', borderTopColor:'#fff', borderRadius:'50%', animation:'spin .7s linear infinite' }} />Uploading…</> : <><i className="ti ti-upload" style={{ fontSize:14 }} />Upload</>}
+                    {docUploading ? <><div style={{ width:12, height:12, border:'2px solid rgba(255,255,255,.4)', borderTopColor:'#fff', borderRadius:'50%', animation:'spin .7s linear infinite' }} />{lang==='ar'?'جارٍ الرفع…':'Uploading…'}</> : <><i className="ti ti-upload" style={{ fontSize:14 }} />{lang==='ar'?'رفع':'Upload'}</>}
                   </button>
                   <input ref={docInput} type="file" style={{ display:'none' }} accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={e => { if(e.target.files[0]) handleDocUpload(a.id, e.target.files[0]) }} />
                 </div>
