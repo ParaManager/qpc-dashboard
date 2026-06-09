@@ -170,23 +170,22 @@ function getPersonalBests(results) {
 
 export default function Athletes({ athletes, coaches, results, documents, events, registrations, onRefresh, onNav, initAthleteId, initStatusFilter, navState, profile }) {
   const { tx, lang, tc } = useLang()
-  const SPORT_NAMES = {
-    'Athletics':tx('sports.athletics','Athletics'), 'Swimming':tx('sports.swimming','Swimming'),
-    'Powerlifting':tx('sports.powerlifting','Powerlifting'), 'Boccia':tx('sports.boccia','Boccia'),
-    'Goalball':tx('sports.goalball','Goalball'), 'Table Tennis':tx('sports.tableTennis','Table Tennis'),
-    'Special Olympics':tx('sports.specialOlympics','Special Olympics'),
-    'Shooting':tx('sports.shooting','Shooting'), 'Wheelchair Tennis':tx('sports.wheelchairTennis','Wheelchair Tennis'),
-  }
+  const SPORT_NAMES = lang === 'ar' ? {
+    'Athletics':'ألعاب القوى', 'Swimming':'السباحة', 'Powerlifting':'رفع الأثقال',
+    'Boccia':'البوتشيا', 'Goalball':'كرة الهدف', 'Table Tennis':'تنس الطاولة',
+    'Special Olympics':'الأولمبياد الخاص', 'Shooting':'الرماية',
+    'Wheelchair Tennis':'تنس الكراسي المتحركة',
+  } : {}
   // Case-insensitive disability translation
   const DIS_MAP = {
     'visual impairment':'إعاقة بصرية', 'hearing impairment':'إعاقة سمعية',
     'physical impairment':'إعاقة جسدية', 'intellectual disability':'إعاقة ذهنية',
     'intellectual impairment':'إعاقة ذهنية', 'spinal cord injury':'إصابة الحبل الشوكي',
     'cerebral palsy':'شلل دماغي', 'amputation':'بتر', 'limb deficiency':'نقص الأطراف',
-    'les autres':'أخرى', 'down syndrome':'متلازمة داون', 'autism':'التوحد',
-    'autism spectrum':'التوحد', 'multiple disabilities':'إعاقات متعددة',
+    'les autres':'أخرى', 'down syndrome':'متلازمة داون', 'down\'s syndrome':'متلازمة داون',
+    'autism':'التوحد', 'autism spectrum':'التوحد', 'multiple disabilities':'إعاقات متعددة',
   }
-  const tDis = (d) => { if (!d || lang==='en') return d; return DIS_MAP[d.toLowerCase()] || d }
+  const tDis = (d) => { if (!d || lang==='en') return d; return DIS_MAP[d.toLowerCase().trim()] || d }
 
   const [search, setSearch]         = useState('')
   const [sport, setSport]           = useState('All sports')
@@ -1232,13 +1231,15 @@ ${a.notes ? `<div class="section">
                         {opts.map(o => {
                           const DIS_LABELS = Object.fromEntries(Object.entries(DIS_MAP).map(([k,v]) => [k,v]).concat(athletes.map(a=>a.disability).filter(Boolean).map(d=>[d, DIS_MAP[d.toLowerCase()]||d])))
                           const LABELS = {
-                            sport:       { 'All':tx('filters.all','الكل'), ...Object.fromEntries(Object.entries(SPORT_NAMES)) },
-                            status:      { 'All':tx('filters.all','الكل'), 'Active':tx('status.active','Active'), 'Inactive':tx('status.inactive','Inactive'), 'Suspended':tx('status.suspended','Suspended'), 'Under Medical Review':tx('status.underMedicalReview','Under Medical Review'), 'Injured':tx('status.injured','Injured'), 'Retired':tx('status.retired','Retired') },
-                            gender:      { 'All':tx('filters.all','الكل'), 'Male':tx('form.male','Male'), 'Female':tx('form.female','Female') },
-                            nationality: { 'All':tx('filters.all','الكل'), ...Object.fromEntries(athletes.map(a => [a.nationality, tc(a.nationality)]).filter(([k])=>k)) },
-                            disability:  { 'All':tx('filters.all','الكل'), ...DIS_LABELS },
-                            coach_id:    { 'All':tx('filters.all','الكل'), ...Object.fromEntries(coaches.map(co => [co.name, lang==='ar' && co.name_ar ? co.name_ar : co.name])) },
-                            age_category:{ 'All':tx('filters.all','الكل') },
+                            const allLabel = lang==='ar' ? 'الكل' : 'All'
+                            const LABELS = {
+                            sport:       { 'All':allLabel, ...Object.fromEntries(Object.entries(SPORT_NAMES)) },
+                            status:      { 'All':allLabel, 'Active':tx('status.active','Active'), 'Inactive':tx('status.inactive','Inactive'), 'Suspended':tx('status.suspended','Suspended'), 'Under Medical Review':tx('status.underMedicalReview','Under Medical Review'), 'Injured':tx('status.injured','Injured'), 'Retired':tx('status.retired','Retired') },
+                            gender:      { 'All':allLabel, 'Male':tx('form.male','Male'), 'Female':tx('form.female','Female') },
+                            nationality: { 'All':allLabel, ...Object.fromEntries(athletes.map(a => [a.nationality, tc(a.nationality)]).filter(([k])=>k)) },
+                            disability:  { 'All':allLabel, ...Object.fromEntries(athletes.map(a=>a.disability).filter(Boolean).map(d=>[d, lang==='ar' ? (tDis(d)||d) : d])) },
+                            coach_id:    { 'All':allLabel, ...Object.fromEntries(coaches.map(co => [co.name, lang==='ar' && co.name_ar ? co.name_ar : co.name])) },
+                            age_category:{ 'All':allLabel },
                           }
                           return <option key={o} value={o}>{LABELS[col.key]?.[o] || o}</option>
                         })}
