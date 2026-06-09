@@ -101,15 +101,16 @@ export default function App() {
 
   return (
     <div className="app">
-      <div className="sidebar">
+      <div className={`sb-overlay${sidebarOpen ? ' open' : ''}`} onClick={() => setSidebarOpen(false)} />
+      <div className={`sidebar${sidebarOpen ? ' open' : ''}`}>
         <div className="sb-logo">
           <div className="agitos">
             <div className="agito" style={{ background:'#EE334E' }} />
             <div className="agito" style={{ background:'#0085C7' }} />
             <div className="agito" style={{ background:'#009F6B' }} />
           </div>
-          <div className="sb-org">Qatar Paralympic</div>
-          <div className="sb-sub">{tx('nav.adminPortal', 'Admin Portal')} · {role}</div>
+          <div className="sb-org">{lang==='ar' ? 'الاتحاد القطري' : 'Qatar Paralympic'}</div>
+          <div className="sb-sub">{lang==='ar' ? 'لذوي الاحتياجات الخاصة' : 'Committee'} · {role}</div>
         </div>
         <div className="sb-nav">
           {NAV(tx).map(({ section, items }) => (
