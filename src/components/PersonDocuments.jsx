@@ -132,9 +132,9 @@ export default function PersonDocuments({ personId, personType, personName, docs
 
       {/* Upload row — admins only */}
       {canEdit(profile) && (
-        <div style={{ display:'flex', gap:8, marginBottom:16, padding:'10px 12px', background:'var(--surface2)', borderRadius:10, alignItems:'center' }}>
+        <div style={{ display:'flex', gap:8, marginBottom:16, padding:'10px 12px', background:'var(--surface2)', borderRadius:10, alignItems:'center', direction:'ltr' }}>
           <select value={docType} onChange={e => setDocType(e.target.value)}
-            style={{ flex:1, padding:'7px 10px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface)', fontSize:12, color:'var(--text)', outline:'none' }}>
+            style={{ flex:1, padding:'7px 10px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface)', fontSize:12, color:'var(--text)', outline:'none', direction: lang==='ar' ? 'rtl' : 'ltr' }}>
             {DOC_TYPES.map(t => <option key={t} value={t}>{lang==='ar'?(DOC_TYPES_AR[t]||t):t}</option>)}
           </select>
           <button onClick={() => docInput.current.click()} disabled={uploading}
