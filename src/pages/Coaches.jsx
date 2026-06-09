@@ -352,15 +352,17 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
             }
           </div>
 
-          <PersonDocuments
-            personId={c.id}
-            personType="coach"
-            personName={c.name}
-            docs={personDocs}
-            onRefresh={onRefresh}
-            profile={profile}
-          />
         </div>
+
+        {/* DOCUMENTS - full width below both columns */}
+        <PersonDocuments
+          personId={c.id}
+          personType="coach"
+          personName={c.name}
+          docs={personDocs}
+          onRefresh={onRefresh}
+          profile={profile}
+        />
 
         <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
       </div>
