@@ -39,7 +39,7 @@ button, input, select, textarea { font-family: 'DM Sans', sans-serif; }
 /* LAYOUT */
 .app { display: flex; height: 100vh; overflow: hidden; }
 .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
-#content { flex: 1; overflow-y: auto; padding: 24px; }
+#content { flex: 1; overflow-y: auto; padding: 24px; overflow-x: visible; }
 
 /* SIDEBAR */
 .sidebar { width: 220px; background: var(--sidebar); display: flex; flex-direction: column; height: 100vh; flex-shrink: 0; }
@@ -372,3 +372,10 @@ body { overscroll-behavior: none; }
   .sb-overlay { display: none !important; }
   .sidebar { position: relative; transform: none !important; }
 }
+
+/* Fix select dropdown clipping in RTL */
+[dir="rtl"] select {
+  text-align: right;
+}
+.info-card { overflow: visible; }
+.detail-grid { overflow: visible; }
