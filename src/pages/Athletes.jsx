@@ -906,7 +906,7 @@ ${a.notes ? `<div class="section">
                 <div className="info-title" style={{ margin:0 }}>{lang==='ar'?'الوثائق':'Documents'} <span style={{ marginLeft:8, fontSize:11, fontWeight:400, color:'var(--text3)', textTransform:'none', letterSpacing:0 }}>{myDocs.length} {lang==='ar'?'ملف':`file${myDocs.length!==1?'s':''}`}</span></div>
               </div>
               {canEdit(profile) && (
-                <div style={{ display:'flex', gap:8, marginBottom:16, padding:'10px 12px', background:'var(--surface2)', borderRadius:10, alignItems:'center' }}>
+                <div style={{ display:'flex', gap:8, marginBottom:16, padding:'10px 12px', background:'var(--surface2)', borderRadius:10, alignItems:'center', direction:'ltr' }}>
                   <select value={docType} onChange={e => setDocType(e.target.value)}
                     style={{ flex:1, padding:'7px 10px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface)', fontSize:12, color:'var(--text)', outline:'none' }}>
                     {DOC_TYPES.map(t => <option key={t} value={t}>{lang==='ar' ? (DOC_TYPES_AR[t]||t) : t}</option>)}
