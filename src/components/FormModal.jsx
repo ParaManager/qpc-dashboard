@@ -156,7 +156,7 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
           {type === 'athlete' && <>
             <Section label={T.personalInfo} />
             <Row>
-              <Field label={T.nameEn} placeholder="e.g. Ahmed Al-Ansari" {...f('name')} />
+              <Field label={T.nameEn} placeholder={ar?"مثال: أحمد الأنصاري":"e.g. Ahmed Al-Ansari"} {...f('name')} />
               <Field label={T.nameAr} placeholder="e.g. أحمد الأنصاري" {...f('nameAr')} />
             </Row>
             <Row>
@@ -164,21 +164,21 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
               <Field label={T.gender} options={genderOpts} {...f('gender')} />
             </Row>
             <Row>
-              <Field label={T.nationality} placeholder="e.g. Qatari" {...f('nationality')} />
+              <Field label={T.nationality} placeholder={ar?"مثال: قطري":"e.g. Qatari"} {...f('nationality')} />
               <Field label={T.phone} placeholder="+974 XXXX XXXX" {...f('phone')} />
             </Row>
             <Row>
-              <Field label={T.email} type="email" placeholder="athlete@qpc.qa" {...f('email')} />
+              <Field label={T.email} type="email" placeholder={ar?"رياضي@qpc.qa":"athlete@qpc.qa"} {...f('email')} />
               <Field label={T.joinDate} type="date" {...f('joinDate')} />
             </Row>
 
             <Section label={T.sportClass} />
             <Row>
               <Field label={T.sport} options={SPORTS} {...f('sport')} />
-              <Field label={T.classification} placeholder="e.g. T54, S6, BC2" {...f('classification')} />
+              <Field label={T.classification} placeholder={ar?"مثال: T54, S6, BC2":"e.g. T54, S6, BC2"} {...f('classification')} />
             </Row>
             <Row>
-              <Field label={T.disability} placeholder="e.g. Spinal Cord Injury" {...f('disability')} />
+              <Field label={T.disability} placeholder={ar?"مثال: إصابة الحبل الشوكي":"e.g. Spinal Cord Injury"} {...f('disability')} />
               <Field label={T.ageCategory} placeholder="e.g. رجال (20+)" {...f('ageCategory')} />
             </Row>
             <Row>
@@ -186,13 +186,13 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
               <Field label={T.status} options={statusOptsAthlete} {...f('status')} />
             </Row>
             <Row>
-              <Field label={T.medicalStatus} placeholder="e.g. Completed" {...f('medicalStatus')} />
+              <Field label={T.medicalStatus} placeholder={ar?"مثال: مكتمل":"e.g. Completed"} {...f('medicalStatus')} />
               <Field label={T.careerProfile} placeholder="e.g. 12345" {...f('careerProfile')} />
             </Row>
 
             <Section label={T.clubRole} />
             <Row>
-              <Field label={`${T.club} (النادي)`} placeholder="e.g. Al Wakrah SC" {...f('club')} />
+              <Field label={`${T.club} (النادي)`} placeholder={ar?"مثال: نادي الوكرة":"e.g. Al Wakrah SC"} {...f('club')} />
               <Field label={`${T.designation} (الوظيفة)`} options={['','Player','Female Player','Coach','Female Coach','Referee','Female Referee','Admin Staff','Technical Staff','Medical Staff','Board Member','Female Board Member','Member','Female Member','Employee','Female Employee','Expert']} {...f('designation')} />
             </Row>
             <Row>
@@ -212,33 +212,33 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
 
             <Section label={T.emergency} />
             <Row>
-              <Field label={T.contactName} placeholder="e.g. Mohammed Al-Ansari" {...f('emergencyName')} />
-              <Field label={T.relationship} placeholder="e.g. Father" {...f('emergencyRelation')} />
+              <Field label={T.contactName} placeholder={ar?"مثال: محمد الأنصاري":"e.g. Mohammed Al-Ansari"} {...f('emergencyName')} />
+              <Field label={T.relationship} placeholder={ar?"مثال: الأب":"e.g. Father"} {...f('emergencyRelation')} />
             </Row>
             <Field label={T.contactPhone} placeholder="+974 XXXX XXXX" {...f('emergencyPhone')} />
 
             <Section label={T.medical} />
             <Row>
               <Field label={T.bloodType} options={['','A+','A-','B+','B-','AB+','AB-','O+','O-','Unknown']} {...f('bloodType')} />
-              <Field label={T.allergies} placeholder="e.g. Penicillin, Nuts" {...f('allergies')} />
+              <Field label={T.allergies} placeholder={ar?"مثال: بنسلين، مكسرات":"e.g. Penicillin, Nuts"} {...f('allergies')} />
             </Row>
-            <Field label={T.conditions} placeholder="e.g. Asthma, Diabetes" {...f('medicalConditions')} />
+            <Field label={T.conditions} placeholder={ar?"مثال: الربو، السكري":"e.g. Asthma, Diabetes"} {...f('medicalConditions')} />
           </>}
 
           {/* ── COACH ── */}
           {type === 'coach' && <>
             <Section label={T.personalInfo} />
             <Row>
-              <Field label={T.nameEn} placeholder="e.g. Carlos Mendez" {...f('name')} />
+              <Field label={T.nameEn} placeholder={ar?"مثال: كارلوس مينديز":"e.g. Carlos Mendez"} {...f('name')} />
               <Field label={T.nameAr} placeholder="e.g. كارلوس مينديز" {...f('nameAr')} />
             </Row>
             <Row>
-              <Field label={T.nationality} placeholder="e.g. Spanish" {...f('nationality')} />
+              <Field label={T.nationality} placeholder={ar?"مثال: إسباني":"e.g. Spanish"} {...f('nationality')} />
               <Field label={T.gender} options={genderOptsEmpty} {...f('gender')} />
             </Row>
             <Row>
               <Field label={T.phone} placeholder="+974 XXXX XXXX" {...f('phone')} />
-              <Field label={T.email} type="email" placeholder="coach@qpc.qa" {...f('email')} />
+              <Field label={T.email} type="email" placeholder={ar?"مدرب@qpc.qa":"coach@qpc.qa"} {...f('email')} />
             </Row>
 
             <Section label={T.employment} />
@@ -269,12 +269,12 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
           {/* ── EVENT ── */}
           {type === 'event' && <>
             <Section label={T.eventDetails} />
-            <Field label={T.eventName} placeholder="e.g. Qatar Open Athletics Championships" {...f('name')} />
+            <Field label={T.eventName} placeholder={ar?"مثال: بطولة قطر المفتوحة":"e.g. Qatar Open Athletics Championships"} {...f('name')} />
             <Row>
               <Field label={T.sport} options={SPORTS} {...f('sport')} />
               <Field label={T.eventType} options={['National','Regional','Invitational']} {...f('type')} />
             </Row>
-            <Field label={T.venue} placeholder="e.g. Khalifa International Stadium" {...f('venue')} />
+            <Field label={T.venue} placeholder={ar?"مثال: استاد خليفة الدولي":"e.g. Khalifa International Stadium"} {...f('venue')} />
             <Row>
               <Field label={T.startDate} type="date" {...f('startDate')} />
               <Field label={T.endDate} type="date" {...f('endDate')} />
@@ -292,10 +292,10 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
               <Field label={T.athlete} options={(athletes||[]).map(a => ({ value: a.name, label: ar && a.name_ar ? a.name_ar : a.name }))} {...f('athleteName')} />
               <Field label={T.medal} options={medalOpts} {...f('medal')} />
             </Row>
-            <Field label={T.compName} placeholder="e.g. Para Shooting Nationals 2026" {...f('eventName')} />
+            <Field label={T.compName} placeholder={ar?"مثال: بطولة الرماية 2026":"e.g. Para Shooting Nationals 2026"} {...f('eventName')} />
             <Row>
-              <Field label={T.discipline} placeholder="e.g. 10m Air Rifle SH1" {...f('discipline')} />
-              <Field label={T.result} placeholder="e.g. 248.7 pts" {...f('result')} />
+              <Field label={T.discipline} placeholder={ar?"مثال: 10م بندقية هواء SH1":"e.g. 10m Air Rifle SH1"} {...f('discipline')} />
+              <Field label={T.result} placeholder={ar?"مثال: 248.7 نقطة":"e.g. 248.7 pts"} {...f('result')} />
             </Row>
             <Row>
               <Field label={T.position} type="number" placeholder="1" {...f('position')} />
