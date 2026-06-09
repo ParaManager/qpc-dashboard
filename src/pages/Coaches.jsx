@@ -110,6 +110,7 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
   const [form, setForm]         = useState(null)
   const [confirm, setConfirm]   = useState(null)
   const [uploading, setUploading] = useState(false)
+  const [showAllAthletes, setShowAllAthletes] = useState(false)
   const photoInput = useRef(null)
 
   const { tx, tc, lang } = useLang()
@@ -323,20 +324,31 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
             </div>
             {myAthletes.length === 0
               ? <div className="empty">{lang==='ar'?'لا يوجد رياضيون معينون':'No athletes assigned'}</div>
-              : myAthletes.map(a => (
-                <DashRow key={a.id} onClick={() => onNav('athletes', { athleteId: a.id })}>
-                  {a.photo_url
-                    ? <img src={a.photo_url} alt={a.name} style={{ width:32, height:32, borderRadius:'50%', objectFit:'cover', flexShrink:0 }} />
-                    : <Avatar name={a.name} id={a.id} size={32} fs={10} />
-                  }
-                  <div style={{ flex:1 }}>
-                    <div style={{ fontSize:13, fontWeight:500 }}>{a.name}</div>
-                    <div style={{ fontSize:11, color:'#9aa3b2' }}>{a.sport} · {a.classification}</div>
-                  </div>
-                  <MedalDisplay gold={a.medals_gold} silver={a.medals_silver} bronze={a.medals_bronze} />
-                  <Badge label={lang==='ar' ? (STATUS_AR[a.status]||a.status) : a.status} />
-                </DashRow>
-              ))
+              : <>
+                  {(showAllAthletes ? myAthletes : myAthletes.slice(0, 5)).map(a => (
+                    <DashRow key={a.id} onClick={() => onNav('athletes', { athleteId: a.id })}>
+                      {a.photo_url
+                        ? <img src={a.photo_url} alt={a.name} style={{ width:32, height:32, borderRadius:'50%', objectFit:'cover', flexShrink:0 }} />
+                        : <Avatar name={a.name} id={a.id} size={32} fs={10} />
+                      }
+                      <div style={{ flex:1 }}>
+                        <div style={{ fontSize:13, fontWeight:500 }}>{lang==='ar' && a.name_ar ? a.name_ar : a.name}</div>
+                        <div style={{ fontSize:11, color:'#9aa3b2' }}>{SPORT_NAMES[a.sport]||a.sport} · {a.classification}</div>
+                      </div>
+                      <MedalDisplay gold={a.medals_gold} silver={a.medals_silver} bronze={a.medals_bronze} />
+                      <Badge label={lang==='ar' ? (STATUS_AR[a.status]||a.status) : a.status} />
+                    </DashRow>
+                  ))}
+                  {myAthletes.length > 5 && (
+                    <button onClick={() => setShowAllAthletes(v => !v)}
+                      style={{ width:'100%', marginTop:8, padding:'7px', background:'none', border:'1px solid var(--border)', borderRadius:8, cursor:'pointer', fontSize:12, color:'var(--text2)', fontFamily:'DM Sans, sans-serif' }}>
+                      {showAllAthletes
+                        ? (lang==='ar' ? 'عرض أقل ▲' : 'Show less ▲')
+                        : (lang==='ar' ? `عرض الكل (${myAthletes.length}) ▼` : `Show all ${myAthletes.length} athletes ▼`)
+                      }
+                    </button>
+                  )}
+                </>
             }
           </div>
 
