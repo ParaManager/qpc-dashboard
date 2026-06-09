@@ -114,7 +114,7 @@ function exportEmployeesExcel(list) {
 }
 
 export default function Employees({ employees, personDocs, onRefresh, onNav, navState, profile }) {
-  const { tx, tc } = useLang()
+  const { tx, tc, lang } = useLang()
   const [search, setSearch]         = useState('')
   const [sort, setSort]             = useState('name-asc')
   const [colFilters, setColFilters] = useState({})
@@ -445,7 +445,12 @@ export default function Employees({ employees, personDocs, onRefresh, onNav, nav
                       value={colFilters[key] || 'All'}
                       onChange={e => setColFilters(f => ({ ...f, [key]: e.target.value }))}
                       style={{ fontSize:11, border:'1px solid var(--border)', borderRadius:6, padding:'3px 4px', background:'var(--surface)', color:(colFilters[key]&&colFilters[key]!=='All')?'#0085C7':'var(--text3)', cursor:'pointer', outline:'none', fontWeight:(colFilters[key]&&colFilters[key]!=='All')?600:400, maxWidth:130 }}>
-                      {COL_FILTERS[key].map(o => <option key={o} value={o}>{key==='designation' ? (DESIG_LABELS[o]||o) : (COL_FILTER_LABELS[key]?.[o]||o)}</option>)}
+                      {COL_FILTERS[key].map(o => <option key={o} value={o}>{
+                key==='designation' ? (DESIG_LABELS[o]||o) :
+                key==='nationality' ? (o==='All' ? (lang==='ar'?'الكل':'All') : tc(o)) :
+                key==='gender' ? ({'All':lang==='ar'?'الكل':'All','Male':lang==='ar'?'ذكر':'Male','Female':lang==='ar'?'أنثى':'Female'}[o]||o) :
+                (COL_FILTER_LABELS[key]?.[o]||o)
+              }</option>)}
                     </select>
                   ) : null}
                 </th>
@@ -473,10 +478,12 @@ export default function Employees({ employees, personDocs, onRefresh, onNav, nav
                   {emp.designation_ar && <div style={{ fontSize:11, color:'#9aa3b2', marginTop:3, direction:'rtl' }}>{emp.designation_ar}</div>}
                 </td>
                 <td style={{ fontSize:13, color:'#5a6272' }}>{tc(emp.nationality)||'—'}</td>
-                <td style={{ fontSize:13, color:'#5a6272' }}>{emp.gender||'—'}</td>
+                <td style={{ fontSize:13, color:'#5a6272' }}>{emp.gender ? (lang==='ar' ? (emp.gender==='Male'?'ذكر':'أنثى') : emp.gender) : '—'}</td>
                 <td style={{ fontSize:12, color:'#5a6272', fontFamily:'monospace' }}>{emp.employee_number||'—'}</td>
                 <td style={{ fontSize:12, color:'#5a6272', fontFamily:'monospace' }}>{emp.qss_number||'—'}</td>
-                <td><span className={`badge ${emp.status==='Active'?'badge-green':emp.status==='On Leave'?'badge-amber':'badge-gray'}`}>{emp.status||'—'}</span></td>
+                <td><span className={`badge ${emp.status==='Active'?'badge-green':emp.status==='On Leave'?'badge-amber':'badge-gray'}`}>
+              {lang==='ar' ? ({'Active':'نشط','Inactive':'غير نشط','On Leave':'في إجازة'}[emp.status]||emp.status) : (emp.status||'—')}
+            </span></td>
                 <td><i className="ti ti-chevron-right" style={{ color:'#ccc', fontSize:16 }} /></td>
               </tr>
             ))}
