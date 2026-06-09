@@ -24,6 +24,16 @@ const DOC_TYPES  = [
   'SDMS License',
   'Other',
 ]
+const DOC_TYPES_AR = {
+  'Photo':'صورة', 'Passport':'جواز السفر', 'Qatar ID':'الرقم الشخصي',
+  'Medical Certificate':'شهادة طبية', 'QSS Registration':'تسجيل QSS',
+  'Medical Report':'تقرير طبي', 'QSS ID':'هوية QSS',
+  'Birth Certificate':'شهادة ميلاد', 'QSRSN Membership':'عضوية QSRSN',
+  'Health Card':'بطاقة صحية', 'MDF':'MDF',
+  'IPC Athlete Eligibility Agreement':'اتفاقية أهلية IPC',
+  'SDMS License':'رخصة SDMS', 'Other':'أخرى',
+}
+
 const DOC_ICONS  = {
   'Photo':                          'ti-photo',
   'Passport':                       'ti-id',
@@ -178,14 +188,31 @@ export default function Athletes({ athletes, coaches, results, documents, events
   } : {}
   // Case-insensitive disability translation
   const DIS_MAP = {
-    'visual impairment':'إعاقة بصرية', 'hearing impairment':'إعاقة سمعية',
-    'physical impairment':'إعاقة جسدية', 'intellectual disability':'إعاقة ذهنية',
-    'intellectual impairment':'إعاقة ذهنية', 'spinal cord injury':'إصابة الحبل الشوكي',
-    'cerebral palsy':'شلل دماغي', 'amputation':'بتر', 'limb deficiency':'نقص الأطراف',
-    'les autres':'أخرى', 'down syndrome':'متلازمة داون', 'down\'s syndrome':'متلازمة داون',
-    'autism':'التوحد', 'autism spectrum':'التوحد', 'multiple disabilities':'إعاقات متعددة',
+    'visual impairment':'إعاقة بصرية', 'visual':'إعاقة بصرية',
+    'hearing impairment':'إعاقة سمعية', 'hearing':'إعاقة سمعية',
+    'physical impairment':'إعاقة جسدية', 'physical':'إعاقة جسدية',
+    'intellectual disability':'إعاقة ذهنية', 'intellectual impairment':'إعاقة ذهنية',
+    'intellectual':'إعاقة ذهنية',
+    'spinal cord injury':'إصابة الحبل الشوكي', 'spinal cord':'إصابة الحبل الشوكي',
+    'cerebral palsy':'شلل دماغي', 'cerebral':'شلل دماغي',
+    'amputation':'بتر',
+    'limb deficiency':'نقص الأطراف', 'limb':'نقص الأطراف',
+    'les autres':'أخرى', 'other':'أخرى',
+    'down syndrome':'متلازمة داون', "down's syndrome":'متلازمة داون',
+    'downs syndrome':'متلازمة داون', 'down':'متلازمة داون',
+    'autism spectrum disorder':'التوحد', 'autism spectrum':'التوحد', 'autism':'التوحد',
+    'multiple disabilities':'إعاقات متعددة', 'multiple':'إعاقات متعددة',
   }
-  const tDis = (d) => { if (!d || lang==='en') return d; return DIS_MAP[d.toLowerCase().trim()] || d }
+  const tDis = (d) => {
+    if (!d || lang==='en') return d
+    const key = d.toLowerCase().trim()
+    if (DIS_MAP[key]) return DIS_MAP[key]
+    // partial match
+    for (const [k, v] of Object.entries(DIS_MAP)) {
+      if (key.includes(k) || k.includes(key)) return v
+    }
+    return d
+  }
 
   const [search, setSearch]         = useState('')
   const [sport, setSport]           = useState('All sports')
@@ -659,7 +686,7 @@ ${a.notes ? `<div class="section">
                 <div style={{ display:'flex', justifyContent:'center', gap:16, margin:'12px 0', padding:'10px', background:'var(--surface2)', borderRadius:10 }}>
                   {age && <div style={{ textAlign:'center' }}>
                     <div style={{ fontSize:20, fontWeight:600, color:'#0085C7' }}>{age}</div>
-                    <div style={{ fontSize:10, color:'var(--text3)' }}>years old</div>
+                    <div style={{ fontSize:10, color:'var(--text3)' }}>{lang==='ar'?'سنة':'years old'}</div>
                   </div>}
                   {age && yearsActive && <div style={{ width:1, background:'var(--border)' }} />}
                   {yearsActive && <div style={{ textAlign:'center' }}>
@@ -678,7 +705,7 @@ ${a.notes ? `<div class="section">
 
             {/* MEDALS */}
             <div className="info-card" style={{ marginTop:12 }}>
-              <div className="info-title">Medal count <span style={{ fontSize:10, fontWeight:400, textTransform:'none', letterSpacing:0 }}>(click to see details)</span></div>
+              <div className="info-title">{lang==='ar'?'عدد الميداليات':'Medal count'} <span style={{ fontSize:10, fontWeight:400, textTransform:'none', letterSpacing:0 }}>({lang==='ar'?'انقر للتفاصيل':'click to see details'})</span></div>
               <div className="medal-row">
                 {[['gold','#f1c40f','Gold'],['silver','#aaa','Silver'],['bronze','#cd7f32','Bronze']].map(([type,color,label]) => {
                   const count   = a[`medals_${type}`] || 0
@@ -702,7 +729,7 @@ ${a.notes ? `<div class="section">
           <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
             {/* SPORT */}
             <div className="info-card">
-              <div className="info-title">{tx('athletes.sportClassification','Sport & classification')}</div>
+              <div className="info-title">{lang==='ar'?'الرياضة والتصنيف':'Sport & classification'}</div>
               {[[tx('form.sport','Sport'),SPORT_NAMES[a.sport]||a.sport],[tx('form.classification','Classification'),a.classification],[tx('form.disability','Disability type'), tDis(a.disability)],[tx('form.club','Club'),a.club],[tx('form.designation','Designation'),a.designation],[tx('form.residencyStatus','Residency status'),a.residency_status]].map(([k,v]) => (
                 <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv">{v||'—'}</span></div>
               ))}
@@ -710,13 +737,13 @@ ${a.notes ? `<div class="section">
 
             {/* COACH */}
             <div className="info-card">
-              <div className="info-title">{tx('profile.headCoach','Head coach')} <span style={{ fontSize:10, fontWeight:400, textTransform:'none', letterSpacing:0 }}>— {tx('athletes.clickToView','click to view')}</span></div>
+              <div className="info-title">{lang==='ar'?'المدرب الرئيسي':'Head coach'} <span style={{ fontSize:10, fontWeight:400, textTransform:'none', letterSpacing:0 }}>— {lang==='ar'?'انقر للعرض':'click to view'}</span></div>
               {coach ? (
                 <DashRow onClick={() => onNav('coaches', { coachId: coach.id })}>
                   <div className="av" style={{ width:28, height:28, fontSize:10, background:'#009F6B', flexShrink:0 }}>{initials(coach.name)}</div>
                   <div style={{ flex:1 }}><div style={{ fontSize:13, fontWeight:500 }}>{coach.name}</div><div style={{ fontSize:11, color:'#9aa3b2' }}>{coach.sport} · {coach.cert_level}</div></div>
                 </DashRow>
-              ) : <div style={{ padding:'8px 0', fontSize:13, color:'var(--text3)' }}>{tx('athletes.noCoachAssigned','No coach assigned')}</div>}
+              ) : <div style={{ padding:'8px 0', fontSize:13, color:'var(--text3)' }}>{lang==='ar'?'لم يتم تعيين مدرب':'No coach assigned'}</div>}
             </div>
 
             {/* PASSPORT & ID */}
@@ -771,7 +798,7 @@ ${a.notes ? `<div class="section">
               <div className="info-card">
                 <div className="info-title" style={{ display:'flex', alignItems:'center', gap:6 }}>
                   <i className="ti ti-heart-rate-monitor" style={{ fontSize:13, color:'#EE334E' }} />
-                  Medical information
+                  {lang==='ar'?'المعلومات الطبية':'Medical information'}
                 </div>
                 {[
                   [tx('form.bloodType','Blood type'), a.blood_type],
@@ -803,11 +830,11 @@ ${a.notes ? `<div class="section">
             {/* COMPETITION HISTORY */}
             <div className="info-card">
               <div className="info-title" style={{ marginBottom:14 }}>
-                {tx('profile.competitionHistory','Competition history')}
+                {lang==='ar'?'سجل المنافسات':'Competition history'}
                 <span style={{ marginLeft:8, fontSize:11, fontWeight:400, color:'var(--text3)', textTransform:'none', letterSpacing:0 }}>{myEvents.length}</span>
               </div>
               {myEvents.length === 0
-                ? <div className="empty" style={{ padding:'16px 0' }}>{tx('athletes.notRegistered','Not registered in any events yet.')}</div>
+                ? <div className="empty" style={{ padding:'16px 0' }}>{lang==='ar'?'لم يتم التسجيل في أي فعاليات بعد.':'Not registered in any events yet.'}</div>
                 : <div style={{ position:'relative' }}>
                     <div style={{ position:'absolute', left:15, top:6, bottom:6, width:2, background:'var(--border)', borderRadius:2 }} />
                     {myEvents.map(ev => {
@@ -845,13 +872,13 @@ ${a.notes ? `<div class="section">
             <div className="info-card">
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
                 <div className="info-title" style={{ margin:0 }}>
-                  Notes
-                  <span style={{ marginLeft:6, fontSize:10, fontWeight:400, color:'var(--text3)', textTransform:'none', letterSpacing:0 }}>— private, visible to admins only</span>
+                  {lang==='ar'?'ملاحظات':'Notes'}
+                  <span style={{ marginLeft:6, fontSize:10, fontWeight:400, color:'var(--text3)', textTransform:'none', letterSpacing:0 }}>— {lang==='ar'?'خاص، يظهر للمسؤولين فقط':'private, visible to admins only'}</span>
                 </div>
                 {notesChanged && canEdit(profile) && (
                   <button onClick={() => saveNotes(a.id)} disabled={savingNotes}
                     style={{ padding:'4px 12px', background:'#0085C7', color:'#fff', border:'none', borderRadius:7, fontSize:12, fontWeight:500, cursor:'pointer', display:'flex', alignItems:'center', gap:5, fontFamily:'DM Sans, sans-serif' }}>
-                    {savingNotes ? tx('actions.saving','Saving…') : <><i className="ti ti-device-floppy" style={{ fontSize:13 }} /> {tx('actions.save','Save')}</>}
+                    {savingNotes ? (lang==='ar'?'جارٍ الحفظ…':'Saving…') : <><i className="ti ti-device-floppy" style={{ fontSize:13 }} /> {lang==='ar'?'حفظ':'Save'}</>}
                   </button>
                 )}
               </div>
@@ -859,7 +886,7 @@ ${a.notes ? `<div class="section">
                 ? <textarea
                     value={notes}
                     onChange={e => { setNotes(e.target.value); setNotesChanged(true) }}
-                    placeholder={tx("athletes.notesPlaceholder","Add notes about this athlete…")}
+                    placeholder={lang==='ar'?'أضف ملاحظات عن هذا الرياضي…':'Add notes about this athlete…'}
                     style={{ width:'100%', minHeight:100, padding:'10px 12px', borderRadius:9, border:'1px solid var(--border)', background:'var(--surface)', fontSize:13, color:'var(--text)', outline:'none', resize:'vertical', fontFamily:'DM Sans, sans-serif', lineHeight:1.6, transition:'border .15s' }}
                     onFocus={e => e.target.style.borderColor='#0085C7'}
                     onBlur={e => e.target.style.borderColor='var(--border)'}
@@ -879,7 +906,7 @@ ${a.notes ? `<div class="section">
                 <div style={{ display:'flex', gap:8, marginBottom:16, padding:'10px 12px', background:'var(--surface2)', borderRadius:10, alignItems:'center' }}>
                   <select value={docType} onChange={e => setDocType(e.target.value)}
                     style={{ flex:1, padding:'7px 10px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface)', fontSize:12, color:'var(--text)', outline:'none' }}>
-                    {DOC_TYPES.map(t => <option key={t}>{t}</option>)}
+                    {DOC_TYPES.map(t => <option key={t} value={t}>{lang==='ar' ? (DOC_TYPES_AR[t]||t) : t}</option>)}
                   </select>
                   <button onClick={() => docInput.current.click()} disabled={docUploading}
                     style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', background:'#0085C7', color:'#fff', border:'none', borderRadius:8, fontSize:12, fontWeight:500, cursor:'pointer', flexShrink:0, fontFamily:'DM Sans, sans-serif' }}>
@@ -889,7 +916,7 @@ ${a.notes ? `<div class="section">
                 </div>
               )}
               {myDocs.length === 0
-                ? <div className="empty" style={{ padding:'20px 0' }}>{tx('docs.noDocuments','No documents uploaded yet.')}</div>
+                ? <div className="empty" style={{ padding:'20px 0' }}>{lang==='ar'?'لم يتم رفع وثائق بعد.':'No documents uploaded yet.'}</div>
                 : DOC_TYPES.map(type => {
                     const typeDocs = docsByType[type]
                     if (typeDocs.length === 0) return null
@@ -899,7 +926,7 @@ ${a.notes ? `<div class="section">
                       <div key={type} style={{ marginBottom:14 }}>
                         <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:6 }}>
                           <i className={`ti ${icon}`} style={{ fontSize:13, color }} />
-                          <span style={{ fontSize:11, fontWeight:600, color, textTransform:'uppercase', letterSpacing:'.05em' }}>{type}</span>
+                          <span style={{ fontSize:11, fontWeight:600, color }}>{lang==='ar' ? (DOC_TYPES_AR[type]||type) : type}</span>
                         </div>
                         {typeDocs.map(doc => (
                           <div key={doc.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 10px', background:'var(--surface2)', borderRadius:9, marginBottom:6, border:'1px solid var(--border)' }}>
