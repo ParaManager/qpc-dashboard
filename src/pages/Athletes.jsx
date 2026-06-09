@@ -1005,13 +1005,29 @@ ${a.notes ? `<div class="section">
       case 'name_ar':          return <span style={{ color:'var(--text2)', direction:'rtl' }}>{a.name_ar || '—'}</span>
       case 'qss_number':       return <span style={{ color:'var(--text2)', fontFamily:'monospace', fontSize:12 }}>{a.qss_number || '—'}</span>
       case 'career_profile':   return <span style={{ color:'var(--text2)', fontFamily:'monospace', fontSize:12 }}>{a.career_profile || '—'}</span>
-      case 'sport':            return a.sport || '—'
+      case 'sport':            return <span style={{ color:'var(--text2)' }}>{SPORT_NAMES[a.sport] || a.sport || '—'}</span>
       case 'classification':   return a.classification ? <span className="badge badge-blue">{a.classification}</span> : '—'
       case 'disability': {
-        const DIS_AR = {'Visual Impairment':tx('athletes.disVisual','Visual Impairment'),'Hearing Impairment':tx('athletes.disHearing','Hearing Impairment'),'Physical Impairment':tx('athletes.disPhysical','Physical Impairment'),'Intellectual Disability':tx('athletes.disIntellectual','Intellectual Disability'),'Spinal Cord Injury':tx('athletes.disSpinal','Spinal Cord Injury'),'Cerebral Palsy':tx('athletes.disCerebral','Cerebral Palsy'),'Amputation':tx('athletes.disAmputation','Amputation'),'Down Syndrome':tx('athletes.disDown','Down Syndrome'),'Autism':tx('athletes.disAutism','Autism'),'Multiple Disabilities':tx('athletes.disMultiple','Multiple Disabilities')}
+        const DIS_AR = {
+  'Visual Impairment':tx('athletes.disVisual','Visual Impairment'),
+  'Hearing Impairment':tx('athletes.disHearing','Hearing Impairment'),
+  'Physical Impairment':tx('athletes.disPhysical','Physical Impairment'),
+  'Intellectual Disability':tx('athletes.disIntellectual','Intellectual Disability'),
+  'Intellectual Impairment':tx('athletes.disIntellectual','Intellectual Impairment'),
+  'Spinal Cord Injury':tx('athletes.disSpinal','Spinal Cord Injury'),
+  'Cerebral Palsy':tx('athletes.disCerebral','Cerebral Palsy'),
+  'Amputation':tx('athletes.disAmputation','Amputation'),
+  'Down Syndrome':tx('athletes.disDown','Down Syndrome'),
+  'Down syndrome':tx('athletes.disDown','Down syndrome'),
+  'Autism':tx('athletes.disAutism','Autism'),
+  'Autism Spectrum':tx('athletes.disAutism','Autism Spectrum'),
+  'Multiple Disabilities':tx('athletes.disMultiple','Multiple Disabilities'),
+  'Les Autres':tx('athletes.disOther','Les Autres'),
+  'Limb Deficiency':tx('athletes.disLimb','Limb Deficiency'),
+}
         return <span style={{ color:'var(--text2)' }}>{DIS_AR[a.disability] || a.disability || '—'}</span>
       }
-      case 'nationality':      return <span style={{ color:'var(--text2)' }}>{a.nationality || '—'}</span>
+      case 'nationality':      return <span style={{ color:'var(--text2)' }}>{tc(a.nationality) || '—'}</span>
       case 'gender':           return <span style={{ color:'var(--text2)' }}>{a.gender ? (lang==='ar' ? (a.gender==='Male'?'ذكر':'أنثى') : a.gender) : '—'}</span>
       case 'dob':              return <span style={{ color:'var(--text2)' }}>{a.dob || '—'}</span>
       case 'age_category':     return <span style={{ color:'var(--text2)' }}>{a.age_category || '—'}</span>
@@ -1219,7 +1235,23 @@ ${a.notes ? `<div class="section">
                         }}
                         style={{ fontSize:11, border:'1px solid var(--border)', borderRadius:6, padding:'3px 4px', background:'var(--surface)', color: filterVal !== 'All' ? '#0085C7' : 'var(--text3)', cursor:'pointer', outline:'none', fontWeight: filterVal !== 'All' ? 600 : 400, maxWidth:120 }}>
                         {opts.map(o => {
-                          const DIS_LABELS = {'Visual Impairment':tx('athletes.disVisual','Visual Impairment'),'Hearing Impairment':tx('athletes.disHearing','Hearing Impairment'),'Physical Impairment':tx('athletes.disPhysical','Physical Impairment'),'Intellectual Disability':tx('athletes.disIntellectual','Intellectual Disability'),'Spinal Cord Injury':tx('athletes.disSpinal','Spinal Cord Injury'),'Cerebral Palsy':tx('athletes.disCerebral','Cerebral Palsy'),'Amputation':tx('athletes.disAmputation','Amputation'),'Down Syndrome':tx('athletes.disDown','Down Syndrome'),'Autism':tx('athletes.disAutism','Autism'),'Multiple Disabilities':tx('athletes.disMultiple','Multiple Disabilities')}
+                          const DIS_LABELS = {
+  'Visual Impairment':tx('athletes.disVisual','Visual Impairment'),
+  'Hearing Impairment':tx('athletes.disHearing','Hearing Impairment'),
+  'Physical Impairment':tx('athletes.disPhysical','Physical Impairment'),
+  'Intellectual Disability':tx('athletes.disIntellectual','Intellectual Disability'),
+  'Intellectual Impairment':tx('athletes.disIntellectual','Intellectual Impairment'),
+  'Spinal Cord Injury':tx('athletes.disSpinal','Spinal Cord Injury'),
+  'Cerebral Palsy':tx('athletes.disCerebral','Cerebral Palsy'),
+  'Amputation':tx('athletes.disAmputation','Amputation'),
+  'Down Syndrome':tx('athletes.disDown','Down Syndrome'),
+  'Down syndrome':tx('athletes.disDown','Down syndrome'),
+  'Autism':tx('athletes.disAutism','Autism'),
+  'Autism Spectrum':tx('athletes.disAutism','Autism Spectrum'),
+  'Multiple Disabilities':tx('athletes.disMultiple','Multiple Disabilities'),
+  'Les Autres':tx('athletes.disOther','Les Autres'),
+  'Limb Deficiency':tx('athletes.disLimb','Limb Deficiency'),
+}
                           const LABELS = {
                             sport:       { 'All':tx('filters.all','الكل'), ...Object.fromEntries(Object.entries(SPORT_NAMES)) },
                             status:      { 'All':tx('filters.all','الكل'), 'Active':tx('status.active','Active'), 'Inactive':tx('status.inactive','Inactive'), 'Suspended':tx('status.suspended','Suspended'), 'Under Medical Review':tx('status.underMedicalReview','Under Medical Review'), 'Injured':tx('status.injured','Injured'), 'Retired':tx('status.retired','Retired') },
