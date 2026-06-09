@@ -177,6 +177,17 @@ export default function Athletes({ athletes, coaches, results, documents, events
     'Special Olympics':tx('sports.specialOlympics','Special Olympics'),
     'Shooting':tx('sports.shooting','Shooting'), 'Wheelchair Tennis':tx('sports.wheelchairTennis','Wheelchair Tennis'),
   }
+  // Case-insensitive disability translation
+  const DIS_MAP = {
+    'visual impairment':'إعاقة بصرية', 'hearing impairment':'إعاقة سمعية',
+    'physical impairment':'إعاقة جسدية', 'intellectual disability':'إعاقة ذهنية',
+    'intellectual impairment':'إعاقة ذهنية', 'spinal cord injury':'إصابة الحبل الشوكي',
+    'cerebral palsy':'شلل دماغي', 'amputation':'بتر', 'limb deficiency':'نقص الأطراف',
+    'les autres':'أخرى', 'down syndrome':'متلازمة داون', 'autism':'التوحد',
+    'autism spectrum':'التوحد', 'multiple disabilities':'إعاقات متعددة',
+  }
+  const tDis = (d) => { if (!d || lang==='en') return d; return DIS_MAP[d.toLowerCase()] || d }
+
   const [search, setSearch]         = useState('')
   const [sport, setSport]           = useState('All sports')
   const [status, setStatus]         = useState('All statuses')
@@ -693,7 +704,7 @@ ${a.notes ? `<div class="section">
             {/* SPORT */}
             <div className="info-card">
               <div className="info-title">{tx('athletes.sportClassification','Sport & classification')}</div>
-              {[[tx('form.sport','Sport'),SPORT_NAMES[a.sport]||a.sport],[tx('form.classification','Classification'),a.classification],[tx('form.disability','Disability type'),({'Visual Impairment':tx('athletes.disVisual','Visual Impairment'),'Hearing Impairment':tx('athletes.disHearing','Hearing Impairment'),'Physical Impairment':tx('athletes.disPhysical','Physical Impairment'),'Intellectual Disability':tx('athletes.disIntellectual','Intellectual Disability'),'Spinal Cord Injury':tx('athletes.disSpinal','Spinal Cord Injury'),'Cerebral Palsy':tx('athletes.disCerebral','Cerebral Palsy'),'Amputation':tx('athletes.disAmputation','Amputation'),'Down Syndrome':tx('athletes.disDown','Down Syndrome'),'Autism':tx('athletes.disAutism','Autism'),'Multiple Disabilities':tx('athletes.disMultiple','Multiple Disabilities')}[a.disability]||a.disability)],[tx('form.club','Club'),a.club],[tx('form.designation','Designation'),a.designation],[tx('form.residencyStatus','Residency status'),a.residency_status]].map(([k,v]) => (
+              {[[tx('form.sport','Sport'),SPORT_NAMES[a.sport]||a.sport],[tx('form.classification','Classification'),a.classification],[tx('form.disability','Disability type'), tDis(a.disability)],[tx('form.club','Club'),a.club],[tx('form.designation','Designation'),a.designation],[tx('form.residencyStatus','Residency status'),a.residency_status]].map(([k,v]) => (
                 <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv">{v||'—'}</span></div>
               ))}
             </div>
@@ -999,7 +1010,10 @@ ${a.notes ? `<div class="section">
       case 'name': return (
         <div style={{ display:'flex', alignItems:'center', gap:10 }}>
           {a.photo_url ? <img src={a.photo_url} alt={a.name} style={{ width:32, height:32, borderRadius:'50%', objectFit:'cover', flexShrink:0 }} /> : <Avatar name={a.name} id={a.id} />}
-          <div><div style={{ fontWeight:500 }}>{a.name}</div><div style={{ fontSize:11, color:'#9aa3b2' }}>{a.nationality}</div></div>
+          <div>
+            <div style={{ fontWeight:500 }}>{lang==='ar' && a.name_ar ? a.name_ar : a.name}</div>
+            <div style={{ fontSize:11, color:'#9aa3b2' }}>{tc(a.nationality)}</div>
+          </div>
         </div>
       )
       case 'name_ar':          return <span style={{ color:'var(--text2)', direction:'rtl' }}>{a.name_ar || '—'}</span>
@@ -1007,26 +1021,7 @@ ${a.notes ? `<div class="section">
       case 'career_profile':   return <span style={{ color:'var(--text2)', fontFamily:'monospace', fontSize:12 }}>{a.career_profile || '—'}</span>
       case 'sport':            return <span style={{ color:'var(--text2)' }}>{SPORT_NAMES[a.sport] || a.sport || '—'}</span>
       case 'classification':   return a.classification ? <span className="badge badge-blue">{a.classification}</span> : '—'
-      case 'disability': {
-        const DIS_AR = {
-  'Visual Impairment':tx('athletes.disVisual','Visual Impairment'),
-  'Hearing Impairment':tx('athletes.disHearing','Hearing Impairment'),
-  'Physical Impairment':tx('athletes.disPhysical','Physical Impairment'),
-  'Intellectual Disability':tx('athletes.disIntellectual','Intellectual Disability'),
-  'Intellectual Impairment':tx('athletes.disIntellectual','Intellectual Impairment'),
-  'Spinal Cord Injury':tx('athletes.disSpinal','Spinal Cord Injury'),
-  'Cerebral Palsy':tx('athletes.disCerebral','Cerebral Palsy'),
-  'Amputation':tx('athletes.disAmputation','Amputation'),
-  'Down Syndrome':tx('athletes.disDown','Down Syndrome'),
-  'Down syndrome':tx('athletes.disDown','Down syndrome'),
-  'Autism':tx('athletes.disAutism','Autism'),
-  'Autism Spectrum':tx('athletes.disAutism','Autism Spectrum'),
-  'Multiple Disabilities':tx('athletes.disMultiple','Multiple Disabilities'),
-  'Les Autres':tx('athletes.disOther','Les Autres'),
-  'Limb Deficiency':tx('athletes.disLimb','Limb Deficiency'),
-}
-        return <span style={{ color:'var(--text2)' }}>{DIS_AR[a.disability] || a.disability || '—'}</span>
-      }
+      case 'disability':      return <span style={{ color:'var(--text2)' }}>{tDis(a.disability) || '—'}</span>
       case 'nationality':      return <span style={{ color:'var(--text2)' }}>{tc(a.nationality) || '—'}</span>
       case 'gender':           return <span style={{ color:'var(--text2)' }}>{a.gender ? (lang==='ar' ? (a.gender==='Male'?'ذكر':'أنثى') : a.gender) : '—'}</span>
       case 'dob':              return <span style={{ color:'var(--text2)' }}>{a.dob || '—'}</span>
@@ -1109,7 +1104,7 @@ ${a.notes ? `<div class="section">
           {!editMode && (
             <div style={{ position:'relative' }}>
               <button className="action-btn action-btn-edit" style={{ padding:'8px 14px', fontSize:13 }} onClick={() => setColPickerOpen(o => !o)}>
-                <i className="ti ti-columns" /> Columns {visibleCols.length !== ALL_COLS.length && `(${visibleCols.length})`}
+                <i className="ti ti-columns" /> {lang==='ar' ? 'أعمدة' : 'Columns'} {visibleCols.length !== ALL_COLS.length && `(${visibleCols.length})`}
               </button>
               {colPickerOpen && (
                 <div style={{ position:'absolute', top:'calc(100% + 6px)', right:0, background:'var(--surface)', border:'1px solid var(--border)', borderRadius:12, padding:'12px 4px', zIndex:200, boxShadow:'0 8px 24px rgba(0,0,0,.12)', minWidth:200, maxHeight:420, overflowY:'auto' }}
@@ -1235,23 +1230,7 @@ ${a.notes ? `<div class="section">
                         }}
                         style={{ fontSize:11, border:'1px solid var(--border)', borderRadius:6, padding:'3px 4px', background:'var(--surface)', color: filterVal !== 'All' ? '#0085C7' : 'var(--text3)', cursor:'pointer', outline:'none', fontWeight: filterVal !== 'All' ? 600 : 400, maxWidth:120 }}>
                         {opts.map(o => {
-                          const DIS_LABELS = {
-  'Visual Impairment':tx('athletes.disVisual','Visual Impairment'),
-  'Hearing Impairment':tx('athletes.disHearing','Hearing Impairment'),
-  'Physical Impairment':tx('athletes.disPhysical','Physical Impairment'),
-  'Intellectual Disability':tx('athletes.disIntellectual','Intellectual Disability'),
-  'Intellectual Impairment':tx('athletes.disIntellectual','Intellectual Impairment'),
-  'Spinal Cord Injury':tx('athletes.disSpinal','Spinal Cord Injury'),
-  'Cerebral Palsy':tx('athletes.disCerebral','Cerebral Palsy'),
-  'Amputation':tx('athletes.disAmputation','Amputation'),
-  'Down Syndrome':tx('athletes.disDown','Down Syndrome'),
-  'Down syndrome':tx('athletes.disDown','Down syndrome'),
-  'Autism':tx('athletes.disAutism','Autism'),
-  'Autism Spectrum':tx('athletes.disAutism','Autism Spectrum'),
-  'Multiple Disabilities':tx('athletes.disMultiple','Multiple Disabilities'),
-  'Les Autres':tx('athletes.disOther','Les Autres'),
-  'Limb Deficiency':tx('athletes.disLimb','Limb Deficiency'),
-}
+                          const DIS_LABELS = Object.fromEntries(Object.entries(DIS_MAP).map(([k,v]) => [k,v]).concat(athletes.map(a=>a.disability).filter(Boolean).map(d=>[d, DIS_MAP[d.toLowerCase()]||d])))
                           const LABELS = {
                             sport:       { 'All':tx('filters.all','الكل'), ...Object.fromEntries(Object.entries(SPORT_NAMES)) },
                             status:      { 'All':tx('filters.all','الكل'), 'Active':tx('status.active','Active'), 'Inactive':tx('status.inactive','Inactive'), 'Suspended':tx('status.suspended','Suspended'), 'Under Medical Review':tx('status.underMedicalReview','Under Medical Review'), 'Injured':tx('status.injured','Injured'), 'Retired':tx('status.retired','Retired') },
