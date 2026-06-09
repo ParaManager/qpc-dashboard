@@ -226,6 +226,7 @@ export default function Athletes({ athletes, coaches, results, documents, events
   const [uploading, setUploading]   = useState(false)
   const [docUploading, setDocUploading] = useState(false)
   const [docType, setDocType]       = useState('Passport')
+  const [docDropOpen, setDocDropOpen] = useState(false)
   const [docConfirm, setDocConfirm] = useState(null)
   const [notes, setNotes]           = useState('')
   const [savingNotes, setSavingNotes] = useState(false)
