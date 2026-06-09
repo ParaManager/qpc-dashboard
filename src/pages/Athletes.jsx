@@ -931,7 +931,16 @@ ${a.notes ? `<div class="section">
                           if (el) {
                             const btn = el.previousSibling
                             const rect = btn?.getBoundingClientRect()
-                            if (rect) { el.style.top=(rect.bottom+4)+'px'; el.style.left=rect.left+'px'; el.style.width=rect.width+'px' }
+                            if (rect) {
+                              const spaceBelow = window.innerHeight - rect.bottom
+                              const dropH = Math.min(280, DOC_TYPES.length * 38)
+                              if (spaceBelow < dropH + 8) {
+                                el.style.top = 'auto'; el.style.bottom = (window.innerHeight - rect.top + 4) + 'px'
+                              } else {
+                                el.style.top = (rect.bottom+4)+'px'; el.style.bottom = 'auto'
+                              }
+                              el.style.left=rect.left+'px'; el.style.width=rect.width+'px'
+                            }
                           }
                         }}>
                         {DOC_TYPES.map(t => (
