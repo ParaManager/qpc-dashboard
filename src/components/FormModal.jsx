@@ -4,6 +4,55 @@ import { useLang } from '../lib/LangContext.jsx'
 
 const COLORS = { athlete: '#0085C7', coach: '#009F6B', event: '#EE334E', result: '#8b5cf6' }
 
+const COUNTRIES_EN = [
+  'Afghanistan','Algeria','Argentina','Armenia','Australia','Austria','Azerbaijan',
+  'Bahrain','Bangladesh','Belarus','Belgium','Brazil','Cameroon','Canada','Chile',
+  'China','Colombia','Croatia','Czech Republic','Denmark','Egypt','Eritrea',
+  'Ethiopia','Finland','France','Georgia','Germany','Ghana','Greece','Guinea',
+  'Hungary','India','Indonesia','Iran','Iraq','Ireland','Italy','Japan','Jordan',
+  'Kazakhstan','Kenya','Kuwait','Kyrgyzstan','Lebanon','Libya','Malaysia','Mali',
+  'Mauritania','Mexico','Mongolia','Morocco','Myanmar','Nepal','Netherlands',
+  'New Zealand','Nigeria','Norway','Oman','Pakistan','Palestine','Peru',
+  'Philippines','Poland','Portugal','Qatar','Romania','Russia','Rwanda',
+  'Saudi Arabia','Scotland','Senegal','Serbia','Singapore','Slovakia',
+  'Somalia','South Africa','South Korea','Spain','Sri Lanka','Sudan','Sweden',
+  'Syria','Tajikistan','Tanzania','Thailand','Tunisia','Turkey','Turkmenistan',
+  'UAE','Uganda','UK','Ukraine','USA','Uzbekistan','Venezuela','Vietnam',
+  'Wales','Yemen','Zambia','Zimbabwe',
+]
+
+const COUNTRIES_AR = {
+  'Afghanistan':'أفغانستان','Algeria':'الجزائر','Argentina':'الأرجنتين',
+  'Armenia':'أرمينيا','Australia':'أستراليا','Austria':'النمسا',
+  'Azerbaijan':'أذربيجان','Bahrain':'البحرين','Bangladesh':'بنغلاديش',
+  'Belarus':'بيلاروسيا','Belgium':'بلجيكا','Brazil':'البرازيل',
+  'Cameroon':'الكاميرون','Canada':'كندا','Chile':'تشيلي','China':'الصين',
+  'Colombia':'كولومبيا','Croatia':'كرواتيا','Czech Republic':'التشيك',
+  'Denmark':'الدنمارك','Egypt':'مصر','Eritrea':'إريتريا','Ethiopia':'إثيوبيا',
+  'Finland':'فنلندا','France':'فرنسا','Georgia':'جورجيا','Germany':'ألمانيا',
+  'Ghana':'غانا','Greece':'اليونان','Guinea':'غينيا','Hungary':'المجر',
+  'India':'الهند','Indonesia':'إندونيسيا','Iran':'إيران','Iraq':'العراق',
+  'Ireland':'أيرلندا','Italy':'إيطاليا','Japan':'اليابان','Jordan':'الأردن',
+  'Kazakhstan':'كازاخستان','Kenya':'كينيا','Kuwait':'الكويت',
+  'Kyrgyzstan':'قيرغيزستان','Lebanon':'لبنان','Libya':'ليبيا',
+  'Malaysia':'ماليزيا','Mali':'مالي','Mauritania':'موريتانيا','Mexico':'المكسيك',
+  'Mongolia':'منغوليا','Morocco':'المغرب','Myanmar':'ميانمار','Nepal':'نيبال',
+  'Netherlands':'هولندا','New Zealand':'نيوزيلندا','Nigeria':'نيجيريا',
+  'Norway':'النرويج','Oman':'عُمان','Pakistan':'باكستان','Palestine':'فلسطين',
+  'Peru':'بيرو','Philippines':'الفلبين','Poland':'بولندا','Portugal':'البرتغال',
+  'Qatar':'قطر','Romania':'رومانيا','Russia':'روسيا','Rwanda':'رواندا',
+  'Saudi Arabia':'المملكة العربية السعودية','Scotland':'اسكتلندا',
+  'Senegal':'السنغال','Serbia':'صربيا','Singapore':'سنغافورة',
+  'Slovakia':'سلوفاكيا','Somalia':'الصومال','South Africa':'جنوب أفريقيا',
+  'South Korea':'كوريا الجنوبية','Spain':'إسبانيا','Sri Lanka':'سريلانكا',
+  'Sudan':'السودان','Sweden':'السويد','Syria':'سوريا','Tajikistan':'طاجيكستان',
+  'Tanzania':'تنزانيا','Thailand':'تايلاند','Tunisia':'تونس','Turkey':'تركيا',
+  'Turkmenistan':'تركمانستان','UAE':'الإمارات','Uganda':'أوغندا',
+  'UK':'المملكة المتحدة','Ukraine':'أوكرانيا','USA':'الولايات المتحدة',
+  'Uzbekistan':'أوزبكستان','Venezuela':'فنزويلا','Vietnam':'فيتنام',
+  'Wales':'ويلز','Yemen':'اليمن','Zambia':'زامبيا','Zimbabwe':'زيمبابوي',
+}
+
 function Field({ label, name, type = 'text', placeholder, options, value, onChange }) {
   return (
     <div className="form-group">
@@ -26,6 +75,30 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
   const isEdit = !!record
   const { lang } = useLang()
   const ar = lang === 'ar'
+
+  // Country options
+  const countryOpts = [
+    { value:'', label:'' },
+    ...COUNTRIES_EN.map(c => ({ value: c, label: ar ? (COUNTRIES_AR[c]||c) : c }))
+  ]
+
+  // Sport options with Arabic labels
+  const sportOpts = SPORTS.map(s => ({
+    value: s,
+    label: ar ? ({'Athletics':'ألعاب القوى','Swimming':'السباحة','Powerlifting':'رفع الأثقال','Boccia':'البوتشيا','Goalball':'كرة الهدف','Table Tennis':'تنس الطاولة','Special Olympics':'الأولمبياد الخاص','Shooting':'الرماية','Wheelchair Tennis':'تنس الكراسي المتحركة'}[s]||s) : s
+  }))
+
+  // Athlete designation options
+  const athDesigOpts = ['','Player','Female Player','Coach','Female Coach','Referee','Female Referee','Admin Staff','Technical Staff','Medical Staff','Board Member','Female Board Member','Member','Female Member','Employee','Female Employee','Expert'].map(s => ({
+    value: s,
+    label: ar && s ? ({'Player':'لاعب','Female Player':'لاعبة','Coach':'مدرب','Female Coach':'مدربة','Referee':'حكم','Female Referee':'حكمة','Admin Staff':'جهاز إداري','Technical Staff':'جهاز في','Medical Staff':'جهاز طبي','Board Member':'عضو مجلس إدارة','Female Board Member':'عضوة مجلس إدارة','Member':'عضو','Female Member':'عضوة','Employee':'موظف','Female Employee':'موظفة','Expert':'خبير في'}[s]||s) : s
+  }))
+
+  // Residency status options
+  const residencyOpts = ['','Qatari Male','Qatari Female','Resident Male','Resident Female','Professional Male','Professional Female','Born in Qatar','Qatari Mother'].map(s => ({
+    value: s,
+    label: ar && s ? ({'Qatari Male':'قطري','Qatari Female':'قطرية','Resident Male':'مقيم','Resident Female':'مقيمة','Professional Male':'محترف','Professional Female':'محترفة','Born in Qatar':'مواليد قطر','Qatari Mother':'أم قطرية'}[s]||s) : s
+  }))
   const [form, setForm] = useState({})
 
   useEffect(() => {
@@ -164,7 +237,7 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
               <Field label={T.gender} options={genderOpts} {...f('gender')} />
             </Row>
             <Row>
-              <Field label={T.nationality} placeholder={ar?"مثال: قطري":"e.g. Qatari"} {...f('nationality')} />
+              <Field label={T.nationality} options={countryOpts} {...f('nationality')} />
               <Field label={T.phone} placeholder="+974 XXXX XXXX" {...f('phone')} />
             </Row>
             <Row>
@@ -174,7 +247,7 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
 
             <Section label={T.sportClass} />
             <Row>
-              <Field label={T.sport} options={SPORTS} {...f('sport')} />
+              <Field label={T.sport} options={sportOpts} {...f('sport')} />
               <Field label={T.classification} placeholder={ar?"مثال: T54, S6, BC2":"e.g. T54, S6, BC2"} {...f('classification')} />
             </Row>
             <Row>
@@ -193,10 +266,10 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
             <Section label={T.clubRole} />
             <Row>
               <Field label={`${T.club} (النادي)`} placeholder={ar?"مثال: نادي الوكرة":"e.g. Al Wakrah SC"} {...f('club')} />
-              <Field label={`${T.designation} (الوظيفة)`} options={['','Player','Female Player','Coach','Female Coach','Referee','Female Referee','Admin Staff','Technical Staff','Medical Staff','Board Member','Female Board Member','Member','Female Member','Employee','Female Employee','Expert']} {...f('designation')} />
+              <Field label={`${T.designation} (الوظيفة)`} options={athDesigOpts} {...f('designation')} />
             </Row>
             <Row>
-              <Field label={`${T.residency} (الصفة)`} options={['','Qatari Male','Qatari Female','Resident Male','Resident Female','Professional Male','Professional Female','Born in Qatar','Qatari Mother']} {...f('residencyStatus')} />
+              <Field label={`${T.residency} (الصفة)`} options={residencyOpts} {...f('residencyStatus')} />
               <Field label={T.qss} placeholder="e.g. 12345" {...f('qssNumber')} />
             </Row>
 
@@ -233,7 +306,7 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
               <Field label={T.nameAr} placeholder="e.g. كارلوس مينديز" {...f('nameAr')} />
             </Row>
             <Row>
-              <Field label={T.nationality} placeholder={ar?"مثال: إسباني":"e.g. Spanish"} {...f('nationality')} />
+              <Field label={T.nationality} options={countryOpts} {...f('nationality')} />
               <Field label={T.gender} options={genderOptsEmpty} {...f('gender')} />
             </Row>
             <Row>
@@ -243,7 +316,7 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
 
             <Section label={T.employment} />
             <Row>
-              <Field label={T.sport} options={SPORTS} {...f('sport')} />
+              <Field label={T.sport} options={sportOpts} {...f('sport')} />
               <Field label={T.certLevel} options={['Level 1','Level 2','Level 3']} {...f('certLevel')} />
             </Row>
             <Row>
@@ -271,7 +344,7 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
             <Section label={T.eventDetails} />
             <Field label={T.eventName} placeholder={ar?"مثال: بطولة قطر المفتوحة":"e.g. Qatar Open Athletics Championships"} {...f('name')} />
             <Row>
-              <Field label={T.sport} options={SPORTS} {...f('sport')} />
+              <Field label={T.sport} options={sportOpts} {...f('sport')} />
               <Field label={T.eventType} options={['National','Regional','Invitational']} {...f('type')} />
             </Row>
             <Field label={T.venue} placeholder={ar?"مثال: استاد خليفة الدولي":"e.g. Khalifa International Stadium"} {...f('venue')} />
