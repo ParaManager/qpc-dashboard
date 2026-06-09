@@ -286,10 +286,10 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
                 ['Nationality', c.nationality],
                 ['Gender', c.gender],
                 ['With QPC since', c.since],
-                [tx('profile.passportNumber','Passport #'), c.passport_number],
-                [tx('profile.passportExpiry','Passport expiry'), c.passport_expiry],
-                [tx('profile.idNumber','ID / Residence #'), c.id_number],
-                [tx('profile.idExpiry','ID expiry'), c.id_expiry],
+                [lang==='ar'?'رقم الجواز':'Passport #', c.passport_number],
+                [lang==='ar'?'انتهاء الجواز':'Passport expiry', c.passport_expiry],
+                [lang==='ar'?'الرقم الشخصي':'ID / Residence #', c.id_number],
+                [lang==='ar'?'انتهاء الهوية':'ID expiry', c.id_expiry],
                 ['Email', c.email],
                 ['Phone', c.phone],
               ].map(([k,v]) => (
@@ -300,6 +300,16 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
               ))}
             </div>
           </div>
+
+          {/* DOCUMENTS - right under profile card */}
+          <PersonDocuments
+            personId={c.id}
+            personType="coach"
+            personName={c.name}
+            docs={personDocs}
+            onRefresh={onRefresh}
+            profile={profile}
+          />
 
           <div className="info-card">
             {/* Medals summary */}
@@ -334,22 +344,14 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
                     <div style={{ fontSize:11, color:'#9aa3b2' }}>{a.sport} · {a.classification}</div>
                   </div>
                   <MedalDisplay gold={a.medals_gold} silver={a.medals_silver} bronze={a.medals_bronze} />
-                  <Badge label={a.status} />
+                  <Badge label={STATUS_AR[a.status]||a.status} />
                 </DashRow>
               ))
             }
           </div>
         </div>
 
-        {/* DOCUMENTS */}
-        <PersonDocuments
-          personId={c.id}
-          personType="coach"
-          personName={c.name}
-          docs={personDocs}
-          onRefresh={onRefresh}
-          profile={profile}
-        />
+
         <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
       </div>
     )
