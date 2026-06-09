@@ -25,6 +25,7 @@ const ROLE_ICONS  = { admin: 'ti-shield', coach: 'ti-whistle', athlete: 'ti-run'
 export default function App() {
   const { user, profile, loading: authLoading, signOut } = useAuth()
   const { lang, setLang, tx } = useLang()
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const [page, setPage]                   = useState('dashboard')
   const [athletes, setAthletes]           = useState([])
@@ -119,6 +120,7 @@ export default function App() {
                   onClick={() => {
                     setNavState({ reset: true })
                     setPage(id)
+                    setSidebarOpen(false)
                   }}>
                   <i className={`ti ${icon}`} />
                   {label}
@@ -151,9 +153,13 @@ export default function App() {
 
       <div className="main">
         <div className="topbar">
+          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+            <button className="menu-btn" onClick={() => setSidebarOpen(o => !o)}>
+              <i className="ti ti-menu-2" />
+            </button>
           <div className="tb-breadcrumb">
             <span>{lang==='ar'?'QPC':'QPC'}</span> · <span>{tx(`pages.${page}`, page.charAt(0).toUpperCase()+page.slice(1))}</span> · {tx('nav.season','Season')} 2026
-          </div>
+          </div></div>
           <div className="tb-actions">
             <div style={{ display:'flex', alignItems:'center', gap:5, padding:'4px 10px', background:roleColor+'15', border:`1px solid ${roleColor}40`, borderRadius:20, fontSize:11, color:roleColor, fontWeight:500 }}>
               <i className={`ti ${roleIcon}`} style={{ fontSize:13 }} />
