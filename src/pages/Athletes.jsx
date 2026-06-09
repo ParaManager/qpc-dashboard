@@ -257,6 +257,14 @@ export default function Athletes({ athletes, coaches, results, documents, events
     }
   }, [navState])
 
+  // Close doc dropdown on outside click
+  useEffect(() => {
+    if (!docDropOpen) return
+    const close = () => setDocDropOpen(false)
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [docDropOpen])
+
   // sync notes when selected athlete changes
   useEffect(() => {
     if (selected) {
@@ -911,10 +919,32 @@ ${a.notes ? `<div class="section">
                     style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', background:'#0085C7', color:'#fff', border:'none', borderRadius:8, fontSize:12, fontWeight:500, cursor:'pointer', flexShrink:0, fontFamily:'DM Sans, sans-serif' }}>
                     {docUploading ? <><div style={{ width:12, height:12, border:'2px solid rgba(255,255,255,.4)', borderTopColor:'#fff', borderRadius:'50%', animation:'spin .7s linear infinite' }} />{lang==='ar'?'جارٍ الرفع…':'Uploading…'}</> : <><i className="ti ti-upload" style={{ fontSize:14 }} />{lang==='ar'?'رفع':'Upload'}</>}
                   </button>
-                  <select value={docType} onChange={e => setDocType(e.target.value)}
-                    style={{ flex:1, padding:'7px 10px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface)', fontSize:12, color:'var(--text)', outline:'none' }}>
-                    {DOC_TYPES.map(t => <option key={t} value={t}>{lang==='ar' ? (DOC_TYPES_AR[t]||t) : t}</option>)}
-                  </select>
+                  <div style={{ flex:1, position:'relative' }}>
+                    <button onClick={() => setDocDropOpen(v=>!v)}
+                      style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'7px 10px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface)', fontSize:12, color:'var(--text)', cursor:'pointer', fontFamily:'DM Sans, sans-serif', direction: lang==='ar'?'rtl':'ltr' }}>
+                      <span>{lang==='ar'?(DOC_TYPES_AR[docType]||docType):docType}</span>
+                      <i className="ti ti-chevron-down" style={{ fontSize:12, color:'var(--text3)' }} />
+                    </button>
+                    {docDropOpen && (
+                      <div style={{ position:'fixed', zIndex:9999, background:'var(--surface)', border:'1px solid var(--border)', borderRadius:10, boxShadow:'0 8px 24px rgba(0,0,0,.15)', minWidth:200, maxHeight:280, overflowY:'auto', direction: lang==='ar'?'rtl':'ltr' }}
+                        ref={el => {
+                          if (el) {
+                            const btn = el.previousSibling
+                            const rect = btn?.getBoundingClientRect()
+                            if (rect) { el.style.top=(rect.bottom+4)+'px'; el.style.left=rect.left+'px'; el.style.width=rect.width+'px' }
+                          }
+                        }}>
+                        {DOC_TYPES.map(t => (
+                          <div key={t} onClick={() => { setDocType(t); setDocDropOpen(false) }}
+                            style={{ padding:'9px 14px', fontSize:12, cursor:'pointer', background: t===docType?'var(--surface2)':'transparent', fontWeight: t===docType?600:400, color: t===docType?'#0085C7':'var(--text)' }}
+                            onMouseEnter={e => e.currentTarget.style.background='var(--surface2)'}
+                            onMouseLeave={e => e.currentTarget.style.background=t===docType?'var(--surface2)':'transparent'}>
+                            {lang==='ar'?(DOC_TYPES_AR[t]||t):t}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                   <button onClick={() => docInput.current.click()} disabled={docUploading}
                     style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', background:'#0085C7', color:'#fff', border:'none', borderRadius:8, fontSize:12, fontWeight:500, cursor:'pointer', flexShrink:0, fontFamily:'DM Sans, sans-serif' }}>
                     {docUploading ? <><div style={{ width:12, height:12, border:'2px solid rgba(255,255,255,.4)', borderTopColor:'#fff', borderRadius:'50%', animation:'spin .7s linear infinite' }} />{lang==='ar'?'جارٍ الرفع…':'Uploading…'}</> : <><i className="ti ti-upload" style={{ fontSize:14 }} />{lang==='ar'?'رفع':'Upload'}</>}
