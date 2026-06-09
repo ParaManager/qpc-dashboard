@@ -660,7 +660,7 @@ ${a.notes ? `<div class="section">
               )}
 
               <div className="detail-fields">
-                {[[tx('profile.dateOfBirth','Date of birth'),a.dob],[tx('profile.gender','Gender'),a.gender],[tx('profile.nationality','Nationality'),tc(a.nationality)],[tx('profile.phone','Phone'),a.phone],[tx('profile.email','Email'),a.email],[tx('athletes.joinedQPC','Joined QPC'),a.join_date]].map(([k,v]) => (
+                {[[tx('profile.dateOfBirth','Date of birth'),a.dob],[tx('profile.gender','Gender'), a.gender ? (lang==='ar' ? (a.gender==='Male'?'ذكر':'أنثى') : a.gender) : null],[tx('profile.nationality','Nationality'),tc(a.nationality)],[tx('profile.phone','Phone'),a.phone],[tx('profile.email','Email'),a.email],[tx('athletes.joinedQPC','Joined QPC'),a.join_date]].map(([k,v]) => (
                   <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv">{v||'—'}</span></div>
                 ))}
               </div>
