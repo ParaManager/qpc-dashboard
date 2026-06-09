@@ -4,6 +4,13 @@ import { useLang } from '../lib/LangContext.jsx'
 import { toast } from './Toast'
 import { canEdit } from '../lib/useAuth'
 
+const DOC_TYPES_AR = {
+  'Passport':'جواز السفر', 'Qatar ID':'الرقم الشخصي',
+  'Residence Permit':'تصريح الإقامة', 'Contract':'العقد',
+  'Certificate':'الشهادة', 'Medical Report':'التقرير الطبي',
+  'Photo':'صورة', 'Other':'أخرى',
+}
+
 const DOC_TYPES = [
   'Passport', 'Qatar ID', 'Residence Permit',
   'Contract', 'Certificate', 'Medical Report',
@@ -56,7 +63,7 @@ async function downloadDoc(url, personName, docType, originalName) {
 }
 
 export default function PersonDocuments({ personId, personType, personName, docs, onRefresh, profile }) {
-  const { tx } = useLang()
+  const { tx, lang } = useLang()
   const [docType, setDocType]         = useState('Passport')
   const [uploading, setUploading]     = useState(false)
   const [confirmDel, setConfirmDel]   = useState(null)
@@ -128,13 +135,13 @@ export default function PersonDocuments({ personId, personType, personName, docs
         <div style={{ display:'flex', gap:8, marginBottom:16, padding:'10px 12px', background:'var(--surface2)', borderRadius:10, alignItems:'center' }}>
           <select value={docType} onChange={e => setDocType(e.target.value)}
             style={{ flex:1, padding:'7px 10px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface)', fontSize:12, color:'var(--text)', outline:'none' }}>
-            {DOC_TYPES.map(t => <option key={t}>{t}</option>)}
+            {DOC_TYPES.map(t => <option key={t} value={t}>{lang==='ar'?(DOC_TYPES_AR[t]||t):t}</option>)}
           </select>
           <button onClick={() => docInput.current.click()} disabled={uploading}
             style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', background:'#0085C7', color:'#fff', border:'none', borderRadius:8, fontSize:12, fontWeight:500, cursor:'pointer', flexShrink:0, fontFamily:'DM Sans, sans-serif' }}>
             {uploading
               ? <><div style={{ width:12, height:12, border:'2px solid rgba(255,255,255,.4)', borderTopColor:'#fff', borderRadius:'50%', animation:'spin .7s linear infinite' }} />{tx('actions.uploading','Uploading…')}</>
-              : <><i className="ti ti-upload" style={{ fontSize:14 }} />{tx('actions.upload','Upload')}</>
+              : <><i className="ti ti-upload" style={{ fontSize:14 }} />{lang==='ar'?'رفع':'Upload'}</>
             }
           </button>
           <input ref={docInput} type="file" style={{ display:'none' }}
@@ -154,7 +161,7 @@ export default function PersonDocuments({ personId, personType, personName, docs
               <div key={type} style={{ marginBottom:14 }}>
                 <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:6 }}>
                   <i className={`ti ${icon}`} style={{ fontSize:13, color }} />
-                  <span style={{ fontSize:11, fontWeight:600, color, textTransform:'uppercase', letterSpacing:'.05em' }}>{type}</span>
+                  <span style={{ fontSize:11, fontWeight:600, color }}>{lang==='ar'?(DOC_TYPES_AR[type]||type):type}</span>
                 </div>
                 {typeDocs.map(doc => (
                   <div key={doc.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 10px', background:'var(--surface2)', borderRadius:9, marginBottom:6, border:'1px solid var(--border)' }}>
