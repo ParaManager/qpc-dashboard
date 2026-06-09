@@ -123,9 +123,9 @@ export default function PersonDocuments({ personId, personType, personName, docs
 
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
         <div className="info-title" style={{ margin:0 }}>
-          Documents
+          {lang==='ar'?'الوثائق':'Documents'}
           <span style={{ marginLeft:8, fontSize:11, fontWeight:400, color:'var(--text3)', textTransform:'none', letterSpacing:0 }}>
-            {myDocs.length} file{myDocs.length !== 1 ? 's' : ''}
+            {myDocs.length} {lang==='ar'?'ملف':`file${myDocs.length!==1?'s':''}`}
           </span>
         </div>
       </div>
@@ -140,7 +140,7 @@ export default function PersonDocuments({ personId, personType, personName, docs
           <button onClick={() => docInput.current.click()} disabled={uploading}
             style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', background:'#0085C7', color:'#fff', border:'none', borderRadius:8, fontSize:12, fontWeight:500, cursor:'pointer', flexShrink:0, fontFamily:'DM Sans, sans-serif' }}>
             {uploading
-              ? <><div style={{ width:12, height:12, border:'2px solid rgba(255,255,255,.4)', borderTopColor:'#fff', borderRadius:'50%', animation:'spin .7s linear infinite' }} />{tx('actions.uploading','Uploading…')}</>
+              ? <><div style={{ width:12, height:12, border:'2px solid rgba(255,255,255,.4)', borderTopColor:'#fff', borderRadius:'50%', animation:'spin .7s linear infinite' }} />{lang==='ar'?'جارٍ الرفع…':'Uploading…'}</>
               : <><i className="ti ti-upload" style={{ fontSize:14 }} />{lang==='ar'?'رفع':'Upload'}</>
             }
           </button>
@@ -151,7 +151,7 @@ export default function PersonDocuments({ personId, personType, personName, docs
       )}
 
       {myDocs.length === 0
-        ? <div className="empty" style={{ padding:'16px 0' }}>{tx('docs.noDocuments','No documents uploaded yet.')}</div>
+        ? <div className="empty" style={{ padding:'16px 0' }}>{lang==='ar'?'لم يتم رفع وثائق بعد.':'No documents uploaded yet.'}</div>
         : DOC_TYPES.map(type => {
             const typeDocs = docsByType[type]
             if (!typeDocs || typeDocs.length === 0) return null
