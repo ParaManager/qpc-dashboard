@@ -1229,10 +1229,8 @@ ${a.notes ? `<div class="section">
                         }}
                         style={{ fontSize:11, border:'1px solid var(--border)', borderRadius:6, padding:'3px 4px', background:'var(--surface)', color: filterVal !== 'All' ? '#0085C7' : 'var(--text3)', cursor:'pointer', outline:'none', fontWeight: filterVal !== 'All' ? 600 : 400, maxWidth:120 }}>
                         {opts.map(o => {
-                          const DIS_LABELS = Object.fromEntries(Object.entries(DIS_MAP).map(([k,v]) => [k,v]).concat(athletes.map(a=>a.disability).filter(Boolean).map(d=>[d, DIS_MAP[d.toLowerCase()]||d])))
+                          const allLabel = lang==='ar' ? 'الكل' : 'All'
                           const LABELS = {
-                            const allLabel = lang==='ar' ? 'الكل' : 'All'
-                            const LABELS = {
                             sport:       { 'All':allLabel, ...Object.fromEntries(Object.entries(SPORT_NAMES)) },
                             status:      { 'All':allLabel, 'Active':tx('status.active','Active'), 'Inactive':tx('status.inactive','Inactive'), 'Suspended':tx('status.suspended','Suspended'), 'Under Medical Review':tx('status.underMedicalReview','Under Medical Review'), 'Injured':tx('status.injured','Injured'), 'Retired':tx('status.retired','Retired') },
                             gender:      { 'All':allLabel, 'Male':tx('form.male','Male'), 'Female':tx('form.female','Female') },
