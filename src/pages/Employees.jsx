@@ -247,11 +247,24 @@ export default function Employees({ employees, personDocs, onRefresh, onNav, nav
   function EmpModal({ data, isEdit, onClose }) {
     const [form, setForm] = useState(data || { status:'Active' })
     const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+    const ar = lang === 'ar'
+    const statusOpts = [
+      { value:'Active',   label: ar?'نشط':'Active' },
+      { value:'On Leave', label: ar?'في إجازة':'On Leave' },
+      { value:'Inactive', label: ar?'غير نشط':'Inactive' },
+    ]
+    const genderOpts = [
+      { value:'',       label: '' },
+      { value:'Male',   label: ar?'ذكر':'Male' },
+      { value:'Female', label: ar?'أنثى':'Female' },
+    ]
     const F = ({ label, name, type='text', placeholder, options }) => (
       <div className="form-group">
         <label className="form-label">{label}</label>
         {options
-          ? <select className="form-input" value={form[name]||''} onChange={e => set(name, e.target.value)}>{options.map(o=><option key={o}>{o}</option>)}</select>
+          ? <select className="form-input" value={form[name]||''} onChange={e => set(name, e.target.value)}>
+              {options.map(o => <option key={o.value??o} value={o.value??o}>{o.label??o}</option>)}
+            </select>
           : <input className="form-input" type={type} placeholder={placeholder} value={form[name]||''} onChange={e => set(name, e.target.value)} />
         }
       </div>
@@ -260,43 +273,43 @@ export default function Employees({ employees, personDocs, onRefresh, onNav, nav
       <div className="modal-overlay" onClick={onClose}>
         <div className="modal-box" onClick={e => e.stopPropagation()}>
           <div className="modal-header">
-            <div className="modal-title">{isEdit ? 'Edit' : 'New'} Employee</div>
+            <div className="modal-title">{isEdit ? (ar?'تعديل':'Edit') : (ar?'إضافة':'New')} {ar?'موظف':'Employee'}</div>
             <button className="modal-close" onClick={onClose}><i className="ti ti-x" /></button>
           </div>
           <div className="modal-body">
-            <div className="form-section">Personal Information</div>
+            <div className="form-section">{ar?'المعلومات الشخصية':'Personal Information'}</div>
             <div className="form-row">
-              <F label="Full name (English)" name="name" placeholder="e.g. Ahmed Al-Ansari" />
-              <F label="Full name (Arabic)" name="name_ar" placeholder="أحمد الأنصاري" />
+              <F label={ar?'الاسم الكامل (إنجليزي)':'Full name (English)'} name="name" placeholder="e.g. Ahmed Al-Ansari" />
+              <F label={ar?'الاسم الكامل (عربي)':'Full name (Arabic)'} name="name_ar" placeholder="أحمد الأنصاري" />
             </div>
             <div className="form-row">
-              <F label="Gender" name="gender" options={['','Male','Female']} />
-              <F label="Nationality" name="nationality" placeholder="e.g. Qatari" />
+              <F label={ar?'الجنس':'Gender'} name="gender" options={genderOpts} />
+              <F label={ar?'الجنسية':'Nationality'} name="nationality" placeholder={ar?'مثال: قطري':'e.g. Qatari'} />
             </div>
-            <div className="form-section">Role & Employment</div>
+            <div className="form-section">{ar?'الدور والتوظيف':'Role & Employment'}</div>
             <div className="form-row">
-              <F label="Designation (English)" name="designation" options={['',...DESIGNATIONS.slice(1)]} />
-              <F label="Designation (Arabic)" name="designation_ar" placeholder="e.g. مدرب" />
+              <F label={ar?'المسمى الوظيفي (إنجليزي)':'Designation (English)'} name="designation" options={['',...DESIGNATIONS.slice(1)]} />
+              <F label={ar?'المسمى الوظيفي (عربي)':'Designation (Arabic)'} name="designation_ar" placeholder="e.g. مدرب" />
             </div>
             <div className="form-row">
-              <F label="Employee number" name="employee_number" placeholder="e.g. 12501" />
-              <F label="QSS number" name="qss_number" placeholder="e.g. 50112" />
+              <F label={ar?'رقم الموظف':'Employee number'} name="employee_number" placeholder="e.g. 12501" />
+              <F label={ar?'رقم QSS':'QSS number'} name="qss_number" placeholder="e.g. 50112" />
             </div>
-            <F label="Status" name="status" options={['Active','On Leave','Inactive']} />
-            <div className="form-section">Contact</div>
+            <F label={ar?'الحالة':'Status'} name="status" options={statusOpts} />
+            <div className="form-section">{ar?'معلومات الاتصال':'Contact'}</div>
             <div className="form-row">
-              <F label="Phone" name="phone" placeholder="+974 XXXX XXXX" />
-              <F label="Email" name="email" type="email" placeholder="name@qpc.qa" />
+              <F label={ar?'الهاتف':'Phone'} name="phone" placeholder="+974 XXXX XXXX" />
+              <F label={ar?'البريد الإلكتروني':'Email'} name="email" type="email" placeholder="name@qpc.qa" />
             </div>
             <div className="form-group">
-              <label className="form-label">Notes</label>
+              <label className="form-label">{ar?'ملاحظات':'Notes'}</label>
               <textarea className="form-input" rows={3} value={form.notes||''} onChange={e => set('notes', e.target.value)} style={{ resize:'vertical' }} />
             </div>
           </div>
           <div className="modal-footer">
-            <button className="btn-cancel" onClick={onClose}>Cancel</button>
+            <button className="btn-cancel" onClick={onClose}>{ar?'إلغاء':'Cancel'}</button>
             <button className="btn btn-blue" onClick={() => handleSave(form, isEdit)}>
-              {isEdit ? 'Save changes' : 'Add employee'}
+              {isEdit ? (ar?'حفظ التغييرات':'Save changes') : (ar?'إضافة موظف':'Add employee')}
             </button>
           </div>
         </div>
