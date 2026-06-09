@@ -907,6 +907,10 @@ ${a.notes ? `<div class="section">
               </div>
               {canEdit(profile) && (
                 <div style={{ display:'flex', gap:8, marginBottom:16, padding:'10px 12px', background:'var(--surface2)', borderRadius:10, alignItems:'center', direction:'ltr' }}>
+                  <button onClick={() => docInput.current.click()} disabled={docUploading}
+                    style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', background:'#0085C7', color:'#fff', border:'none', borderRadius:8, fontSize:12, fontWeight:500, cursor:'pointer', flexShrink:0, fontFamily:'DM Sans, sans-serif' }}>
+                    {docUploading ? <><div style={{ width:12, height:12, border:'2px solid rgba(255,255,255,.4)', borderTopColor:'#fff', borderRadius:'50%', animation:'spin .7s linear infinite' }} />{lang==='ar'?'جارٍ الرفع…':'Uploading…'}</> : <><i className="ti ti-upload" style={{ fontSize:14 }} />{lang==='ar'?'رفع':'Upload'}</>}
+                  </button>
                   <select value={docType} onChange={e => setDocType(e.target.value)}
                     style={{ flex:1, padding:'7px 10px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface)', fontSize:12, color:'var(--text)', outline:'none' }}>
                     {DOC_TYPES.map(t => <option key={t} value={t}>{lang==='ar' ? (DOC_TYPES_AR[t]||t) : t}</option>)}

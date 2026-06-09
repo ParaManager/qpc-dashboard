@@ -413,7 +413,7 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
                   {c.name_ar && <div style={{ fontSize:11, color:'#9aa3b2', marginTop:1 }}>{c.name_ar}</div>}
                   <div style={{ fontSize:11, color:'#9aa3b2', marginTop:1 }}>{tc(c.nationality)}</div>
                 </div>
-                <Badge label={c.status} />
+                <Badge label={lang==='ar'?(STATUS_AR[c.status]||c.status):c.status} />
               </div>
               <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
                 {[
