@@ -239,7 +239,8 @@ export const AR = {
     'Lebanon':'لبنان', 'Palestine':'فلسطين', 'Yemen':'اليمن', 'Somalia':'الصومال',
     'Pakistan':'باكستان', 'India':'الهند', 'Bangladesh':'بنغلاديش',
     'Philippines':'الفلبين', 'Indonesia':'إندونيسيا', 'Sri Lanka':'سريلانكا',
-    'Nepal':'نيبال', 'Iran':'إيران', 'Turkey':'تركيا', 'Afghanistan':'أفغانستان',
+    'Nepal':'نيبال', 'Iran':'إيران', 'Turkey':'تركيا', 'Türkiye':'تركيا',
+    'Afghanistan':'أفغانستان', 'Morocco':'المغرب', 'Maroc':'المغرب',
     'Nigeria':'نيجيريا', 'Ghana':'غانا', 'Kenya':'كينيا', 'Ethiopia':'إثيوبيا',
     'Cameroon':'الكاميرون', 'Senegal':'السنغال', 'Tanzania':'تنزانيا',
     'Uganda':'أوغندا', 'Rwanda':'رواندا', 'Mali':'مالي', 'Guinea':'غينيا',
@@ -248,7 +249,7 @@ export const AR = {
     'Australia':'أستراليا', 'Brazil':'البرازيل', 'Argentina':'الأرجنتين',
     'Russia':'روسيا', 'China':'الصين', 'Japan':'اليابان', 'South Korea':'كوريا الجنوبية',
     'Azerbaijan':'أذربيجان', 'Kazakhstan':'كازاخستان', 'Uzbekistan':'أوزبكستان',
-    'KSA':'المملكة العربية السعودية',
+    'KSA':'المملكة العربية السعودية', 'Qatari':'قطري',
   },
 }
 
