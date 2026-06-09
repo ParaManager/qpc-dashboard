@@ -1007,13 +1007,24 @@ ${a.notes ? `<div class="section">
       case 'career_profile':   return <span style={{ color:'var(--text2)', fontFamily:'monospace', fontSize:12 }}>{a.career_profile || '—'}</span>
       case 'sport':            return a.sport || '—'
       case 'classification':   return a.classification ? <span className="badge badge-blue">{a.classification}</span> : '—'
-      case 'disability':       return <span style={{ color:'var(--text2)' }}>{a.disability || '—'}</span>
+      case 'disability': {
+        const DIS_AR = {'Visual Impairment':tx('athletes.disVisual','Visual Impairment'),'Hearing Impairment':tx('athletes.disHearing','Hearing Impairment'),'Physical Impairment':tx('athletes.disPhysical','Physical Impairment'),'Intellectual Disability':tx('athletes.disIntellectual','Intellectual Disability'),'Spinal Cord Injury':tx('athletes.disSpinal','Spinal Cord Injury'),'Cerebral Palsy':tx('athletes.disCerebral','Cerebral Palsy'),'Amputation':tx('athletes.disAmputation','Amputation'),'Down Syndrome':tx('athletes.disDown','Down Syndrome'),'Autism':tx('athletes.disAutism','Autism'),'Multiple Disabilities':tx('athletes.disMultiple','Multiple Disabilities')}
+        return <span style={{ color:'var(--text2)' }}>{DIS_AR[a.disability] || a.disability || '—'}</span>
+      }
       case 'nationality':      return <span style={{ color:'var(--text2)' }}>{a.nationality || '—'}</span>
-      case 'gender':           return <span style={{ color:'var(--text2)' }}>{a.gender || '—'}</span>
+      case 'gender':           return <span style={{ color:'var(--text2)' }}>{a.gender ? (lang==='ar' ? (a.gender==='Male'?'ذكر':'أنثى') : a.gender) : '—'}</span>
       case 'dob':              return <span style={{ color:'var(--text2)' }}>{a.dob || '—'}</span>
       case 'age_category':     return <span style={{ color:'var(--text2)' }}>{a.age_category || '—'}</span>
-      case 'coach_id':         return <span style={{ color:'var(--text2)' }}>{coaches.find(c => c.id === a.coach_id)?.name || '—'}</span>
-      case 'status':           return <Badge label={a.status} />
+      case 'coach_id': {
+        const coach = coaches.find(co => co.id === a.coach_id)
+        if (!coach) return <span style={{ color:'var(--text3)' }}>—</span>
+        return <span style={{ color:'var(--text2)' }}>{lang==='ar' && coach.name_ar ? coach.name_ar : coach.name}</span>
+      }
+      case 'status': {
+        const STATUS_AR = {'Active':tx('status.active','Active'),'Inactive':tx('status.inactive','Inactive'),'Suspended':tx('status.suspended','Suspended'),'Under Medical Review':tx('status.underMedicalReview','Under Medical Review'),'Injured':tx('status.injured','Injured'),'Retired':tx('status.retired','Retired')}
+        const sc = {Active:'badge-green',Inactive:'badge-gray',Suspended:'badge-red','Under Medical Review':'badge-amber',Injured:'badge-amber',Retired:'badge-gray'}
+        return a.status ? <span className={`badge ${sc[a.status]||'badge-gray'}`}>{STATUS_AR[a.status]||a.status}</span> : <span style={{ color:'var(--text3)' }}>—</span>
+      }
       case 'medical_status':   return a.medical_status ? <span className={`badge ${a.medical_status.toLowerCase().includes('none') ? 'badge-gray' : a.medical_status.toLowerCase().includes('review') ? 'badge-amber' : 'badge-green'}`}>{a.medical_status}</span> : '—'
       case 'phone':            return <span style={{ color:'var(--text2)' }}>{a.phone || '—'}</span>
       case 'email':            return <span style={{ color:'var(--text2)', fontSize:12, wordBreak:'break-all' }}>{a.email || '—'}</span>
@@ -1208,15 +1219,15 @@ ${a.notes ? `<div class="section">
                         }}
                         style={{ fontSize:11, border:'1px solid var(--border)', borderRadius:6, padding:'3px 4px', background:'var(--surface)', color: filterVal !== 'All' ? '#0085C7' : 'var(--text3)', cursor:'pointer', outline:'none', fontWeight: filterVal !== 'All' ? 600 : 400, maxWidth:120 }}>
                         {opts.map(o => {
+                          const DIS_LABELS = {'Visual Impairment':tx('athletes.disVisual','Visual Impairment'),'Hearing Impairment':tx('athletes.disHearing','Hearing Impairment'),'Physical Impairment':tx('athletes.disPhysical','Physical Impairment'),'Intellectual Disability':tx('athletes.disIntellectual','Intellectual Disability'),'Spinal Cord Injury':tx('athletes.disSpinal','Spinal Cord Injury'),'Cerebral Palsy':tx('athletes.disCerebral','Cerebral Palsy'),'Amputation':tx('athletes.disAmputation','Amputation'),'Down Syndrome':tx('athletes.disDown','Down Syndrome'),'Autism':tx('athletes.disAutism','Autism'),'Multiple Disabilities':tx('athletes.disMultiple','Multiple Disabilities')}
                           const LABELS = {
-                            sport:  { 'All':tx('filters.all','All'), ...Object.fromEntries(Object.entries(SPORT_NAMES)) },
-                            status: { 'All':tx('filters.all','الكل'), 'Active':tx('status.active','Active'), 'Inactive':tx('status.inactive','Inactive'), 'Suspended':tx('status.suspended','Suspended'), 'Under Medical Review':tx('status.underMedicalReview','Under Medical Review'), 'Injured':tx('status.injured','Injured'), 'Retired':tx('status.retired','Retired') },
-                            gender: { 'All':tx('filters.all','All'), 'Male':tx('form.male','Male'), 'Female':tx('form.female','Female') },
-                            nationality: { 'All':tx('filters.all','الكل') },
-                            coach_id: { 
-                              'All':tx('filters.all','الكل'),
-                              ...Object.fromEntries(coaches.map(co => [co.name, lang==='ar' && co.name_ar ? co.name_ar : co.name]))
-                            },
+                            sport:       { 'All':tx('filters.all','الكل'), ...Object.fromEntries(Object.entries(SPORT_NAMES)) },
+                            status:      { 'All':tx('filters.all','الكل'), 'Active':tx('status.active','Active'), 'Inactive':tx('status.inactive','Inactive'), 'Suspended':tx('status.suspended','Suspended'), 'Under Medical Review':tx('status.underMedicalReview','Under Medical Review'), 'Injured':tx('status.injured','Injured'), 'Retired':tx('status.retired','Retired') },
+                            gender:      { 'All':tx('filters.all','الكل'), 'Male':tx('form.male','Male'), 'Female':tx('form.female','Female') },
+                            nationality: { 'All':tx('filters.all','الكل'), ...Object.fromEntries(athletes.map(a => [a.nationality, tc(a.nationality)]).filter(([k])=>k)) },
+                            disability:  { 'All':tx('filters.all','الكل'), ...DIS_LABELS },
+                            coach_id:    { 'All':tx('filters.all','الكل'), ...Object.fromEntries(coaches.map(co => [co.name, lang==='ar' && co.name_ar ? co.name_ar : co.name])) },
+                            age_category:{ 'All':tx('filters.all','الكل') },
                           }
                           return <option key={o} value={o}>{LABELS[col.key]?.[o] || o}</option>
                         })}
