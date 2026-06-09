@@ -277,21 +277,21 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
             <div className="detail-name">{lang==='ar' && c.name_ar ? c.name_ar : c.name}</div>
             <div className="detail-sub">{lang==='ar' && c.name_ar ? c.name : c.name_ar}</div>
             <div className="detail-sub">{SPORT_NAMES[c.sport]||c.sport} {tx('nav.coaches','Coach')}</div>
-            <div className="detail-badges"><Badge label={c.status} /></div>
+            <div className="detail-badges"><Badge label={lang==='ar'?(STATUS_AR[c.status]||c.status):c.status} /></div>
             <div className="detail-fields">
               {[
-                ['Employee #', c.employee_number],
-                ['QSS #', c.qss_number],
-                ['Cert. level', c.cert_level],
-                ['Nationality', c.nationality],
-                ['Gender', c.gender],
-                ['With QPC since', c.since],
+                [lang==='ar'?'رقم الموظف':'Employee #', c.employee_number],
+                [lang==='ar'?'رقم QSS':'QSS #', c.qss_number],
+                [lang==='ar'?'مستوى الشهادة':'Cert. level', c.cert_level],
+                [lang==='ar'?'الجنسية':'Nationality', tc(c.nationality)],
+                [lang==='ar'?'الجنس':'Gender', lang==='ar'&&c.gender?(c.gender==='Male'?'ذكر':'أنثى'):c.gender],
+                [lang==='ar'?'مع QPC منذ':'With QPC since', c.since],
                 [lang==='ar'?'رقم الجواز':'Passport #', c.passport_number],
                 [lang==='ar'?'انتهاء الجواز':'Passport expiry', c.passport_expiry],
                 [lang==='ar'?'الرقم الشخصي':'ID / Residence #', c.id_number],
                 [lang==='ar'?'انتهاء الهوية':'ID expiry', c.id_expiry],
-                ['Email', c.email],
-                ['Phone', c.phone],
+                [lang==='ar'?'البريد الإلكتروني':'Email', c.email],
+                [lang==='ar'?'الهاتف':'Phone', c.phone],
               ].map(([k,v]) => (
                 <div key={k} className="detail-row">
                   <span className="dk">{k}</span>
@@ -301,24 +301,14 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
             </div>
           </div>
 
-          {/* DOCUMENTS - right under profile card */}
-          <PersonDocuments
-            personId={c.id}
-            personType="coach"
-            personName={c.name}
-            docs={personDocs}
-            onRefresh={onRefresh}
-            profile={profile}
-          />
-
           <div className="info-card">
             {/* Medals summary */}
             <div style={{ display:'flex', justifyContent:'space-around', padding:'10px 0 16px', borderBottom:'1px solid var(--border)', marginBottom:14 }}>
               {[
-                [tx('coaches.athletes','الرياضيون'), myAthletes.length, '#0085C7'],
-                [tx('medals.gold','ذهب'), myAthletes.reduce((s,a)=>s+(a.medals_gold||0),0), '#f1c40f'],
-                [tx('medals.silver','فضة'), myAthletes.reduce((s,a)=>s+(a.medals_silver||0),0), '#aaa'],
-                [tx('medals.bronze','برونز'), myAthletes.reduce((s,a)=>s+(a.medals_bronze||0),0), '#cd7f32'],
+                [lang==='ar'?'الرياضيون':'Athletes', myAthletes.length, '#0085C7'],
+                [lang==='ar'?'ذهب':'Gold', myAthletes.reduce((s,a)=>s+(a.medals_gold||0),0), '#f1c40f'],
+                [lang==='ar'?'فضة':'Silver', myAthletes.reduce((s,a)=>s+(a.medals_silver||0),0), '#aaa'],
+                [lang==='ar'?'برونز':'Bronze', myAthletes.reduce((s,a)=>s+(a.medals_bronze||0),0), '#cd7f32'],
               ].map(([label, val, color]) => (
                 <div key={label} style={{ textAlign:'center' }}>
                   <div style={{ fontSize:22, fontWeight:600, color }}>{val}</div>
@@ -328,11 +318,11 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
             </div>
 
             <div className="info-title">
-              {tx('profile.assignedAthletes','Assigned athletes')} ({myAthletes.length})
-              <span style={{ fontSize:10, fontWeight:400, textTransform:'none', letterSpacing:0, marginLeft:4 }}>— {tx('athletes.clickToView','click to view')}</span>
+              {lang==='ar'?'الرياضيون المعينون':'Assigned athletes'} ({myAthletes.length})
+              <span style={{ fontSize:10, fontWeight:400, textTransform:'none', letterSpacing:0, marginLeft:4 }}>— {lang==='ar'?'انقر للعرض':'click to view'}</span>
             </div>
             {myAthletes.length === 0
-              ? <div className="empty">{tx('coaches.noAthletes','No athletes assigned')}</div>
+              ? <div className="empty">{lang==='ar'?'لا يوجد رياضيون معينون':'No athletes assigned'}</div>
               : myAthletes.map(a => (
                 <DashRow key={a.id} onClick={() => onNav('athletes', { athleteId: a.id })}>
                   {a.photo_url
@@ -349,8 +339,16 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
               ))
             }
           </div>
-        </div>
 
+          <PersonDocuments
+            personId={c.id}
+            personType="coach"
+            personName={c.name}
+            docs={personDocs}
+            onRefresh={onRefresh}
+            profile={profile}
+          />
+        </div>
 
         <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
       </div>
