@@ -30,13 +30,48 @@ export function LangProvider({ children }) {
   }
 
   // Translate country name
+  const COUNTRY_MAP = {
+    'afghanistan':'أفغانستان','algeria':'الجزائر','argentina':'الأرجنتين',
+    'armenia':'أرمينيا','australia':'أستراليا','austria':'النمسا',
+    'azerbaijan':'أذربيجان','bahrain':'البحرين','bangladesh':'بنغلاديش',
+    'belarus':'بيلاروسيا','belgium':'بلجيكا','brazil':'البرازيل',
+    'cameroon':'الكاميرون','canada':'كندا','chile':'تشيلي','china':'الصين',
+    'colombia':'كولومبيا','croatia':'كرواتيا','czech republic':'التشيك',
+    'denmark':'الدنمارك','egypt':'مصر','eritrea':'إريتريا','ethiopia':'إثيوبيا',
+    'finland':'فنلندا','france':'فرنسا','georgia':'جورجيا','germany':'ألمانيا',
+    'ghana':'غانا','greece':'اليونان','guinea':'غينيا','hungary':'المجر',
+    'india':'الهند','indonesia':'إندونيسيا','iran':'إيران','iraq':'العراق',
+    'ireland':'أيرلندا','italy':'إيطاليا','japan':'اليابان','jordan':'الأردن',
+    'kazakhstan':'كازاخستان','kenya':'كينيا','kuwait':'الكويت',
+    'kyrgyzstan':'قيرغيزستان','lebanon':'لبنان','libya':'ليبيا',
+    'malaysia':'ماليزيا','mali':'مالي','mauritania':'موريتانيا',
+    'mexico':'المكسيك','mongolia':'منغوليا','morocco':'المغرب',
+    'myanmar':'ميانمار','nepal':'نيبال','netherlands':'هولندا',
+    'new zealand':'نيوزيلندا','nigeria':'نيجيريا','norway':'النرويج',
+    'oman':'عُمان','pakistan':'باكستان','palestine':'فلسطين','peru':'بيرو',
+    'philippines':'الفلبين','poland':'بولندا','portugal':'البرتغال',
+    'qatar':'قطر','qatari':'قطري','romania':'رومانيا','russia':'روسيا',
+    'rwanda':'رواندا','saudi arabia':'المملكة العربية السعودية',
+    'ksa':'المملكة العربية السعودية','scotland':'اسكتلندا',
+    'senegal':'السنغال','serbia':'صربيا','singapore':'سنغافورة',
+    'slovakia':'سلوفاكيا','somalia':'الصومال','south africa':'جنوب أفريقيا',
+    'south korea':'كوريا الجنوبية','spain':'إسبانيا','sri lanka':'سريلانكا',
+    'sudan':'السودان','sweden':'السويد','syria':'سوريا',
+    'tajikistan':'طاجيكستان','tanzania':'تنزانيا','thailand':'تايلاند',
+    'tunisia':'تونس','turkey':'تركيا','türkiye':'تركيا',
+    'turkmenistan':'تركمانستان','uae':'الإمارات','uganda':'أوغندا',
+    'uk':'المملكة المتحدة','ukraine':'أوكرانيا','usa':'الولايات المتحدة',
+    'uzbekistan':'أوزبكستان','venezuela':'فنزويلا','vietnam':'فيتنام',
+    'wales':'ويلز','yemen':'اليمن','zambia':'زامبيا','zimbabwe':'زيمبابوي',
+    'algeria':'الجزائر','libyan arab jamahiriya':'ليبيا',
+    'syrian arab republic':'سوريا','iran, islamic republic of':'إيران',
+    'korea, republic of':'كوريا الجنوبية','viet nam':'فيتنام',
+  }
+
   const tc = (country) => {
     if (!country || lang === 'en') return country
-    // Try exact match first, then case-insensitive
-    if (AR.countries?.[country]) return AR.countries[country]
-    const lower = country.toLowerCase()
-    const found = Object.keys(AR.countries || {}).find(k => k.toLowerCase() === lower)
-    return found ? AR.countries[found] : country
+    const key = country.toLowerCase().trim()
+    return COUNTRY_MAP[key] || AR.countries?.[country] || country
   }
 
   return (
