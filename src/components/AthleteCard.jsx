@@ -30,8 +30,8 @@ export function generateAthleteCard(athlete) {
 
   const row = (label, value) => `
     <tr>
-      <td style="font-size:13px;font-weight:bold;color:#888;text-align:right;padding:3px 0;white-space:nowrap;padding-right:6px;width:90px">${label}</td>
-      <td style="font-size:13px;color:#111;font-weight:500;text-align:right;padding:3px 0;padding-right:4px">${value || ''}</td>
+      <td style="font-size:12px;font-weight:600;color:#000;text-align:right;padding:4px 0;white-space:nowrap;padding-right:8px;width:90px">${label}</td>
+      <td style="font-size:13px;color:#111;font-weight:700;text-align:right;padding:4px 0;padding-right:4px">${value || '—'}</td>
     </tr>`
 
   const html = `<!DOCTYPE html>
@@ -41,7 +41,7 @@ export function generateAthleteCard(athlete) {
 <style>
   * { box-sizing:border-box; margin:0; padding:0; }
   body {
-    background:#aaa;
+    background:#888;
     font-family:Arial,sans-serif;
     display:flex;
     flex-direction:column;
@@ -54,7 +54,7 @@ export function generateAthleteCard(athlete) {
     background:#fff;
     border-radius:12px;
     overflow:hidden;
-    box-shadow:0 4px 20px rgba(0,0,0,.25);
+    box-shadow:0 6px 28px rgba(0,0,0,.35), 0 2px 8px rgba(0,0,0,.15);
   }
   @media print {
     body { background:white; padding:0; gap:14mm; }
