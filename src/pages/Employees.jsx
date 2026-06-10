@@ -196,6 +196,80 @@ function exportEmployeesExcel(list) {
   XLSX.writeFile(wb, `QPC_Employees_${new Date().toISOString().slice(0,10)}.xlsx`)
 }
 
+function EmpModal({ data, isEdit, onClose, onSave }) {
+  const [form, setForm] = useState(data || { status:'Active' })
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+  const { lang } = useLang()
+  const ar = lang === 'ar'
+  const statusOpts = [
+    { value:'Active',   label: ar?'نشط':'Active' },
+    { value:'On Leave', label: ar?'في إجازة':'On Leave' },
+    { value:'Inactive', label: ar?'غير نشط':'Inactive' },
+  ]
+  const genderOpts = [
+    { value:'',       label: '' },
+    { value:'Male',   label: ar?'ذكر':'Male' },
+    { value:'Female', label: ar?'أنثى':'Female' },
+  ]
+  const F = ({ label, name, type='text', placeholder, options }) => (
+    <div className="form-group">
+      <label className="form-label">{label}</label>
+      {options
+        ? <select className="form-input" value={form[name]||''} onChange={e => set(name, e.target.value)}>
+            {options.map(o => <option key={o.value??o} value={o.value??o}>{o.label??o}</option>)}
+          </select>
+        : <input className="form-input" type={type} placeholder={placeholder} value={form[name]||''} onChange={e => set(name, e.target.value)} />
+      }
+    </div>
+  )
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-box" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <div className="modal-title">{isEdit ? (ar?'تعديل':'Edit') : (ar?'إضافة':'New')} {ar?'موظف':'Employee'}</div>
+          <button className="modal-close" onClick={onClose}><i className="ti ti-x" /></button>
+        </div>
+        <div className="modal-body">
+          <div className="form-section">{ar?'المعلومات الشخصية':'Personal Information'}</div>
+          <div className="form-row">
+            <F label={ar?'الاسم الكامل (إنجليزي)':'Full name (English)'} name="name" placeholder="e.g. Ahmed Al-Ansari" />
+            <F label={ar?'الاسم الكامل (عربي)':'Full name (Arabic)'} name="name_ar" placeholder="أحمد الأنصاري" />
+          </div>
+          <div className="form-row">
+            <F label={ar?'الجنس':'Gender'} name="gender" options={genderOpts} />
+            <F label={ar?'الجنسية':'Nationality'} name="nationality" options={[{value:'',label:''}, ...COUNTRIES_EN.map(cn => ({value:cn, label: ar?(COUNTRIES_AR_MAP[cn]||cn):cn}))]} />
+          </div>
+          <div className="form-section">{ar?'الدور والتوظيف':'Role & Employment'}</div>
+          <div className="form-row">
+            <F label={ar?'المسمى الوظيفي (إنجليزي)':'Designation (English)'} name="designation" options={[{value:'',label:''},...DESIGNATIONS.slice(1).map(d => ({ value:d, label: ar ? (DESIG_AR[d]||d) : d }))]} />
+            <F label={ar?'المسمى الوظيفي (عربي)':'Designation (Arabic)'} name="designation_ar" placeholder="e.g. مدرب" />
+          </div>
+          <div className="form-row">
+            <F label={ar?'رقم الموظف':'Employee number'} name="employee_number" placeholder="e.g. 12501" />
+            <F label={ar?'رقم QSS':'QSS number'} name="qss_number" placeholder="e.g. 50112" />
+          </div>
+          <F label={ar?'الحالة':'Status'} name="status" options={statusOpts} />
+          <div className="form-section">{ar?'معلومات الاتصال':'Contact'}</div>
+          <div className="form-row">
+            <F label={ar?'الهاتف':'Phone'} name="phone" placeholder="+974 XXXX XXXX" />
+            <F label={ar?'البريد الإلكتروني':'Email'} name="email" type="email" placeholder="name@qpc.qa" />
+          </div>
+          <div className="form-group">
+            <label className="form-label">{ar?'ملاحظات':'Notes'}</label>
+            <textarea className="form-input" rows={3} value={form.notes||''} onChange={e => set('notes', e.target.value)} style={{ resize:'vertical' }} />
+          </div>
+        </div>
+        <div className="modal-footer">
+          <button className="btn-cancel" onClick={onClose}>{ar?'إلغاء':'Cancel'}</button>
+          <button className="btn btn-blue" onClick={() => onSave(form, isEdit)}>
+            {isEdit ? (ar?'حفظ التغييرات':'Save changes') : (ar?'إضافة موظف':'Add employee')}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function Employees({ employees, personDocs, onRefresh, onNav, navState, profile }) {
   const { tx, tc, lang } = useLang()
   const [search, setSearch]         = useState('')
@@ -338,79 +412,6 @@ export default function Employees({ employees, personDocs, onRefresh, onNav, nav
     )
   }
 
-  function EmpModal({ data, isEdit, onClose }) {
-    const [form, setForm] = useState(data || { status:'Active' })
-    const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
-    const ar = lang === 'ar'
-    const statusOpts = [
-      { value:'Active',   label: ar?'نشط':'Active' },
-      { value:'On Leave', label: ar?'في إجازة':'On Leave' },
-      { value:'Inactive', label: ar?'غير نشط':'Inactive' },
-    ]
-    const genderOpts = [
-      { value:'',       label: '' },
-      { value:'Male',   label: ar?'ذكر':'Male' },
-      { value:'Female', label: ar?'أنثى':'Female' },
-    ]
-    const F = ({ label, name, type='text', placeholder, options }) => (
-      <div className="form-group">
-        <label className="form-label">{label}</label>
-        {options
-          ? <select className="form-input" value={form[name]||''} onChange={e => set(name, e.target.value)}>
-              {options.map(o => <option key={o.value??o} value={o.value??o}>{o.label??o}</option>)}
-            </select>
-          : <input className="form-input" type={type} placeholder={placeholder} value={form[name]||''} onChange={e => set(name, e.target.value)} />
-        }
-      </div>
-    )
-    return (
-      <div className="modal-overlay" onClick={onClose}>
-        <div className="modal-box" onClick={e => e.stopPropagation()}>
-          <div className="modal-header">
-            <div className="modal-title">{isEdit ? (ar?'تعديل':'Edit') : (ar?'إضافة':'New')} {ar?'موظف':'Employee'}</div>
-            <button className="modal-close" onClick={onClose}><i className="ti ti-x" /></button>
-          </div>
-          <div className="modal-body">
-            <div className="form-section">{ar?'المعلومات الشخصية':'Personal Information'}</div>
-            <div className="form-row">
-              <F label={ar?'الاسم الكامل (إنجليزي)':'Full name (English)'} name="name" placeholder="e.g. Ahmed Al-Ansari" />
-              <F label={ar?'الاسم الكامل (عربي)':'Full name (Arabic)'} name="name_ar" placeholder="أحمد الأنصاري" />
-            </div>
-            <div className="form-row">
-              <F label={ar?'الجنس':'Gender'} name="gender" options={genderOpts} />
-              <F label={ar?'الجنسية':'Nationality'} name="nationality" options={[{value:'',label:''}, ...COUNTRIES_EN.map(cn => ({value:cn, label: ar?(COUNTRIES_AR_MAP[cn]||cn):cn}))]} />
-            </div>
-            <div className="form-section">{ar?'الدور والتوظيف':'Role & Employment'}</div>
-            <div className="form-row">
-              <F label={ar?'المسمى الوظيفي (إنجليزي)':'Designation (English)'} name="designation" options={[{value:'',label:''},...DESIGNATIONS.slice(1).map(d => ({ value:d, label: ar ? (DESIG_AR[d]||d) : d }))]} />
-              <F label={ar?'المسمى الوظيفي (عربي)':'Designation (Arabic)'} name="designation_ar" placeholder="e.g. مدرب" />
-            </div>
-            <div className="form-row">
-              <F label={ar?'رقم الموظف':'Employee number'} name="employee_number" placeholder="e.g. 12501" />
-              <F label={ar?'رقم QSS':'QSS number'} name="qss_number" placeholder="e.g. 50112" />
-            </div>
-            <F label={ar?'الحالة':'Status'} name="status" options={statusOpts} />
-            <div className="form-section">{ar?'معلومات الاتصال':'Contact'}</div>
-            <div className="form-row">
-              <F label={ar?'الهاتف':'Phone'} name="phone" placeholder="+974 XXXX XXXX" />
-              <F label={ar?'البريد الإلكتروني':'Email'} name="email" type="email" placeholder="name@qpc.qa" />
-            </div>
-            <div className="form-group">
-              <label className="form-label">{ar?'ملاحظات':'Notes'}</label>
-              <textarea className="form-input" rows={3} value={form.notes||''} onChange={e => set('notes', e.target.value)} style={{ resize:'vertical' }} />
-            </div>
-          </div>
-          <div className="modal-footer">
-            <button className="btn-cancel" onClick={onClose}>{ar?'إلغاء':'Cancel'}</button>
-            <button className="btn btn-blue" onClick={() => handleSave(form, isEdit)}>
-              {isEdit ? (ar?'حفظ التغييرات':'Save changes') : (ar?'إضافة موظف':'Add employee')}
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
   // ── DETAIL VIEW ──
   if (selected) {
     const emp = employees.find(x => x.id === selected)
@@ -418,7 +419,7 @@ export default function Employees({ employees, personDocs, onRefresh, onNav, nav
     const color = DESIG_COLORS[emp.designation] || '#9aa3b2'
     return (
       <div>
-        {editForm && <EmpModal data={editForm} isEdit={true} onClose={() => setEditForm(null)} />}
+        {editForm && <EmpModal data={editForm} isEdit={true} onClose={() => setEditForm(null)} onSave={handleSave} />}
         {confirm && (
           <ConfirmModal title="Delete employee" message={`Delete ${emp.name}?`}
             onConfirm={() => handleDelete(emp.id, emp.name)} onCancel={() => setConfirm(null)} />
@@ -494,7 +495,7 @@ export default function Employees({ employees, personDocs, onRefresh, onNav, nav
   return (
     <div>
       {(addModal || editForm) && (
-        <EmpModal data={editForm||{}} isEdit={!!editForm} onClose={() => { setAddModal(false); setEditForm(null) }} />
+        <EmpModal data={editForm||{}} isEdit={!!editForm} onClose={() => { setAddModal(false); setEditForm(null) }} onSave={handleSave} />
       )}
       <div className="page-header">
         <div><div className="page-title">{tx('pages.employees','Employees')}</div><div className="page-sub">{list.length} {tx('employees.ofEmployees','of')} {employees.length} {tx('pages.employees','employees')}</div></div>
