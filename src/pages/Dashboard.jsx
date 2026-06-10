@@ -5,7 +5,9 @@ export default function Dashboard({ athletes, coaches, events, results, onNav, p
   const { tx, lang } = useLang()
   const active   = athletes.filter(a => a.status === 'Active').length
   const upcoming = events.filter(e => e.status === 'Upcoming' || e.status === 'Registration Open').length
-  const gold     = athletes.reduce((s, a) => s + (a.medals_gold || 0), 0)
+  const gold     = athletes.reduce((s, a) => s + (a.medals_gold   || 0), 0)
+  const silver   = athletes.reduce((s, a) => s + (a.medals_silver || 0), 0)
+  const bronze   = athletes.reduce((s, a) => s + (a.medals_bronze || 0), 0)
 
   const leaders = [...athletes]
     .sort((a, b) => (b.medals_gold*3+b.medals_silver*2+b.medals_bronze) - (a.medals_gold*3+a.medals_silver*2+a.medals_bronze))
@@ -26,7 +28,9 @@ export default function Dashboard({ athletes, coaches, events, results, onNav, p
           { label:tx('dashboard.totalAthletes','Total Athletes'), val:athletes.length, hint:`${active} ${tx('dashboard.activeThisSeason','active this season')}`, color:'#0085C7', click:() => onNav('athletes', { statusFilter:'Active' }) },
           { label:tx('dashboard.activeEvents','Active Events'),  val:upcoming, hint:`${upcoming} ${tx('dashboard.upcoming','upcoming')}`, color:'#EE334E', click:() => onNav('events', { statusFilter:'Upcoming' }) },
           { label:tx('nav.coaches','Coaches'), val:coaches.length, hint:`${[...new Set(coaches.map(c=>c.sport))].length} ${tx('dashboard.sportsCovered','sports covered')}`, color:'#009F6B', click:() => onNav('coaches') },
-          { label:tx('dashboard.goldMedals','Gold Medals'), val:gold, hint:tx('dashboard.seasonTotal','season total'), color:'#f1c40f', click:() => onNav('results') },
+          { label:lang==='ar'?'🥇 ذهب':'🥇 Gold',   val:gold,   hint:tx('dashboard.seasonTotal','season total'), color:'#f1c40f', click:() => onNav('results') },
+          { label:lang==='ar'?'🥈 فضة':'🥈 Silver', val:silver, hint:tx('dashboard.seasonTotal','season total'), color:'#aaa',    click:() => onNav('results') },
+          { label:lang==='ar'?'🥉 برونز':'🥉 Bronze', val:bronze, hint:tx('dashboard.seasonTotal','season total'), color:'#cd7f32', click:() => onNav('results') },
         ].map(({ label, val, hint, color, click }) => (
           <div key={label} className="stat-card" onClick={click}>
             <div className="stat-label"><div className="stat-dot" style={{ background:color }} />{label}</div>
