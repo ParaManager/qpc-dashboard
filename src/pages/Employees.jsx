@@ -201,6 +201,18 @@ function EmpModal({ data, isEdit, onClose, onSave }) {
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
   const { lang } = useLang()
   const ar = lang === 'ar'
+  const inp = (name, type='text', placeholder='') => (
+    <input className="form-input" type={type} placeholder={placeholder}
+      value={form[name]||''} onChange={e => set(name, e.target.value)} />
+  )
+  const sel = (name, options) => (
+    <select className="form-input" value={form[name]||''} onChange={e => set(name, e.target.value)}>
+      {options.map(o => <option key={o.value??o} value={o.value??o}>{o.label??o}</option>)}
+    </select>
+  )
+  const grp = (label, field) => (
+    <div className="form-group"><label className="form-label">{label}</label>{field}</div>
+  )
   const statusOpts = [
     { value:'Active',   label: ar?'نشط':'Active' },
     { value:'On Leave', label: ar?'في إجازة':'On Leave' },
@@ -211,17 +223,7 @@ function EmpModal({ data, isEdit, onClose, onSave }) {
     { value:'Male',   label: ar?'ذكر':'Male' },
     { value:'Female', label: ar?'أنثى':'Female' },
   ]
-  const F = ({ label, name, type='text', placeholder, options }) => (
-    <div className="form-group">
-      <label className="form-label">{label}</label>
-      {options
-        ? <select className="form-input" value={form[name]||''} onChange={e => set(name, e.target.value)}>
-            {options.map(o => <option key={o.value??o} value={o.value??o}>{o.label??o}</option>)}
-          </select>
-        : <input className="form-input" type={type} placeholder={placeholder} value={form[name]||''} onChange={e => set(name, e.target.value)} />
-      }
-    </div>
-  )
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-box" onClick={e => e.stopPropagation()}>
@@ -232,27 +234,27 @@ function EmpModal({ data, isEdit, onClose, onSave }) {
         <div className="modal-body">
           <div className="form-section">{ar?'المعلومات الشخصية':'Personal Information'}</div>
           <div className="form-row">
-            <F label={ar?'الاسم الكامل (إنجليزي)':'Full name (English)'} name="name" placeholder="e.g. Ahmed Al-Ansari" />
-            <F label={ar?'الاسم الكامل (عربي)':'Full name (Arabic)'} name="name_ar" placeholder="أحمد الأنصاري" />
+            {grp(ar?'الاسم الكامل (إنجليزي)':'Full name (English)', inp("name", "text", "e.g. Ahmed Al-Ansari"))}
+            {grp(ar?'الاسم الكامل (عربي)':'Full name (Arabic)', inp("name_ar", "text", "أحمد الأنصاري"))}
           </div>
           <div className="form-row">
-            <F label={ar?'الجنس':'Gender'} name="gender" options={genderOpts} />
-            <F label={ar?'الجنسية':'Nationality'} name="nationality" options={[{value:'',label:''}, ...COUNTRIES_EN.map(cn => ({value:cn, label: ar?(COUNTRIES_AR_MAP[cn]||cn):cn}))]} />
+            {grp(ar?'الجنس':'Gender', sel("gender", genderOpts))}
+            {grp(ar?'الجنسية':'Nationality', sel("nationality", [{value:'',label:''},...COUNTRIES_EN.map(cn => ({value:cn, label: ar?(COUNTRIES_AR_MAP[cn]||cn):cn}))]))}
           </div>
           <div className="form-section">{ar?'الدور والتوظيف':'Role & Employment'}</div>
           <div className="form-row">
-            <F label={ar?'المسمى الوظيفي (إنجليزي)':'Designation (English)'} name="designation" options={[{value:'',label:''},...DESIGNATIONS.slice(1).map(d => ({ value:d, label: ar ? (DESIG_AR[d]||d) : d }))]} />
-            <F label={ar?'المسمى الوظيفي (عربي)':'Designation (Arabic)'} name="designation_ar" placeholder="e.g. مدرب" />
+            {grp(ar?'المسمى الوظيفي (إنجليزي)':'Designation (English)', sel("designation", [{value:'',label:''},...DESIGNATIONS.slice(1).map(d => ({value:d, label: ar?(DESIG_AR[d]||d):d}))]))}
+            {grp(ar?'المسمى الوظيفي (عربي)':'Designation (Arabic)', inp("designation_ar", "text", "e.g. مدرب"))}
           </div>
           <div className="form-row">
-            <F label={ar?'رقم الموظف':'Employee number'} name="employee_number" placeholder="e.g. 12501" />
-            <F label={ar?'رقم QSS':'QSS number'} name="qss_number" placeholder="e.g. 50112" />
+            {grp(ar?'رقم الموظف':'Employee number', inp("employee_number", "text", "e.g. 12501"))}
+            {grp(ar?'رقم QSS':'QSS number', inp("qss_number", "text", "e.g. 50112"))}
           </div>
-          <F label={ar?'الحالة':'Status'} name="status" options={statusOpts} />
+          {grp(ar?'الحالة':'Status', sel("status", statusOpts))}
           <div className="form-section">{ar?'معلومات الاتصال':'Contact'}</div>
           <div className="form-row">
-            <F label={ar?'الهاتف':'Phone'} name="phone" placeholder="+974 XXXX XXXX" />
-            <F label={ar?'البريد الإلكتروني':'Email'} name="email" type="email" placeholder="name@qpc.qa" />
+            {grp(ar?'الهاتف':'Phone', inp("phone", "text", "+974 XXXX XXXX"))}
+            {grp(ar?'البريد الإلكتروني':'Email', inp("email", "email", "name@qpc.qa"))}
           </div>
           <div className="form-group">
             <label className="form-label">{ar?'ملاحظات':'Notes'}</label>
