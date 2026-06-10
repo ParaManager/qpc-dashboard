@@ -74,50 +74,60 @@ function formatFileSize(bytes) {
   return `${(bytes/(1024*1024)).toFixed(1)} MB`
 }
 
-function exportExcel(athletes, coaches, documents, visibleCols, allCols) {
+function exportExcel(athletes, coaches, documents, visibleCols, allCols, lang) {
+  const ar = lang === 'ar'
+  const SPORT_AR = {'Athletics':'ألعاب القوى','Swimming':'السباحة','Powerlifting':'رفع الأثقال','Boccia':'البوتشيا','Goalball':'كرة الهدف','Table Tennis':'تنس الطاولة','Special Olympics':'الأولمبياد الخاص','Shooting':'الرماية','Wheelchair Tennis':'تنس الكراسي المتحركة'}
+  const STATUS_AR = {'Active':'نشط','Inactive':'غير نشط','Suspended':'موقوف','Under Medical Review':'تحت المراجعة الطبية','Injured':'مصاب','Retired':'متقاعد'}
+  const DIS_MAP = {'visual impairment':'إعاقة بصرية','hearing impairment':'إعاقة سمعية','physical impairment':'إعاقة جسدية','intellectual disability':'إعاقة ذهنية','intellectual impairment':'إعاقة ذهنية','spinal cord injury':'إصابة الحبل الشوكي','cerebral palsy':'شلل دماغي','amputation':'بتر','down syndrome':'متلازمة داون',"down's syndrome":'متلازمة داون','autism':'التوحد','multiple disabilities':'إعاقات متعددة','limb deficiency':'نقص الأطراف','les autres':'أخرى'}
+  const tDis = d => d ? (ar ? (DIS_MAP[d.toLowerCase().trim()]||d) : d) : ''
+  const COUNTRY_MAP = {'qatar':'قطر','egypt':'مصر','algeria':'الجزائر','morocco':'المغرب','jordan':'الأردن','saudi arabia':'المملكة العربية السعودية','uae':'الإمارات','kuwait':'الكويت','bahrain':'البحرين','oman':'عُمان','iraq':'العراق','syria':'سوريا','lebanon':'لبنان','palestine':'فلسطين','yemen':'اليمن','somalia':'الصومال','sudan':'السودان','libya':'ليبيا','tunisia':'تونس','pakistan':'باكستان','india':'الهند','iran':'إيران','turkey':'تركيا','ireland':'أيرلندا','france':'فرنسا','spain':'إسبانيا','germany':'ألمانيا','uk':'المملكة المتحدة','usa':'الولايات المتحدة','ksa':'المملكة العربية السعودية'}
+  const tc = n => n ? (ar ? (COUNTRY_MAP[n.toLowerCase().trim()]||n) : n) : ''
+
+  const L = (en, a) => ar ? a : en
+
   const colMap = {
-    name:             a => a.name,
-    name_ar:          a => a.name_ar || '',
-    qss_number:       a => a.qss_number || '',
-    id_number:        a => a.id_number || '',
-    career_profile:   a => a.career_profile || '',
-    sport:            a => a.sport || '',
-    classification:   a => a.classification || '',
-    disability:       a => a.disability || '',
-    nationality:      a => a.nationality || '',
-    gender:           a => a.gender || '',
-    dob:              a => a.dob || '',
-    age_category:     a => a.age_category || '',
-    coach_id:         a => coaches.find(c => c.id === a.coach_id)?.name || '',
-    status:           a => a.status || '',
-    medical_status:   a => a.medical_status || '',
-    phone:            a => a.phone || '',
-    email:            a => a.email || '',
-    join_date:        a => a.join_date || '',
-    passport_number:  a => a.passport_number || '',
-    passport_expiry:  a => a.passport_expiry || '',
-    id_expiry:        a => a.id_expiry || '',
-    blood_type:       a => a.blood_type || '',
+    name:            a => ar && a.name_ar ? a.name_ar : a.name,
+    name_ar:         a => a.name_ar || '',
+    qss_number:      a => a.qss_number || '',
+    id_number:       a => a.id_number || '',
+    career_profile:  a => a.career_profile || '',
+    sport:           a => ar ? (SPORT_AR[a.sport]||a.sport||'') : (a.sport||''),
+    classification:  a => a.classification || '',
+    disability:      a => tDis(a.disability),
+    nationality:     a => tc(a.nationality),
+    gender:          a => a.gender ? (ar ? (a.gender==='Male'?'ذكر':'أنثى') : a.gender) : '',
+    dob:             a => a.dob || '',
+    age_category:    a => a.age_category || '',
+    coach_id:        a => { const c = coaches.find(c => c.id === a.coach_id); return c ? (ar && c.name_ar ? c.name_ar : c.name) : '' },
+    status:          a => ar ? (STATUS_AR[a.status]||a.status||'') : (a.status||''),
+    medical_status:  a => a.medical_status || '',
+    phone:           a => a.phone || '',
+    email:           a => a.email || '',
+    join_date:       a => a.join_date || '',
+    passport_number: a => a.passport_number || '',
+    passport_expiry: a => a.passport_expiry || '',
+    id_expiry:       a => a.id_expiry || '',
+    blood_type:      a => a.blood_type || '',
     emergency_contact_name:  a => a.emergency_contact_name || '',
     emergency_contact_phone: a => a.emergency_contact_phone || '',
-    medals:           a => `Gold:${a.medals_gold||0} Silver:${a.medals_silver||0} Bronze:${a.medals_bronze||0}`,
-    docs:             a => documents.filter(d => d.athlete_id === a.id).length,
+    medals:          a => ar ? `ذهب:${a.medals_gold||0} فضة:${a.medals_silver||0} برونز:${a.medals_bronze||0}` : `Gold:${a.medals_gold||0} Silver:${a.medals_silver||0} Bronze:${a.medals_bronze||0}`,
+    docs:            a => documents.filter(d => d.athlete_id === a.id).length,
   }
+
   const visibleDefs = allCols.filter(c => visibleCols.includes(c.key))
   const rows = athletes.map(a => {
     const row = {}
     visibleDefs.forEach(col => { row[col.label] = colMap[col.key]?.(a) ?? '' })
-    // always add age and years active as extra context
-    row['Age'] = a.dob ? calcAge(a.dob) : ''
-    row['Years with QPC'] = a.join_date ? calcYearsActive(a.join_date) : ''
+    row[L('Age','العمر')] = a.dob ? calcAge(a.dob) : ''
+    row[L('Years with QPC','سنوات مع QPC')] = a.join_date ? calcYearsActive(a.join_date) : ''
     return row
   })
-  const ws  = XLSX.utils.json_to_sheet(rows)
-  const wb  = XLSX.utils.book_new()
+  const ws = XLSX.utils.json_to_sheet(rows)
+  const wb = XLSX.utils.book_new()
   ws['!cols'] = visibleDefs.map(() => ({ wch: 20 }))
-  XLSX.utils.book_append_sheet(wb, ws, 'Athletes')
+  XLSX.utils.book_append_sheet(wb, ws, ar ? 'الرياضيون' : 'Athletes')
   const date = new Date().toISOString().slice(0,10)
-  XLSX.writeFile(wb, `QPC_Athletes_${date}.xlsx`)
+  XLSX.writeFile(wb, `QPC_${ar?'الرياضيون':'Athletes'}_${date}.xlsx`)
 }
 
 async function downloadDoc(url, athleteName, docType, originalName) {
@@ -1213,7 +1223,7 @@ ${myDocs.length > 0 ? `<div class="section">
         <div><div className="page-title">{tx('pages.athletes','Athletes')}</div><div className="page-sub">{list.length} of {athletes.length} {tx('pages.athletes','athletes')}</div></div>
         <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
           {!editMode && (
-            <button className="btn" style={{ background:'#009F6B' }} onClick={() => exportExcel(list, coaches, documents||[], visibleCols, ALL_COLS)}>
+            <button className="btn" style={{ background:'#009F6B' }} onClick={() => exportExcel(list, coaches, documents||[], visibleCols, ALL_COLS, lang)}>
               <i className="ti ti-table-export" /> {tx('actions.exportExcel','Export Excel')}
             </button>
           )}

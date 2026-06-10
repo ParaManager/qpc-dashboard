@@ -174,26 +174,33 @@ ${emp.notes ? `<div class="section-title">${L('Notes','ملاحظات')}</div><p
   setTimeout(() => win.print(), 500)
 }
 
-function exportEmployeesExcel(list) {
+function exportEmployeesExcel(list, lang) {
+  const ar = lang === 'ar'
+  const STATUS_AR = {'Active':'نشط','Inactive':'غير نشط','On Leave':'في إجازة'}
+  const DESIG_AR_MAP = {'Coach':'مدرب','Assistant Coach':'مدرب مساعد','Technical Expert':'خبير تقني','Physiotherapist':'معالج فيزيائي','Doctor':'طبيب','Secretary General':'الأمين العام','Executive Manager':'مدير تنفيذي','Administration Secretary':'سكرتير إداري','Secretary Assistant':'مساعد سكرتير','Administrative National Team':'إداري الفريق الوطني','Administrative Youth Team':'إداري فريق الشباب','Administrative Center & Development':'إداري المركز والتطوير','Accountant':'محاسب','Public Relation Officer':'مسؤول علاقات عامة','Receptionist':'موظف استقبال','Board Member':'عضو مجلس إدارة','Official':'مسؤول','Delegate':'مندوب','Employee':'موظف','Store Keeper':'أمين مخزن','Waiter':'نادل','Worker':'عامل','Driver':'سائق'}
+  const COUNTRY_MAP = {'qatar':'قطر','egypt':'مصر','algeria':'الجزائر','morocco':'المغرب','jordan':'الأردن','saudi arabia':'المملكة العربية السعودية','uae':'الإمارات','kuwait':'الكويت','bahrain':'البحرين','oman':'عُمان','iraq':'العراق','syria':'سوريا','lebanon':'لبنان','yemen':'اليمن','somalia':'الصومال','sudan':'السودان','libya':'ليبيا','tunisia':'تونس','pakistan':'باكستان','india':'الهند','iran':'إيران','turkey':'تركيا','ireland':'أيرلندا','france':'فرنسا','spain':'إسبانيا','germany':'ألمانيا','uk':'المملكة المتحدة','usa':'الولايات المتحدة'}
+  const tc = n => n ? (ar ? (COUNTRY_MAP[n.toLowerCase().trim()]||n) : n) : ''
+  const L = (en, a) => ar ? a : en
+
   const rows = list.map(e => ({
-    'Name':           e.name,
-    'Arabic Name':    e.name_ar || '',
-    'Designation':    e.designation || '',
-    'Designation AR': e.designation_ar || '',
-    'Gender':         e.gender || '',
-    'Nationality':    e.nationality || '',
-    'Employee #':     e.employee_number || '',
-    'QSS #':          e.qss_number || '',
-    'Phone':          e.phone || '',
-    'Email':          e.email || '',
-    'Status':         e.status || '',
-    'Notes':          e.notes || '',
+    [L('Name','الاسم')]:              ar && e.name_ar ? e.name_ar : (e.name||''),
+    [L('Arabic Name','الاسم بالعربي')]: e.name_ar || '',
+    [L('Designation','المسمى الوظيفي')]: ar ? (DESIG_AR_MAP[e.designation]||e.designation||'') : (e.designation||''),
+    [L('Designation AR','المسمى بالعربي')]: e.designation_ar || '',
+    [L('Gender','الجنس')]:             e.gender ? (ar?(e.gender==='Male'?'ذكر':'أنثى'):e.gender) : '',
+    [L('Nationality','الجنسية')]:      tc(e.nationality),
+    [L('Employee #','رقم الموظف')]:    e.employee_number || '',
+    [L('QSS #','رقم QSS')]:           e.qss_number || '',
+    [L('Phone','الهاتف')]:             e.phone || '',
+    [L('Email','البريد الإلكتروني')]:   e.email || '',
+    [L('Status','الحالة')]:            ar ? (STATUS_AR[e.status]||e.status||'') : (e.status||''),
+    [L('Notes','ملاحظات')]:            e.notes || '',
   }))
   const ws = XLSX.utils.json_to_sheet(rows)
-  ws['!cols'] = [{wch:24},{wch:24},{wch:28},{wch:24},{wch:8},{wch:14},{wch:12},{wch:10},{wch:16},{wch:26},{wch:10},{wch:30}]
+  ws['!cols'] = [{wch:24},{wch:24},{wch:28},{wch:24},{wch:8},{wch:16},{wch:14},{wch:10},{wch:16},{wch:26},{wch:10},{wch:30}]
   const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, 'Employees')
-  XLSX.writeFile(wb, `QPC_Employees_${new Date().toISOString().slice(0,10)}.xlsx`)
+  XLSX.utils.book_append_sheet(wb, ws, ar ? 'الموظفون' : 'Employees')
+  XLSX.writeFile(wb, `QPC_${ar?'الموظفون':'Employees'}_${new Date().toISOString().slice(0,10)}.xlsx`)
 }
 
 function EmpModal({ data, isEdit, onClose, onSave }) {
@@ -502,7 +509,7 @@ export default function Employees({ employees, personDocs, onRefresh, onNav, nav
       <div className="page-header">
         <div><div className="page-title">{tx('pages.employees','Employees')}</div><div className="page-sub">{list.length} {tx('employees.ofEmployees','of')} {employees.length} {tx('pages.employees','employees')}</div></div>
         <div style={{ display:'flex', gap:8 }}>
-          <button className="btn" style={{ background:'#009F6B' }} onClick={() => exportEmployeesExcel(list)}>
+          <button className="btn" style={{ background:'#009F6B' }} onClick={() => exportEmployeesExcel(list, lang)}>
             <i className="ti ti-table-export" /> {tx('actions.exportExcel','Export Excel')}
           </button>
           {hasFilters && (
