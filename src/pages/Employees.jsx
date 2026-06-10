@@ -420,8 +420,8 @@ export default function Employees({ employees, personDocs, onRefresh, onNav, nav
               )}
               <input ref={photoInput} type="file" accept="image/*" style={{ display:'none' }} onChange={e => { if(e.target.files[0]) handlePhotoUpload(emp.id, e.target.files[0]) }} />
             </div>
-            <div className="detail-name">{emp.name}</div>
-            {emp.name_ar && <div className="detail-sub">{emp.name_ar}</div>}
+            <div className="detail-name">{lang==='ar' && emp.name_ar ? emp.name_ar : emp.name}</div>
+            {(lang==='ar' ? emp.name : emp.name_ar) && <div className="detail-sub">{lang==='ar' ? emp.name : emp.name_ar}</div>}
             <div style={{ margin:'10px 0' }}><DesigBadge label={emp.designation} displayLabel={DESIG_LABELS[emp.designation]} /></div>
             {emp.designation_ar && <div style={{ fontSize:13, color:'var(--text2)', marginBottom:8, direction:'rtl' }}>{emp.designation_ar}</div>}
             <div className="detail-fields">
@@ -535,8 +535,8 @@ export default function Employees({ employees, personDocs, onRefresh, onNav, nav
                       : <div className="av" style={{ width:32, height:32, fontSize:11, background:DESIG_COLORS[emp.designation]||'#9aa3b2', flexShrink:0 }}>{initials(emp.name)}</div>
                     }
                     <div>
-                      <div style={{ fontWeight:500, fontSize:13 }}>{emp.name}</div>
-                      {emp.name_ar && <div style={{ fontSize:11, color:'#9aa3b2' }}>{emp.name_ar}</div>}
+                      <div style={{ fontWeight:500, fontSize:13 }}>{lang==='ar' && emp.name_ar ? emp.name_ar : emp.name}</div>
+                      {emp.name_ar && <div style={{ fontSize:11, color:'#9aa3b2' }}>{lang==='ar' ? emp.name : emp.name_ar}</div>}
                     </div>
                   </div>
                 </td>
