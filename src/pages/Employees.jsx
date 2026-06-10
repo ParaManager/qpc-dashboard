@@ -183,8 +183,8 @@ function exportEmployeesExcel(list, lang) {
   const L = (en, a) => ar ? a : en
 
   const rows = list.map(e => ({
-    [L('Name','الاسم')]:              ar && e.name_ar ? e.name_ar : (e.name||''),
-    [L('Arabic Name','الاسم بالعربي')]: e.name_ar || '',
+    [L('Name','الاسم')]:                  ar && e.name_ar ? e.name_ar : (e.name||''),
+    [L('English Name','الاسم بالإنجليزي')]:  ar && e.name_ar ? e.name : (e.name_ar||''),
     [L('Designation','المسمى الوظيفي')]: ar ? (DESIG_AR_MAP[e.designation]||e.designation||'') : (e.designation||''),
     [L('Designation AR','المسمى بالعربي')]: e.designation_ar || '',
     [L('Gender','الجنس')]:             e.gender ? (ar?(e.gender==='Male'?'ذكر':'أنثى'):e.gender) : '',

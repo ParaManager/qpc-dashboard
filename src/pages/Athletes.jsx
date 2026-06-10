@@ -78,8 +78,16 @@ function exportExcel(athletes, coaches, documents, visibleCols, allCols, lang) {
   const ar = lang === 'ar'
   const SPORT_AR = {'Athletics':'ألعاب القوى','Swimming':'السباحة','Powerlifting':'رفع الأثقال','Boccia':'البوتشيا','Goalball':'كرة الهدف','Table Tennis':'تنس الطاولة','Special Olympics':'الأولمبياد الخاص','Shooting':'الرماية','Wheelchair Tennis':'تنس الكراسي المتحركة'}
   const STATUS_AR = {'Active':'نشط','Inactive':'غير نشط','Suspended':'موقوف','Under Medical Review':'تحت المراجعة الطبية','Injured':'مصاب','Retired':'متقاعد'}
-  const DIS_MAP = {'visual impairment':'إعاقة بصرية','hearing impairment':'إعاقة سمعية','physical impairment':'إعاقة جسدية','intellectual disability':'إعاقة ذهنية','intellectual impairment':'إعاقة ذهنية','spinal cord injury':'إصابة الحبل الشوكي','cerebral palsy':'شلل دماغي','amputation':'بتر','down syndrome':'متلازمة داون',"down's syndrome":'متلازمة داون','autism':'التوحد','multiple disabilities':'إعاقات متعددة','limb deficiency':'نقص الأطراف','les autres':'أخرى'}
-  const tDis = d => d ? (ar ? (DIS_MAP[d.toLowerCase().trim()]||d) : d) : ''
+  const DIS_MAP = {'visual impairment':'إعاقة بصرية','hearing impairment':'إعاقة سمعية','physical impairment':'إعاقة جسدية','intellectual disability':'إعاقة ذهنية','intellectual impairment':'إعاقة ذهنية','spinal cord injury':'إصابة الحبل الشوكي','cerebral palsy':'شلل دماغي','amputation':'بتر','down syndrome':'متلازمة داون',"down's syndrome":'متلازمة داون','downs syndrome':'متلازمة داون','down':'متلازمة داون','autism spectrum':'التوحد','autism':'التوحد','multiple disabilities':'إعاقات متعددة','limb deficiency':'نقص الأطراف','les autres':'أخرى'}
+  const tDis = d => {
+    if (!d || !ar) return d||''
+    const key = d.toLowerCase().trim()
+    if (DIS_MAP[key]) return DIS_MAP[key]
+    for (const [k,v] of Object.entries(DIS_MAP)) {
+      if (key.includes(k) || k.includes(key)) return v
+    }
+    return d
+  }
   const COUNTRY_MAP = {'qatar':'قطر','egypt':'مصر','algeria':'الجزائر','morocco':'المغرب','jordan':'الأردن','saudi arabia':'المملكة العربية السعودية','uae':'الإمارات','kuwait':'الكويت','bahrain':'البحرين','oman':'عُمان','iraq':'العراق','syria':'سوريا','lebanon':'لبنان','palestine':'فلسطين','yemen':'اليمن','somalia':'الصومال','sudan':'السودان','libya':'ليبيا','tunisia':'تونس','pakistan':'باكستان','india':'الهند','iran':'إيران','turkey':'تركيا','ireland':'أيرلندا','france':'فرنسا','spain':'إسبانيا','germany':'ألمانيا','uk':'المملكة المتحدة','usa':'الولايات المتحدة','ksa':'المملكة العربية السعودية'}
   const tc = n => n ? (ar ? (COUNTRY_MAP[n.toLowerCase().trim()]||n) : n) : ''
 
