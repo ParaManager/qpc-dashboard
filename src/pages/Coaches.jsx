@@ -7,8 +7,131 @@ import { canEdit } from '../lib/useAuth'
 import { useLang } from '../lib/LangContext.jsx'
 import PersonDocuments from '../components/PersonDocuments'
 
-function exportCoachPDF(coach, myAthletes) {
-  const totalMedals = myAthletes.reduce((s,a) => s + (a.medals_gold||0) + (a.medals_silver||0) + (a.medals_bronze||0), 0)
+function exportCoachPDF(coach, myAthletes, lang) {
+  const isAr = lang === 'ar'
+  const dir = isAr ? 'rtl' : 'ltr'
+  const L = (en, ar) => isAr ? ar : en
+  const field = (k, v) => v ? `<div class="field"><span class="k">${k}</span><span class="v">${v}</span></div>` : ''
+  const SPORT_AR = {'Athletics':'ألعاب القوى','Swimming':'السباحة','Powerlifting':'رفع الأثقال','Boccia':'البوتشيا','Goalball':'كرة الهدف','Table Tennis':'تنس الطاولة','Special Olympics':'الأولمبياد الخاص','Shooting':'الرماية','Wheelchair Tennis':'تنس الكراسي المتحركة'}
+  const STATUS_AR = {'Active':'نشط','Inactive':'غير نشط','On Leave':'في إجازة','Suspended':'موقوف'}
+  const COUNTRY_AR = {'Qatar':'قطر','Egypt':'مصر','Algeria':'الجزائر','Jordan':'الأردن','Tunisia':'تونس','Morocco':'المغرب','Saudi Arabia':'المملكة العربية السعودية','Somalia':'الصومال','Ireland':'أيرلندا','Spain':'إسبانيا','France':'فرنسا','UK':'المملكة المتحدة','USA':'الولايات المتحدة'}
+  const totalMedals = myAthletes.reduce((s,a) => s+(a.medals_gold||0)+(a.medals_silver||0)+(a.medals_bronze||0), 0)
+  const expLabel = isAr ? '⚠ منتهية' : '⚠ EXPIRED'
+
+  const html = `<!DOCTYPE html>
+<html dir="${dir}" lang="${isAr?'ar':'en'}"><head><meta charset="UTF-8"/>
+<style>
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:Arial,sans-serif; color:#1a1d23; padding:32px; font-size:13px; direction:${dir}; }
+  .header { display:flex; align-items:center; gap:20px; margin-bottom:24px; padding-bottom:20px; border-bottom:3px solid #009F6B; }
+  .dots { display:flex; gap:5px; }
+  .dot { width:14px; height:14px; border-radius:50%; }
+  h1 { font-size:20px; font-weight:700; color:#0a1628; }
+  .sub { font-size:12px; color:#9aa3b2; margin-top:2px; }
+  .profile { display:flex; gap:20px; margin-bottom:24px; }
+  .photo { width:80px; height:80px; border-radius:50%; background:#009F6B; display:flex; align-items:center; justify-content:center; color:#fff; font-size:28px; font-weight:700; flex-shrink:0; overflow:hidden; }
+  .photo img { width:100%; height:100%; object-fit:cover; }
+  .info h2 { font-size:22px; font-weight:700; }
+  .info p { font-size:13px; color:#5a6272; margin-top:3px; }
+  .section { margin-bottom:20px; }
+  .section-title { font-size:11px; font-weight:700; color:#9aa3b2; text-transform:uppercase; letter-spacing:.06em; margin-bottom:10px; padding-bottom:6px; border-bottom:1px solid #e2e5ea; }
+  .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:6px 20px; }
+  .field { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #f0f1f3; font-size:12px; }
+  .field .k { color:#5a6272; }
+  .field .v { font-weight:600; text-align:${isAr?'left':'right'}; }
+  .stat-row { display:flex; gap:24px; margin-bottom:16px; }
+  .stat { text-align:center; background:#f8f9fb; border-radius:10px; padding:12px 20px; }
+  .stat-num { font-size:24px; font-weight:700; color:#009F6B; }
+  .stat-lbl { font-size:11px; color:#9aa3b2; margin-top:2px; }
+  .ath-row { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #f0f1f3; font-size:12px; gap:8px; }
+  .footer { margin-top:32px; padding-top:12px; border-top:1px solid #e2e5ea; font-size:10px; color:#9aa3b2; text-align:center; }
+  @media print { body { padding:16px; } }
+</style></head><body>
+
+<div class="header">
+  <div class="dots">
+    <div class="dot" style="background:#EE334E"></div>
+    <div class="dot" style="background:#0085C7"></div>
+    <div class="dot" style="background:#009F6B"></div>
+  </div>
+  <div>
+    <h1>${isAr ? 'الاتحاد القطري لذوي الاحتياجات الخاصة' : 'Qatar Paralympic Committee'}</h1>
+    <p class="sub">${isAr ? `ملف المدرب الرسمي · تم الإنشاء ${new Date().toLocaleDateString('ar-QA')}` : `Official Coach Profile · Generated ${new Date().toLocaleDateString()}`}</p>
+  </div>
+</div>
+
+<div class="profile">
+  <div class="photo">${coach.photo_url ? `<img src="${coach.photo_url}"/>` : initials(coach.name)}</div>
+  <div class="info">
+    <h2>${isAr && coach.name_ar ? coach.name_ar : coach.name}</h2>
+    <p>${isAr && coach.name_ar ? coach.name : (coach.name_ar||'')}</p>
+    <p style="margin-top:6px;color:#009F6B;font-weight:600">
+      ${isAr ? (SPORT_AR[coach.sport]||coach.sport||'') : (coach.sport||'')} ${L('Coach','مدرب')} · ${isAr ? (STATUS_AR[coach.status]||coach.status||'') : (coach.status||'')}
+    </p>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">${L('Coach Information','معلومات المدرب')}</div>
+  <div class="grid-2">
+    ${field(L('Employee #','رقم الموظف'), coach.employee_number)}
+    ${field(L('QSS #','رقم QSS'), coach.qss_number)}
+    ${field(L('Sport','الرياضة'), isAr ? (SPORT_AR[coach.sport]||coach.sport) : coach.sport)}
+    ${field(L('Cert. Level','مستوى الشهادة'), coach.cert_level)}
+    ${field(L('Nationality','الجنسية'), isAr ? (COUNTRY_AR[coach.nationality]||coach.nationality) : coach.nationality)}
+    ${field(L('Gender','الجنس'), coach.gender ? (isAr ? (coach.gender==='Male'?'ذكر':'أنثى') : coach.gender) : null)}
+    ${field(L('With QPC since','مع QPC منذ'), coach.since)}
+    ${field(L('Email','البريد الإلكتروني'), coach.email)}
+    ${field(L('Phone','الهاتف'), coach.phone)}
+  </div>
+</div>
+
+${(coach.passport_number || coach.id_number) ? `<div class="section">
+  <div class="section-title">${L('Passport & ID','الجواز والهوية')}</div>
+  <div class="grid-2">
+    ${field(L('Passport number','رقم الجواز'), coach.passport_number)}
+    ${coach.passport_expiry ? `<div class="field"><span class="k">${L('Passport expiry','انتهاء الجواز')}</span><span class="v" style="${new Date(coach.passport_expiry)<new Date()?'color:#dc2626':''}">${coach.passport_expiry}${new Date(coach.passport_expiry)<new Date()?' '+expLabel:''}</span></div>` : ''}
+    ${field(L('ID / Residence #','الرقم الشخصي'), coach.id_number)}
+    ${coach.id_expiry ? `<div class="field"><span class="k">${L('ID expiry','انتهاء الهوية')}</span><span class="v" style="${new Date(coach.id_expiry)<new Date()?'color:#dc2626':''}">${coach.id_expiry}${new Date(coach.id_expiry)<new Date()?' '+expLabel:''}</span></div>` : ''}
+  </div>
+</div>` : ''}
+
+<div class="section">
+  <div class="section-title">${L('Athletes Overview','نظرة عامة على الرياضيين')}</div>
+  <div class="stat-row">
+    <div class="stat"><div class="stat-num">${myAthletes.length}</div><div class="stat-lbl">${L('Total Athletes','إجمالي الرياضيين')}</div></div>
+    <div class="stat"><div class="stat-num">${myAthletes.filter(a=>a.status==='Active').length}</div><div class="stat-lbl">${L('Active','نشط')}</div></div>
+    <div class="stat"><div class="stat-num" style="color:#f1c40f">${myAthletes.reduce((s,a)=>s+(a.medals_gold||0),0)}</div><div class="stat-lbl">${L('Gold Medals','ذهب')}</div></div>
+    <div class="stat"><div class="stat-num">${totalMedals}</div><div class="stat-lbl">${L('Total Medals','إجمالي الميداليات')}</div></div>
+  </div>
+</div>
+
+${myAthletes.length > 0 ? `<div class="section">
+  <div class="section-title">${L('Athlete Roster','قائمة الرياضيين')} (${myAthletes.length})</div>
+  <div class="field" style="font-weight:600;background:#f8f9fb;padding:8px 6px">
+    <span style="flex:2">${L('Name','الاسم')}</span>
+    <span style="flex:1">${L('Sport','الرياضة')}</span>
+    <span style="flex:1">${L('Class','التصنيف')}</span>
+    <span style="flex:1">${L('Status','الحالة')}</span>
+    <span style="flex:1">${L('Medals','الميداليات')}</span>
+  </div>
+  ${myAthletes.map(a=>`<div class="ath-row">
+    <span style="flex:2">${isAr && a.name_ar ? a.name_ar : a.name}</span>
+    <span style="flex:1;color:#5a6272">${isAr?(SPORT_AR[a.sport]||a.sport||''):(a.sport||'')}</span>
+    <span style="flex:1;color:#5a6272">${a.classification||'—'}</span>
+    <span style="flex:1;color:#5a6272">${isAr?(STATUS_AR[a.status]||a.status||''):(a.status||'')}</span>
+    <span style="flex:1">🥇${a.medals_gold||0} 🥈${a.medals_silver||0} 🥉${a.medals_bronze||0}</span>
+  </div>`).join('')}
+</div>` : ''}
+
+<div class="footer">${isAr?'الاتحاد القطري لذوي الاحتياجات الخاصة · سري · ':'Qatar Paralympic Committee · Confidential · '}${new Date().getFullYear()}</div>
+</body></html>`
+
+  const win = window.open('', '_blank')
+  win.document.write(html)
+  win.document.close()
+  setTimeout(() => win.print(), 500)
+}
   const html = `<!DOCTYPE html>
 <html><head><meta charset="UTF-8"/>
 <style>
@@ -242,7 +365,7 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
             style={{ borderColor:'#009F6B', color:'#009F6B' }}
             onMouseEnter={e => e.currentTarget.style.background='#e6f4ee'}
             onMouseLeave={e => e.currentTarget.style.background=''}
-            onClick={() => exportCoachPDF(c, myAthletes)}>
+            onClick={() => exportCoachPDF(c, myAthletes, lang)}>
             <i className="ti ti-printer" /> {tx('actions.exportPDF','Export PDF')}
           </button>
         </div>

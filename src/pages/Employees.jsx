@@ -94,13 +94,21 @@ function DesigBadge({ label, displayLabel }) {
   )
 }
 
-function exportEmployeesPDF(emp) {
+function exportEmployeesPDF(emp, lang) {
+  const isAr = lang === 'ar'
+  const dir = isAr ? 'rtl' : 'ltr'
+  const L = (en, ar) => isAr ? ar : en
+  const field = (k, v) => v ? `<div class="field"><span class="k">${k}</span><span class="v">${v}</span></div>` : ''
   const color = DESIG_COLORS[emp.designation] || '#9aa3b2'
+  const DESIG_AR_MAP = {'Coach':'مدرب','Assistant Coach':'مدرب مساعد','Technical Expert':'خبير تقني','Physiotherapist':'معالج فيزيائي','Doctor':'طبيب','Secretary General':'الأمين العام','Executive Manager':'مدير تنفيذي','Administration Secretary':'سكرتير إداري','Secretary Assistant':'مساعد سكرتير','Administrative National Team':'إداري الفريق الوطني','Administrative Youth Team':'إداري فريق الشباب','Administrative Center & Development':'إداري المركز والتطوير','Accountant':'محاسب','Public Relation Officer':'مسؤول علاقات عامة','Receptionist':'موظف استقبال','Board Member':'عضو مجلس إدارة','Official':'مسؤول','Delegate':'مندوب','Employee':'موظف','Store Keeper':'أمين مخزن','Waiter':'نادل','Worker':'عامل','Driver':'سائق'}
+  const STATUS_AR = {'Active':'نشط','Inactive':'غير نشط','On Leave':'في إجازة'}
+  const COUNTRY_AR = {'Qatar':'قطر','Egypt':'مصر','Algeria':'الجزائر','Jordan':'الأردن','Tunisia':'تونس','Morocco':'المغرب','Saudi Arabia':'المملكة العربية السعودية','Somalia':'الصومال','Ireland':'أيرلندا','Spain':'إسبانيا','France':'فرنسا','UK':'المملكة المتحدة','USA':'الولايات المتحدة','Sudan':'السودان','Libya':'ليبيا','Pakistan':'باكستان','India':'الهند'}
+
   const html = `<!DOCTYPE html>
-<html><head><meta charset="UTF-8"/>
+<html dir="${dir}" lang="${isAr?'ar':'en'}"><head><meta charset="UTF-8"/>
 <style>
   * { box-sizing:border-box; margin:0; padding:0; }
-  body { font-family:Arial,sans-serif; color:#1a1d23; padding:32px; font-size:13px; }
+  body { font-family:Arial,sans-serif; color:#1a1d23; padding:32px; font-size:13px; direction:${dir}; }
   .header { display:flex; align-items:center; gap:20px; margin-bottom:24px; padding-bottom:20px; border-bottom:3px solid #0085C7; }
   .dots { display:flex; gap:5px; }
   .dot { width:14px; height:14px; border-radius:50%; }
@@ -112,33 +120,51 @@ function exportEmployeesPDF(emp) {
   .section-title { font-size:11px; font-weight:700; color:#9aa3b2; text-transform:uppercase; letter-spacing:.06em; margin-bottom:10px; padding-bottom:6px; border-bottom:1px solid #e2e5ea; margin-top:20px; }
   .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:6px 20px; }
   .field { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #f0f1f3; font-size:12px; }
-  .field .k { color:#5a6272; } .field .v { font-weight:600; }
+  .field .k { color:#5a6272; }
+  .field .v { font-weight:600; text-align:${isAr?'left':'right'}; }
   .footer { margin-top:32px; padding-top:12px; border-top:1px solid #e2e5ea; font-size:10px; color:#9aa3b2; text-align:center; }
 </style></head><body>
+
 <div class="header">
   <div class="dots">
     <div class="dot" style="background:#EE334E"></div>
     <div class="dot" style="background:#0085C7"></div>
     <div class="dot" style="background:#009F6B"></div>
   </div>
-  <div><h1>Qatar Paralympic Committee</h1><p class="sub">Employee Profile · Generated ${new Date().toLocaleDateString()}</p></div>
-</div>
-<div class="profile">
-  <div class="photo">${emp.photo_url ? `<img src="${emp.photo_url}"/>` : initials(emp.name)}</div>
   <div>
-    <div style="font-size:22px;font-weight:700">${emp.name}</div>
-    ${emp.name_ar ? `<div style="font-size:14px;color:#5a6272;margin-top:3px">${emp.name_ar}</div>` : ''}
-    <div style="margin-top:8px;font-size:13px;font-weight:600;color:${color}">${emp.designation||''}</div>
+    <h1>${isAr?'الاتحاد القطري لذوي الاحتياجات الخاصة':'Qatar Paralympic Committee'}</h1>
+    <p class="sub">${isAr?`ملف الموظف الرسمي · تم الإنشاء ${new Date().toLocaleDateString('ar-QA')}`:`Employee Profile · Generated ${new Date().toLocaleDateString()}`}</p>
+  </div>
+</div>
+
+<div class="profile">
+  <div class="photo">${emp.photo_url?`<img src="${emp.photo_url}"/>`:initials(emp.name)}</div>
+  <div>
+    <div style="font-size:22px;font-weight:700">${isAr && emp.name_ar ? emp.name_ar : emp.name}</div>
+    <div style="font-size:14px;color:#5a6272;margin-top:3px">${isAr && emp.name_ar ? emp.name : (emp.name_ar||'')}</div>
+    <div style="margin-top:8px;font-size:13px;font-weight:600;color:${color}">
+      ${isAr ? (DESIG_AR_MAP[emp.designation]||emp.designation||'') : (emp.designation||'')}
+    </div>
     ${emp.designation_ar ? `<div style="font-size:12px;color:#5a6272;margin-top:2px">${emp.designation_ar}</div>` : ''}
   </div>
 </div>
-<div class="section-title">Employee Information</div>
+
+<div class="section-title">${L('Employee Information','معلومات الموظف')}</div>
 <div class="grid-2">
-  ${[['Employee #',emp.employee_number],['QSS #',emp.qss_number],['Gender',emp.gender],['Nationality',emp.nationality],['Status',emp.status],['Phone',emp.phone],['Email',emp.email]].map(([k,v])=>`<div class="field"><span class="k">${k}</span><span class="v">${v||'—'}</span></div>`).join('')}
+  ${field(L('Employee #','رقم الموظف'), emp.employee_number)}
+  ${field(L('QSS #','رقم QSS'), emp.qss_number)}
+  ${field(L('Gender','الجنس'), emp.gender ? (isAr?(emp.gender==='Male'?'ذكر':'أنثى'):emp.gender) : null)}
+  ${field(L('Nationality','الجنسية'), isAr?(COUNTRY_AR[emp.nationality]||emp.nationality):emp.nationality)}
+  ${field(L('Status','الحالة'), isAr?(STATUS_AR[emp.status]||emp.status):emp.status)}
+  ${field(L('Phone','الهاتف'), emp.phone)}
+  ${field(L('Email','البريد الإلكتروني'), emp.email)}
 </div>
-${emp.notes ? `<div class="section-title">Notes</div><p style="font-size:12px;color:#5a6272;line-height:1.6;margin-top:8px">${emp.notes}</p>` : ''}
-<div class="footer">Qatar Paralympic Committee · Confidential · ${new Date().getFullYear()}</div>
+
+${emp.notes ? `<div class="section-title">${L('Notes','ملاحظات')}</div><p style="font-size:12px;color:#5a6272;line-height:1.6;margin-top:8px">${emp.notes}</p>` : ''}
+
+<div class="footer">${isAr?'الاتحاد القطري لذوي الاحتياجات الخاصة · سري · ':'Qatar Paralympic Committee · Confidential · '}${new Date().getFullYear()}</div>
 </body></html>`
+
   const win = window.open('', '_blank')
   win.document.write(html)
   win.document.close()
@@ -393,7 +419,7 @@ export default function Employees({ employees, personDocs, onRefresh, onNav, nav
             style={{ borderColor:'#009F6B', color:'#009F6B' }}
             onMouseEnter={e => e.currentTarget.style.background='#e6f4ee'}
             onMouseLeave={e => e.currentTarget.style.background=''}
-            onClick={() => exportEmployeesPDF(emp)}>
+            onClick={() => exportEmployeesPDF(emp, lang)}>
             <i className="ti ti-printer" /> {tx('actions.exportPDF','Export PDF')}
           </button>
         </div>
