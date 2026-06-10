@@ -434,14 +434,28 @@ export default function Athletes({ athletes, coaches, results, documents, events
     const age = calcAge(a.dob)
     const yearsActive = calcYearsActive(a.join_date)
     const bests = getPersonalBests(myResults)
+    const isAr = lang === 'ar'
+    const dir = isAr ? 'rtl' : 'ltr'
+
+    const SPORT_AR = {'Athletics':'ألعاب القوى','Swimming':'السباحة','Powerlifting':'رفع الأثقال','Boccia':'البوتشيا','Goalball':'كرة الهدف','Table Tennis':'تنس الطاولة','Special Olympics':'الأولمبياد الخاص','Shooting':'الرماية','Wheelchair Tennis':'تنس الكراسي المتحركة'}
+    const STATUS_AR = {'Active':'نشط','Inactive':'غير نشط','Suspended':'موقوف','Under Medical Review':'تحت المراجعة الطبية','Injured':'مصاب','Retired':'متقاعد'}
+    const DIS_AR = {'Visual Impairment':'إعاقة بصرية','Hearing Impairment':'إعاقة سمعية','Physical Impairment':'إعاقة جسدية','Intellectual Disability':'إعاقة ذهنية','Spinal Cord Injury':'إصابة الحبل الشوكي','Cerebral Palsy':'شلل دماغي','Amputation':'بتر','Down Syndrome':'متلازمة داون','Autism':'التوحد','Multiple Disabilities':'إعاقات متعددة'}
+    const COUNTRY_AR = {'Qatar':'قطر','Egypt':'مصر','Algeria':'الجزائر','Morocco':'المغرب','Jordan':'الأردن','Saudi Arabia':'المملكة العربية السعودية','UAE':'الإمارات','Iraq':'العراق','Syria':'سوريا','Yemen':'اليمن','Somalia':'الصومال','Sudan':'السودان','Libya':'ليبيا','Tunisia':'تونس','Pakistan':'باكستان','India':'الهند','Iran':'إيران','Turkey':'تركيا','Azerbaijan':'أذربيجان','Ireland':'أيرلندا','France':'فرنسا','Spain':'إسبانيا','Germany':'ألمانيا','UK':'المملكة المتحدة','USA':'الولايات المتحدة'}
+    const MEDAL_AR = {'gold':'ذهب','silver':'فضة','bronze':'برونز'}
+    const DESIG_AR = {'Player':'لاعب','Female Player':'لاعبة','Coach':'مدرب','Female Coach':'مدربة','Referee':'حكم','Admin Staff':'جهاز إداري'}
+    const RESID_AR = {'Qatari Male':'قطري','Qatari Female':'قطرية','Resident Male':'مقيم','Resident Female':'مقيمة','Professional Male':'محترف','Professional Female':'محترفة','Born in Qatar':'مواليد قطر','Qatari Mother':'أم قطرية'}
+
+    const t = (en, arObj, val) => val ? (isAr ? (arObj[val] || (COUNTRY_AR[val]) || val) : val) : '—'
+    const L = (en, ar) => isAr ? ar : en
+    const field = (k, v) => v ? `<div class="field"><span class="k">${k}</span><span class="v">${v}</span></div>` : ''
+    const expiredLabel = isAr ? '⚠ منتهية' : '⚠ EXPIRED'
 
     const html = `<!DOCTYPE html>
-<html><head><meta charset="UTF-8"/>
+<html dir="${dir}" lang="${isAr?'ar':'en'}"><head><meta charset="UTF-8"/>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: Arial, sans-serif; color: #1a1d23; padding: 32px; font-size: 13px; }
+  body { font-family: Arial, sans-serif; color: #1a1d23; padding: 32px; font-size: 13px; direction: ${dir}; }
   .header { display: flex; align-items: center; gap: 20px; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 3px solid #0085C7; }
-  .header-logo { display: flex; gap: 5px; }
   .dot { width: 14px; height: 14px; border-radius: 50%; }
   .header-text h1 { font-size: 20px; font-weight: 700; color: #0a1628; }
   .header-text p { font-size: 12px; color: #9aa3b2; margin-top: 2px; }
@@ -449,7 +463,7 @@ export default function Athletes({ athletes, coaches, results, documents, events
   .photo { width: 80px; height: 80px; border-radius: 50%; background: #0085C7; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 28px; font-weight: 700; flex-shrink: 0; overflow: hidden; }
   .photo img { width: 100%; height: 100%; object-fit: cover; }
   .profile-info h2 { font-size: 22px; font-weight: 700; }
-  .profile-info p { font-size: 13px; color: #5a6272; margin-top: 3px; }
+  .profile-info .sub { font-size: 13px; color: #5a6272; margin-top: 3px; }
   .badges { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
   .badge { padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
   .badge-blue { background: #e8f3fb; color: #1565a0; }
@@ -460,114 +474,142 @@ export default function Athletes({ athletes, coaches, results, documents, events
   .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 20px; }
   .field { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #f0f1f3; font-size: 12px; }
   .field .k { color: #5a6272; }
-  .field .v { font-weight: 600; }
+  .field .v { font-weight: 600; text-align: ${isAr?'left':'right'}; }
   .medal-row { display: flex; gap: 24px; }
   .medal-item { text-align: center; }
   .medal-num { font-size: 24px; font-weight: 700; }
   .result-row { display: flex; gap: 10px; align-items: center; padding: 6px 0; border-bottom: 1px solid #f0f1f3; font-size: 12px; }
-  .timeline-item { display: flex; gap: 10px; margin-bottom: 10px; font-size: 12px; }
-  .tl-dot { width: 10px; height: 10px; border-radius: 50%; background: #0085C7; margin-top: 3px; flex-shrink: 0; }
   .doc-row { padding: 6px 0; border-bottom: 1px solid #f0f1f3; font-size: 12px; }
   .footer { margin-top: 32px; padding-top: 12px; border-top: 1px solid #e2e5ea; font-size: 10px; color: #9aa3b2; text-align: center; }
   @media print { body { padding: 16px; } }
 </style></head><body>
+
 <div class="header">
-  <div class="header-logo">
+  <div class="header-logo" style="display:flex;gap:5px">
     <div class="dot" style="background:#EE334E"></div>
     <div class="dot" style="background:#0085C7"></div>
     <div class="dot" style="background:#009F6B"></div>
   </div>
   <div class="header-text">
-    <h1>Qatar Paralympic Committee</h1>
-    <p>Official Athlete Profile · Generated ${new Date().toLocaleDateString()}</p>
+    <h1>${isAr ? 'الاتحاد القطري لذوي الاحتياجات الخاصة' : 'Qatar Paralympic Committee'}</h1>
+    <p>${isAr ? `ملف الرياضي الرسمي · تم الإنشاء ${new Date().toLocaleDateString('ar-QA')}` : `Official Athlete Profile · Generated ${new Date().toLocaleDateString()}`}</p>
   </div>
 </div>
 
 <div class="profile-header">
   <div class="photo">${a.photo_url ? `<img src="${a.photo_url}" />` : initials(a.name)}</div>
   <div class="profile-info">
-    <h2>${a.name}</h2>
-    ${a.name_ar ? `<p>${a.name_ar}</p>` : ''}
+    <h2>${isAr && a.name_ar ? a.name_ar : a.name}</h2>
+    <p class="sub">${isAr && a.name_ar ? a.name : (a.name_ar || '')}</p>
     <div class="badges">
-      <span class="badge badge-blue">${a.sport}</span>
-      <span class="badge badge-blue">${a.classification}</span>
-      <span class="badge badge-${a.status==='Active'?'green':'gray'}">${a.status}</span>
+      <span class="badge badge-blue">${isAr ? (SPORT_AR[a.sport]||a.sport) : a.sport}</span>
+      ${a.classification ? `<span class="badge badge-blue">${a.classification}</span>` : ''}
+      <span class="badge badge-${a.status==='Active'?'green':'gray'}">${isAr ? (STATUS_AR[a.status]||a.status) : a.status}</span>
     </div>
     <p style="margin-top:8px;color:#9aa3b2;font-size:11px">
-      ${age ? `Age ${age}` : ''} ${age && yearsActive ? '·' : ''} ${yearsActive ? `${yearsActive} with QPC` : ''}
+      ${age ? (isAr ? `${age} ${L('years old','سنة')}` : `Age ${age}`) : ''}
+      ${age && yearsActive ? ' · ' : ''}
+      ${yearsActive ? (isAr ? `${yearsActive} ${L('years with QPC','سنوات مع QPC')}` : `${yearsActive} years with QPC`) : ''}
     </p>
   </div>
 </div>
 
 <div class="section">
-  <div class="section-title">Personal Information</div>
+  <div class="section-title">${L('Personal Information','المعلومات الشخصية')}</div>
   <div class="grid-2">
-    ${[['Date of birth',a.dob],['Gender',a.gender],['Nationality',a.nationality],['Phone',a.phone],['Email',a.email],['Joined QPC',a.join_date]].map(([k,v])=>`<div class="field"><span class="k">${k}</span><span class="v">${v||'—'}</span></div>`).join('')}
+    ${field(L('Date of birth','تاريخ الميلاد'), a.dob)}
+    ${field(L('Gender','الجنس'), a.gender ? (isAr ? (a.gender==='Male'?'ذكر':'أنثى') : a.gender) : null)}
+    ${field(L('Nationality','الجنسية'), isAr ? (COUNTRY_AR[a.nationality]||a.nationality) : a.nationality)}
+    ${field(L('Phone','الهاتف'), a.phone)}
+    ${field(L('Email','البريد الإلكتروني'), a.email)}
+    ${field(L('Joined QPC','تاريخ الانضمام'), a.join_date)}
+    ${field(L('Age category','الفئة العمرية'), a.age_category)}
+    ${field(L('QSS Number','رقم QSS'), a.qss_number)}
   </div>
 </div>
 
 <div class="section">
-  <div class="section-title">Sport & Classification</div>
+  <div class="section-title">${L('Sport & Classification','الرياضة والتصنيف')}</div>
   <div class="grid-2">
-    ${[['Sport',a.sport],['Classification',a.classification],['Disability type',a.disability],['Head coach',coach?.name||'Unassigned']].map(([k,v])=>`<div class="field"><span class="k">${k}</span><span class="v">${v||'—'}</span></div>`).join('')}
+    ${field(L('Sport','الرياضة'), isAr ? (SPORT_AR[a.sport]||a.sport) : a.sport)}
+    ${field(L('Classification','التصنيف'), a.classification)}
+    ${field(L('Disability type','نوع الإعاقة'), isAr ? (DIS_AR[a.disability]||a.disability) : a.disability)}
+    ${field(L('Head coach','المدرب الرئيسي'), coach ? (isAr && coach.name_ar ? coach.name_ar : coach.name) : L('Unassigned','غير معين'))}
+    ${field(L('Medical status','الحالة الطبية'), a.medical_status)}
+    ${field(L('Career profile #','رقم المسار'), a.career_profile)}
   </div>
 </div>
 
-${(a.passport_number || a.id_number) ? `<div class="section">
-  <div class="section-title">Passport & ID</div>
+<div class="section">
+  <div class="section-title">${L('Club & Role','النادي والدور')}</div>
   <div class="grid-2">
-    ${[['Passport number',a.passport_number],['Passport expiry',a.passport_expiry],['Qatar ID number',a.id_number],['ID expiry',a.id_expiry]].filter(([k,v])=>v).map(([k,v])=>`<div class="field"><span class="k">${k}</span><span class="v" style="${v && new Date(v) < new Date() ? 'color:#dc2626' : ''}">${v}${v && new Date(v) < new Date() ? ' ⚠ EXPIRED' : ''}</span></div>`).join('')}
+    ${field(L('Club','النادي'), a.club)}
+    ${field(L('Designation','الوظيفة'), isAr ? (DESIG_AR[a.designation]||a.designation) : a.designation)}
+    ${field(L('Residency status','الصفة'), isAr ? (RESID_AR[a.residency_status]||a.residency_status) : a.residency_status)}
+  </div>
+</div>
+
+${(a.passport_number || a.id_number || a.passport_expiry || a.id_expiry) ? `<div class="section">
+  <div class="section-title">${L('Passport & ID','الجواز والهوية')}</div>
+  <div class="grid-2">
+    ${field(L('Passport number','رقم الجواز'), a.passport_number)}
+    ${a.passport_expiry ? `<div class="field"><span class="k">${L('Passport expiry','انتهاء الجواز')}</span><span class="v" style="${new Date(a.passport_expiry)<new Date()?'color:#dc2626':''}">${a.passport_expiry}${new Date(a.passport_expiry)<new Date()?' '+expiredLabel:''}</span></div>` : ''}
+    ${field(L('Qatar ID number','الرقم الشخصي'), a.id_number)}
+    ${a.id_expiry ? `<div class="field"><span class="k">${L('ID expiry','انتهاء الهوية')}</span><span class="v" style="${new Date(a.id_expiry)<new Date()?'color:#dc2626':''}">${a.id_expiry}${new Date(a.id_expiry)<new Date()?' '+expiredLabel:''}</span></div>` : ''}
   </div>
 </div>` : ''}
 
 ${(a.emergency_contact_name || a.emergency_contact_phone) ? `<div class="section">
-  <div class="section-title">Emergency Contact</div>
+  <div class="section-title">${L('Emergency Contact','جهة الاتصال في حالات الطوارئ')}</div>
   <div class="grid-2">
-    ${[['Name',a.emergency_contact_name],['Relationship',a.emergency_contact_relation],['Phone',a.emergency_contact_phone]].filter(([k,v])=>v).map(([k,v])=>`<div class="field"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('')}
+    ${field(L('Name','الاسم'), a.emergency_contact_name)}
+    ${field(L('Relationship','صلة القرابة'), a.emergency_contact_relation)}
+    ${field(L('Phone','الهاتف'), a.emergency_contact_phone)}
   </div>
 </div>` : ''}
 
 ${(a.blood_type || a.allergies || a.medical_conditions) ? `<div class="section">
-  <div class="section-title">Medical Information</div>
+  <div class="section-title">${L('Medical Information','المعلومات الطبية')}</div>
   <div class="grid-2">
-    ${[['Blood type',a.blood_type],['Allergies',a.allergies],['Medical conditions',a.medical_conditions]].filter(([k,v])=>v).map(([k,v])=>`<div class="field"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('')}
+    ${field(L('Blood type','فصيلة الدم'), a.blood_type)}
+    ${field(L('Allergies','الحساسية'), a.allergies)}
+    ${field(L('Medical conditions','الحالات الطبية'), a.medical_conditions)}
   </div>
 </div>` : ''}
 
 <div class="section">
-  <div class="section-title">Medal Count</div>
+  <div class="section-title">${L('Medals','الميداليات')}</div>
   <div class="medal-row">
-    <div class="medal-item"><div class="medal-num" style="color:#f1c40f">${a.medals_gold||0}</div><div style="font-size:11px;color:#9aa3b2">Gold</div></div>
-    <div class="medal-item"><div class="medal-num" style="color:#aaa">${a.medals_silver||0}</div><div style="font-size:11px;color:#9aa3b2">Silver</div></div>
-    <div class="medal-item"><div class="medal-num" style="color:#cd7f32">${a.medals_bronze||0}</div><div style="font-size:11px;color:#9aa3b2">Bronze</div></div>
+    <div class="medal-item"><div class="medal-num" style="color:#f1c40f">${a.medals_gold||0}</div><div style="font-size:11px;color:#9aa3b2">${L('Gold','ذهب')}</div></div>
+    <div class="medal-item"><div class="medal-num" style="color:#aaa">${a.medals_silver||0}</div><div style="font-size:11px;color:#9aa3b2">${L('Silver','فضة')}</div></div>
+    <div class="medal-item"><div class="medal-num" style="color:#cd7f32">${a.medals_bronze||0}</div><div style="font-size:11px;color:#9aa3b2">${L('Bronze','برونز')}</div></div>
   </div>
 </div>
 
-${bests.length > 0 ? `<div class="section">
-  <div class="section-title">Personal Bests</div>
-  ${bests.map(r=>`<div class="result-row"><span>${r.medal==='gold'?'🥇':r.medal==='silver'?'🥈':r.medal==='bronze'?'🥉':'📋'}</span><span style="flex:1;font-weight:600">${r.discipline}</span><span style="color:#0085C7;font-weight:600">${r.result}</span><span style="color:#9aa3b2;margin-left:10px">${r.event_name}</span></div>`).join('')}
+${myResults.length > 0 ? `<div class="section">
+  <div class="section-title">${L('Competition Results','سجل النتائج')}</div>
+  ${myResults.map(r => `<div class="result-row">
+    <span style="font-size:18px">${r.medal==='gold'?'🥇':r.medal==='silver'?'🥈':'🥉'}</span>
+    <div style="flex:1"><div style="font-weight:500">${r.event_name}</div><div style="color:#9aa3b2">${r.discipline||''}</div></div>
+    <span style="font-weight:600;color:#0085C7">${r.result||''}</span>
+    <span style="color:#9aa3b2">${r.date||''}</span>
+  </div>`).join('')}
 </div>` : ''}
 
 ${myEvents.length > 0 ? `<div class="section">
-  <div class="section-title">Competition History (${myEvents.length} events)</div>
-  ${myEvents.map(ev=>{
-    const evMedals = myResults.filter(r=>r.event_name===ev.name)
-    return `<div class="timeline-item"><div class="tl-dot" style="background:${ev.status==='Completed'?'#009F6B':'#0085C7'}"></div><div><strong>${ev.name}</strong> · ${ev.start_date}<br/><span style="color:#5a6272">${ev.venue||''}</span>${evMedals.length>0?`<br/>${evMedals.map(r=>`${r.medal==='gold'?'🥇':r.medal==='silver'?'🥈':'🥉'} ${r.discipline} — ${r.result}`).join(' · ')}`:''}
-    </div></div>`
-  }).join('')}
+  <div class="section-title">${L('Competition History','سجل المنافسات')}</div>
+  ${myEvents.map(ev => `<div class="doc-row">
+    <span style="font-weight:500">${ev.name}</span>
+    <span style="color:#9aa3b2;margin-${isAr?'right':'left'}:10px">${ev.start_date||''}</span>
+  </div>`).join('')}
 </div>` : ''}
 
 ${myDocs.length > 0 ? `<div class="section">
-  <div class="section-title">Documents on File</div>
-  ${myDocs.map(d=>`<div class="doc-row">📄 ${d.name} <span style="color:#9aa3b2">(${d.type})</span></div>`).join('')}
+  <div class="section-title">${L('Documents','الوثائق')}</div>
+  ${myDocs.map(d => `<div class="doc-row"><span style="font-weight:500">${d.type}</span> — <span style="color:#9aa3b2">${d.name}</span></div>`).join('')}
 </div>` : ''}
 
-${a.notes ? `<div class="section">
-  <div class="section-title">Notes</div>
-  <p style="font-size:12px;color:#5a6272;line-height:1.6">${a.notes}</p>
-</div>` : ''}
-
-<div class="footer">Qatar Paralympic Committee · Confidential · ${new Date().getFullYear()}</div>
+<div class="footer">${isAr ? 'الاتحاد القطري لذوي الاحتياجات الخاصة · سري · ' : 'Qatar Paralympic Committee · Confidential · '}${new Date().getFullYear()}</div>
 </body></html>`
 
     const win = window.open('', '_blank')
