@@ -11,7 +11,10 @@ function exportCoachPDF(coach, myAthletes, lang) {
   const isAr = lang === 'ar'
   const dir = isAr ? 'rtl' : 'ltr'
   const L = (en, ar) => isAr ? ar : en
-  const field = (k, v) => v ? `<div class="field"><span class="k">${k}</span><span class="v">${v}</span></div>` : ''
+  const field = (k, v) => {
+    const clean = (v === null || v === undefined || v === 'null' || v === 'undefined' || v === '') ? null : v
+    return clean ? `<div class="field"><span class="k">${k}</span><span class="v">${clean}</span></div>` : ''
+  }
   const SPORT_AR = {'Athletics':'ألعاب القوى','Swimming':'السباحة','Powerlifting':'رفع الأثقال','Boccia':'البوتشيا','Goalball':'كرة الهدف','Table Tennis':'تنس الطاولة','Special Olympics':'الأولمبياد الخاص','Shooting':'الرماية','Wheelchair Tennis':'تنس الكراسي المتحركة'}
   const STATUS_AR = {'Active':'نشط','Inactive':'غير نشط','On Leave':'في إجازة','Suspended':'موقوف'}
   const COUNTRY_AR = {'Qatar':'قطر','Egypt':'مصر','Algeria':'الجزائر','Jordan':'الأردن','Tunisia':'تونس','Morocco':'المغرب','Saudi Arabia':'المملكة العربية السعودية','Somalia':'الصومال','Ireland':'أيرلندا','Spain':'إسبانيا','France':'فرنسا','UK':'المملكة المتحدة','USA':'الولايات المتحدة'}

@@ -447,7 +447,10 @@ export default function Athletes({ athletes, coaches, results, documents, events
 
     const t = (en, arObj, val) => val ? (isAr ? (arObj[val] || (COUNTRY_AR[val]) || val) : val) : '—'
     const L = (en, ar) => isAr ? ar : en
-    const field = (k, v) => v ? `<div class="field"><span class="k">${k}</span><span class="v">${v}</span></div>` : ''
+    const field = (k, v) => {
+      const clean = (v === null || v === undefined || v === 'null' || v === 'undefined' || v === '') ? null : v
+      return clean ? `<div class="field"><span class="k">${k}</span><span class="v">${clean}</span></div>` : ''
+    }
     const expiredLabel = isAr ? '⚠ منتهية' : '⚠ EXPIRED'
 
     const html = `<!DOCTYPE html>
@@ -502,9 +505,9 @@ export default function Athletes({ athletes, coaches, results, documents, events
     <h2>${isAr && a.name_ar ? a.name_ar : a.name}</h2>
     <p class="sub">${isAr && a.name_ar ? a.name : (a.name_ar || '')}</p>
     <div class="badges">
-      <span class="badge badge-blue">${isAr ? (SPORT_AR[a.sport]||a.sport) : a.sport}</span>
+      ${a.sport ? `<span class="badge badge-blue">${isAr ? (SPORT_AR[a.sport]||a.sport) : a.sport}</span>` : `<span class="badge badge-gray">${L('No Sport Assigned','لم يتم تحديد الرياضة')}</span>`}
       ${a.classification ? `<span class="badge badge-blue">${a.classification}</span>` : ''}
-      <span class="badge badge-${a.status==='Active'?'green':'gray'}">${isAr ? (STATUS_AR[a.status]||a.status) : a.status}</span>
+      <span class="badge badge-${a.status==='Active'?'green':'gray'}">${isAr ? (STATUS_AR[a.status]||a.status||L('Unknown','غير محدد')) : (a.status||'Unknown')}</span>
     </div>
     <p style="margin-top:8px;color:#9aa3b2;font-size:11px">
       ${age ? (isAr ? `${age} ${L('years old','سنة')}` : `Age ${age}`) : ''}

@@ -98,7 +98,10 @@ function exportEmployeesPDF(emp, lang) {
   const isAr = lang === 'ar'
   const dir = isAr ? 'rtl' : 'ltr'
   const L = (en, ar) => isAr ? ar : en
-  const field = (k, v) => v ? `<div class="field"><span class="k">${k}</span><span class="v">${v}</span></div>` : ''
+  const field = (k, v) => {
+    const clean = (v === null || v === undefined || v === 'null' || v === 'undefined' || v === '') ? null : v
+    return clean ? `<div class="field"><span class="k">${k}</span><span class="v">${clean}</span></div>` : ''
+  }
   const color = DESIG_COLORS[emp.designation] || '#9aa3b2'
   const DESIG_AR_MAP = {'Coach':'مدرب','Assistant Coach':'مدرب مساعد','Technical Expert':'خبير تقني','Physiotherapist':'معالج فيزيائي','Doctor':'طبيب','Secretary General':'الأمين العام','Executive Manager':'مدير تنفيذي','Administration Secretary':'سكرتير إداري','Secretary Assistant':'مساعد سكرتير','Administrative National Team':'إداري الفريق الوطني','Administrative Youth Team':'إداري فريق الشباب','Administrative Center & Development':'إداري المركز والتطوير','Accountant':'محاسب','Public Relation Officer':'مسؤول علاقات عامة','Receptionist':'موظف استقبال','Board Member':'عضو مجلس إدارة','Official':'مسؤول','Delegate':'مندوب','Employee':'موظف','Store Keeper':'أمين مخزن','Waiter':'نادل','Worker':'عامل','Driver':'سائق'}
   const STATUS_AR = {'Active':'نشط','Inactive':'غير نشط','On Leave':'في إجازة'}
