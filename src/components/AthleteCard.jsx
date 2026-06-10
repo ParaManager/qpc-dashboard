@@ -54,7 +54,7 @@ export function generateAthleteCard(athlete) {
     background:#fff;
     border-radius:12px;
     overflow:hidden;
-    box-shadow:0 6px 28px rgba(0,0,0,.35), 0 2px 8px rgba(0,0,0,.15);
+    box-shadow:0 10px 40px rgba(0,0,0,.5), 0 4px 12px rgba(0,0,0,.3);
   }
   @media print {
     body { background:white; padding:0; gap:14mm; }
@@ -131,7 +131,7 @@ export function generateAthleteCard(athlete) {
         <td valign="middle" style="direction:rtl;padding-right:10px">
           <table cellpadding="0" cellspacing="0" width="100%">
             <tr>
-              <td style="font-size:13px;font-weight:bold;color:#888;white-space:nowrap;width:90px;padding-right:6px;text-align:right">الرقم الشخصي</td>
+              <td style="font-size:12px;font-weight:600;color:#000;white-space:nowrap;width:90px;padding-right:8px;text-align:right">الرقم الشخصي</td>
               <td style="font-size:13px;font-weight:500;color:#111;direction:ltr;text-align:right">${athlete.id_number || '—'}</td>
             </tr>
           </table>
@@ -147,8 +147,11 @@ export function generateAthleteCard(athlete) {
   </div>
 </div>
 
-<div class="no-print" style="text-align:center">
-  <button onclick="window.print()" style="padding:10px 34px;background:#8B1A1A;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer;font-family:Arial">
+<div class="no-print" style="text-align:center;display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+  <button onclick="if(window.opener){window.close();}else{history.back();}" style="padding:10px 28px;background:#555;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer;font-family:Arial">
+    ← رجوع / Back
+  </button>
+  <button onclick="window.print()" style="padding:10px 28px;background:#8B1A1A;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer;font-family:Arial">
     🖨️ طباعة / Print
   </button>
 </div>
