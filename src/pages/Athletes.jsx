@@ -1093,7 +1093,7 @@ ${myDocs.length > 0 ? `<div class="section">
   // ── COLUMN DEFINITIONS ──
   const ALL_COLS = [
     { key:'name',            label:tx('athletes.athlete','Athlete'),          default:true,  editable:true  },
-    { key:'name_ar',         label:tx('athletes.arabicName','Arabic Name'),   default:false, editable:false },
+    { key:'name_ar',         label:lang==='ar' ? tx('athletes.athlete','الاسم بالإنجليزي') : tx('athletes.arabicName','Arabic Name'),   default:false, editable:false },
     { key:'qss_number',      label:tx('athletes.qssNumber','QSS #'),          default:false, editable:false },
     { key:'id_number',       label:tx('athletes.qatarID','Qatar ID'),         default:false, editable:false },
     { key:'career_profile',  label:tx('athletes.careerProfile','Career Profile #'), default:false, editable:false },
@@ -1144,7 +1144,7 @@ ${myDocs.length > 0 ? `<div class="section">
           </div>
         </div>
       )
-      case 'name_ar':          return <span style={{ color:'var(--text2)', direction:'rtl' }}>{a.name_ar || '—'}</span>
+      case 'name_ar':          return <span style={{ color:'var(--text2)', direction: lang==='ar'?'ltr':'rtl' }}>{lang==='ar' ? (a.name||'—') : (a.name_ar||'—')}</span>
       case 'qss_number':       return <span style={{ color:'var(--text2)', fontFamily:'monospace', fontSize:12 }}>{a.qss_number || '—'}</span>
       case 'career_profile':   return <span style={{ color:'var(--text2)', fontFamily:'monospace', fontSize:12 }}>{a.career_profile || '—'}</span>
       case 'sport':            return <span style={{ color:'var(--text2)' }}>{SPORT_NAMES[a.sport] || a.sport || '—'}</span>

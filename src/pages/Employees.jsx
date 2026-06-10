@@ -586,7 +586,7 @@ export default function Employees({ employees, personDocs, onRefresh, onNav, nav
                     }
                     <div>
                       <div style={{ fontWeight:500, fontSize:13 }}>{lang==='ar' && emp.name_ar ? emp.name_ar : emp.name}</div>
-                      {emp.name_ar && <div style={{ fontSize:11, color:'#9aa3b2' }}>{lang==='ar' ? emp.name : emp.name_ar}</div>}
+                      <div style={{ fontSize:11, color:'#9aa3b2' }}>{lang==='ar' ? emp.name : (emp.name_ar||tc(emp.nationality))}</div>
                     </div>
                   </div>
                 </td>
