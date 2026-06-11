@@ -78,10 +78,11 @@ export default function Login() {
 
     // (admin notification handled via User Management page)
 
-    // Sign out after registration — user is pending approval
-    supabase.auth.signOut()  // fire and forget, don't await
+    // Show sent screen immediately, then sign out
     setMode('sent')
     setLoading(false)
+    // Small delay so React renders the sent screen before signOut clears state
+    setTimeout(() => supabase.auth.signOut(), 500)
   }
 
   // ── SENT / PENDING / REJECTED SCREENS ──
