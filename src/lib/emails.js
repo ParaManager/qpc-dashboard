@@ -1,4 +1,4 @@
-const ADMIN_EMAIL = 'hsinou@gmail.com'
+const ADMIN_EMAIL = 'paralympicmanager@gmail.com'
 const APP_URL = 'https://qpc-dashboard.vercel.app'
 
 async function sendEmail(to, subject, html) {
@@ -72,7 +72,9 @@ export async function notifyUserApproved({ email, fullName, accountType }) {
       </a>
     </div>
   ${baseEnd}`
-  return sendEmail(email, 'Your QPC Dashboard Access Has Been Approved ✓', html)
+  // Send to admin (resend.dev restriction) — admin notifies user directly
+  // TODO: replace with user's email once domain is verified
+  return sendEmail(ADMIN_EMAIL, `✓ Approved: ${fullName} (${email})`, html)
 }
 
 export async function notifyUserRejected({ email, fullName, reason }) {
@@ -84,5 +86,7 @@ export async function notifyUserRejected({ email, fullName, reason }) {
       <p style="color:#5a6272;font-size:13px">If you believe this is a mistake, please contact the administrator directly.</p>
     </div>
   ${baseEnd}`
-  return sendEmail(email, 'Your QPC Dashboard Access Request', html)
+  // Send to admin (resend.dev restriction) — admin notifies user directly
+  // TODO: replace with user's email once domain is verified
+  return sendEmail(ADMIN_EMAIL, `✗ Rejected: ${fullName} (${email})`, html)
 }
