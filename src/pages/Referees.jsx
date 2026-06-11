@@ -257,7 +257,6 @@ export default function Referees({ referees, onRefresh, profile }) {
                     <Avatar name={r.name_ar||'?'} id={r.id} size={32} fs={11} />
                     <div>
                       <div style={{ fontWeight:500, fontSize:13 }}>{r.name_ar || '—'}</div>
-                      <div style={{ fontSize:11, color:'var(--text3)' }}>{tc(r.nationality)}</div>
                     </div>
                   </div>
                 </td>
