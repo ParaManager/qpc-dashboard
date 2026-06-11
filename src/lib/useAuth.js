@@ -8,11 +8,13 @@ export function useAuth() {
 
   async function fetchProfile(userId) {
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
-        .single()
+        .maybeSingle()
+      // 406 = RLS blocking, treat as no profile but don't hang
+      if (error) return null
       return data || null
     } catch {
       return null
@@ -22,7 +24,6 @@ export function useAuth() {
   useEffect(() => {
     let mounted = true
 
-    // Initial session check
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!mounted) return
       const u = session?.user ?? null
@@ -31,14 +32,11 @@ export function useAuth() {
         const p = await fetchProfile(u.id)
         if (mounted) setProfile(p)
       }
-      if (mounted) setLoading(false)
+      if (mounted) setLoading(false)  // always stop loading
     })
 
-    // Auth state listener — only handle SIGNED_IN and TOKEN_REFRESHED
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return
-      // Only react to actual sign-in events, not sign-out
-      // Sign-out is handled explicitly by the signOut() function
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
         const u = session?.user ?? null
         setUser(u)
@@ -47,8 +45,6 @@ export function useAuth() {
           if (mounted) setProfile(p)
         }
       }
-      // For SIGNED_OUT: only clear if triggered by our own signOut()
-      // We handle this via the signOut function directly
     })
 
     return () => { mounted = false; subscription.unsubscribe() }
