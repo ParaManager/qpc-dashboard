@@ -62,7 +62,7 @@ export default function Login() {
     if (!data?.user) { setError(L('Signup failed. Please try again.','فشل التسجيل. حاول مجدداً.')); setLoading(false); return }
 
     // Only create profile if one doesn't already exist
-    const { data: existing } = await supabase.from('profiles').select('id,status').eq('id', data.user.id).single()
+    const { data: existing } = await supabase.from('profiles').select('id,status').eq('id', data.user.id).maybeSingle()
     if (!existing) {
       await supabase.from('profiles').insert({
         id: data.user.id,
