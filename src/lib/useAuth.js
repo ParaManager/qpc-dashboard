@@ -6,14 +6,28 @@ export function useAuth() {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  async function fetchProfile(userId) {
+  async function fetchProfile(u) {
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', userId)
+        .eq('id', u.id)
         .single()
-      return data || null
+
+      if (data) return data
+
+      // No profile row yet — create one as active admin
+      // (only reaches here if someone logs in without going through register)
+      const newProfile = {
+        id: u.id,
+        full_name: u.email,
+        role: 'admin',
+        account_type: 'admin',
+        status: 'active',
+        requested_at: new Date().toISOString(),
+      }
+      await supabase.from('profiles').insert(newProfile)
+      return newProfile
     } catch {
       return null
     }
@@ -27,7 +41,7 @@ export function useAuth() {
       const u = session?.user ?? null
       setUser(u)
       if (u) {
-        const p = await fetchProfile(u.id)
+        const p = await fetchProfile(u)
         if (mounted) setProfile(p)
       }
       if (mounted) setLoading(false)
@@ -35,16 +49,10 @@ export function useAuth() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return
-      console.log('[Auth event]', event, session?.user?.email)
 
-      // Ignore SIGNED_OUT if we still have a valid session
       if (event === 'SIGNED_OUT') {
-        // Double-check session is really gone
-        const { data: { session: currentSession } } = await supabase.auth.getSession()
-        if (currentSession?.user) {
-          console.log('[Auth] Ignoring false SIGNED_OUT — session still active')
-          return
-        }
+        const { data: { session: cur } } = await supabase.auth.getSession()
+        if (cur?.user) return  // false sign-out, ignore
         setUser(null)
         setProfile(null)
         return
@@ -53,15 +61,12 @@ export function useAuth() {
       const u = session?.user ?? null
       setUser(u)
       if (u) {
-        const p = await fetchProfile(u.id)
+        const p = await fetchProfile(u)
         if (mounted) setProfile(p)
       }
     })
 
-    return () => {
-      mounted = false
-      subscription.unsubscribe()
-    }
+    return () => { mounted = false; subscription.unsubscribe() }
   }, [])
 
   async function signOut() {
