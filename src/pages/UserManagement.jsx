@@ -2,11 +2,41 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
 import { toast } from '../components/Toast'
-import { notifyUserApproved, notifyUserRejected } from '../lib/emails'
 import { Avatar } from '../lib/helpers'
 
 const ROLE_COLORS  = { admin:'#EE334E', coach:'#0085C7', athlete:'#009F6B', guest:'#8b5cf6' }
 const STATUS_COLORS = { active:'#009F6B', pending:'#f59e0b', rejected:'#EE334E' }
+
+
+function openApprovalEmail(user) {
+  const subject = encodeURIComponent('QPC Dashboard - Access Approved')
+  const body = encodeURIComponent(
+`Hello ${user.full_name || ''},
+
+Your access request to the Qatar Paralympic Committee Dashboard has been approved.
+
+You can now sign in at: https://qpc-dashboard.vercel.app
+
+Account type: ${user.account_type}
+
+Qatar Paralympic Committee`)
+  window.open(`mailto:${user.email || ''}?subject=${subject}&body=${body}`)
+}
+
+function openRejectionEmail(user, reason) {
+  const subject = encodeURIComponent('QPC Dashboard - Access Request Update')
+  const body = encodeURIComponent(
+`Hello ${user.full_name || ''},
+
+Unfortunately your access request to the Qatar Paralympic Committee Dashboard has not been approved at this time.
+${reason ? `
+Reason: ${reason}
+` : ''}
+Please contact the administrator for more information.
+
+Qatar Paralympic Committee`)
+  window.open(`mailto:${user.email || ''}?subject=${subject}&body=${body}`)
+}
 
 export default function UserManagement({ profile }) {
   const { lang } = useLang()
@@ -46,8 +76,8 @@ export default function UserManagement({ profile }) {
       status: 'rejected',
       rejection_reason: rejReason[user.id] || '',
     }).eq('id', user.id)
-    if (user.email) notifyUserRejected({ email: user.email, fullName: user.full_name || user.email, reason: rejReason[user.id] || '' })
     toast(L('Request rejected', 'تم رفض الطلب'))
+    openRejectionEmail(user, rejReason[user.id] || '')
     loadUsers()
   }
 
