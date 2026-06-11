@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react'
 import { supabase } from './supabase'
 
 export function useAuth() {
-  const [user, setUser]       = useState(null)
-  const [profile, setProfile] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [user, setUser]         = useState(null)
+  const [profile, setProfile]   = useState(null)
+  const [loading, setLoading]   = useState(true)  // stays true until user+profile both resolved
 
   async function fetchProfile(userId) {
     const { data } = await supabase
@@ -18,6 +18,7 @@ export function useAuth() {
   useEffect(() => {
     let mounted = true
 
+    // On mount: get session → fetch profile → THEN stop loading
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!mounted) return
       const u = session?.user ?? null
@@ -26,15 +27,13 @@ export function useAuth() {
         const p = await fetchProfile(u.id)
         if (mounted) setProfile(p)
       }
-      if (mounted) setLoading(false)
+      if (mounted) setLoading(false)  // only stop loading AFTER profile fetch
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return
 
       if (event === 'SIGNED_OUT') {
-        // Always clear on sign out — the login loop issue was from email confirmation
-        // which is now disabled, so SIGNED_OUT is always intentional
         setUser(null)
         setProfile(null)
         return
@@ -42,11 +41,14 @@ export function useAuth() {
 
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
         const u = session?.user ?? null
+        // Set loading true again while we fetch the new profile
+        if (mounted) setLoading(true)
         setUser(u)
         if (u) {
           const p = await fetchProfile(u.id)
           if (mounted) setProfile(p)
         }
+        if (mounted) setLoading(false)
       }
     })
 
