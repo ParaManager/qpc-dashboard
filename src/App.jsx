@@ -14,6 +14,7 @@ import UserManagement from './pages/UserManagement'
 import Attendance  from './pages/Attendance'
 import Employees from './pages/Employees'
 import './index.css'
+import NotificationBell from './components/NotificationBell.jsx'
 import { useLang } from './lib/LangContext.jsx'
 
 const NAV_ADMIN = (tx) => [
@@ -80,6 +81,13 @@ export default function App() {
     setPage(targetPage)
     setNavState(state)
   }
+
+  // Listen for navigation events from NotificationBell
+  useEffect(() => {
+    function handleNav(e) { goTo(e.detail) }
+    window.addEventListener('navigate', handleNav)
+    return () => window.removeEventListener('navigate', handleNav)
+  }, [goTo])
 
   const upcomingCount = events.filter(e => e.status === 'Upcoming' || e.status === 'Registration Open').length
 
@@ -209,7 +217,7 @@ export default function App() {
               title="Switch language">
               {lang === 'en' ? 'عربي' : 'EN'}
             </button>
-            <button className="tb-btn"><i className="ti ti-bell" /></button>
+            <NotificationBell isAdmin={isAdmin} />
           </div>
         </div>
         <div id="content">
