@@ -60,17 +60,20 @@ export default function Login() {
     })
     if (error) { setError(error.message); setLoading(false); return }
 
-    // Create profile as pending
-    await supabase.from('profiles').upsert({
-      id: data.user.id,
-      full_name: form.fullName,
-      account_type: form.accountType,
-      role: form.accountType,
-      status: form.accountType === 'admin' ? 'rejected' : 'pending', // nobody can self-register as admin
-      coach_id: form.coachId || null,
-      athlete_id: form.athleteId || null,
-      requested_at: new Date().toISOString(),
-    })
+    // Only create profile if one doesn't already exist
+    const { data: existing } = await supabase.from('profiles').select('id,status').eq('id', data.user.id).single()
+    if (!existing) {
+      await supabase.from('profiles').insert({
+        id: data.user.id,
+        full_name: form.fullName,
+        account_type: form.accountType,
+        role: form.accountType,
+        status: 'pending',
+        coach_id: form.coachId || null,
+        athlete_id: form.athleteId || null,
+        requested_at: new Date().toISOString(),
+      })
+    }
 
     // Notify admin via Supabase (insert into a notifications table)
     await supabase.from('access_notifications').insert({
