@@ -48,11 +48,18 @@ export default function Login() {
       email: form.email,
       password: form.password,
       options: {
-        emailRedirectTo: window.location.origin,
         data: { full_name: form.fullName }
       }
     })
-    if (error) { setError(error.message); setLoading(false); return }
+    if (error) {
+      if (error.message?.includes('already registered') || error.status === 422) {
+        setError(L('This email is already registered. Please sign in instead.','هذا البريد الإلكتروني مسجل بالفعل. يرجى تسجيل الدخول.'))
+      } else {
+        setError(error.message)
+      }
+      setLoading(false); return
+    }
+    if (!data?.user) { setError(L('Signup failed. Please try again.','فشل التسجيل. حاول مجدداً.')); setLoading(false); return }
 
     // Only create profile if one doesn't already exist
     const { data: existing } = await supabase.from('profiles').select('id,status').eq('id', data.user.id).single()
@@ -69,14 +76,7 @@ export default function Login() {
       })
     }
 
-    // Notify admin via Supabase (insert into a notifications table)
-    await supabase.from('access_notifications').insert({
-      user_email: form.email,
-      full_name: form.fullName,
-      account_type: form.accountType,
-      coach_id: form.coachId || null,
-      athlete_id: form.athleteId || null,
-    }).then(() => {}) // silent fail if table doesn't exist yet
+    // (admin notification handled via User Management page)
 
     await supabase.auth.signOut()
     setMode('sent')
