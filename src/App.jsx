@@ -9,7 +9,8 @@ import Coaches   from './pages/Coaches'
 import Events    from './pages/Events'
 import Results   from './pages/Results'
 import Sports      from './pages/Sports'
-import Schedule    from './pages/Schedule'
+import Schedule       from './pages/Schedule'
+import UserManagement from './pages/UserManagement'
 import Attendance  from './pages/Attendance'
 import Employees from './pages/Employees'
 import './index.css'
@@ -189,6 +190,42 @@ export default function App() {
         </div>
       </div>
       <ToastContainer />
+    </div>
+  )
+}
+
+function PendingScreen() {
+  const { lang } = useLang()
+  const ar = lang === 'ar'
+  const { signOut } = useAuth()
+  return (
+    <div style={{ minHeight:'100vh', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:12, background:'var(--bg)', direction:ar?'rtl':'ltr' }}>
+      <div style={{ fontSize:48 }}>⏳</div>
+      <div style={{ fontSize:20, fontWeight:700 }}>{ar?'في انتظار الموافقة':'Pending Approval'}</div>
+      <div style={{ fontSize:14, color:'var(--text3)', textAlign:'center', maxWidth:300 }}>
+        {ar?'حسابك في انتظار موافقة المسؤول. يرجى المحاولة لاحقاً.':'Your account is pending admin approval. Please check back later.'}
+      </div>
+      <button onClick={signOut} style={{ marginTop:8, padding:'9px 24px', background:'#EE334E', color:'#fff', border:'none', borderRadius:10, cursor:'pointer', fontSize:14 }}>
+        {ar?'تسجيل الخروج':'Sign Out'}
+      </button>
+    </div>
+  )
+}
+
+function RejectedScreen() {
+  const { lang } = useLang()
+  const ar = lang === 'ar'
+  const { signOut } = useAuth()
+  return (
+    <div style={{ minHeight:'100vh', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:12, background:'var(--bg)', direction:ar?'rtl':'ltr' }}>
+      <div style={{ fontSize:48 }}>❌</div>
+      <div style={{ fontSize:20, fontWeight:700 }}>{ar?'تم رفض الطلب':'Access Denied'}</div>
+      <div style={{ fontSize:14, color:'var(--text3)', textAlign:'center', maxWidth:300 }}>
+        {ar?'لم تتم الموافقة على طلب الوصول. يرجى التواصل مع المسؤول.':'Your access request was not approved. Please contact the administrator.'}
+      </div>
+      <button onClick={signOut} style={{ marginTop:8, padding:'9px 24px', background:'#EE334E', color:'#fff', border:'none', borderRadius:10, cursor:'pointer', fontSize:14 }}>
+        {ar?'تسجيل الخروج':'Sign Out'}
+      </button>
     </div>
   )
 }
