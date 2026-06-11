@@ -1,24 +1,19 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from './supabase'
 
 export function useAuth() {
   const [user, setUser]       = useState(null)
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
+  const signingOut            = useRef(false)  // tracks intentional sign-outs
 
   async function fetchProfile(userId) {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle()
-      // 406 = RLS blocking, treat as no profile but don't hang
-      if (error) return null
-      return data || null
-    } catch {
-      return null
-    }
+    const { data } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .maybeSingle()
+    return data || null
   }
 
   useEffect(() => {
@@ -32,11 +27,22 @@ export function useAuth() {
         const p = await fetchProfile(u.id)
         if (mounted) setProfile(p)
       }
-      if (mounted) setLoading(false)  // always stop loading
+      if (mounted) setLoading(false)
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return
+
+      if (event === 'SIGNED_OUT') {
+        // Only clear state if WE triggered the sign-out (not Supabase internally)
+        if (signingOut.current) {
+          setUser(null)
+          setProfile(null)
+          signingOut.current = false
+        }
+        return
+      }
+
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
         const u = session?.user ?? null
         setUser(u)
@@ -51,9 +57,8 @@ export function useAuth() {
   }, [])
 
   async function signOut() {
+    signingOut.current = true
     await supabase.auth.signOut()
-    setUser(null)
-    setProfile(null)
   }
 
   return { user, profile, loading, signOut }
