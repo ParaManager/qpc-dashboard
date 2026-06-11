@@ -3,8 +3,6 @@ import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
 import { qpcLogo as QPC_LOGO } from '../lib/logos'
 
-const ADMIN_EMAIL = 'bouteldja.a@gmail.com' // your father's email
-
 export default function Login() {
   const { lang, setLang } = useLang()
   const ar = lang === 'ar'
@@ -30,13 +28,9 @@ export default function Login() {
   async function handleLogin(e) {
     e.preventDefault()
     setLoading(true); setError('')
-    const { data, error } = await supabase.auth.signInWithPassword({ email: form.email, password: form.password })
+    const { error } = await supabase.auth.signInWithPassword({ email: form.email, password: form.password })
     if (error) { setError(error.message); setLoading(false); return }
-
-    // Check profile status
-    const { data: profile } = await supabase.from('profiles').select('*').eq('id', data.user.id).single()
-    if (profile?.status === 'pending') { setMode('pending'); setLoading(false); await supabase.auth.signOut(); return }
-    if (profile?.status === 'rejected') { setMode('rejected'); setLoading(false); await supabase.auth.signOut(); return }
+    // App.jsx handles pending/rejected screens based on profile.status
     setLoading(false)
   }
 
