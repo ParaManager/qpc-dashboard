@@ -68,6 +68,7 @@ export default function UserManagement({ profile }) {
       approved_by: profile?.id,
     }).eq('id', user.id)
     toast(L(`${user.full_name || user.email} approved`, `تمت الموافقة على ${user.full_name || ''}`))
+    openApprovalEmail(user)
     loadUsers()
   }
 
