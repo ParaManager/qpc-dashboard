@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
-import { QPC_LOGO } from '../lib/logos'
+import { qpcLogo as QPC_LOGO } from '../lib/logos'
 
 const ADMIN_EMAIL = 'bouteldja.a@gmail.com' // your father's email
 
