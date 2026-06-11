@@ -79,9 +79,9 @@ export default function Login({ onRequestSent }) {
     // (admin notification handled via User Management page)
 
     // Show sent screen immediately, then sign out
-    await supabase.auth.signOut()
     setLoading(false)
-    if (onRequestSent) onRequestSent()
+    if (onRequestSent) onRequestSent()  // show sent screen first
+    await supabase.auth.signOut()        // then sign out in background
   }
 
   // ── SENT / PENDING / REJECTED SCREENS ──
