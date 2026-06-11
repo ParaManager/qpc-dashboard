@@ -213,6 +213,7 @@ export default function App() {
             {/* Language toggle */}
             <button
               onClick={() => setLang(lang === 'en' ? 'ar' : 'en')}
+              className="lang-btn"
               style={{ display:'flex', alignItems:'center', gap:5, padding:'5px 12px', borderRadius:8, border:'1px solid var(--border)', background: lang === 'ar' ? '#0085C7' : 'var(--surface)', color: lang === 'ar' ? '#fff' : 'var(--text2)', fontSize:13, fontWeight:600, cursor:'pointer', transition:'all .15s', fontFamily:'DM Sans, sans-serif' }}
               title="Switch language">
               {lang === 'en' ? 'عربي' : 'EN'}

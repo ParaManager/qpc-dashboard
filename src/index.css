@@ -305,10 +305,13 @@ body { overscroll-behavior: none; }
 
   /* Topbar compact */
   .topbar { padding: 0 12px; height: 52px; padding-top: env(safe-area-inset-top); }
-  .tb-breadcrumb { font-size: 11px; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .tb-actions { gap: 4px; }
+  .tb-breadcrumb { font-size: 11px; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 1; }
+  .tb-actions { gap: 4px; flex-shrink: 0; }
   .role-label { display: none; }
   .hide-mobile { display: none; }
+  .lang-btn { padding: 5px 8px !important; font-size: 11px !important; }
+  .page-title { font-size: 17px; }
+  .page-sub { font-size: 12px; white-space: normal; }
 
   /* Content padding */
   #content { padding: 14px 12px; padding-bottom: calc(14px + env(safe-area-inset-bottom)); }
