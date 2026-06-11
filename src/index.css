@@ -304,7 +304,12 @@ body { overscroll-behavior: none; }
   .main { width: 100%; }
 
   /* Topbar compact */
-  .topbar { padding: 0 12px; height: 52px; padding-top: env(safe-area-inset-top); }
+  .topbar { 
+    padding: 0 12px; 
+    height: calc(52px + env(safe-area-inset-top)); 
+    padding-top: env(safe-area-inset-top);
+    box-sizing: border-box;
+  }
   .tb-breadcrumb { font-size: 11px; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 1; }
   .tb-actions { gap: 4px; flex-shrink: 0; }
   .role-label { display: none; }
