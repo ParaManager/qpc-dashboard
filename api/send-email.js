@@ -5,7 +5,7 @@ export default async function handler(req, res) {
   const apiKey = process.env.RESEND_API_KEY
 
   if (!apiKey) return res.status(500).json({ error: 'RESEND_API_KEY not configured' })
-  if (!to || !subject || !html) return res.status(400).json({ error: 'Missing to/subject/html' })
+  if (!to || !subject || !html) return res.status(400).json({ error: 'Missing fields' })
 
   try {
     const response = await fetch('https://api.resend.com/emails', {
@@ -19,11 +19,17 @@ export default async function handler(req, res) {
         to: Array.isArray(to) ? to : [to],
         subject,
         html,
+        headers: {
+          'X-Priority': '1',
+          'X-Mailer': 'QPC Dashboard',
+          'List-Unsubscribe': '<mailto:paralympicmanager@gmail.com>',
+        },
+        tags: [{ name: 'category', value: 'notification' }],
       }),
     })
     const data = await response.json()
     if (!response.ok) return res.status(400).json({ error: data })
-    return res.status(200).json({ success: true, id: data.id })
+    return res.status(200).json({ success: true })
   } catch (err) {
     return res.status(500).json({ error: err.message })
   }
