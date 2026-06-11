@@ -50,7 +50,14 @@ export default function Login() {
     if (form.accountType === 'athlete' && !form.athleteId) { setError(L('Please select your athlete profile','الرجاء اختيار ملف الرياضي')); setLoading(false); return }
 
     // Sign up
-    const { data, error } = await supabase.auth.signUp({ email: form.email, password: form.password })
+    const { data, error } = await supabase.auth.signUp({
+      email: form.email,
+      password: form.password,
+      options: {
+        emailRedirectTo: window.location.origin,
+        data: { full_name: form.fullName }
+      }
+    })
     if (error) { setError(error.message); setLoading(false); return }
 
     // Create profile as pending
