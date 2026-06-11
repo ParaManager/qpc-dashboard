@@ -78,7 +78,8 @@ export default function Login() {
 
     // (admin notification handled via User Management page)
 
-    await supabase.auth.signOut()
+    // Sign out after registration — user is pending approval
+    supabase.auth.signOut()  // fire and forget, don't await
     setMode('sent')
     setLoading(false)
   }
