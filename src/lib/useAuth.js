@@ -1,11 +1,10 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from './supabase'
 
 export function useAuth() {
   const [user, setUser]       = useState(null)
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
-  const signingOut            = useRef(false)  // tracks intentional sign-outs
 
   async function fetchProfile(userId) {
     const { data } = await supabase
@@ -34,12 +33,10 @@ export function useAuth() {
       if (!mounted) return
 
       if (event === 'SIGNED_OUT') {
-        // Only clear state if WE triggered the sign-out (not Supabase internally)
-        if (signingOut.current) {
-          setUser(null)
-          setProfile(null)
-          signingOut.current = false
-        }
+        // Always clear on sign out — the login loop issue was from email confirmation
+        // which is now disabled, so SIGNED_OUT is always intentional
+        setUser(null)
+        setProfile(null)
         return
       }
 
@@ -57,7 +54,6 @@ export function useAuth() {
   }, [])
 
   async function signOut() {
-    signingOut.current = true
     await supabase.auth.signOut()
   }
 
