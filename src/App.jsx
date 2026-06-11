@@ -16,10 +16,20 @@ import Employees from './pages/Employees'
 import './index.css'
 import { useLang } from './lib/LangContext.jsx'
 
-const NAV = (tx) => [
-  { section: tx('nav.overview','Overview'),     items: [{ id: 'dashboard', icon: 'ti-layout-dashboard', label: tx('nav.dashboard','Dashboard') }] },
-  { section: tx('nav.people','People'),         items: [{ id: 'athletes',  icon: 'ti-run',              label: tx('nav.athletes','Athletes')  }, { id: 'coaches', icon: 'ti-user-star', label: tx('nav.coaches','Coaches') }, { id: 'employees', icon: 'ti-users', label: tx('nav.employees','Employees') }] },
-  { section: tx('nav.competitions','Competitions'), items: [{ id: 'sports', icon: 'ti-ball-football', label: tx('nav.sports','Sports') }, { id: 'events', icon: 'ti-calendar-event', label: tx('nav.events','Events') }, { id: 'results', icon: 'ti-medal', label: tx('nav.results','Results') }] },
+const NAV_ADMIN = (tx) => [
+  { section: tx('nav.overview','Overview'),      items: [{ id:'dashboard', icon:'ti-layout-dashboard', label:tx('nav.dashboard','Dashboard') }] },
+  { section: tx('nav.people','People'),          items: [{ id:'athletes', icon:'ti-run', label:tx('nav.athletes','Athletes') }, { id:'coaches', icon:'ti-user-star', label:tx('nav.coaches','Coaches') }, { id:'employees', icon:'ti-users', label:tx('nav.employees','Employees') }] },
+  { section: tx('nav.competitions','Competitions'), items: [{ id:'sports', icon:'ti-ball-football', label:tx('nav.sports','Sports') }, { id:'events', icon:'ti-calendar-event', label:tx('nav.events','Events') }, { id:'results', icon:'ti-medal', label:tx('nav.results','Results') }] },
+  { section: tx('nav.admin','Admin'),            items: [{ id:'users', icon:'ti-users-group', label:tx('nav.users','User Management') }] },
+]
+const NAV_COACH = (tx) => [
+  { section: tx('nav.overview','Overview'),      items: [{ id:'dashboard', icon:'ti-layout-dashboard', label:tx('nav.dashboard','Dashboard') }] },
+  { section: tx('nav.people','People'),          items: [{ id:'athletes', icon:'ti-run', label:tx('nav.athletes','Athletes') }] },
+  { section: tx('nav.competitions','Competitions'), items: [{ id:'schedule', icon:'ti-calendar', label:tx('nav.schedule','Schedule') }, { id:'attendance', icon:'ti-clipboard-check', label:tx('nav.attendance','Attendance') }, { id:'events', icon:'ti-calendar-event', label:tx('nav.events','Events') }, { id:'results', icon:'ti-medal', label:tx('nav.results','Results') }] },
+]
+const NAV_GUEST = (tx) => [
+  { section: tx('nav.overview','Overview'),      items: [{ id:'dashboard', icon:'ti-layout-dashboard', label:tx('nav.dashboard','Dashboard') }] },
+  { section: tx('nav.competitions','Competitions'), items: [{ id:'events', icon:'ti-calendar-event', label:tx('nav.events','Events') }, { id:'results', icon:'ti-medal', label:tx('nav.results','Results') }] },
 ]
 
 const ROLE_COLORS = { admin: '#0085C7', coach: '#009F6B', athlete: '#EE334E', guest: '#9aa3b2' }
@@ -97,7 +107,17 @@ export default function App() {
     </div>
   )
 
-  const role      = profile?.role || 'guest'
+  const role      = profile?.account_type || profile?.role || 'guest'
+  const userStatus = profile?.status || 'active'
+  const isAdmin   = role === 'admin'
+  const isCoach   = role === 'coach'
+  const myCoachId = profile?.coach_id || null
+  const myAthletes = isCoach ? athletes.filter(a => a.coach_id === myCoachId) : athletes
+
+  // Block pending/rejected (admins always pass)
+  if (!isAdmin && userStatus === 'pending')  return <PendingScreen />
+  if (!isAdmin && userStatus === 'rejected') return <RejectedScreen />
+
   const roleColor = ROLE_COLORS[role]
   const roleIcon  = ROLE_ICONS[role]
   const userName  = profile?.full_name || user.email
@@ -116,7 +136,7 @@ export default function App() {
           <div className="sb-sub">{lang==='ar' ? 'لذوي الاحتياجات الخاصة' : 'Committee'} · {role}</div>
         </div>
         <div className="sb-nav">
-          {NAV(tx).map(({ section, items }) => (
+          {(isCoach ? NAV_COACH(tx) : isAdmin ? NAV_ADMIN(tx) : NAV_GUEST(tx)).map(({ section, items }) => (
             <div key={section}>
               <div className="nav-section">{section}</div>
               {items.map(({ id, icon, label }) => (
@@ -180,11 +200,14 @@ export default function App() {
           </div>
         </div>
         <div id="content">
-          {page==='dashboard' && <Dashboard athletes={athletes} coaches={coaches} events={events} results={results} onNav={goTo} profile={profile} />}
-          {page==='athletes'  && <Athletes  athletes={athletes} coaches={coaches} results={results} documents={documents} events={events} registrations={registrations} onRefresh={fetchAll} onNav={goTo} initAthleteId={navState.athleteId} initStatusFilter={navState.statusFilter} navState={navState} profile={profile} />}
+          {page==='dashboard' && <Dashboard athletes={myAthletes} coaches={coaches} events={events} results={results} onNav={goTo} profile={profile} />}
+          {page==='athletes'  && <Athletes  athletes={myAthletes} coaches={coaches} results={results} documents={documents} events={events} registrations={registrations} onRefresh={fetchAll} onNav={goTo} initAthleteId={navState.athleteId} initStatusFilter={navState.statusFilter} navState={navState} profile={profile} />}
           {page==='coaches'   && <Coaches   coaches={coaches} athletes={athletes} personDocs={personDocs} onRefresh={fetchAll} onNav={goTo} initCoachId={navState.coachId} navState={navState} profile={profile} />}
           {page==='events'    && <Events    events={events} athletes={athletes} results={results} registrations={registrations} onRefresh={fetchAll} onNav={goTo} initEventId={navState.eventId} initStatusFilter={navState.statusFilter} profile={profile} />}
-          {page==='results'   && <Results   results={results} athletes={athletes} onRefresh={fetchAll} onNav={goTo} profile={profile} />}
+          {page==='schedule'  && <Schedule  profile={profile} coachId={myCoachId} myAthletes={myAthletes} onNav={goTo} />}
+        {page==='attendance' && <Attendance profile={profile} coachId={myCoachId} myAthletes={myAthletes} onNav={goTo} />}
+        {page==='users'     && <UserManagement profile={profile} />}
+        {page==='results'   && <Results   results={results} athletes={athletes} onRefresh={fetchAll} onNav={goTo} profile={profile} />}
           {page==='sports'    && <Sports    athletes={athletes} coaches={coaches} events={events} results={results} onNav={goTo} initSport={navState.sport} profile={profile} />}
           {page==='employees' && <Employees employees={employees} personDocs={personDocs} onRefresh={fetchAll} onNav={goTo} navState={navState} profile={profile} />}
         </div>
