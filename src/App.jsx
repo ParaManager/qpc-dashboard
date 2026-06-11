@@ -51,6 +51,7 @@ export default function App() {
   const [documents, setDocuments]         = useState([])
   const [employees, setEmployees]         = useState([])
   const [personDocs, setPersonDocs]         = useState([])
+  const [referees, setReferees]             = useState([])
   const [dataLoading, setDataLoading]     = useState(true)
   const [navState, setNavState]           = useState({})
 
