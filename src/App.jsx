@@ -11,6 +11,7 @@ import Results   from './pages/Results'
 import Sports      from './pages/Sports'
 import Schedule       from './pages/Schedule'
 import UserManagement from './pages/UserManagement'
+import Referees       from './pages/Referees'
 import Attendance  from './pages/Attendance'
 import Employees from './pages/Employees'
 import './index.css'
@@ -56,6 +57,7 @@ export default function App() {
   const fetchAll = useCallback(async () => {
     const [a, c, e, r, reg, docs, emp, pdocs] = await Promise.all([
       supabase.from('athletes').select('*').order('name'),
+      supabase.from('referees').select('*').order('number'),
       supabase.from('coaches').select('*').order('name'),
       supabase.from('events').select('*').order('start_date'),
       supabase.from('results').select('*').order('date', { ascending: false }),
@@ -229,6 +231,7 @@ export default function App() {
           {page==='schedule'  && <Schedule  profile={profile} coachId={myCoachId} myAthletes={myAthletes} onNav={goTo} />}
         {page==='attendance' && <Attendance profile={profile} coachId={myCoachId} myAthletes={myAthletes} onNav={goTo} />}
         {page==='users'     && isAdmin && <UserManagement profile={profile} />}
+        {page==='referees'  && <Referees referees={referees} onRefresh={fetchAll} profile={profile} />}
         {page==='results'   && <Results   results={results} athletes={athletes} onRefresh={fetchAll} onNav={goTo} profile={profile} />}
           {page==='sports'    && <Sports    athletes={athletes} coaches={coaches} events={events} results={results} onNav={goTo} initSport={navState.sport} profile={profile} />}
           {page==='employees' && isAdmin && <Employees employees={employees} personDocs={personDocs} onRefresh={fetchAll} onNav={goTo} navState={navState} profile={profile} />}
