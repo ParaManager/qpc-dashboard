@@ -305,15 +305,18 @@ body { overscroll-behavior: none; }
 
   /* Topbar compact */
   .topbar { padding: 0 12px; height: 52px; padding-top: env(safe-area-inset-top); }
-  .tb-breadcrumb { font-size: 11px; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tb-breadcrumb { font-size: 11px; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tb-actions { gap: 4px; }
+  .role-label { display: none; }
+  .hide-mobile { display: none; }
 
   /* Content padding */
   #content { padding: 14px 12px; padding-bottom: calc(14px + env(safe-area-inset-bottom)); }
 
   /* Page header stacks vertically */
-  .page-header { flex-direction: column; align-items: flex-start; gap: 10px; }
-  .page-header > div:last-child { width: 100%; display: flex; flex-wrap: wrap; gap: 8px; }
-  .page-header button { flex: 1; min-width: 120px; justify-content: center; }
+  .page-header { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .page-header > div:last-child { width: 100%; display: flex; flex-wrap: wrap; gap: 6px; }
+  .page-header button, .page-header .btn { flex: 1; min-width: 100px; justify-content: center; font-size: 12px; }
 
   /* Filters wrap */
   .filters { flex-wrap: wrap; gap: 8px; }
