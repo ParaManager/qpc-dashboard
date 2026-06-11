@@ -39,8 +39,8 @@ export default function App() {
   const { user, profile, loading: authLoading, signOut } = useAuth()
   const { lang, setLang, tx } = useLang()
   const [sidebarOpen, setSidebarOpen] = useState(false)
-
-  const [page, setPage]                   = useState('dashboard')
+  const [requestSent, setRequestSent] = useState(false)
+  const [page, setPage]               = useState('dashboard')
   const [athletes, setAthletes]           = useState([])
   const [coaches, setCoaches]             = useState([])
   const [events, setEvents]               = useState([])
