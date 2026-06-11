@@ -5,6 +5,7 @@ export const AR = {
     employees:'الموظفون', sports:'الرياضات', events:'الفعاليات',
     results:'النتائج', signOut:'تسجيل الخروج', adminPortal:'بوابة الإدارة', season:'موسم',
     schedule:'الجدول الزمني', attendance:'الحضور والغياب',
+    users:'إدارة المستخدمين', admin:'الإدارة',
   },
   pages: {
     dashboard:'لوحة التحكم', athletes:'الرياضيون', coaches:'المدربون',
