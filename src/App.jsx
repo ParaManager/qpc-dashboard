@@ -20,7 +20,7 @@ import { useLang } from './lib/LangContext.jsx'
 
 const NAV_ADMIN = (tx) => [
   { section: tx('nav.overview','Overview'),      items: [{ id:'dashboard', icon:'ti-layout-dashboard', label:tx('nav.dashboard','Dashboard') }] },
-  { section: tx('nav.people','People'),          items: [{ id:'athletes', icon:'ti-run', label:tx('nav.athletes','Athletes') }, { id:'coaches', icon:'ti-user-star', label:tx('nav.coaches','Coaches') }, { id:'employees', icon:'ti-users', label:tx('nav.employees','Employees') }] },
+  { section: tx('nav.people','People'),          items: [{ id:'athletes', icon:'ti-run', label:tx('nav.athletes','Athletes') }, { id:'coaches', icon:'ti-user-star', label:tx('nav.coaches','Coaches') }, { id:'employees', icon:'ti-users', label:tx('nav.employees','Employees') }, { id:'referees', icon:'ti-whistle', label:tx('nav.referees','Referees') }] },
   { section: tx('nav.competitions','Competitions'), items: [{ id:'sports', icon:'ti-ball-football', label:tx('nav.sports','Sports') }, { id:'events', icon:'ti-calendar-event', label:tx('nav.events','Events') }, { id:'results', icon:'ti-medal', label:tx('nav.results','Results') }] },
   { section: tx('nav.admin','Admin'),            items: [{ id:'users', icon:'ti-users-group', label:tx('nav.users','User Management') }] },
 ]
