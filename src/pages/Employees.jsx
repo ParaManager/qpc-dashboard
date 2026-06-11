@@ -127,6 +127,12 @@ function exportEmployeesPDF(emp, lang) {
   .field .v { font-weight:600; text-align:${isAr?'left':'right'}; }
   .footer { margin-top:32px; padding-top:12px; border-top:1px solid #e2e5ea; font-size:10px; color:#9aa3b2; text-align:center; }
 </style></head><body>
+<div class="no-print" style="position:fixed;top:16px;left:16px;z-index:999">
+  <button onclick="if(window.opener||window.history.length<=1){window.close()}else{history.back()}"
+    style="display:flex;align-items:center;gap:6px;padding:9px 18px;background:#0a1628;color:#fff;border:none;border-radius:10px;font-size:14px;cursor:pointer;font-family:Arial;box-shadow:0 2px 12px rgba(0,0,0,.3)">
+    &#8592; Back
+  </button>
+</div>
 
 <div class="header">
   <div class="dots">
