@@ -7,37 +7,50 @@ export function useAuth() {
   const [loading, setLoading] = useState(true)
 
   async function fetchProfile(userId) {
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single()
-    setProfile(data || null)
+    try {
+      const { data } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single()
+      return data || null
+    } catch {
+      return null
+    }
   }
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null)
-      if (session?.user) {
-        fetchProfile(session.user.id).finally(() => setLoading(false))
-      } else {
-        setLoading(false)
+    let mounted = true
+
+    // On mount: get session, fetch profile, then stop loading
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!mounted) return
+      const u = session?.user ?? null
+      setUser(u)
+      if (u) {
+        const p = await fetchProfile(u.id)
+        if (mounted) setProfile(p)
       }
+      if (mounted) setLoading(false)
     })
 
-    // Listen for auth changes — only update state, never sign out here
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      setUser(session?.user ?? null)
-      if (session?.user) {
-        fetchProfile(session.user.id)
+    // On auth changes (login/logout) — update state only
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!mounted) return
+      const u = session?.user ?? null
+      setUser(u)
+      if (u) {
+        const p = await fetchProfile(u.id)
+        if (mounted) setProfile(p)
       } else {
         setProfile(null)
-        setLoading(false)
       }
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      mounted = false
+      subscription.unsubscribe()
+    }
   }, [])
 
   async function signOut() {
@@ -49,7 +62,6 @@ export function useAuth() {
   return { user, profile, loading, signOut }
 }
 
-// Role helpers
 export const isAdmin   = p => p?.role === 'admin' || p?.account_type === 'admin'
 export const isCoach   = p => p?.role === 'coach' || p?.account_type === 'coach'
 export const isAthlete = p => p?.role === 'athlete' || p?.account_type === 'athlete'
