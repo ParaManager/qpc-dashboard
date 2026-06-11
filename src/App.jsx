@@ -55,9 +55,9 @@ export default function App() {
   const [navState, setNavState]           = useState({})
 
   const fetchAll = useCallback(async () => {
-    const [a, c, e, r, reg, docs, emp, pdocs] = await Promise.all([
+    const [a, c, coa, e, r, reg, docs, emp, pdocs, refs] = await Promise.all([
       supabase.from('athletes').select('*').order('name'),
-      supabase.from('referees').select('*').order('number'),
+      supabase.from('coaches').select('*').order('name'),
       supabase.from('coaches').select('*').order('name'),
       supabase.from('events').select('*').order('start_date'),
       supabase.from('results').select('*').order('date', { ascending: false }),
@@ -65,6 +65,7 @@ export default function App() {
       supabase.from('athlete_documents').select('*').order('uploaded_at', { ascending: false }),
       supabase.from('employees').select('*').order('name'),
       supabase.from('person_documents').select('*').order('uploaded_at', { ascending: false }),
+      supabase.from('referees').select('*').order('number'),
     ])
     if (a.data)    setAthletes(a.data)
     if (c.data)    setCoaches(c.data)
@@ -74,6 +75,7 @@ export default function App() {
     if (docs.data) setDocuments(docs.data)
     if (emp.data)   setEmployees(emp.data)
     if (pdocs.data) setPersonDocs(pdocs.data)
+    if (refs.data)  setReferees(refs.data)
     setDataLoading(false)
   }, [])
 
