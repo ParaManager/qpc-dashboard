@@ -96,15 +96,6 @@ export default function App() {
 
   if (!user) return <Login />
 
-  // Wait for profile to load before rendering — prevents guest flash
-  if (user && profile === null) return (
-    <div style={{ display:'flex', height:'100vh', alignItems:'center', justifyContent:'center', background:'#0a1628' }}>
-      <div style={{ display:'flex', gap:6 }}>
-        {['#EE334E','#0085C7','#009F6B'].map(col => <div key={col} style={{ width:12, height:12, borderRadius:'50%', background:col }} />)}
-      </div>
-    </div>
-  )
-
   if (dataLoading) return (
     <div style={{ display:'flex', height:'100vh', alignItems:'center', justifyContent:'center', background:'var(--bg)' }}>
       <div style={{ textAlign:'center' }}>
