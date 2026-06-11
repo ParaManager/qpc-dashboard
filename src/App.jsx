@@ -94,7 +94,20 @@ export default function App() {
     </div>
   )
 
-  if (!user) return <Login />
+  if (requestSent) return (
+    <div style={{ minHeight:'100vh', background:'var(--bg)', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:12, padding:20 }}>
+      <div style={{ fontSize:48 }}>📧</div>
+      <div style={{ fontSize:20, fontWeight:700, color:'var(--text)' }}>Request Sent!</div>
+      <div style={{ fontSize:14, color:'var(--text3)', textAlign:'center', maxWidth:300 }}>
+        Your account request has been sent to the admin for approval. You will be notified once your account is activated.
+      </div>
+      <button onClick={() => setRequestSent(false)} style={{ marginTop:8, padding:'9px 24px', background:'#0085C7', color:'#fff', border:'none', borderRadius:10, cursor:'pointer', fontSize:14 }}>
+        Back to Login
+      </button>
+    </div>
+  )
+
+  if (!user) return <Login onRequestSent={() => setRequestSent(true)} />
 
   if (dataLoading) return (
     <div style={{ display:'flex', height:'100vh', alignItems:'center', justifyContent:'center', background:'var(--bg)' }}>
@@ -202,14 +215,14 @@ export default function App() {
         <div id="content">
           {page==='dashboard' && <Dashboard athletes={myAthletes} coaches={coaches} events={events} results={results} onNav={goTo} profile={profile} />}
           {page==='athletes'  && <Athletes  athletes={myAthletes} coaches={coaches} results={results} documents={documents} events={events} registrations={registrations} onRefresh={fetchAll} onNav={goTo} initAthleteId={navState.athleteId} initStatusFilter={navState.statusFilter} navState={navState} profile={profile} />}
-          {page==='coaches'   && <Coaches   coaches={coaches} athletes={athletes} personDocs={personDocs} onRefresh={fetchAll} onNav={goTo} initCoachId={navState.coachId} navState={navState} profile={profile} />}
+          {page==='coaches'   && isAdmin && <Coaches   coaches={coaches} athletes={athletes} personDocs={personDocs} onRefresh={fetchAll} onNav={goTo} initCoachId={navState.coachId} navState={navState} profile={profile} />}
           {page==='events'    && <Events    events={events} athletes={athletes} results={results} registrations={registrations} onRefresh={fetchAll} onNav={goTo} initEventId={navState.eventId} initStatusFilter={navState.statusFilter} profile={profile} />}
           {page==='schedule'  && <Schedule  profile={profile} coachId={myCoachId} myAthletes={myAthletes} onNav={goTo} />}
         {page==='attendance' && <Attendance profile={profile} coachId={myCoachId} myAthletes={myAthletes} onNav={goTo} />}
-        {page==='users'     && <UserManagement profile={profile} />}
+        {page==='users'     && isAdmin && <UserManagement profile={profile} />}
         {page==='results'   && <Results   results={results} athletes={athletes} onRefresh={fetchAll} onNav={goTo} profile={profile} />}
           {page==='sports'    && <Sports    athletes={athletes} coaches={coaches} events={events} results={results} onNav={goTo} initSport={navState.sport} profile={profile} />}
-          {page==='employees' && <Employees employees={employees} personDocs={personDocs} onRefresh={fetchAll} onNav={goTo} navState={navState} profile={profile} />}
+          {page==='employees' && isAdmin && <Employees employees={employees} personDocs={personDocs} onRefresh={fetchAll} onNav={goTo} navState={navState} profile={profile} />}
         </div>
       </div>
       <ToastContainer />
