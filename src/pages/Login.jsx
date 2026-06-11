@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
 import { qpcLogo as QPC_LOGO } from '../lib/logos'
 
-export default function Login() {
+export default function Login({ onRequestSent }) {
   const { lang, setLang } = useLang()
   const ar = lang === 'ar'
   const L = (en, a) => ar ? a : en
@@ -79,26 +79,13 @@ export default function Login() {
     // (admin notification handled via User Management page)
 
     // Show sent screen immediately, then sign out
-    setMode('sent')
+    await supabase.auth.signOut()
     setLoading(false)
-    // Small delay so React renders the sent screen before signOut clears state
-    setTimeout(() => supabase.auth.signOut(), 500)
+    if (onRequestSent) onRequestSent()
   }
 
   // ── SENT / PENDING / REJECTED SCREENS ──
-  if (mode === 'sent') return (
-    <Screen ar={ar}>
-      <div style={{ fontSize:48, marginBottom:16 }}>📧</div>
-      <div style={{ fontSize:20, fontWeight:700, marginBottom:8 }}>{L('Request Sent!','تم إرسال الطلب!')}</div>
-      <div style={{ fontSize:14, color:'#9aa3b2', textAlign:'center', lineHeight:1.6, maxWidth:300 }}>
-        {L('Your account request has been sent to the admin for approval. You will be notified once your account is activated.',
-           'تم إرسال طلب حسابك إلى المسؤول للموافقة عليه. ستتلقى إشعاراً عند تفعيل حسابك.')}
-      </div>
-      <button onClick={() => setMode('login')} style={{ marginTop:20, padding:'10px 28px', background:'#0085C7', color:'#fff', border:'none', borderRadius:10, cursor:'pointer', fontSize:14 }}>
-        {L('Back to Login','العودة إلى تسجيل الدخول')}
-      </button>
-    </Screen>
-  )
+
 
   if (mode === 'pending') return (
     <Screen ar={ar}>
