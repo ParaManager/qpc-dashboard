@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { notifyAdminNewRequest } from '../lib/emails'
 import { useLang } from '../lib/LangContext.jsx'
 import { qpcLogo as QPC_LOGO } from '../lib/logos'
 
@@ -79,9 +80,11 @@ export default function Login({ onRequestSent }) {
     // (admin notification handled via User Management page)
 
     // Show sent screen immediately, then sign out
+    // Notify admin
+    notifyAdminNewRequest({ fullName: form.fullName, email: form.email, accountType: form.accountType })
     setLoading(false)
-    if (onRequestSent) onRequestSent()  // show sent screen first
-    await supabase.auth.signOut()        // then sign out in background
+    if (onRequestSent) onRequestSent()
+    await supabase.auth.signOut()
   }
 
   // ── SENT / PENDING / REJECTED SCREENS ──

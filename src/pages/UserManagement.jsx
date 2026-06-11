@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
 import { toast } from '../components/Toast'
+import { notifyUserApproved, notifyUserRejected } from '../lib/emails'
 import { Avatar } from '../lib/helpers'
 
 const ROLE_COLORS  = { admin:'#EE334E', coach:'#0085C7', athlete:'#009F6B', guest:'#8b5cf6' }
@@ -45,6 +46,7 @@ export default function UserManagement({ profile }) {
       status: 'rejected',
       rejection_reason: rejReason[user.id] || '',
     }).eq('id', user.id)
+    if (user.email) notifyUserRejected({ email: user.email, fullName: user.full_name || user.email, reason: rejReason[user.id] || '' })
     toast(L('Request rejected', 'تم رفض الطلب'))
     loadUsers()
   }
