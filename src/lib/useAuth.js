@@ -22,7 +22,6 @@ export function useAuth() {
   useEffect(() => {
     let mounted = true
 
-    // On mount: get session, fetch profile, then stop loading
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!mounted) return
       const u = session?.user ?? null
@@ -34,16 +33,28 @@ export function useAuth() {
       if (mounted) setLoading(false)
     })
 
-    // On auth changes (login/logout) — update state only
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return
+      console.log('[Auth event]', event, session?.user?.email)
+
+      // Ignore SIGNED_OUT if we still have a valid session
+      if (event === 'SIGNED_OUT') {
+        // Double-check session is really gone
+        const { data: { session: currentSession } } = await supabase.auth.getSession()
+        if (currentSession?.user) {
+          console.log('[Auth] Ignoring false SIGNED_OUT — session still active')
+          return
+        }
+        setUser(null)
+        setProfile(null)
+        return
+      }
+
       const u = session?.user ?? null
       setUser(u)
       if (u) {
         const p = await fetchProfile(u.id)
         if (mounted) setProfile(p)
-      } else {
-        setProfile(null)
       }
     })
 
