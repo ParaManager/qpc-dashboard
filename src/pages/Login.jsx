@@ -55,7 +55,12 @@ export default function Login({ onRequestSent }) {
       const { data: coachData } = await supabase.from('coaches').select('id_number').eq('id', form.coachId).single()
       const storedQID = (coachData?.id_number || '').replace(/\s+/g, '').trim()
       const enteredQID = form.qid.replace(/\s+/g, '').trim()
-      if (storedQID && storedQID !== enteredQID) {
+      console.log('Coach QID check:', { storedQID, enteredQID, coachData })
+      if (!storedQID) {
+        setError(L('No ID on file for this coach. Please contact the admin.','لا يوجد رقم هوية لهذا المدرب. يرجى التواصل مع المسؤول.'))
+        setLoading(false); return
+      }
+      if (storedQID !== enteredQID) {
         setError(L('The QID you entered does not match our records for this coach. Please check your ID number.', 'الرقم الشخصي الذي أدخلته لا يتطابق مع سجلاتنا لهذا المدرب. يرجى التحقق من رقم هويتك.'))
         setLoading(false); return
       }
@@ -64,7 +69,12 @@ export default function Login({ onRequestSent }) {
       const { data: athData } = await supabase.from('athletes').select('id_number').eq('id', form.athleteId).single()
       const storedQID = (athData?.id_number || '').replace(/\s+/g, '').trim()
       const enteredQID = form.qid.replace(/\s+/g, '').trim()
-      if (storedQID && storedQID !== enteredQID) {
+      console.log('Athlete QID check:', { storedQID, enteredQID, athData })
+      if (!storedQID) {
+        setError(L('No ID number found for this athlete. Please contact the admin.', 'لا يوجد رقم هوية لهذا الرياضي. يرجى التواصل مع المسؤول.'))
+        setLoading(false); return
+      }
+      if (storedQID !== enteredQID) {
         setError(L('The QID you entered does not match our records for this athlete. Please check your ID number.', 'الرقم الشخصي الذي أدخلته لا يتطابق مع سجلاتنا لهذا الرياضي. يرجى التحقق من رقم هويتك.'))
         setLoading(false); return
       }
