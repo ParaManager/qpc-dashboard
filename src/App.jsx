@@ -238,7 +238,6 @@ export default function App() {
           {page==='schedule'  && <Schedule  profile={profile} coachId={myCoachId} myAthletes={myAthletes} onNav={goTo} />}
           {page==='attendance' && <Attendance profile={profile} coachId={myCoachId} myAthletes={myAthletes} onNav={goTo} />}
           {page==='users'     && isAdmin && <UserManagement profile={profile} />}
-          {page==='settings'  && <Settings user={user} profile={profile} />}
           {page==='settings'  && <Settings user={user} profile={profile} signOut={signOut} />}
           {page==='profile'   && <Profile user={user} profile={profile} athletes={athletes} coaches={coaches} employees={employees} results={results} onNav={goTo} />}
           {page==='referees'  && <Referees referees={referees} onRefresh={fetchAll} profile={profile} />}
