@@ -297,7 +297,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
   const [editMode, setEditMode]     = useState(false)
   const [edits, setEdits]           = useState({})
   const [savingAll, setSavingAll]   = useState(false)
-  const [visibleCols, setVisibleCols] = useState(['name','sport','classification','nationality','coach_id','status','medals','docs'])
+  const [visibleCols, setVisibleCols] = useState(['name','sport','classification','nationality','coach_id','status','medical_status','medals'])
   const [colPickerOpen, setColPickerOpen] = useState(false)
   const [colFilters, setColFilters] = useState({})
   const photoInput = useRef(null)
@@ -1414,7 +1414,8 @@ ${myDocs.length > 0 ? `<div class="section">
                             nationality: { 'All':allLabel, ...Object.fromEntries(['Afghanistan','Algeria','Argentina','Armenia','Australia','Austria','Azerbaijan','Bahrain','Bangladesh','Belarus','Belgium','Brazil','Cameroon','Canada','Chile','China','Colombia','Croatia','Czech Republic','Denmark','Egypt','Eritrea','Ethiopia','Finland','France','Georgia','Germany','Ghana','Greece','Guinea','Hungary','India','Indonesia','Iran','Iraq','Ireland','Italy','Japan','Jordan','Kazakhstan','Kenya','Kuwait','Kyrgyzstan','Lebanon','Libya','Malaysia','Mali','Mauritania','Mexico','Mongolia','Morocco','Myanmar','Nepal','Netherlands','New Zealand','Nigeria','Norway','Oman','Pakistan','Palestine','Peru','Philippines','Poland','Portugal','Qatar','Romania','Russia','Rwanda','Saudi Arabia','Scotland','Senegal','Serbia','Singapore','Slovakia','Somalia','South Africa','South Korea','Spain','Sri Lanka','Sudan','Sweden','Syria','Tajikistan','Tanzania','Thailand','Tunisia','Turkey','Turkmenistan','UAE','Uganda','UK','Ukraine','USA','Uzbekistan','Venezuela','Vietnam','Wales','Yemen','Zambia','Zimbabwe'].map(n => [n, tc(n)])) },
                             disability:  { 'All':allLabel, ...Object.fromEntries(athletes.map(a=>a.disability).filter(Boolean).map(d=>[d, lang==='ar' ? (tDis(d)||d) : d])) },
                             coach_id:    { 'All':allLabel, ...Object.fromEntries(coaches.map(co => [co.name, lang==='ar' && co.name_ar ? co.name_ar : co.name])) },
-                            age_category:{ 'All':allLabel },
+                            age_category:  { 'All':allLabel },
+                            medical_status:{ 'All':allLabel, 'None':lang==='ar'?'لا يوجد':'None', 'Screening':lang==='ar'?'فحص':'Screening', 'Medical Certificate':lang==='ar'?'شهادة طبية':'Medical Certificate' },
                           }
                           return <option key={o} value={o}>{LABELS[col.key]?.[o] || o}</option>
                         })}
