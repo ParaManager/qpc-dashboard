@@ -12,6 +12,7 @@ import Sports      from './pages/Sports'
 import Schedule       from './pages/Schedule'
 import UserManagement from './pages/UserManagement'
 import Referees       from './pages/Referees'
+import Profile        from './pages/Profile'
 import Attendance  from './pages/Attendance'
 import Employees from './pages/Employees'
 import './index.css'
@@ -19,18 +20,18 @@ import NotificationBell from './components/NotificationBell.jsx'
 import { useLang } from './lib/LangContext.jsx'
 
 const NAV_ADMIN = (tx) => [
-  { section: tx('nav.overview','Overview'),      items: [{ id:'dashboard', icon:'ti-layout-dashboard', label:tx('nav.dashboard','Dashboard') }] },
+  { section: tx('nav.overview','Overview'),      items: [{ id:'dashboard', icon:'ti-layout-dashboard', label:tx('nav.dashboard','Dashboard') }, { id:'profile', icon:'ti-user-circle', label:tx('nav.profile','My Profile') }] },
   { section: tx('nav.people','People'),          items: [{ id:'athletes', icon:'ti-run', label:tx('nav.athletes','Athletes') }, { id:'coaches', icon:'ti-user-star', label:tx('nav.coaches','Coaches') }, { id:'employees', icon:'ti-users', label:tx('nav.employees','Employees') }, { id:'referees', icon:'ti-whistle', label:tx('nav.referees','Referees') }] },
   { section: tx('nav.competitions','Competitions'), items: [{ id:'sports', icon:'ti-ball-football', label:tx('nav.sports','Sports') }, { id:'events', icon:'ti-calendar-event', label:tx('nav.events','Events') }, { id:'results', icon:'ti-medal', label:tx('nav.results','Results') }] },
   { section: tx('nav.admin','Admin'),            items: [{ id:'users', icon:'ti-users-group', label:tx('nav.users','User Management') }] },
 ]
 const NAV_COACH = (tx) => [
-  { section: tx('nav.overview','Overview'),      items: [{ id:'dashboard', icon:'ti-layout-dashboard', label:tx('nav.dashboard','Dashboard') }] },
+  { section: tx('nav.overview','Overview'),      items: [{ id:'dashboard', icon:'ti-layout-dashboard', label:tx('nav.dashboard','Dashboard') }, { id:'profile', icon:'ti-user-circle', label:tx('nav.profile','My Profile') }] },
   { section: tx('nav.people','People'),          items: [{ id:'athletes', icon:'ti-run', label:tx('nav.athletes','Athletes') }] },
   { section: tx('nav.competitions','Competitions'), items: [{ id:'schedule', icon:'ti-calendar', label:tx('nav.schedule','Schedule') }, { id:'attendance', icon:'ti-clipboard-check', label:tx('nav.attendance','Attendance') }, { id:'events', icon:'ti-calendar-event', label:tx('nav.events','Events') }, { id:'results', icon:'ti-medal', label:tx('nav.results','Results') }] },
 ]
 const NAV_GUEST = (tx) => [
-  { section: tx('nav.overview','Overview'),      items: [{ id:'dashboard', icon:'ti-layout-dashboard', label:tx('nav.dashboard','Dashboard') }] },
+  { section: tx('nav.overview','Overview'),      items: [{ id:'dashboard', icon:'ti-layout-dashboard', label:tx('nav.dashboard','Dashboard') }, { id:'profile', icon:'ti-user-circle', label:tx('nav.profile','My Profile') }] },
   { section: tx('nav.competitions','Competitions'), items: [{ id:'events', icon:'ti-calendar-event', label:tx('nav.events','Events') }, { id:'results', icon:'ti-medal', label:tx('nav.results','Results') }] },
 ]
 
@@ -234,6 +235,7 @@ export default function App() {
           {page==='schedule'  && <Schedule  profile={profile} coachId={myCoachId} myAthletes={myAthletes} onNav={goTo} />}
         {page==='attendance' && <Attendance profile={profile} coachId={myCoachId} myAthletes={myAthletes} onNav={goTo} />}
         {page==='users'     && isAdmin && <UserManagement profile={profile} />}
+        {page==='profile'   && <Profile user={user} profile={profile} athletes={athletes} coaches={coaches} employees={employees} results={results} onNav={goTo} />}
         {page==='referees'  && <Referees referees={referees} onRefresh={fetchAll} profile={profile} />}
         {page==='results'   && <Results   results={results} athletes={athletes} onRefresh={fetchAll} onNav={goTo} profile={profile} />}
           {page==='sports'    && <Sports    athletes={athletes} coaches={coaches} events={events} results={results} onNav={goTo} initSport={navState.sport} profile={profile} />}
