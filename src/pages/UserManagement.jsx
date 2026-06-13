@@ -47,6 +47,7 @@ export default function UserManagement({ profile }) {
   const [loading, setLoading]   = useState(true)
   const [filter, setFilter]     = useState('pending') // pending | active | all
   const [rejReason, setRejReason] = useState({})
+  const [confirmDelete, setConfirmDelete] = useState(null)
 
   useEffect(() => { loadUsers() }, [])
 
