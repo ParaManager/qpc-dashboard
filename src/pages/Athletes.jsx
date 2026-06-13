@@ -241,7 +241,7 @@ function AthleteCoachHistory({ athleteId, coaches, employees, lang }) {
   )
 }
 
-export default function Athletes({ athletes, coaches, results, documents, events, registrations, onRefresh, onNav, initAthleteId, initStatusFilter, navState, profile }) {
+export default function Athletes({ athletes, coaches, employees, results, documents, events, registrations, onRefresh, onNav, initAthleteId, initStatusFilter, navState, profile }) {
   const { tx, lang, tc } = useLang()
   const SPORT_NAMES = lang === 'ar' ? {
     'Athletics':'ألعاب القوى', 'Swimming':'السباحة', 'Powerlifting':'رفع الأثقال',
