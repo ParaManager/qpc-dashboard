@@ -85,9 +85,14 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
     ? ['أح','اث','ثل','أر','خم','جم','سب']
     : ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
 
+  // Filter sessions for athlete view
+  const filterSessions = (list) => athleteId
+    ? list.filter(s => (s.session_athletes||[]).some(sa => String(sa.athlete_id) === String(athleteId)))
+    : list
+
   const sessionsOnDay = (d) => {
     const ds = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`
-    return sessions.filter(s => s.session_date === ds)
+    return filterSessions(sessions.filter(s => s.session_date === ds))
   }
 
   const isToday = (d) => today.getFullYear()===year && today.getMonth()===month && today.getDate()===d
@@ -232,10 +237,10 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
       </div>
 
       {/* Upcoming list */}
-      {sessions.filter(s => s.session_date >= today.toISOString().slice(0,10)).slice(0,5).length > 0 && (
+      {filterSessions(sessions.filter(s => s.session_date >= today.toISOString().slice(0,10))).slice(0,5).length > 0 && (
         <div className="card" style={{ marginTop:16 }}>
           <div className="card-title"><i className="ti ti-clock" /> {L('Upcoming sessions','الجلسات القادمة')}</div>
-          {sessions.filter(s => s.session_date >= today.toISOString().slice(0,10)).slice(0,5).map(s => {
+          {filterSessions(sessions.filter(s => s.session_date >= today.toISOString().slice(0,10))).slice(0,5).map(s => {
             const color = SESSION_COLORS[s.session_type]||'#0085C7'
             const sAthletes = myAthletes.filter(a => s.session_athletes?.some(sa=>sa.athlete_id===a.id))
             return (
