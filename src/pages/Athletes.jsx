@@ -198,6 +198,48 @@ function getPersonalBests(results) {
   return Object.values(bests)
 }
 
+
+function AthleteCoachHistory({ athleteId, coaches, lang }) {
+  const [history, setHistory] = useState([])
+  const ar = lang === 'ar'
+  const L = (en, a) => ar ? a : en
+
+  useEffect(() => {
+    if (!athleteId) return
+    supabase.from('athlete_coach_history')
+      .select('*')
+      .eq('athlete_id', String(athleteId))
+      .eq('is_current', false)
+      .order('start_date', { ascending: false })
+      .then(({ data }) => setHistory(data || []))
+  }, [athleteId])
+
+  if (!history.length) return null
+
+  return (
+    <div style={{ marginTop: 12, borderTop: '1px solid var(--border)', paddingTop: 10 }}>
+      <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 8 }}>
+        {L('Previous coaches', 'المدربون السابقون')}
+      </div>
+      {history.map(h => {
+        const pc = coaches.find(c => String(c.id) === String(h.coach_id))
+        if (!pc) return null
+        return (
+          <div key={h.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', fontSize: 12 }}>
+            <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--border)', flexShrink: 0 }} />
+            <span style={{ fontWeight: 500 }}>{ar && pc.name_ar ? pc.name_ar : pc.name}</span>
+            {(h.start_date || h.end_date) && (
+              <span style={{ color: 'var(--text3)' }}>
+                {h.start_date ? h.start_date.slice(0,7) : ''}{h.end_date ? ' → ' + h.end_date.slice(0,7) : ''}
+              </span>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 export default function Athletes({ athletes, coaches, results, documents, events, registrations, onRefresh, onNav, initAthleteId, initStatusFilter, navState, profile }) {
   const { tx, lang, tc } = useLang()
   const SPORT_NAMES = lang === 'ar' ? {
@@ -824,9 +866,10 @@ ${myDocs.length > 0 ? `<div class="section">
               {coach ? (
                 <DashRow onClick={() => onNav('coaches', { coachId: coach.id })}>
                   <div className="av" style={{ width:28, height:28, fontSize:10, background:'#009F6B', flexShrink:0 }}>{initials(coach.name)}</div>
-                  <div style={{ flex:1 }}><div style={{ fontSize:13, fontWeight:500 }}>{coach.name}</div><div style={{ fontSize:11, color:'#9aa3b2' }}>{coach.sport} · {coach.cert_level}</div></div>
+                  <div style={{ flex:1 }}><div style={{ fontSize:13, fontWeight:500 }}>{lang==='ar'&&coach.name_ar?coach.name_ar:coach.name}</div><div style={{ fontSize:11, color:'#9aa3b2' }}>{coach.sport} · {coach.cert_level}</div></div>
                 </DashRow>
               ) : <div style={{ padding:'8px 0', fontSize:13, color:'var(--text3)' }}>{lang==='ar'?'لم يتم تعيين مدرب':'No coach assigned'}</div>}
+              <AthleteCoachHistory athleteId={String(a.id)} coaches={coaches} lang={lang} />
             </div>
 
             {/* PASSPORT & ID */}
