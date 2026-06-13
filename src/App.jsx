@@ -55,7 +55,7 @@ export default function App() {
   const { lang, setLang, tx } = useLang()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [requestSent, setRequestSent] = useState(false)
-  const [page, setPage]               = useState(role === 'athlete' ? 'athlete-dashboard' : 'dashboard')
+  const [page, setPage]               = useState('dashboard')
   const [athletes, setAthletes]           = useState([])
   const [coaches, setCoaches]             = useState([])
   const [events, setEvents]               = useState([])
@@ -150,6 +150,11 @@ export default function App() {
   const userStatus = profile?.status || 'active'
   const isAdmin   = role === 'admin'
   const isAthlete = role === 'athlete'
+
+  // Redirect athlete to their dashboard on first load
+  useEffect(() => {
+    if (isAthlete && page === 'dashboard') setPage('athlete-dashboard')
+  }, [isAthlete])
   const isCoach   = role === 'coach'
   const myCoachId  = profile?.coach_id || null
   const myAthleteId = profile?.athlete_id || null
