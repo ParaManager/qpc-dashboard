@@ -106,7 +106,7 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
     else {
       const defaults = {
         athlete: { gender: 'Male', nationality: 'Qatari', sport: SPORTS[0], status: 'Active' },
-        coach:   { sport: SPORTS[0], certLevel: 'Level 2', status: 'Active' },
+        coach:   { sport: SPORTS[0], status: 'Active' },
         event:   { sport: SPORTS[0], type: 'National', status: 'Planning', maxParticipants: 30 },
         result:  { medal: 'gold', position: 1 },
       }
@@ -160,7 +160,6 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
     bloodType:        ar ? 'فصيلة الدم'                      : 'Blood type',
     allergies:        ar ? 'الحساسية'                        : 'Known allergies',
     conditions:       ar ? 'الحالات الطبية'                  : 'Medical conditions',
-    certLevel:        ar ? 'مستوى الشهادة'                   : 'Cert. level',
     empNum:           ar ? 'رقم الموظف'                      : 'Employee number',
     since:            ar ? 'تاريخ الانضمام إلى QPC'          : 'Start date with QPC',
     eventName:        ar ? 'اسم الفعالية'                    : 'Event name',
@@ -317,7 +316,6 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
             <Section label={T.employment} />
             <Row>
               <Field label={T.sport} options={sportOpts} {...f('sport')} />
-              <Field label={T.certLevel} options={['Level 1','Level 2','Level 3']} {...f('certLevel')} />
             </Row>
             <Row>
               <Field label={T.empNum} placeholder="e.g. 12501" {...f('employeeNumber')} />
