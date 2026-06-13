@@ -1027,9 +1027,6 @@ ${myDocs.length > 0 ? `<div class="section">
             {/* CAREER HISTORY */}
             <CareerHistory personId={a.id} personType="athlete" personName={lang==='ar'&&a.name_ar?a.name_ar:a.name} />
 
-            {/* CAREER HISTORY */}
-            <CareerHistory personId={a.id} personType="athlete" personName={lang==='ar'&&a.name_ar?a.name_ar:a.name} />
-
             {/* DOCUMENTS */}
             <div className="info-card">
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
