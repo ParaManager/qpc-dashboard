@@ -95,16 +95,17 @@ export default function App() {
 
   useEffect(() => { if (user) fetchAll() }, [user, fetchAll])
 
-  // Redirect athlete to their dashboard when profile loads
+  // Set correct default page when profile loads
   useEffect(() => {
-    if ((profile?.account_type === 'athlete' || profile?.role === 'athlete') && page === 'dashboard') {
+    if (!profile) return
+    const role = profile?.account_type || profile?.role || 'guest'
+    if (role === 'athlete') {
       setPage('athlete-dashboard')
-    }
-    // Redirect coach away from athlete-dashboard if they somehow land there
-    if ((profile?.account_type === 'coach' || profile?.role === 'coach') && page === 'athlete-dashboard') {
+    } else if (page === 'athlete-dashboard') {
+      // Non-athlete landed on athlete page — redirect to dashboard
       setPage('dashboard')
     }
-  }, [profile])
+  }, [profile?.id])  // only run when user actually changes (profile.id changes on login/logout)
 
   function goTo(targetPage, state = {}) {
     setPage(targetPage)
