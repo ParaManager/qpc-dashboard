@@ -16,7 +16,7 @@ function getFirstDay(year, month) {
   return new Date(year, month, 1).getDay()
 }
 
-export default function Schedule({ profile, coachId, myAthletes, onNav }) {
+export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly, athleteId }) {
   const { lang } = useLang()
   const ar = lang === 'ar'
   const [sessions, setSessions]       = useState([])
