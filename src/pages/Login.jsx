@@ -90,7 +90,7 @@ export default function Login({ onRequestSent }) {
     })
     if (error) {
       if (error.message?.includes('already registered') || error.status === 422) {
-        setError(L('This email is already registered. Please sign in instead.','هذا البريد الإلكتروني مسجل بالفعل. يرجى تسجيل الدخول.'))
+        setError(L('This QID is already registered. Please sign in instead.','هذا الرقم الشخصي مسجل بالفعل. يرجى تسجيل الدخول.'))
       } else {
         setError(error.message)
       }
