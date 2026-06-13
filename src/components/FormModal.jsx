@@ -282,19 +282,7 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
               <Field label={T.idExp} type="date" {...f('idExpiry')} />
             </Row>
 
-            <Section label={T.emergency} />
-            <Row>
-              <Field label={T.contactName} placeholder={ar?"مثال: محمد الأنصاري":"e.g. Mohammed Al-Ansari"} {...f('emergencyName')} />
-              <Field label={T.relationship} placeholder={ar?"مثال: الأب":"e.g. Father"} {...f('emergencyRelation')} />
-            </Row>
-            <Field label={T.contactPhone} placeholder="+974 XXXX XXXX" {...f('emergencyPhone')} />
 
-            <Section label={T.medical} />
-            <Row>
-              <Field label={T.bloodType} options={['','A+','A-','B+','B-','AB+','AB-','O+','O-','Unknown']} {...f('bloodType')} />
-              <Field label={T.allergies} placeholder={ar?"مثال: بنسلين، مكسرات":"e.g. Penicillin, Nuts"} {...f('allergies')} />
-            </Row>
-            <Field label={T.conditions} placeholder={ar?"مثال: الربو، السكري":"e.g. Asthma, Diabetes"} {...f('medicalConditions')} />
           </>}
 
           {/* ── COACH ── */}
