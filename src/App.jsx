@@ -95,6 +95,13 @@ export default function App() {
 
   useEffect(() => { if (user) fetchAll() }, [user, fetchAll])
 
+  // Redirect athlete to their dashboard when profile loads
+  useEffect(() => {
+    if (profile?.account_type === 'athlete' || profile?.role === 'athlete') {
+      setPage(p => p === 'dashboard' ? 'athlete-dashboard' : p)
+    }
+  }, [profile])
+
   function goTo(targetPage, state = {}) {
     setPage(targetPage)
     setNavState(state)
@@ -150,11 +157,6 @@ export default function App() {
   const userStatus = profile?.status || 'active'
   const isAdmin   = role === 'admin'
   const isAthlete = role === 'athlete'
-
-  // Redirect athlete to their dashboard on first load
-  useEffect(() => {
-    if (isAthlete && page === 'dashboard') setPage('athlete-dashboard')
-  }, [isAthlete])
   const isCoach   = role === 'coach'
   const myCoachId  = profile?.coach_id || null
   const myAthleteId = profile?.athlete_id || null
