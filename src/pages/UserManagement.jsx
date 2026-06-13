@@ -225,6 +225,7 @@ export default function UserManagement({ profile }) {
                   )}
 
                   {u.status === 'rejected' && (
+                    <>
                     <button onClick={() => approve(u)}
                       style={{ padding:'7px 14px', background:'var(--surface2)', color:'var(--text2)', border:'1px solid var(--border)', borderRadius:8, fontSize:12, cursor:'pointer' }}>
                       <i className="ti ti-refresh" /> {L('Re-activate','إعادة التفعيل')}
@@ -233,6 +234,7 @@ export default function UserManagement({ profile }) {
                       style={{ padding:'7px 14px', background:'#EE334E10', color:'#EE334E', border:'1px solid #EE334E40', borderRadius:8, fontSize:12, cursor:'pointer' }}>
                       <i className="ti ti-trash" /> {L('Delete account','حذف الحساب')}
                     </button>
+                    </>
                   )}
                 </div>
               </div>
