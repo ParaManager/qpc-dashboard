@@ -96,8 +96,18 @@ export default function UserManagement({ profile }) {
   }
 
   async function deleteAccount(userId) {
+    // Delete from profiles table
     await supabase.from('profiles').delete().eq('id', userId)
-    await supabase.auth.admin?.deleteUser(userId).catch(() => {})
+    // Delete from Supabase Auth via serverless function
+    try {
+      await fetch('/api/delete-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId })
+      })
+    } catch (e) {
+      console.warn('Auth delete failed:', e)
+    }
     toast(L('Account deleted', 'تم حذف الحساب'))
     setConfirmDelete(null)
     loadUsers()
