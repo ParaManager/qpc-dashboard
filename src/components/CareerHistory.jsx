@@ -6,7 +6,7 @@ import { SPORTS } from '../lib/helpers'
 
 const SPORT_AR = {'Athletics':'ألعاب القوى','Swimming':'السباحة','Powerlifting':'رفع الأثقال','Boccia':'البوتشيا','Goalball':'كرة الهدف','Table Tennis':'تنس الطاولة','Special Olympics':'الأولمبياد الخاص','Shooting':'الرماية','Wheelchair Tennis':'تنس الكراسي المتحركة'}
 
-export default function CareerHistory({ personId, personType, personName }) {
+export default function CareerHistory({ personId, personType, personName, readOnly }) {
   const { lang } = useLang()
   const ar = lang === 'ar'
   const L = (en, a) => ar ? a : en
@@ -75,10 +75,10 @@ export default function CareerHistory({ personId, personType, personName }) {
           <i className="ti ti-timeline" style={{ marginRight: 6 }} />
           {L('Career History', 'السيرة المهنية')}
         </div>
-        <button className="btn" style={{ background: '#0085C7', fontSize: 12, padding: '5px 12px' }}
+        {!readOnly && <button className="btn" style={{ background: '#0085C7', fontSize: 12, padding: '5px 12px' }}
           onClick={() => { setEditData(null); setShowForm(true) }}>
           <i className="ti ti-plus" /> {L('Add entry', 'إضافة')}
-        </button>
+        </button>}
       </div>
 
       {/* Total medals across career */}
@@ -150,7 +150,7 @@ export default function CareerHistory({ personId, personType, personName }) {
                 ) : null}
                 {e.notes && <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 6, lineHeight: 1.5 }}>{e.notes}</div>}
                 {/* Actions */}
-                <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
+                {!readOnly && <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
                   <button onClick={() => { setEditData(e); setShowForm(true) }}
                     style={{ fontSize: 11, padding: '3px 10px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer', color: 'var(--text2)' }}>
                     <i className="ti ti-pencil" /> {L('Edit', 'تعديل')}
@@ -159,7 +159,7 @@ export default function CareerHistory({ personId, personType, personName }) {
                     style={{ fontSize: 11, padding: '3px 10px', background: '#EE334E10', border: '1px solid #EE334E30', borderRadius: 6, cursor: 'pointer', color: '#EE334E' }}>
                     <i className="ti ti-trash" /> {L('Delete', 'حذف')}
                   </button>
-                </div>
+                </div>}
               </div>
             </div>
           ))}
