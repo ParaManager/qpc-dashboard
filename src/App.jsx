@@ -97,8 +97,12 @@ export default function App() {
 
   // Redirect athlete to their dashboard when profile loads
   useEffect(() => {
-    if (profile?.account_type === 'athlete' || profile?.role === 'athlete') {
-      setPage(p => p === 'dashboard' ? 'athlete-dashboard' : p)
+    if ((profile?.account_type === 'athlete' || profile?.role === 'athlete') && page === 'dashboard') {
+      setPage('athlete-dashboard')
+    }
+    // Redirect coach away from athlete-dashboard if they somehow land there
+    if ((profile?.account_type === 'coach' || profile?.role === 'coach') && page === 'athlete-dashboard') {
+      setPage('dashboard')
     }
   }, [profile])
 
