@@ -199,7 +199,7 @@ function getPersonalBests(results) {
 }
 
 
-function AthleteCoachHistory({ athleteId, coaches, lang }) {
+function AthleteCoachHistory({ athleteId, coaches, employees, lang }) {
   const [history, setHistory] = useState([])
   const ar = lang === 'ar'
   const L = (en, a) => ar ? a : en
@@ -222,7 +222,8 @@ function AthleteCoachHistory({ athleteId, coaches, lang }) {
         {L('Previous coaches', 'المدربون السابقون')}
       </div>
       {history.map(h => {
-        const pc = coaches.find(c => String(c.id) === String(h.coach_id))
+        // Look in both coaches and employees
+        const pc = [...(coaches||[]), ...(employees||[])].find(c => String(c.id) === String(h.coach_id))
         if (!pc) return null
         return (
           <div key={h.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', fontSize: 12 }}>
@@ -869,7 +870,7 @@ ${myDocs.length > 0 ? `<div class="section">
                   <div style={{ flex:1 }}><div style={{ fontSize:13, fontWeight:500 }}>{lang==='ar'&&coach.name_ar?coach.name_ar:coach.name}</div><div style={{ fontSize:11, color:'#9aa3b2' }}>{coach.sport} · {coach.cert_level}</div></div>
                 </DashRow>
               ) : <div style={{ padding:'8px 0', fontSize:13, color:'var(--text3)' }}>{lang==='ar'?'لم يتم تعيين مدرب':'No coach assigned'}</div>}
-              <AthleteCoachHistory athleteId={String(a.id)} coaches={coaches} lang={lang} />
+              <AthleteCoachHistory athleteId={String(a.id)} coaches={coaches} employees={employees} lang={lang} />
             </div>
 
             {/* PASSPORT & ID */}
