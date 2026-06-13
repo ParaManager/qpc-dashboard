@@ -365,6 +365,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
     (!colFilters.nationality  || colFilters.nationality === 'All'  || a.nationality === colFilters.nationality) &&
     (!colFilters.disability   || colFilters.disability === 'All'   || a.disability === colFilters.disability) &&
     (!colFilters.age_category || colFilters.age_category === 'All' || a.age_category === colFilters.age_category) &&
+    (!colFilters.medical_status || colFilters.medical_status === 'All' || (colFilters.medical_status === 'None' ? !a.medical_status || a.medical_status === 'None' : a.medical_status === colFilters.medical_status)) &&
     (!colFilters.coachName    || colFilters.coachName === 'All'    || coaches.find(c => c.id === a.coach_id)?.name === colFilters.coachName)
   )
   list = [...list].sort((a, b) => {
@@ -631,23 +632,9 @@ ${(a.passport_number || a.id_number || a.passport_expiry || a.id_expiry) ? `<div
   </div>
 </div>` : ''}
 
-${(a.emergency_contact_name || a.emergency_contact_phone) ? `<div class="section">
-  <div class="section-title">${L('Emergency Contact','جهة الاتصال في حالات الطوارئ')}</div>
-  <div class="grid-2">
-    ${field(L('Name','الاسم'), a.emergency_contact_name)}
-    ${field(L('Relationship','صلة القرابة'), a.emergency_contact_relation)}
-    ${field(L('Phone','الهاتف'), a.emergency_contact_phone)}
-  </div>
-</div>` : ''}
 
-${(a.blood_type || a.allergies || a.medical_conditions) ? `<div class="section">
-  <div class="section-title">${L('Medical Information','المعلومات الطبية')}</div>
-  <div class="grid-2">
-    ${field(L('Blood type','فصيلة الدم'), a.blood_type)}
-    ${field(L('Allergies','الحساسية'), a.allergies)}
-    ${field(L('Medical conditions','الحالات الطبية'), a.medical_conditions)}
-  </div>
-</div>` : ''}
+
+
 
 <div class="section">
   <div class="section-title">${L('Medals','الميداليات')}</div>
@@ -925,12 +912,8 @@ ${myDocs.length > 0 ? `<div class="section">
               <div className="info-card">
                 <div className="info-title" style={{ display:'flex', alignItems:'center', gap:6 }}>
                   <i className="ti ti-heart-rate-monitor" style={{ fontSize:13, color:'#EE334E' }} />
-                  {lang==='ar'?'المعلومات الطبية':'Medical information'}
-                </div>
+                  </div>
                 {[
-                  [lang==='ar'?'فصيلة الدم':'Blood type', a.blood_type],
-                  [lang==='ar'?'الحساسية':'Allergies', a.allergies],
-                  [lang==='ar'?'الحالات الطبية':'Medical conditions', a.medical_conditions],
                 ].map(([k,v]) => v ? (
                   <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv">{v}</span></div>
                 ) : null)}
@@ -1165,7 +1148,7 @@ ${myDocs.length > 0 ? `<div class="section">
     { key:'age_category',    label:tx('athletes.ageCategory','Age Category'), default:false, editable:false },
     { key:'coach_id',        label:tx('athletes.coach','Coach'),              default:true,  editable:true  },
     { key:'status',          label:tx('athletes.status','Status'),            default:true,  editable:true  },
-    { key:'medical_status',  label:tx('athletes.medicalStatus','Medical Status'), default:false, editable:false },
+    { key:'medical_status',  label:tx('athletes.medicalStatus','Medical Status'), default:true,  editable:false },
     { key:'phone',           label:tx('athletes.phone','Phone'),              default:false, editable:false },
     { key:'email',           label:tx('athletes.email','Email'),              default:false, editable:false },
     { key:'join_date',       label:tx('athletes.joinedQPC','Joined QPC'),     default:false, editable:false },
@@ -1176,7 +1159,7 @@ ${myDocs.length > 0 ? `<div class="section">
     { key:'emergency_contact_name',  label:tx('athletes.emergencyContact','Emergency Contact'), default:false, editable:false },
     { key:'emergency_contact_phone', label:tx('athletes.emergencyPhone','Emergency Phone'),     default:false, editable:false },
     { key:'medals',          label:tx('athletes.medals','Medals'),            default:true,  editable:false },
-    { key:'docs',            label:tx('athletes.documents','Documents'),      default:true,  editable:false },
+    { key:'docs',            label:tx('athletes.documents','Documents'),      default:false,  editable:false, hidden:true },
   ]
 
   function toggleCol(key) {
@@ -1223,7 +1206,12 @@ ${myDocs.length > 0 ? `<div class="section">
         const sc = {Active:'badge-green',Inactive:'badge-gray',Suspended:'badge-red','Under Medical Review':'badge-amber',Injured:'badge-amber',Retired:'badge-gray'}
         return a.status ? <span className={`badge ${sc[a.status]||'badge-gray'}`}>{STATUS_AR[a.status]||a.status}</span> : <span style={{ color:'var(--text3)' }}>—</span>
       }
-      case 'medical_status':   return a.medical_status ? <span className={`badge ${a.medical_status.toLowerCase().includes('none') ? 'badge-gray' : a.medical_status.toLowerCase().includes('review') ? 'badge-amber' : 'badge-green'}`}>{a.medical_status}</span> : '—'
+      case 'medical_status': {
+        const ms = a.medical_status || 'None'
+        const msColor = ms === 'None' ? '#EE334E' : ms === 'Screening' ? '#009F6B' : '#0085C7'
+        const msLabel = lang==='ar' ? {'None':'لا يوجد','Screening':'فحص','Medical Certificate':'شهادة طبية'}[ms]||ms : ms
+        return <span style={{ padding:'2px 10px', borderRadius:20, fontSize:11, fontWeight:600, background:msColor+'20', color:msColor }}>{msLabel}</span>
+      }
       case 'phone':            return <span style={{ color:'var(--text2)' }}>{a.phone || '—'}</span>
       case 'email':            return <span style={{ color:'var(--text2)', fontSize:12, wordBreak:'break-all' }}>{a.email || '—'}</span>
       case 'join_date':        return <span style={{ color:'var(--text2)' }}>{a.join_date || '—'}</span>
@@ -1389,13 +1377,14 @@ ${myDocs.length > 0 ? `<div class="section">
               <tr style={{ background:'#f8f9fb' }}>
                 {ALL_COLS.filter(col => isVisible(col.key)).map(col => {
                   const filterOpts = {
-                    sport:       ['All', ...new Set(athletes.map(a => a.sport).filter(Boolean))],
-                    status:      ['All','Active','Inactive','Suspended','Under Medical Review','Injured','Retired'],
-                    gender:      ['All','Male','Female'],
-                    nationality: ['All', ...['Afghanistan', 'Algeria', 'Argentina', 'Armenia', 'Australia', 'Austria', 'Azerbaijan', 'Bahrain', 'Bangladesh', 'Belarus', 'Belgium', 'Brazil', 'Cameroon', 'Canada', 'Chile', 'China', 'Colombia', 'Croatia', 'Czech Republic', 'Denmark', 'Egypt', 'Eritrea', 'Ethiopia', 'Finland', 'France', 'Georgia', 'Germany', 'Ghana', 'Greece', 'Guinea', 'Hungary', 'India', 'Indonesia', 'Iran', 'Iraq', 'Ireland', 'Italy', 'Japan', 'Jordan', 'Kazakhstan', 'Kenya', 'Kuwait', 'Kyrgyzstan', 'Lebanon', 'Libya', 'Malaysia', 'Mali', 'Mauritania', 'Mexico', 'Mongolia', 'Morocco', 'Myanmar', 'Nepal', 'Netherlands', 'New Zealand', 'Nigeria', 'Norway', 'Oman', 'Pakistan', 'Palestine', 'Peru', 'Philippines', 'Poland', 'Portugal', 'Qatar', 'Romania', 'Russia', 'Rwanda', 'Saudi Arabia', 'Scotland', 'Senegal', 'Serbia', 'Singapore', 'Slovakia', 'Somalia', 'South Africa', 'South Korea', 'Spain', 'Sri Lanka', 'Sudan', 'Sweden', 'Syria', 'Tajikistan', 'Tanzania', 'Thailand', 'Tunisia', 'Turkey', 'Turkmenistan', 'UAE', 'Uganda', 'UK', 'Ukraine', 'USA', 'Uzbekistan', 'Venezuela', 'Vietnam', 'Wales', 'Yemen', 'Zambia', 'Zimbabwe']],
-                    coach_id:    ['All', ...coaches.map(co => co.name)],
-                    disability:  ['All', ...new Set(athletes.map(a => a.disability).filter(Boolean))],
-                    age_category:['All', ...new Set(athletes.map(a => a.age_category).filter(Boolean))],
+                    sport:          ['All', ...new Set(athletes.map(a => a.sport).filter(Boolean))],
+                    status:         ['All','Active','Inactive','Suspended','Under Medical Review','Injured','Retired'],
+                    gender:         ['All','Male','Female'],
+                    nationality:    ['All', ...['Afghanistan', 'Algeria', 'Argentina', 'Armenia', 'Australia', 'Austria', 'Azerbaijan', 'Bahrain', 'Bangladesh', 'Belarus', 'Belgium', 'Brazil', 'Cameroon', 'Canada', 'Chile', 'China', 'Colombia', 'Croatia', 'Czech Republic', 'Denmark', 'Egypt', 'Eritrea', 'Ethiopia', 'Finland', 'France', 'Georgia', 'Germany', 'Ghana', 'Greece', 'Guinea', 'Hungary', 'India', 'Indonesia', 'Iran', 'Iraq', 'Ireland', 'Italy', 'Japan', 'Jordan', 'Kazakhstan', 'Kenya', 'Kuwait', 'Kyrgyzstan', 'Lebanon', 'Libya', 'Malaysia', 'Mali', 'Mauritania', 'Mexico', 'Mongolia', 'Morocco', 'Myanmar', 'Nepal', 'Netherlands', 'New Zealand', 'Nigeria', 'Norway', 'Oman', 'Pakistan', 'Palestine', 'Peru', 'Philippines', 'Poland', 'Portugal', 'Qatar', 'Romania', 'Russia', 'Rwanda', 'Saudi Arabia', 'Scotland', 'Senegal', 'Serbia', 'Singapore', 'Slovakia', 'Somalia', 'South Africa', 'South Korea', 'Spain', 'Sri Lanka', 'Sudan', 'Sweden', 'Syria', 'Tajikistan', 'Tanzania', 'Thailand', 'Tunisia', 'Turkey', 'Turkmenistan', 'UAE', 'Uganda', 'UK', 'Ukraine', 'USA', 'Uzbekistan', 'Venezuela', 'Vietnam', 'Wales', 'Yemen', 'Zambia', 'Zimbabwe']],
+                    coach_id:       ['All', ...coaches.map(co => co.name)],
+                    disability:     ['All', ...new Set(athletes.map(a => a.disability).filter(Boolean))],
+                    age_category:   ['All', ...new Set(athletes.map(a => a.age_category).filter(Boolean))],
+                    medical_status: ['All', 'None', 'Screening', 'Medical Certificate'],
                   }
                   const opts = filterOpts[col.key]
                   if (!opts) return <th key={col.key} />
