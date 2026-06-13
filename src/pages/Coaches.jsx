@@ -87,7 +87,6 @@ function exportCoachPDF(coach, myAthletes, lang) {
     ${field(L('Employee #','رقم الموظف'), coach.employee_number)}
     ${field(L('QSS #','رقم QSS'), coach.qss_number)}
     ${field(L('Sport','الرياضة'), isAr ? (SPORT_AR[coach.sport]||coach.sport) : coach.sport)}
-    ${field(L('Cert. Level','مستوى الشهادة'), coach.cert_level)}
     ${field(L('Nationality','الجنسية'), isAr ? (COUNTRY_AR[coach.nationality]||coach.nationality) : coach.nationality)}
     ${field(L('Gender','الجنس'), coach.gender ? (isAr ? (coach.gender==='Male'?'ذكر':'أنثى') : coach.gender) : null)}
     ${field(L('With QPC since','مع QPC منذ'), coach.since)}
@@ -141,6 +140,62 @@ ${myAthletes.length > 0 ? `<div class="section">
   win.document.write(html)
   win.document.close()
   setTimeout(() => win.print(), 500)
+}
+
+function FormerAthletes({ coachId, athletes, lang, onNav }) {
+  const [formerIds, setFormerIds] = useState([])
+  const ar = lang === 'ar'
+  const L = (en, a) => ar ? a : en
+  const [showAll, setShowAll] = useState(false)
+
+  useEffect(() => {
+    if (!coachId) return
+    supabase.from('athlete_coach_history')
+      .select('athlete_id')
+      .eq('coach_id', String(coachId))
+      .eq('is_current', false)
+      .then(({ data }) => setFormerIds((data||[]).map(r => String(r.athlete_id))))
+  }, [coachId])
+
+  const formerAthletes = athletes.filter(a => formerIds.includes(String(a.id)))
+  if (!formerAthletes.length) return null
+
+  const shown = showAll ? formerAthletes : formerAthletes.slice(0, 5)
+
+  return (
+    <div className="info-card" style={{ marginTop: 16 }}>
+      <div className="info-title">
+        {L('Former athletes', 'الرياضيون السابقون')} ({formerAthletes.length})
+        <span style={{ fontSize:10, fontWeight:400, textTransform:'none', letterSpacing:0, marginLeft:4, color:'#f59e0b' }}>
+          — {L('historical','تاريخي')}
+        </span>
+      </div>
+      {shown.map(a => (
+        <DashRow key={a.id} onClick={() => onNav('athletes', { athleteId: a.id })}>
+          {a.photo_url
+            ? <img src={a.photo_url} alt={a.name} style={{ width:32, height:32, borderRadius:'50%', objectFit:'cover', flexShrink:0 }} />
+            : <Avatar name={a.name} id={a.id} size={32} fs={10} />
+          }
+          <div style={{ flex:1 }}>
+            <div style={{ fontSize:13, fontWeight:500 }}>{ar && a.name_ar ? a.name_ar : a.name}</div>
+            <div style={{ fontSize:11, color:'#9aa3b2' }}>{a.sport} · {a.classification}</div>
+          </div>
+          <MedalDisplay gold={a.medals_gold} silver={a.medals_silver} bronze={a.medals_bronze} />
+          <span style={{ fontSize:11, padding:'2px 8px', borderRadius:20, background:'#f59e0b20', color:'#f59e0b', fontWeight:600, flexShrink:0 }}>
+            {L('Former','سابق')}
+          </span>
+        </DashRow>
+      ))}
+      {formerAthletes.length > 5 && (
+        <button onClick={() => setShowAll(v => !v)}
+          style={{ width:'100%', marginTop:8, padding:'7px', background:'none', border:'1px solid var(--border)', borderRadius:8, cursor:'pointer', fontSize:12, color:'var(--text2)', fontFamily:'DM Sans, sans-serif' }}>
+          {showAll
+            ? L('Show less ▲', 'عرض أقل ▲')
+            : L(`Show all ${formerAthletes.length} ▼`, `عرض الكل (${formerAthletes.length}) ▼`)}
+        </button>
+      )}
+    </div>
+  )
 }
 
 export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNav, initCoachId, navState, profile }) {
@@ -198,7 +253,7 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
     const payload = {
       name: formData.name, name_ar: formData.nameAr,
       nationality: formData.nationality, gender: formData.gender,
-      sport: formData.sport, cert_level: formData.certLevel,
+      sport: formData.sport,
       license: formData.license, since: formData.since || null,
       email: formData.email, phone: formData.phone, status: formData.status,
       qss_number: formData.qssNumber, employee_number: formData.employeeNumber,
@@ -261,7 +316,7 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
           <FormModal type="coach"
             record={form==='edit' ? {
               id:c.id, name:c.name, nameAr:c.name_ar, nationality:c.nationality,
-              gender:c.gender, sport:c.sport, certLevel:c.cert_level,
+              gender:c.gender, sport:c.sport,
               license:c.license, since:c.since, email:c.email, phone:c.phone,
               status:c.status, qssNumber:c.qss_number, employeeNumber:c.employee_number,
               passportNumber:c.passport_number, passportExpiry:c.passport_expiry,
@@ -325,8 +380,7 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
               {[
                 [lang==='ar'?'رقم الموظف':'Employee #', c.employee_number],
                 [lang==='ar'?'رقم QSS':'QSS #', c.qss_number],
-                [lang==='ar'?'مستوى الشهادة':'Cert. level', c.cert_level],
-                [lang==='ar'?'الجنسية':'Nationality', tc(c.nationality)],
+                  [lang==='ar'?'الجنسية':'Nationality', tc(c.nationality)],
                 [lang==='ar'?'الجنس':'Gender', lang==='ar'&&c.gender?(c.gender==='Male'?'ذكر':'أنثى'):c.gender],
                 [lang==='ar'?'مع QPC منذ':'With QPC since', c.since],
                 [lang==='ar'?'رقم الجواز':'Passport #', c.passport_number],
@@ -396,6 +450,9 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
 
         </div>
 
+        {/* FORMER ATHLETES */}
+        <FormerAthletes coachId={c.id} athletes={athletes} lang={lang} onNav={onNav} />
+
         {/* DOCUMENTS - full width below both columns */}
         <PersonDocuments
           personId={c.id}
@@ -461,8 +518,7 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
               <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
                 {[
                   [tx('form.sport','Sport'), SPORT_NAMES[c.sport]||c.sport],
-                  [tx('form.certLevel','Cert.'), c.cert_level],
-                  [tx('coaches.employeeNum','Employee #'), c.employee_number],
+                      [tx('coaches.employeeNum','Employee #'), c.employee_number],
                   [tx('coaches.athletes','Athletes'), count],
                 ].map(([k,v]) => (
                   <div key={k} className="coach-row">
