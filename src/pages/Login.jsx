@@ -12,7 +12,7 @@ export default function Login({ onRequestSent }) {
   const [mode, setMode]         = useState('login')   // login | register | pending | rejected | sent
   const [loading, setLoading]   = useState(false)
   const [error, setError]       = useState('')
-  const [form, setForm]         = useState({ email:'', password:'', confirmPassword:'', fullName:'', accountType:'guest', coachId:'', athleteId:'' })
+  const [form, setForm]         = useState({ qid:'', password:'', confirmPassword:'', fullName:'', accountType:'guest', coachId:'', athleteId:'' })
   const [coaches, setCoaches]   = useState([])
   const [athletes, setAthletes] = useState([])
   const set = (k,v) => setForm(f => ({...f, [k]:v}))
@@ -26,10 +26,15 @@ export default function Login({ onRequestSent }) {
     setAthletes(a||[])
   }
 
+  const qidToEmail = (qid) => `${qid.replace(/\s+/g,'')}@qpc-system.qa`
+
   async function handleLogin(e) {
     e.preventDefault()
     setLoading(true); setError('')
-    const { error } = await supabase.auth.signInWithPassword({ email: form.email, password: form.password })
+    if (!form.qid.trim()) { setError(L('QID is required','الرقم الشخصي مطلوب')); setLoading(false); return }
+    // Support both QID and email login (for admin who registered with email)
+    const loginEmail = form.qid.includes('@') ? form.qid : qidToEmail(form.qid)
+    const { error } = await supabase.auth.signInWithPassword({ email: loginEmail, password: form.password })
     if (error) { setError(error.message); setLoading(false); return }
     // App.jsx handles pending/rejected screens based on profile.status
     setLoading(false)
@@ -39,6 +44,7 @@ export default function Login({ onRequestSent }) {
     e.preventDefault()
     setLoading(true); setError('')
     if (!form.fullName.trim()) { setError(L('Full name is required','الاسم الكامل مطلوب')); setLoading(false); return }
+    if (!form.qid.trim()) { setError(L('QID is required','الرقم الشخصي مطلوب')); setLoading(false); return }
     if (form.password !== form.confirmPassword) { setError(L('Passwords do not match','كلمات المرور غير متطابقة')); setLoading(false); return }
     if (form.password.length < 6) { setError(L('Password must be at least 6 characters','كلمة المرور يجب أن تكون 6 أحرف على الأقل')); setLoading(false); return }
     if (form.accountType === 'coach' && !form.coachId) { setError(L('Please select your coach profile','الرجاء اختيار ملف المدرب')); setLoading(false); return }
@@ -46,10 +52,10 @@ export default function Login({ onRequestSent }) {
 
     // Sign up
     const { data, error } = await supabase.auth.signUp({
-      email: form.email,
+      email: qidToEmail(form.qid),
       password: form.password,
       options: {
-        data: { full_name: form.fullName }
+        data: { full_name: form.fullName, qid: form.qid }
       }
     })
     if (error) {
@@ -68,6 +74,7 @@ export default function Login({ onRequestSent }) {
       await supabase.from('profiles').insert({
         id: data.user.id,
         full_name: form.fullName,
+        email: form.qid,  // store QID as identifier
         account_type: form.accountType,
         role: form.accountType,
         status: 'pending',
@@ -81,7 +88,7 @@ export default function Login({ onRequestSent }) {
 
     // Show sent screen immediately, then sign out
     // Notify admin
-    notifyAdminNewRequest({ fullName: form.fullName, email: form.email, accountType: form.accountType })
+    notifyAdminNewRequest({ fullName: form.fullName, email: form.qid, accountType: form.accountType })
     setLoading(false)
     if (onRequestSent) onRequestSent()
     await supabase.auth.signOut()
@@ -153,8 +160,8 @@ export default function Login({ onRequestSent }) {
           {mode === 'login' && (
             <form onSubmit={handleLogin}>
               <div className="form-group">
-                <label className="form-label">{L('Email','البريد الإلكتروني')}</label>
-                <input className="form-input" type="email" placeholder="admin@qpc.qa" value={form.email} onChange={e=>set('email',e.target.value)} required />
+                <label className="form-label">{L('Qatar ID (QID)','الرقم الشخصي QID')}</label>
+                <input className="form-input" type="text" placeholder={L("e.g. 28412345678","مثال: 28412345678")} value={form.qid} onChange={e=>set('qid',e.target.value)} required />
               </div>
               <div className="form-group">
                 <label className="form-label">{L('Password','كلمة المرور')}</label>
@@ -175,8 +182,8 @@ export default function Login({ onRequestSent }) {
                 <input className="form-input" placeholder={L('e.g. Ahmed Al-Ansari','مثال: أحمد الأنصاري')} value={form.fullName} onChange={e=>set('fullName',e.target.value)} required />
               </div>
               <div className="form-group">
-                <label className="form-label">{L('Email','البريد الإلكتروني')}</label>
-                <input className="form-input" type="email" placeholder="your@email.com" value={form.email} onChange={e=>set('email',e.target.value)} required />
+                <label className="form-label">{L('Qatar ID (QID)','الرقم الشخصي QID')}</label>
+                <input className="form-input" type="text" placeholder={L("e.g. 28412345678","مثال: 28412345678")} value={form.qid} onChange={e=>set('qid',e.target.value)} required />
               </div>
               <div className="form-group">
                 <label className="form-label">{L('Account Type','نوع الحساب')}</label>
