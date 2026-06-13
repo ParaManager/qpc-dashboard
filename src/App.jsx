@@ -228,7 +228,7 @@ export default function App() {
         </div>
         <div id="content">
           {page==='dashboard' && <Dashboard athletes={myAthletes} coaches={coaches} events={events} results={results} onNav={goTo} profile={profile} />}
-          {page==='athletes'  && <Athletes  athletes={myAthletes} coaches={coaches} results={results} documents={documents} events={events} registrations={registrations} onRefresh={fetchAll} onNav={goTo} initAthleteId={navState.athleteId} initStatusFilter={navState.statusFilter} navState={navState} profile={profile} />}
+          {page==='athletes'  && <Athletes  athletes={myAthletes} coaches={coaches} employees={employees} results={results} documents={documents} events={events} registrations={registrations} onRefresh={fetchAll} onNav={goTo} initAthleteId={navState.athleteId} initStatusFilter={navState.statusFilter} navState={navState} profile={profile} />}
           {page==='coaches'   && isAdmin && <Coaches   coaches={coaches} athletes={athletes} personDocs={personDocs} onRefresh={fetchAll} onNav={goTo} initCoachId={navState.coachId} navState={navState} profile={profile} />}
           {page==='events'    && <Events    events={events} athletes={athletes} results={results} registrations={registrations} onRefresh={fetchAll} onNav={goTo} initEventId={navState.eventId} initStatusFilter={navState.statusFilter} profile={profile} />}
           {page==='schedule'  && <Schedule  profile={profile} coachId={myCoachId} myAthletes={myAthletes} onNav={goTo} />}
