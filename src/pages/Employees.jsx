@@ -3,6 +3,7 @@ import { initials } from '../lib/helpers'
 import { ConfirmModal, toast } from '../components/Toast'
 import { supabase } from '../lib/supabase'
 import { canEdit } from '../lib/useAuth'
+import CareerHistory from '../components/CareerHistory.jsx'
 import { useLang } from '../lib/LangContext.jsx'
 import PersonDocuments from '../components/PersonDocuments'
 import * as XLSX from 'xlsx'
@@ -500,6 +501,7 @@ export default function Employees({ employees, personDocs, onRefresh, onNav, nav
             onRefresh={onRefresh}
             profile={profile}
           />
+          <CareerHistory personId={emp.id} personType="employee" personName={emp.name} />
         </div>
         <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
       </div>

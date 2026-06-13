@@ -1,10 +1,12 @@
-import { useState, useEffect, useRef } from 'react'
+
+            <CareerHistory personId={a.id} personType="athlete" personName={a.name} />import { useState, useEffect, useRef } from 'react'
 import * as XLSX from 'xlsx'
 import { Avatar, MedalDisplay, Badge, avColor, initials, DashRow } from '../lib/helpers'
 import FormModal from '../components/FormModal'
 import { ConfirmModal, toast } from '../components/Toast'
 import { supabase } from '../lib/supabase'
 import { canEdit } from '../lib/useAuth'
+import CareerHistory from '../components/CareerHistory.jsx'
 import { useLang } from '../lib/LangContext.jsx'
 import AthleteCardButton from '../components/AthleteCard'
 
@@ -977,6 +979,9 @@ ${myDocs.length > 0 ? `<div class="section">
                   : <div style={{ fontSize:13, color:'var(--text3)', fontStyle:'italic' }}>{lang==='ar'?'لا توجد ملاحظات بعد.':'No notes added yet.'}</div>
               }
             </div>
+
+            {/* CAREER HISTORY */}
+            <CareerHistory personId={a.id} personType="athlete" personName={lang==='ar'&&a.name_ar?a.name_ar:a.name} />
 
             {/* DOCUMENTS */}
             <div className="info-card">

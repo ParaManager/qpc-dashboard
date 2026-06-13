@@ -4,6 +4,7 @@ import FormModal from '../components/FormModal'
 import { ConfirmModal, toast } from '../components/Toast'
 import { supabase } from '../lib/supabase'
 import { canEdit } from '../lib/useAuth'
+import CareerHistory from '../components/CareerHistory.jsx'
 import { useLang } from '../lib/LangContext.jsx'
 import PersonDocuments from '../components/PersonDocuments'
 
@@ -404,6 +405,7 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
           onRefresh={onRefresh}
           profile={profile}
         />
+      <CareerHistory personId={c.id} personType="coach" personName={c.name} />
 
         <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
       </div>
