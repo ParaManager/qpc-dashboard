@@ -116,12 +116,14 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
           <i className="ti ti-arrow-left" /> {L('Back to schedule','رجوع إلى الجدول')}
         </button>
         <div style={{ display:'flex', gap:10, marginBottom:16, flexWrap:'wrap' }}>
-          <button className="action-btn action-btn-edit" onClick={() => { setEditData({ id:s.id, title:s.title, type:s.session_type, sport:s.sport, location:s.location, date:s.session_date, startTime:s.start_time, endTime:s.end_time, notes:s.notes, athleteIds: s.session_athletes?.map(sa=>sa.athlete_id)||[] }); setShowForm(true) }}>
-            <i className="ti ti-pencil" /> {L('Edit','تعديل')}
-          </button>
-          <button className="action-btn action-btn-delete" onClick={() => deleteSession(s.id)}>
-            <i className="ti ti-trash" /> {L('Delete','حذف')}
-          </button>
+          {!readOnly && <>
+            <button className="action-btn action-btn-edit" onClick={() => { setEditData({ id:s.id, title:s.title, type:s.session_type, sport:s.sport, location:s.location, date:s.session_date, startTime:s.start_time, endTime:s.end_time, notes:s.notes, athleteIds: s.session_athletes?.map(sa=>sa.athlete_id)||[] }); setShowForm(true) }}>
+              <i className="ti ti-pencil" /> {L('Edit','تعديل')}
+            </button>
+            <button className="action-btn action-btn-delete" onClick={() => deleteSession(s.id)}>
+              <i className="ti ti-trash" /> {L('Delete','حذف')}
+            </button>
+          </>}
           <button className="btn" style={{ background:color, fontSize:13, padding:'6px 14px' }}
             onClick={() => onNav('attendance', { sessionId: s.id })}>
             <i className="ti ti-clipboard-check" /> {L('Take attendance','تسجيل الحضور')}
@@ -171,10 +173,12 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
           <div className="page-sub">{monthNames[month]} {year}</div>
         </div>
         <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-          <button className="btn" style={{ background:'#0085C7', fontSize:13, padding:'6px 14px' }}
-            onClick={() => setShowForm(true)}>
-            <i className="ti ti-plus" /> {L('Add Session','إضافة جلسة')}
-          </button>
+          {!readOnly && (
+            <button className="btn" style={{ background:'#0085C7', fontSize:13, padding:'6px 14px' }}
+              onClick={() => setShowForm(true)}>
+              <i className="ti ti-plus" /> {L('Add Session','إضافة جلسة')}
+            </button>
+          )}
         </div>
       </div>
 
