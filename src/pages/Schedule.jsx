@@ -113,7 +113,7 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
   if (selected) {
     const s = sessions.find(x => x.id === selected)
     if (!s) { setSelected(null); return null }
-    const sAthletes = myAthletes.filter(a => s.session_athletes?.some(sa => sa.athlete_id === a.id))
+    const sAthletes = myAthletes.filter(a => s.session_athletes?.some(sa => String(sa.athlete_id) === String(a.id)))
     const color = SESSION_COLORS[s.session_type] || '#0085C7'
     return (
       <div>
@@ -242,7 +242,7 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
           <div className="card-title"><i className="ti ti-clock" /> {L('Upcoming sessions','الجلسات القادمة')}</div>
           {filterSessions(sessions.filter(s => s.session_date >= today.toISOString().slice(0,10))).slice(0,5).map(s => {
             const color = SESSION_COLORS[s.session_type]||'#0085C7'
-            const sAthletes = myAthletes.filter(a => s.session_athletes?.some(sa=>sa.athlete_id===a.id))
+            const sAthletes = myAthletes.filter(a => s.session_athletes?.some(sa=>String(sa.athlete_id)===String(a.id)))
             return (
               <div key={s.id} onClick={() => setSelected(s.id)}
                 style={{ display:'flex', gap:12, padding:'10px 0', borderBottom:'1px solid var(--border)', cursor:'pointer', alignItems:'center' }}>
@@ -268,7 +268,7 @@ function SessionForm({ data, athletes, coachId, ar, onSave, onClose }) {
   const isEdit = !!data?.id
   const [form, setForm] = useState(data || { type:'Training', athleteIds:[] })
   const set = (k,v) => setForm(f => ({...f, [k]:v}))
-  const toggleAth = (id) => setForm(f => ({ ...f, athleteIds: f.athleteIds?.includes(id) ? f.athleteIds.filter(x=>x!==id) : [...(f.athleteIds||[]),id] }))
+  const toggleAth = (id) => setForm(f => { const sid = String(id); return { ...f, athleteIds: f.athleteIds?.includes(sid) ? f.athleteIds.filter(x=>x!==sid) : [...(f.athleteIds||[]),sid] } })
   const L = (en,a) => ar?a:en
 
   return (
@@ -325,9 +325,9 @@ function SessionForm({ data, athletes, coachId, ar, onSave, onClose }) {
           <div style={{maxHeight:200,overflowY:'auto',border:'1px solid var(--border)',borderRadius:10,padding:'4px 0'}}>
             {athletes.map(a=>(
               <div key={a.id} onClick={()=>toggleAth(a.id)}
-                style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',cursor:'pointer',background:form.athleteIds?.includes(a.id)?'var(--surface2)':'transparent'}}>
-                <div style={{width:18,height:18,borderRadius:4,border:'2px solid',borderColor:form.athleteIds?.includes(a.id)?'#0085C7':'var(--border)',background:form.athleteIds?.includes(a.id)?'#0085C7':'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-                  {form.athleteIds?.includes(a.id)&&<i className="ti ti-check" style={{fontSize:10,color:'#fff'}}/>}
+                style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',cursor:'pointer',background:form.athleteIds?.includes(String(a.id))?'var(--surface2)':'transparent'}}>
+                <div style={{width:18,height:18,borderRadius:4,border:'2px solid',borderColor:form.athleteIds?.includes(String(a.id))?'#0085C7':'var(--border)',background:form.athleteIds?.includes(String(a.id))?'#0085C7':'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                  {form.athleteIds?.includes(String(a.id))&&<i className="ti ti-check" style={{fontSize:10,color:'#fff'}}/>}
                 </div>
                 <Avatar name={a.name} id={a.id} size={28} fs={9}/>
                 <span style={{fontSize:13}}>{ar&&a.name_ar?a.name_ar:a.name}</span>
