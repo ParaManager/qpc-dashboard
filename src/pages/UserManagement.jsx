@@ -230,7 +230,7 @@ export default function UserManagement({ profile }) {
                       style={{ padding:'7px 14px', background:'var(--surface2)', color:'var(--text2)', border:'1px solid var(--border)', borderRadius:8, fontSize:12, cursor:'pointer' }}>
                       <i className="ti ti-refresh" /> {L('Re-activate','إعادة التفعيل')}
                     </button>
-                    <button onClick={() => deleteAccount(u.id)}
+                    <button onClick={() => setConfirmDelete(u)}
                       style={{ padding:'7px 14px', background:'#EE334E10', color:'#EE334E', border:'1px solid #EE334E40', borderRadius:8, fontSize:12, cursor:'pointer' }}>
                       <i className="ti ti-trash" /> {L('Delete account','حذف الحساب')}
                     </button>
@@ -248,6 +248,37 @@ export default function UserManagement({ profile }) {
           )
         })
       )}
+    {/* Delete confirmation modal */}
+    {confirmDelete && (
+      <div className="modal-overlay" onClick={() => setConfirmDelete(null)}>
+        <div className="modal-box" style={{ maxWidth:400 }} onClick={e => e.stopPropagation()}>
+          <div className="modal-header">
+            <div className="modal-title" style={{ color:'#EE334E' }}>
+              <i className="ti ti-alert-triangle" /> {L('Delete Account','حذف الحساب')}
+            </div>
+            <button className="modal-close" onClick={() => setConfirmDelete(null)}><i className="ti ti-x" /></button>
+          </div>
+          <div className="modal-body">
+            <p style={{ fontSize:14, color:'var(--text)', marginBottom:8 }}>
+              {L('Are you sure you want to permanently delete this account?','هل أنت متأكد من حذف هذا الحساب نهائياً؟')}
+            </p>
+            <div style={{ background:'var(--surface2)', borderRadius:10, padding:'10px 14px', fontSize:13 }}>
+              <div style={{ fontWeight:600 }}>{confirmDelete.full_name || L('Unknown','غير معروف')}</div>
+              <div style={{ color:'var(--text3)', fontSize:12, marginTop:2 }}>{confirmDelete.email} · {confirmDelete.account_type}</div>
+            </div>
+            <p style={{ fontSize:12, color:'#EE334E', marginTop:10 }}>
+              <i className="ti ti-alert-circle" /> {L('This action cannot be undone.','لا يمكن التراجع عن هذا الإجراء.')}
+            </p>
+          </div>
+          <div className="modal-footer">
+            <button className="btn-cancel" onClick={() => setConfirmDelete(null)}>{L('Cancel','إلغاء')}</button>
+            <button className="btn" style={{ background:'#EE334E' }} onClick={() => deleteAccount(confirmDelete.id)}>
+              <i className="ti ti-trash" /> {L('Yes, delete','نعم، احذف')}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     </div>
   )
 }
