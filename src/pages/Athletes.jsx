@@ -1,5 +1,5 @@
 
-            <CareerHistory personId={a.id} personType="athlete" personName={a.name} />import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import * as XLSX from 'xlsx'
 import { Avatar, MedalDisplay, Badge, avColor, initials, DashRow } from '../lib/helpers'
 import FormModal from '../components/FormModal'
@@ -979,6 +979,9 @@ ${myDocs.length > 0 ? `<div class="section">
                   : <div style={{ fontSize:13, color:'var(--text3)', fontStyle:'italic' }}>{lang==='ar'?'لا توجد ملاحظات بعد.':'No notes added yet.'}</div>
               }
             </div>
+
+            {/* CAREER HISTORY */}
+            <CareerHistory personId={a.id} personType="athlete" personName={lang==='ar'&&a.name_ar?a.name_ar:a.name} />
 
             {/* CAREER HISTORY */}
             <CareerHistory personId={a.id} personType="athlete" personName={lang==='ar'&&a.name_ar?a.name_ar:a.name} />
