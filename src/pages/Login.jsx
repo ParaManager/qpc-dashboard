@@ -50,6 +50,26 @@ export default function Login({ onRequestSent }) {
     if (form.accountType === 'coach' && !form.coachId) { setError(L('Please select your coach profile','الرجاء اختيار ملف المدرب')); setLoading(false); return }
     if (form.accountType === 'athlete' && !form.athleteId) { setError(L('Please select your athlete profile','الرجاء اختيار ملف الرياضي')); setLoading(false); return }
 
+    // ── QID VERIFICATION ──
+    if (form.accountType === 'coach' && form.coachId) {
+      const { data: coachData } = await supabase.from('coaches').select('id_number').eq('id', form.coachId).single()
+      const storedQID = (coachData?.id_number || '').replace(/\s+/g, '').trim()
+      const enteredQID = form.qid.replace(/\s+/g, '').trim()
+      if (storedQID && storedQID !== enteredQID) {
+        setError(L('The QID you entered does not match our records for this coach. Please check your ID number.', 'الرقم الشخصي الذي أدخلته لا يتطابق مع سجلاتنا لهذا المدرب. يرجى التحقق من رقم هويتك.'))
+        setLoading(false); return
+      }
+    }
+    if (form.accountType === 'athlete' && form.athleteId) {
+      const { data: athData } = await supabase.from('athletes').select('id_number').eq('id', form.athleteId).single()
+      const storedQID = (athData?.id_number || '').replace(/\s+/g, '').trim()
+      const enteredQID = form.qid.replace(/\s+/g, '').trim()
+      if (storedQID && storedQID !== enteredQID) {
+        setError(L('The QID you entered does not match our records for this athlete. Please check your ID number.', 'الرقم الشخصي الذي أدخلته لا يتطابق مع سجلاتنا لهذا الرياضي. يرجى التحقق من رقم هويتك.'))
+        setLoading(false); return
+      }
+    }
+
     // Sign up
     const { data, error } = await supabase.auth.signUp({
       email: qidToEmail(form.qid),
