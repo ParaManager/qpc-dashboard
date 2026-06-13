@@ -94,6 +94,15 @@ export default function UserManagement({ profile }) {
     loadUsers()
   }
 
+  async function deleteAccount(userId) {
+    if (!window.confirm(L('Are you sure you want to permanently delete this account? This cannot be undone.', 'هل أنت متأكد من حذف هذا الحساب نهائياً؟ لا يمكن التراجع عن هذا الإجراء.'))) return
+    await supabase.from('profiles').delete().eq('id', userId)
+    // Also delete from Supabase Auth via admin API if available
+    await supabase.auth.admin?.deleteUser(userId).catch(() => {})
+    toast(L('Account deleted', 'تم حذف الحساب'))
+    loadUsers()
+  }
+
   const filtered = users.filter(u => {
     if (filter === 'pending') return u.status === 'pending'
     if (filter === 'active')  return u.status === 'active'
@@ -219,6 +228,10 @@ export default function UserManagement({ profile }) {
                     <button onClick={() => approve(u)}
                       style={{ padding:'7px 14px', background:'var(--surface2)', color:'var(--text2)', border:'1px solid var(--border)', borderRadius:8, fontSize:12, cursor:'pointer' }}>
                       <i className="ti ti-refresh" /> {L('Re-activate','إعادة التفعيل')}
+                    </button>
+                    <button onClick={() => deleteAccount(u.id)}
+                      style={{ padding:'7px 14px', background:'#EE334E10', color:'#EE334E', border:'1px solid #EE334E40', borderRadius:8, fontSize:12, cursor:'pointer' }}>
+                      <i className="ti ti-trash" /> {L('Delete account','حذف الحساب')}
                     </button>
                   )}
                 </div>
