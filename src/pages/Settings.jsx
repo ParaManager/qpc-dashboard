@@ -11,6 +11,7 @@ export default function Settings({ user, profile, signOut }) {
 
   const [pwForm, setPwForm]         = useState({ current: '', new: '', confirm: '' })
   const [pwLoading, setPwLoading]   = useState(false)
+  const [showPwForm, setShowPwForm] = useState(false)
   const [showDelete, setShowDelete] = useState(false)
 
   async function changePassword(e) {
@@ -26,12 +27,6 @@ export default function Settings({ user, profile, signOut }) {
     if (error) { toast(error.message, 'error') }
     else { toast(L('Password changed successfully', 'تم تغيير كلمة المرور بنجاح')); setPwForm({ current:'', new:'', confirm:'' }) }
     setPwLoading(false)
-  }
-
-  async function signOutAll() {
-    await supabase.auth.signOut({ scope: 'global' })
-    toast(L('Signed out from all devices', 'تم تسجيل الخروج من جميع الأجهزة'))
-    signOut()
   }
 
   const role = profile?.account_type || profile?.role || 'guest'
@@ -61,21 +56,32 @@ export default function Settings({ user, profile, signOut }) {
       {/* Change password */}
       <div className="info-card" style={{ marginBottom: 16 }}>
         <div className="info-title">{L('Change Password', 'تغيير كلمة المرور')}</div>
-        <form onSubmit={changePassword}>
-          <div className="form-group">
-            <label className="form-label">{L('New password', 'كلمة المرور الجديدة')}</label>
-            <input className="form-input" type="password" placeholder="••••••••"
-              value={pwForm.new} onChange={e => setPwForm(f => ({...f, new: e.target.value}))} required />
-          </div>
-          <div className="form-group">
-            <label className="form-label">{L('Confirm new password', 'تأكيد كلمة المرور الجديدة')}</label>
-            <input className="form-input" type="password" placeholder="••••••••"
-              value={pwForm.confirm} onChange={e => setPwForm(f => ({...f, confirm: e.target.value}))} required />
-          </div>
-          <button type="submit" disabled={pwLoading} className="btn" style={{ background:'#0085C7', marginTop: 4 }}>
-            {pwLoading ? L('Saving…','جارٍ الحفظ…') : <><i className="ti ti-lock" /> {L('Update password','تحديث كلمة المرور')}</>}
+        {!showPwForm ? (
+          <button onClick={() => setShowPwForm(true)} className="action-btn action-btn-edit">
+            <i className="ti ti-lock" /> {L('Change password', 'تغيير كلمة المرور')}
           </button>
-        </form>
+        ) : (
+          <form onSubmit={async (e) => { await changePassword(e); setShowPwForm(false) }}>
+            <div className="form-group">
+              <label className="form-label">{L('New password', 'كلمة المرور الجديدة')}</label>
+              <input className="form-input" type="password" placeholder="••••••••" autoFocus
+                value={pwForm.new} onChange={e => setPwForm(f => ({...f, new: e.target.value}))} required />
+            </div>
+            <div className="form-group">
+              <label className="form-label">{L('Confirm new password', 'تأكيد كلمة المرور الجديدة')}</label>
+              <input className="form-input" type="password" placeholder="••••••••"
+                value={pwForm.confirm} onChange={e => setPwForm(f => ({...f, confirm: e.target.value}))} required />
+            </div>
+            <div style={{ display:'flex', gap:8, marginTop:4 }}>
+              <button type="button" className="btn-cancel" onClick={() => { setShowPwForm(false); setPwForm({ current:'', new:'', confirm:'' }) }}>
+                {L('Cancel', 'إلغاء')}
+              </button>
+              <button type="submit" disabled={pwLoading} className="btn" style={{ background:'#0085C7' }}>
+                {pwLoading ? L('Saving…','جارٍ الحفظ…') : <><i className="ti ti-check" /> {L('Update password','تحديث كلمة المرور')}</>}
+              </button>
+            </div>
+          </form>
+        )}
       </div>
 
       {/* Language */}
@@ -100,11 +106,8 @@ export default function Settings({ user, profile, signOut }) {
           {L('Sign out from all devices where your account is currently logged in.',
              'تسجيل الخروج من جميع الأجهزة التي سجّلت الدخول منها.')}
         </p>
-        <button onClick={signOut} className="action-btn action-btn-delete" style={{ marginRight:8 }}>
+        <button onClick={signOut} className="action-btn action-btn-delete">
           <i className="ti ti-logout" /> {L('Sign out', 'تسجيل الخروج')}
-        </button>
-        <button onClick={signOutAll} style={{ padding:'7px 16px', background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:8, fontSize:13, cursor:'pointer', color:'var(--text2)', fontFamily:'DM Sans, sans-serif' }}>
-          <i className="ti ti-devices-off" /> {L('Sign out all devices', 'تسجيل الخروج من كل الأجهزة')}
         </button>
       </div>
 
