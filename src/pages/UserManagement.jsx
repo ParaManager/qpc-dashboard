@@ -96,11 +96,10 @@ export default function UserManagement({ profile }) {
   }
 
   async function deleteAccount(userId) {
-    if (!window.confirm(L('Are you sure you want to permanently delete this account? This cannot be undone.', 'هل أنت متأكد من حذف هذا الحساب نهائياً؟ لا يمكن التراجع عن هذا الإجراء.'))) return
     await supabase.from('profiles').delete().eq('id', userId)
-    // Also delete from Supabase Auth via admin API if available
     await supabase.auth.admin?.deleteUser(userId).catch(() => {})
     toast(L('Account deleted', 'تم حذف الحساب'))
+    setConfirmDelete(null)
     loadUsers()
   }
 
