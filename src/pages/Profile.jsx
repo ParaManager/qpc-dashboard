@@ -242,6 +242,7 @@ export default function Profile({ user, profile, athletes, coaches, employees, r
               personId={String(personData.id)}
               personType={role === 'admin' ? 'employee' : role}
               personName={ar&&personData.name_ar?personData.name_ar:personData.name}
+              readOnly={role !== 'admin'}
             />
           )}
 
