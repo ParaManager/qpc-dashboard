@@ -843,7 +843,7 @@ ${myDocs.length > 0 ? `<div class="section">
             {/* SPORT */}
             <div className="info-card">
               <div className="info-title">{lang==='ar'?'الرياضة والتصنيف':'Sport & classification'}</div>
-              {[[tx('form.sport','Sport'),SPORT_NAMES[a.sport]||a.sport],[tx('form.classification','Classification'),a.classification],[tx('form.disability','Disability type'), tDis(a.disability)],[tx('form.club','Club'),a.club],[lang==='ar'?'الوظيفة':'Designation', {'Player':'لاعب','Female Player':'لاعبة','Coach':'مدرب','Female Coach':'مدربة','Referee':'حكم','Admin Staff':'جهاز إداري','Technical Staff':'جهاز في','Medical Staff':'جهاز طبي'}[a.designation]||a.designation],[tx('form.residencyStatus','Residency status'),a.residency_status]].map(([k,v]) => (
+              {[[tx('form.sport','Sport'),SPORT_NAMES[a.sport]||a.sport],[tx('form.classification','Classification'),a.classification],[tx('form.disability','Disability type'), tDis(a.disability)],[tx('form.club','Club'),a.club],[lang==='ar'?'الوظيفة':'Designation', {'Player':'لاعب','Female Player':'لاعبة','Coach':'مدرب','Female Coach':'مدربة','Referee':'حكم','Admin Staff':'جهاز إداري','Technical Staff':'جهاز في','Medical Staff':'جهاز طبي'}[a.designation]||a.designation],[tx('form.residencyStatus','Residency status'),a.residency_status],[lang==='ar'?'الحالة الطبية':'Medical status', (() => { const ms = a.medical_status||'None'; const col = ms==='None'?'#EE334E':ms==='Screening'?'#009F6B':'#0085C7'; const lbl = lang==='ar'?{'None':'لا يوجد','Screening':'فحص','Medical Certificate':'شهادة طبية'}[ms]||ms:ms; return <span style={{padding:'2px 10px',borderRadius:20,fontSize:11,fontWeight:600,background:col+'20',color:col}}>{lbl}</span> })()]].map(([k,v]) => (
                 <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv">{v||'—'}</span></div>
               ))}
             </div>
@@ -1155,9 +1155,9 @@ ${myDocs.length > 0 ? `<div class="section">
     { key:'passport_number', label:tx('athletes.passportNo','Passport No'),   default:false, editable:false },
     { key:'passport_expiry', label:tx('athletes.passportExpiry','Passport Expiry'), default:false, editable:false },
     { key:'id_expiry',       label:tx('athletes.idExpiry','ID Expiry'),       default:false, editable:false },
-    { key:'blood_type',      label:tx('athletes.bloodType','Blood Type'),     default:false, editable:false },
-    { key:'emergency_contact_name',  label:tx('athletes.emergencyContact','Emergency Contact'), default:false, editable:false },
-    { key:'emergency_contact_phone', label:tx('athletes.emergencyPhone','Emergency Phone'),     default:false, editable:false },
+    { key:'blood_type',      label:tx('athletes.bloodType','Blood Type'),     default:false, editable:false, hidden:true },
+    { key:'emergency_contact_name',  label:tx('athletes.emergencyContact','Emergency Contact'), default:false, editable:false, hidden:true },
+    { key:'emergency_contact_phone', label:tx('athletes.emergencyPhone','Emergency Phone'),     default:false, editable:false, hidden:true },
     { key:'medals',          label:tx('athletes.medals','Medals'),            default:true,  editable:false },
     { key:'docs',            label:tx('athletes.documents','Documents'),      default:false,  editable:false, hidden:true },
   ]
@@ -1285,7 +1285,7 @@ ${myDocs.length > 0 ? `<div class="section">
                 <div style={{ position:'absolute', top:'calc(100% + 6px)', right:0, background:'var(--surface)', border:'1px solid var(--border)', borderRadius:12, padding:'12px 4px', zIndex:200, boxShadow:'0 8px 24px rgba(0,0,0,.12)', minWidth:200, maxHeight:420, overflowY:'auto' }}
                   onMouseLeave={() => setColPickerOpen(false)}>
                   <div style={{ fontSize:11, fontWeight:600, color:'var(--text3)', textTransform:'uppercase', letterSpacing:'.06em', padding:'0 12px 8px' }}>{tx('actions.columns','Show / hide columns')}</div>
-                  {ALL_COLS.map(col => (
+                  {ALL_COLS.filter(col => !col.hidden).map(col => (
                     <label key={col.key} style={{ display:'flex', alignItems:'center', gap:10, padding:'7px 12px', cursor:col.key==='name'?'not-allowed':'pointer', borderRadius:8, transition:'background .1s' }}
                       onMouseEnter={e => { if(col.key!=='name') e.currentTarget.style.background='var(--surface2)' }}
                       onMouseLeave={e => { e.currentTarget.style.background='' }}>
