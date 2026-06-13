@@ -13,7 +13,10 @@ import Schedule       from './pages/Schedule'
 import UserManagement from './pages/UserManagement'
 import Referees       from './pages/Referees'
 import Profile        from './pages/Profile'
-import Settings       from './pages/Settings'
+import Settings          from './pages/Settings'
+import AthleteDashboard  from './pages/AthleteDashboard'
+import AthleteEvents     from './pages/AthleteEvents'
+import AthleteResults    from './pages/AthleteResults'
 import Attendance  from './pages/Attendance'
 import Employees from './pages/Employees'
 import './index.css'
@@ -32,6 +35,12 @@ const NAV_COACH = (tx) => [
   { section: tx('nav.competitions','Competitions'), items: [{ id:'schedule', icon:'ti-calendar', label:tx('nav.schedule','Schedule') }, { id:'attendance', icon:'ti-clipboard-check', label:tx('nav.attendance','Attendance') }, { id:'events', icon:'ti-calendar-event', label:tx('nav.events','Events') }, { id:'results', icon:'ti-medal', label:tx('nav.results','Results') }] },
   { section: tx('nav.account','Account'),         items: [{ id:'settings', icon:'ti-settings', label:tx('nav.settings','Settings') }] },
 ]
+const NAV_ATHLETE = (tx) => [
+  { section: tx('nav.overview','Overview'),      items: [{ id:'athlete-dashboard', icon:'ti-layout-dashboard', label:tx('nav.dashboard','Dashboard') }, { id:'profile', icon:'ti-user-circle', label:tx('nav.profile','My Profile') }] },
+  { section: tx('nav.mycompetitions','My Competitions'), items: [{ id:'athlete-events', icon:'ti-calendar-event', label:tx('nav.events','Events') }, { id:'athlete-results', icon:'ti-medal', label:tx('nav.results','Results') }, { id:'schedule', icon:'ti-calendar', label:tx('nav.schedule','Schedule') }] },
+  { section: tx('nav.account','Account'),         items: [{ id:'settings', icon:'ti-settings', label:tx('nav.settings','Settings') }] },
+]
+
 const NAV_GUEST = (tx) => [
   { section: tx('nav.overview','Overview'),      items: [{ id:'dashboard', icon:'ti-layout-dashboard', label:tx('nav.dashboard','Dashboard') }, { id:'profile', icon:'ti-user-circle', label:tx('nav.profile','My Profile') }] },
   { section: tx('nav.competitions','Competitions'), items: [{ id:'events', icon:'ti-calendar-event', label:tx('nav.events','Events') }, { id:'results', icon:'ti-medal', label:tx('nav.results','Results') }] },
@@ -46,7 +55,7 @@ export default function App() {
   const { lang, setLang, tx } = useLang()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [requestSent, setRequestSent] = useState(false)
-  const [page, setPage]               = useState('dashboard')
+  const [page, setPage]               = useState(role === 'athlete' ? 'athlete-dashboard' : 'dashboard')
   const [athletes, setAthletes]           = useState([])
   const [coaches, setCoaches]             = useState([])
   const [events, setEvents]               = useState([])
@@ -140,8 +149,12 @@ export default function App() {
   const role      = profile?.account_type || profile?.role || 'guest'
   const userStatus = profile?.status || 'active'
   const isAdmin   = role === 'admin'
+  const isAthlete = role === 'athlete'
   const isCoach   = role === 'coach'
-  const myCoachId = profile?.coach_id || null
+  const myCoachId  = profile?.coach_id || null
+  const myAthleteId = profile?.athlete_id || null
+  const myAthlete   = isAthlete ? athletes.find(a => String(a.id) === String(myAthleteId)) : null
+  const myCoach     = myAthlete ? coaches.find(c => c.id === myAthlete.coach_id) : null
   const myAthletes = isCoach ? athletes.filter(a => a.coach_id === myCoachId) : athletes
 
   // Block pending/rejected (admins always pass)
@@ -166,7 +179,7 @@ export default function App() {
           <div className="sb-sub">{lang==='ar' ? 'لذوي الاحتياجات الخاصة' : 'Committee'} · {role}</div>
         </div>
         <div className="sb-nav">
-          {(isCoach ? NAV_COACH(tx) : isAdmin ? NAV_ADMIN(tx) : NAV_GUEST(tx)).map(({ section, items }) => (
+          {(isCoach ? NAV_COACH(tx) : isAdmin ? NAV_ADMIN(tx) : isAthlete ? NAV_ATHLETE(tx) : NAV_GUEST(tx)).map(({ section, items }) => (
             <div key={section}>
               <div className="nav-section">{section}</div>
               {items.map(({ id, icon, label }) => (
@@ -238,6 +251,9 @@ export default function App() {
           {page==='schedule'  && <Schedule  profile={profile} coachId={myCoachId} myAthletes={myAthletes} onNav={goTo} />}
           {page==='attendance' && <Attendance profile={profile} coachId={myCoachId} myAthletes={myAthletes} onNav={goTo} />}
           {page==='users'     && isAdmin && <UserManagement profile={profile} />}
+          {page==='athlete-dashboard' && <AthleteDashboard athlete={myAthlete} coach={myCoach} results={results} events={events} registrations={registrations} onNav={goTo} />}
+          {page==='athlete-events'    && <AthleteEvents athlete={myAthlete} events={events} registrations={registrations} results={results} />}
+          {page==='athlete-results'   && <AthleteResults athlete={myAthlete} results={results} />}
           {page==='settings'  && <Settings user={user} profile={profile} signOut={signOut} />}
           {page==='profile'   && <Profile user={user} profile={profile} athletes={athletes} coaches={coaches} employees={employees} results={results} onNav={goTo} />}
           {page==='referees'  && <Referees referees={referees} onRefresh={fetchAll} profile={profile} />}
