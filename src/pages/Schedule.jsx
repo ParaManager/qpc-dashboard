@@ -146,19 +146,28 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
             ar={ar}
             onClose={() => setRequestModal(null)}
             onSave={async (type, reason) => {
-              await supabase.from('session_requests').insert({
+              const { error: reqErr } = await supabase.from('session_requests').insert({
                 session_id: requestModal.id,
                 athlete_id: String(athleteId),
                 coach_id: String(requestModal.coach_id || coachId || ''),
                 type, reason, status: 'pending'
               })
-              await supabase.from('notifications').insert({
-                user_id: String(requestModal.coach_id || coachId || ''),
-                type: 'excuse_request',
-                title: ar ? 'طلب عذر جديد' : 'New excuse/reschedule request',
-                body: `${type === 'excuse' ? (ar?'عذر':'Excuse') : (ar?'إعادة جدولة':'Reschedule')} - ${requestModal.title || requestModal.session_date}`,
-                read: false,
-              })
+              if (reqErr) { toast(reqErr.message, 'error'); return }
+              // Find coach's profile ID to send notification
+              const targetCoachId = String(requestModal.coach_id || coachId || '')
+              const { data: cpList } = await supabase
+                .from('profiles')
+                .select('id, coach_id')
+              const coachProfile = (cpList||[]).find(p => String(p.coach_id) === targetCoachId)
+              if (coachProfile) {
+                await supabase.from('notifications').insert({
+                  user_id: String(coachProfile.id),
+                  type: 'excuse_request',
+                  title: ar ? 'طلب عذر جديد' : 'New excuse/reschedule request',
+                  body: `${type === 'excuse' ? (ar?'عذر':'Excuse') : (ar?'إعادة جدولة':'Reschedule')} - ${requestModal.title || requestModal.session_date}`,
+                  read: false,
+                })
+              }
               setRequestModal(null)
               loadRequests()
               toast(ar ? 'تم إرسال الطلب' : 'Request sent')
@@ -248,13 +257,18 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
               type, reason,
               status: 'pending'
             })
-            await supabase.from('notifications').insert({
-              user_id: String(requestModal.coach_id || coachId || ''),
-              type: 'excuse_request',
-              title: ar ? 'طلب عذر جديد' : 'New excuse/reschedule request',
-              body: `${type === 'excuse' ? (ar?'عذر':'Excuse') : (ar?'إعادة جدولة':'Reschedule')} - ${requestModal.title || requestModal.session_date}`,
-              read: false,
-            })
+            const targetId = String(requestModal.coach_id || coachId || '')
+            const { data: cpList2 } = await supabase.from('profiles').select('id, coach_id')
+            const cp = (cpList2||[]).find(p => String(p.coach_id) === targetId)
+            if (cp) {
+              await supabase.from('notifications').insert({
+                user_id: String(cp.id),
+                type: 'excuse_request',
+                title: ar ? 'طلب عذر جديد' : 'New excuse/reschedule request',
+                body: `${type === 'excuse' ? (ar?'عذر':'Excuse') : (ar?'إعادة جدولة':'Reschedule')} - ${requestModal.title || requestModal.session_date}`,
+                read: false,
+              })
+            }
             setRequestModal(null)
             loadRequests()
             toast(ar ? 'تم إرسال الطلب' : 'Request sent')
