@@ -150,11 +150,25 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
             <button className="action-btn action-btn-delete" onClick={() => deleteSession(s.id)}>
               <i className="ti ti-trash" /> {L('Delete','حذف')}
             </button>
+            <button className="btn" style={{ background:color, fontSize:13, padding:'6px 14px' }}
+              onClick={() => onNav('attendance', { sessionId: s.id })}>
+              <i className="ti ti-clipboard-check" /> {L('Take attendance','تسجيل الحضور')}
+            </button>
           </>}
-          <button className="btn" style={{ background:color, fontSize:13, padding:'6px 14px' }}
-            onClick={() => onNav('attendance', { sessionId: s.id })}>
-            <i className="ti ti-clipboard-check" /> {L('Take attendance','تسجيل الحضور')}
-          </button>
+          {readOnly && athleteId && (
+            myRequest ? (
+              <div style={{ padding:'8px 14px', borderRadius:8, fontSize:13, background: myRequest.status==='pending'?'#f59e0b15':myRequest.status==='approved'?'#009F6B15':'#EE334E15', color: myRequest.status==='pending'?'#f59e0b':myRequest.status==='approved'?'#009F6B':'#EE334E', border:`1px solid ${myRequest.status==='pending'?'#f59e0b40':myRequest.status==='approved'?'#009F6B40':'#EE334E40'}` }}>
+                <i className={`ti ${myRequest.status==='pending'?'ti-clock':myRequest.status==='approved'?'ti-check':'ti-x'}`} style={{ marginRight:6 }} />
+                {myRequest.type==='excuse'?(ar?'طلب عذر':'Excuse request'):(ar?'طلب إعادة جدولة':'Reschedule request')}
+                {' — '}{ar?{'pending':'قيد الانتظار','approved':'موافق عليه','rejected':'مرفوض'}[myRequest.status]:myRequest.status}
+              </div>
+            ) : (
+              <button onClick={() => setRequestModal(s)}
+                style={{ padding:'7px 16px', background:'#EE334E10', color:'#EE334E', border:'1px solid #EE334E40', borderRadius:8, fontSize:13, cursor:'pointer', fontFamily:'DM Sans, sans-serif', display:'flex', alignItems:'center', gap:6 }}>
+                <i className="ti ti-calendar-off" /> {ar?'لا أستطيع الحضور':"Can't make it"}
+              </button>
+            )
+          )}
         </div>
         <div className="detail-grid">
           <div className="detail-profile">
