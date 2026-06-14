@@ -9,7 +9,7 @@ import {
   getNotificationPreference,
 } from '../lib/notifications'
 
-export default function NotificationBell({ isAdmin }) {
+export default function NotificationBell({ isAdmin, userId }) {
   const { lang } = useLang()
   const ar = lang === 'ar'
   const L = (en, a) => ar ? a : en
@@ -33,6 +33,7 @@ export default function NotificationBell({ isAdmin }) {
   useEffect(() => {
     if (!isAdmin) return
     loadPending()
+    loadNotifications(userId)
 
     // Real-time subscription — fires when profiles table changes
     const sub = supabase
@@ -42,8 +43,35 @@ export default function NotificationBell({ isAdmin }) {
       })
       .subscribe()
 
-    return () => supabase.removeChannel(sub)
+    // Real-time for notifications
+    const subN = supabase
+      .channel('notifications-changes')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` }, () => {
+        loadNotifications(userId)
+      })
+      .subscribe()
+
+    return () => { supabase.removeChannel(sub); supabase.removeChannel(subN) }
   }, [isAdmin])
+
+  const [notifications, setNotifications] = useState([])
+
+  async function loadNotifications(userId) {
+    if (!userId) return
+    const { data } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('user_id', String(userId))
+      .eq('read', false)
+      .order('created_at', { ascending: false })
+      .limit(20)
+    setNotifications(data || [])
+  }
+
+  async function markRead(id) {
+    await supabase.from('notifications').update({ read: true }).eq('id', id)
+    setNotifications(prev => prev.filter(n => n.id !== id))
+  }
 
   async function loadPending() {
     const { data } = await supabase
@@ -100,7 +128,7 @@ export default function NotificationBell({ isAdmin }) {
         title={L('Notifications', 'الإشعارات')}
       >
         <i className="ti ti-bell" />
-        {pending.length > 0 && (
+        {(pending.length + notifications.length) > 0 && (
           <span style={{
             position:'absolute', top:2, right:2,
             background:'#EE334E', color:'#fff',
@@ -109,7 +137,7 @@ export default function NotificationBell({ isAdmin }) {
             display:'flex', alignItems:'center', justifyContent:'center',
             lineHeight:1,
           }}>
-            {pending.length > 9 ? '9+' : pending.length}
+            {(pending.length + notifications.length) > 9 ? '9+' : (pending.length + notifications.length)}
           </span>
         )}
       </button>
@@ -174,6 +202,28 @@ export default function NotificationBell({ isAdmin }) {
                   <span style={{ fontSize:10, padding:'3px 8px', borderRadius:20, background:'#f59e0b20', color:'#f59e0b', fontWeight:600, flexShrink:0 }}>
                     {L('Pending', 'معلق')}
                   </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Personal notifications */}
+          {notifications.length > 0 && (
+            <div style={{ borderTop:'1px solid var(--border)' }}>
+              <div style={{ padding:'8px 16px 4px', fontSize:11, fontWeight:600, color:'var(--text3)', textTransform:'uppercase' }}>
+                {L('Notifications', 'الإشعارات')}
+              </div>
+              {notifications.map(n => (
+                <div key={n.id} style={{ padding:'10px 16px', borderBottom:'1px solid var(--border)', display:'flex', gap:10, alignItems:'flex-start' }}>
+                  <div style={{ width:8, height:8, borderRadius:'50%', background:'#0085C7', flexShrink:0, marginTop:4 }} />
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:13, fontWeight:500 }}>{n.title}</div>
+                    <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>{n.body}</div>
+                  </div>
+                  <button onClick={() => markRead(n.id)}
+                    style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text3)', fontSize:16, padding:0, flexShrink:0 }}>
+                    ×
+                  </button>
                 </div>
               ))}
             </div>
