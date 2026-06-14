@@ -16,7 +16,7 @@ function getFirstDay(year, month) {
   return new Date(year, month, 1).getDay()
 }
 
-export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly, athleteId }) {
+export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly, athleteId, athletes }) {
   const { lang } = useLang()
   const ar = lang === 'ar'
   const [sessions, setSessions]       = useState([])
@@ -26,12 +26,23 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
   const [selected, setSelected]       = useState(null)   // selected session
   const [showForm, setShowForm]       = useState(false)
   const [editData, setEditData]       = useState(null)
+  const [requestModal, setRequestModal] = useState(null)  // session to request for
+  const [requests, setRequests]         = useState([])
   const [loading, setLoading]         = useState(true)
 
   const year  = curDate.getFullYear()
   const month = curDate.getMonth()
 
-  useEffect(() => { loadSessions() }, [coachId, year, month])
+  useEffect(() => { loadSessions(); loadRequests() }, [coachId, year, month, athleteId])
+
+  async function loadRequests() {
+    if (!coachId && !athleteId) return
+    let q = supabase.from('session_requests').select('*').order('created_at', { ascending: false })
+    if (coachId)   q = q.eq('coach_id', String(coachId))
+    if (athleteId) q = q.eq('athlete_id', String(athleteId))
+    const { data } = await q
+    setRequests(data || [])
+  }
 
   async function loadSessions() {
     setLoading(true)
@@ -65,6 +76,16 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
       await supabase.from('session_athletes').delete().eq('session_id', sessionId)
       if (form.athleteIds?.length > 0) {
         await supabase.from('session_athletes').insert(form.athleteIds.map(aid => ({ session_id: sessionId, athlete_id: aid })))
+        // Notify each athlete
+        const notifs = form.athleteIds.map(aid => ({
+          user_id: String(aid),
+          type: 'session_added',
+          title: ar ? 'تمت إضافة جلسة جديدة' : 'New session added',
+          body: `${form.title || (ar?'جلسة تدريب':'Training session')} - ${form.date}`,
+          data: { session_id: sessionId },
+          read: false,
+        }))
+        await supabase.from('notifications').insert(notifs)
       }
     }
     toast(form.id ? (ar?'تم التحديث':'Updated') : (ar?'تم الإضافة':'Session added'))
@@ -114,6 +135,7 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
     const s = sessions.find(x => x.id === selected)
     if (!s) { setSelected(null); return null }
     const sAthletes = myAthletes.filter(a => s.session_athletes?.some(sa => String(sa.athlete_id) === String(a.id)))
+    const myRequest = requests.find(r => r.session_id === s.id && String(r.athlete_id) === String(athleteId))
     const color = SESSION_COLORS[s.session_type] || '#0085C7'
     return (
       <div>
@@ -339,6 +361,52 @@ function SessionForm({ data, athletes, coachId, ar, onSave, onClose }) {
           <button className="btn-cancel" onClick={onClose}>{L('Cancel','إلغاء')}</button>
           <button className="btn" style={{background:'#0085C7'}} onClick={()=>onSave(form)}>
             {isEdit?L('Save changes','حفظ التغييرات'):L('Add session','إضافة الجلسة')}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function RequestModal({ session, athleteId, ar, onSave, onClose }) {
+  const [type, setType]     = useState('excuse')
+  const [reason, setReason] = useState('')
+  const L = (en, a) => ar ? a : en
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-box modal-sm" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <div className="modal-title"><i className="ti ti-calendar-off" /> {L("Can't make it", 'لا أستطيع الحضور')}</div>
+          <button className="modal-close" onClick={onClose}><i className="ti ti-x" /></button>
+        </div>
+        <div className="modal-body">
+          <div style={{ fontSize:13, color:'var(--text2)', marginBottom:12 }}>
+            {session.title || L('Training session', 'جلسة تدريب')} — {session.session_date}
+          </div>
+          <div className="form-group">
+            <label className="form-label">{L('Request type', 'نوع الطلب')}</label>
+            <div style={{ display:'flex', gap:8 }}>
+              {[['excuse', L('Excuse absence', 'تقديم عذر')], ['reschedule', L('Request reschedule', 'طلب إعادة جدولة')]].map(([val, lbl]) => (
+                <button key={val} onClick={() => setType(val)}
+                  style={{ flex:1, padding:'8px', borderRadius:8, border:'1px solid var(--border)', cursor:'pointer', fontSize:12, fontWeight:600,
+                    background: type===val ? '#0085C7' : 'var(--surface)', color: type===val ? '#fff' : 'var(--text2)' }}>
+                  {lbl}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="form-group">
+            <label className="form-label">{L('Reason', 'السبب')}</label>
+            <textarea className="form-input" rows={3} value={reason} onChange={e => setReason(e.target.value)}
+              placeholder={L('Explain why you cannot attend…', 'اشرح سبب عدم قدرتك على الحضور…')}
+              style={{ resize:'vertical' }} />
+          </div>
+        </div>
+        <div className="modal-footer">
+          <button className="btn-cancel" onClick={onClose}>{L('Cancel', 'إلغاء')}</button>
+          <button className="btn" style={{ background:'#EE334E' }} onClick={() => onSave(type, reason)}>
+            <i className="ti ti-send" /> {L('Send request', 'إرسال الطلب')}
           </button>
         </div>
       </div>
