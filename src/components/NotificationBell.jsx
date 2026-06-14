@@ -14,49 +14,59 @@ export default function NotificationBell({ isAdmin, userId }) {
   const ar = lang === 'ar'
   const L = (en, a) => ar ? a : en
 
-  const [open, setOpen]           = useState(false)
-  const [pending, setPending]     = useState([])
-  const [permission, setPermission] = useState(getNotificationPermission())
-  const ref                       = useRef(null)
-  const prevCountRef              = useRef(0)
+  const [open, setOpen]               = useState(false)
+  const [pending, setPending]         = useState([])
+  const [notifications, setNotifs]    = useState([])
+  const [permission, setPermission]   = useState(getNotificationPermission())
+  const ref                           = useRef(null)
+  const prevCountRef                  = useRef(0)
 
-  // Close dropdown when clicking outside
+  // Close on outside click
   useEffect(() => {
-    function handleClick(e) {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
-    }
+    function handleClick(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
-  // Load pending requests and subscribe to changes
+  // Load data and subscribe
   useEffect(() => {
-    if (!isAdmin) return
-    loadPending()
-    loadNotifications(userId)
+    if (isAdmin) loadPending()
+    if (userId)  loadNotifications()
 
-    // Real-time subscription — fires when profiles table changes
-    const sub = supabase
-      .channel('profiles-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
-        loadPending()
-      })
-      .subscribe()
+    const channels = []
 
-    // Real-time for notifications
-    const subN = supabase
-      .channel('notifications-changes')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` }, () => {
-        loadNotifications(userId)
-      })
-      .subscribe()
+    if (isAdmin) {
+      const sub = supabase.channel('profiles-changes')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => loadPending())
+        .subscribe()
+      channels.push(sub)
+    }
 
-    return () => { supabase.removeChannel(sub); supabase.removeChannel(subN) }
-  }, [isAdmin])
+    if (userId) {
+      const subN = supabase.channel(`notifs-${userId}`)
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` }, () => loadNotifications())
+        .subscribe()
+      channels.push(subN)
+    }
 
-  const [notifications, setNotifications] = useState([])
+    return () => channels.forEach(c => supabase.removeChannel(c))
+  }, [isAdmin, userId])
 
-  async function loadNotifications(userId) {
+  async function loadPending() {
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, full_name, account_type, requested_at, email')
+      .eq('status', 'pending')
+      .order('requested_at', { ascending: false })
+    const list = data || []
+    setPending(list)
+    if (list.length > prevCountRef.current && Notification.permission === 'granted' && getNotificationPreference() === 'enabled') {
+      sendNotification(L(`${list.length} New Access Request`, `${list.length} طلب وصول جديد`), list[0]?.full_name || '', { tag:'new-request', requireInteraction:true })
+    }
+    prevCountRef.current = list.length
+  }
+
+  async function loadNotifications() {
     if (!userId) return
     const { data } = await supabase
       .from('notifications')
@@ -65,39 +75,18 @@ export default function NotificationBell({ isAdmin, userId }) {
       .eq('read', false)
       .order('created_at', { ascending: false })
       .limit(20)
-    setNotifications(data || [])
+    setNotifs(data || [])
   }
 
   async function markRead(id) {
     await supabase.from('notifications').update({ read: true }).eq('id', id)
-    setNotifications(prev => prev.filter(n => n.id !== id))
+    setNotifs(prev => prev.filter(n => n.id !== id))
   }
 
-  async function loadPending() {
-    const { data } = await supabase
-      .from('profiles')
-      .select('id, full_name, account_type, requested_at, email')
-      .eq('status', 'pending')
-      .order('requested_at', { ascending: false })
-
-    const list = data || []
-    setPending(list)
-
-    // Send push notification if count increased
-    if (list.length > prevCountRef.current && prevCountRef.current >= 0) {
-      const newCount = list.length - prevCountRef.current
-      if (Notification.permission === 'granted' && getNotificationPreference() === 'enabled') {
-        sendNotification(
-          L(`${newCount} New Access Request`, `${newCount} طلب وصول جديد`),
-          list[0] ? L(
-            `${list[0].full_name || list[0].email} wants to join as ${list[0].account_type}`,
-            `${list[0].full_name || ''} يريد الانضمام كـ ${list[0].account_type}`
-          ) : '',
-          { tag: 'new-request', requireInteraction: true, url: '/?page=users' }
-        )
-      }
-    }
-    prevCountRef.current = list.length
+  async function markAllRead() {
+    if (!userId) return
+    await supabase.from('notifications').update({ read: true }).eq('user_id', String(userId)).eq('read', false)
+    setNotifs([])
   }
 
   async function enableNotifications() {
@@ -105,139 +94,93 @@ export default function NotificationBell({ isAdmin, userId }) {
     setPermission(granted ? 'granted' : 'denied')
     if (granted) {
       saveNotificationPreference(true)
-      sendNotification(
-        L('Notifications Enabled', 'تم تفعيل الإشعارات'),
-        L('You will be notified when new access requests arrive.', 'ستتلقى إشعاراً عند وصول طلبات وصول جديدة.')
-      )
+      sendNotification(L('Notifications Enabled', 'تم تفعيل الإشعارات'), L('You will be notified of new updates.', 'ستتلقى إشعارات عند وصول تحديثات جديدة.'))
     }
   }
 
-  if (!isAdmin) return null
+  const totalCount = pending.length + notifications.length
 
   return (
     <div ref={ref} style={{ position:'relative' }}>
-      {/* Bell button */}
-      <button
-        onClick={() => setOpen(o => !o)}
-        style={{
-          position:'relative', background:'transparent', border:'none',
-          cursor:'pointer', padding:'6px 8px', borderRadius:8,
-          color:'var(--text2)', fontSize:18, display:'flex', alignItems:'center',
-          transition:'background .15s',
-        }}
-        title={L('Notifications', 'الإشعارات')}
-      >
+      <button onClick={() => setOpen(o => !o)}
+        style={{ position:'relative', background:'transparent', border:'none', cursor:'pointer', padding:'6px 8px', borderRadius:8, color:'var(--text2)', fontSize:18, display:'flex', alignItems:'center' }}>
         <i className="ti ti-bell" />
-        {(pending.length + notifications.length) > 0 && (
-          <span style={{
-            position:'absolute', top:2, right:2,
-            background:'#EE334E', color:'#fff',
-            borderRadius:'50%', width:16, height:16,
-            fontSize:10, fontWeight:700,
-            display:'flex', alignItems:'center', justifyContent:'center',
-            lineHeight:1,
-          }}>
-            {(pending.length + notifications.length) > 9 ? '9+' : (pending.length + notifications.length)}
+        {totalCount > 0 && (
+          <span style={{ position:'absolute', top:2, right:2, background:'#EE334E', color:'#fff', borderRadius:'50%', width:16, height:16, fontSize:10, fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center' }}>
+            {totalCount > 9 ? '9+' : totalCount}
           </span>
         )}
       </button>
 
-      {/* Dropdown */}
       {open && (
-        <div style={{
-          position:'absolute', top:'calc(100% + 8px)',
-          right: ar ? 'auto' : 0, left: ar ? 0 : 'auto',
-          width:320, background:'var(--surface)',
-          border:'1px solid var(--border)', borderRadius:14,
-          boxShadow:'0 8px 32px rgba(0,0,0,.2)',
-          zIndex:1000, overflow:'hidden',
-        }}>
+        <div style={{ position:'absolute', top:'calc(100% + 8px)', right: ar?'auto':0, left: ar?0:'auto', width:320, background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14, boxShadow:'0 8px 32px rgba(0,0,0,.2)', zIndex:1000, overflow:'hidden' }}>
+
           {/* Header */}
           <div style={{ padding:'12px 16px', borderBottom:'1px solid var(--border)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
             <div style={{ fontSize:13, fontWeight:600 }}>
-              {L('Access Requests', 'طلبات الوصول')}
-              {pending.length > 0 && (
-                <span style={{ marginLeft:6, background:'#EE334E20', color:'#EE334E', borderRadius:20, padding:'2px 8px', fontSize:11 }}>
-                  {pending.length}
-                </span>
+              {L('Notifications', 'الإشعارات')}
+              {totalCount > 0 && <span style={{ marginLeft:6, background:'#EE334E20', color:'#EE334E', borderRadius:20, padding:'2px 8px', fontSize:11 }}>{totalCount}</span>}
+            </div>
+            <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+              {notifications.length > 0 && (
+                <button onClick={markAllRead} style={{ fontSize:11, color:'#0085C7', background:'none', border:'none', cursor:'pointer' }}>
+                  {L('Mark all read', 'تحديد الكل كمقروء')}
+                </button>
+              )}
+              {permission !== 'granted' && (
+                <button onClick={enableNotifications} style={{ fontSize:11, background:'#0085C720', color:'#0085C7', border:'none', borderRadius:6, padding:'4px 8px', cursor:'pointer' }}>
+                  <i className="ti ti-bell-ringing" /> {L('Enable', 'تفعيل')}
+                </button>
               )}
             </div>
-            {/* Enable notifications button */}
-            {permission !== 'granted' && (
-              <button
-                onClick={enableNotifications}
-                style={{ fontSize:11, background:'#0085C720', color:'#0085C7', border:'none', borderRadius:6, padding:'4px 8px', cursor:'pointer' }}
-              >
-                <i className="ti ti-bell-ringing" style={{ marginRight:3 }} />
-                {L('Enable alerts', 'تفعيل التنبيهات')}
-              </button>
+          </div>
+
+          <div style={{ maxHeight:400, overflowY:'auto' }}>
+            {/* Personal notifications */}
+            {notifications.map(n => (
+              <div key={n.id} style={{ padding:'12px 16px', borderBottom:'1px solid var(--border)', display:'flex', gap:10, alignItems:'flex-start', background:'#0085C705' }}>
+                <div style={{ width:8, height:8, borderRadius:'50%', background:'#0085C7', flexShrink:0, marginTop:5 }} />
+                <div style={{ flex:1 }}>
+                  <div style={{ fontSize:13, fontWeight:500 }}>{n.title}</div>
+                  <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>{n.body}</div>
+                  <div style={{ fontSize:10, color:'var(--text3)', marginTop:4 }}>{new Date(n.created_at).toLocaleDateString(ar?'ar-QA':'en-GB')}</div>
+                </div>
+                <button onClick={() => markRead(n.id)} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text3)', fontSize:16, padding:0, flexShrink:0 }}>×</button>
+              </div>
+            ))}
+
+            {/* Admin: pending access requests */}
+            {isAdmin && pending.length > 0 && (
+              <>
+                {notifications.length > 0 && <div style={{ padding:'6px 16px', fontSize:11, fontWeight:600, color:'var(--text3)', textTransform:'uppercase', background:'var(--surface2)' }}>{L('Access Requests','طلبات الوصول')}</div>}
+                {pending.map(u => (
+                  <div key={u.id} style={{ padding:'12px 16px', borderBottom:'1px solid var(--border)', display:'flex', gap:10, alignItems:'center' }}>
+                    <div style={{ width:36, height:36, borderRadius:'50%', background:'#0085C720', display:'flex', alignItems:'center', justifyContent:'center', fontSize:14, fontWeight:700, color:'#0085C7', flexShrink:0 }}>
+                      {(u.full_name||u.email||'?')[0].toUpperCase()}
+                    </div>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:13, fontWeight:500, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{u.full_name||u.email}</div>
+                      <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>{u.account_type} · {new Date(u.requested_at).toLocaleDateString(ar?'ar-QA':'en-GB')}</div>
+                    </div>
+                    <span style={{ fontSize:10, padding:'3px 8px', borderRadius:20, background:'#f59e0b20', color:'#f59e0b', fontWeight:600, flexShrink:0 }}>{L('Pending','معلق')}</span>
+                  </div>
+                ))}
+              </>
             )}
-            {permission === 'granted' && (
-              <span style={{ fontSize:11, color:'#009F6B', display:'flex', alignItems:'center', gap:3 }}>
-                <i className="ti ti-bell-check" /> {L('Alerts on', 'التنبيهات مفعّلة')}
-              </span>
+
+            {totalCount === 0 && (
+              <div style={{ padding:24, textAlign:'center', color:'var(--text3)', fontSize:13 }}>
+                {L('No new notifications','لا توجد إشعارات جديدة')}
+              </div>
             )}
           </div>
 
-          {/* Pending list */}
-          {pending.length === 0 ? (
-            <div style={{ padding:24, textAlign:'center', color:'var(--text3)', fontSize:13 }}>
-              {L('No pending requests', 'لا توجد طلبات معلقة')}
-            </div>
-          ) : (
-            <div style={{ maxHeight:320, overflowY:'auto' }}>
-              {pending.map(u => (
-                <div key={u.id} style={{ padding:'12px 16px', borderBottom:'1px solid var(--border)', display:'flex', gap:10, alignItems:'center' }}>
-                  <div style={{ width:36, height:36, borderRadius:'50%', background:'#0085C720', display:'flex', alignItems:'center', justifyContent:'center', fontSize:14, fontWeight:700, color:'#0085C7', flexShrink:0 }}>
-                    {(u.full_name || u.email || '?')[0].toUpperCase()}
-                  </div>
-                  <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontSize:13, fontWeight:500, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                      {u.full_name || u.email || L('Unknown', 'غير معروف')}
-                    </div>
-                    <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>
-                      {u.account_type} · {new Date(u.requested_at).toLocaleDateString(ar ? 'ar-QA' : 'en-GB')}
-                    </div>
-                  </div>
-                  <span style={{ fontSize:10, padding:'3px 8px', borderRadius:20, background:'#f59e0b20', color:'#f59e0b', fontWeight:600, flexShrink:0 }}>
-                    {L('Pending', 'معلق')}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Personal notifications */}
-          {notifications.length > 0 && (
-            <div style={{ borderTop:'1px solid var(--border)' }}>
-              <div style={{ padding:'8px 16px 4px', fontSize:11, fontWeight:600, color:'var(--text3)', textTransform:'uppercase' }}>
-                {L('Notifications', 'الإشعارات')}
-              </div>
-              {notifications.map(n => (
-                <div key={n.id} style={{ padding:'10px 16px', borderBottom:'1px solid var(--border)', display:'flex', gap:10, alignItems:'flex-start' }}>
-                  <div style={{ width:8, height:8, borderRadius:'50%', background:'#0085C7', flexShrink:0, marginTop:4 }} />
-                  <div style={{ flex:1 }}>
-                    <div style={{ fontSize:13, fontWeight:500 }}>{n.title}</div>
-                    <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>{n.body}</div>
-                  </div>
-                  <button onClick={() => markRead(n.id)}
-                    style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text3)', fontSize:16, padding:0, flexShrink:0 }}>
-                    ×
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-
           {/* Footer */}
-          {pending.length > 0 && (
+          {isAdmin && pending.length > 0 && (
             <div style={{ padding:'10px 16px', borderTop:'1px solid var(--border)', textAlign:'center' }}>
-              <a
-                href="/?page=users"
-                onClick={e => { e.preventDefault(); setOpen(false); window.dispatchEvent(new CustomEvent('navigate', { detail: 'users' })) }}
-                style={{ fontSize:12, color:'#0085C7', textDecoration:'none', fontWeight:600 }}
-              >
-                {L('Review all requests →', 'مراجعة جميع الطلبات ←')}
+              <a href="#" onClick={e => { e.preventDefault(); setOpen(false); window.dispatchEvent(new CustomEvent('navigate', { detail: 'users' })) }}
+                style={{ fontSize:12, color:'#0085C7', textDecoration:'none', fontWeight:600 }}>
+                {L('Review all requests →','مراجعة جميع الطلبات ←')}
               </a>
             </div>
           )}
