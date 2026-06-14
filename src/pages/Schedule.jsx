@@ -139,6 +139,32 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
     const color = SESSION_COLORS[s.session_type] || '#0085C7'
     return (
       <div>
+        {requestModal && (
+          <RequestModal
+            session={requestModal}
+            athleteId={athleteId}
+            ar={ar}
+            onClose={() => setRequestModal(null)}
+            onSave={async (type, reason) => {
+              await supabase.from('session_requests').insert({
+                session_id: requestModal.id,
+                athlete_id: String(athleteId),
+                coach_id: String(requestModal.coach_id || coachId || ''),
+                type, reason, status: 'pending'
+              })
+              await supabase.from('notifications').insert({
+                user_id: String(requestModal.coach_id || coachId || ''),
+                type: 'excuse_request',
+                title: ar ? 'طلب عذر جديد' : 'New excuse/reschedule request',
+                body: `${type === 'excuse' ? (ar?'عذر':'Excuse') : (ar?'إعادة جدولة':'Reschedule')} - ${requestModal.title || requestModal.session_date}`,
+                read: false,
+              })
+              setRequestModal(null)
+              loadRequests()
+              toast(ar ? 'تم إرسال الطلب' : 'Request sent')
+            }}
+          />
+        )}
         <button className="back-btn" onClick={() => setSelected(null)}>
           <i className="ti ti-arrow-left" /> {L('Back to schedule','رجوع إلى الجدول')}
         </button>
