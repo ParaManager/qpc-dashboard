@@ -232,6 +232,62 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
               ))
             }
           </div>
+
+          {/* Requests from athletes - coach only */}
+          {!readOnly && requests.filter(r => r.session_id === s.id).length > 0 && (
+            <div className="info-card">
+              <div className="info-title" style={{ color:'#f59e0b' }}>
+                <i className="ti ti-clock" style={{ marginRight:6 }} />
+                {L('Athlete Requests','طلبات الرياضيين')} ({requests.filter(r => r.session_id === s.id).length})
+              </div>
+              {requests.filter(r => r.session_id === s.id).map(req => {
+                const ath = myAthletes.find(a => String(a.id) === String(req.athlete_id))
+                return (
+                  <div key={req.id} style={{ padding:'10px 0', borderBottom:'1px solid var(--border)' }}>
+                    <div style={{ display:'flex', gap:8, alignItems:'center', marginBottom:6 }}>
+                      <Avatar name={ath?.name||'?'} id={req.athlete_id} size={28} fs={10} />
+                      <div style={{ flex:1 }}>
+                        <div style={{ fontSize:13, fontWeight:500 }}>{ar&&ath?.name_ar?ath.name_ar:ath?.name||req.athlete_id}</div>
+                        <div style={{ fontSize:11, color:'var(--text3)' }}>
+                          {req.type==='excuse'?(ar?'عذر':'Excuse'):(ar?'إعادة جدولة':'Reschedule')}
+                          {req.reason && ` — "${req.reason}"`}
+                        </div>
+                      </div>
+                      <span style={{ padding:'2px 8px', borderRadius:20, fontSize:11, fontWeight:600,
+                        background: req.status==='pending'?'#f59e0b20':req.status==='approved'?'#009F6B20':'#EE334E20',
+                        color: req.status==='pending'?'#f59e0b':req.status==='approved'?'#009F6B':'#EE334E' }}>
+                        {ar?{'pending':'معلق','approved':'موافق','rejected':'مرفوض'}[req.status]:req.status}
+                      </span>
+                    </div>
+                    {req.status === 'pending' && (
+                      <div style={{ display:'flex', gap:6 }}>
+                        <button onClick={async () => {
+                          await supabase.from('session_requests').update({ status:'approved' }).eq('id', req.id)
+                          const { data: athProfile } = await supabase.from('profiles').select('id,athlete_id').then(r => r)
+                          const ap = (athProfile||[]).find(p => String(p.athlete_id) === String(req.athlete_id))
+                          if (ap) await supabase.from('notifications').insert({ user_id: String(ap.id), type:'request_approved', title: ar?'تم قبول طلبك':'Request approved', body: ar?'تم قبول طلب العذر/إعادة الجدولة':'Your request was approved', read: false })
+                          loadRequests()
+                          toast(L('Request approved','تم قبول الطلب'))
+                        }} style={{ padding:'5px 14px', background:'#009F6B', color:'#fff', border:'none', borderRadius:7, fontSize:12, cursor:'pointer' }}>
+                          <i className="ti ti-check" /> {L('Approve','موافقة')}
+                        </button>
+                        <button onClick={async () => {
+                          await supabase.from('session_requests').update({ status:'rejected' }).eq('id', req.id)
+                          const { data: athProfile } = await supabase.from('profiles').select('id,athlete_id').then(r => r)
+                          const ap = (athProfile||[]).find(p => String(p.athlete_id) === String(req.athlete_id))
+                          if (ap) await supabase.from('notifications').insert({ user_id: String(ap.id), type:'request_rejected', title: ar?'تم رفض طلبك':'Request rejected', body: ar?'تم رفض طلب العذر/إعادة الجدولة':'Your request was rejected', read: false })
+                          loadRequests()
+                          toast(L('Request rejected','تم رفض الطلب'))
+                        }} style={{ padding:'5px 14px', background:'#EE334E', color:'#fff', border:'none', borderRadius:7, fontSize:12, cursor:'pointer' }}>
+                          <i className="ti ti-x" /> {L('Reject','رفض')}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
       </div>
     )
