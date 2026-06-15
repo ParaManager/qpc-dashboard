@@ -138,14 +138,23 @@ export default function NotificationBell({ isAdmin, userId }) {
           <div style={{ maxHeight:400, overflowY:'auto' }}>
             {/* Personal notifications */}
             {notifications.map(n => (
-              <div key={n.id} style={{ padding:'12px 16px', borderBottom:'1px solid var(--border)', display:'flex', gap:10, alignItems:'flex-start', background:'#0085C705' }}>
-                <div style={{ width:8, height:8, borderRadius:'50%', background:'#0085C7', flexShrink:0, marginTop:5 }} />
+              <div key={n.id} 
+                onClick={() => {
+                  markRead(n.id)
+                  setOpen(false)
+                  const page = n.type==='excuse_request'?'schedule':n.type==='session_added'?'schedule':n.type==='request_approved'||n.type==='request_rejected'?'schedule':null
+                  if (page) window.dispatchEvent(new CustomEvent('navigate', { detail: page }))
+                }}
+                style={{ padding:'12px 16px', borderBottom:'1px solid var(--border)', display:'flex', gap:10, alignItems:'flex-start', background:'#0085C705', cursor:'pointer', transition:'background .15s' }}
+                onMouseEnter={e => e.currentTarget.style.background='var(--surface2)'}
+                onMouseLeave={e => e.currentTarget.style.background='#0085C705'}>
+                <div style={{ width:8, height:8, borderRadius:'50%', background: n.type==='excuse_request'?'#f59e0b':n.type==='session_added'?'#009F6B':'#0085C7', flexShrink:0, marginTop:5 }} />
                 <div style={{ flex:1 }}>
                   <div style={{ fontSize:13, fontWeight:500 }}>{n.title}</div>
                   <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>{n.body}</div>
                   <div style={{ fontSize:10, color:'var(--text3)', marginTop:4 }}>{new Date(n.created_at).toLocaleDateString(ar?'ar-QA':'en-GB')}</div>
                 </div>
-                <button onClick={() => markRead(n.id)} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text3)', fontSize:16, padding:0, flexShrink:0 }}>×</button>
+                <button onClick={e => { e.stopPropagation(); markRead(n.id) }} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text3)', fontSize:16, padding:0, flexShrink:0 }}>×</button>
               </div>
             ))}
 
