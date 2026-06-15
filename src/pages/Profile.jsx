@@ -2,11 +2,32 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
 import { Avatar, MedalDisplay, initials, avColor } from '../lib/helpers'
-import AthleteCardButton from '../components/AthleteCard'
+import AthleteCardButton, { generateAthleteCard } from '../components/AthleteCard'
 import CareerHistory from '../components/CareerHistory.jsx'
 import { toast } from '../components/Toast'
 
-export default function Profile({ user, profile, athletes, coaches, employees, results, onNav }) {
+function ExportPDFButton({ athlete }) {
+  function handlePDF() {
+    const { lang } = { lang: 'en' }
+    // Reuse the Athletes.jsx PDF export by opening the athlete detail window
+    // For now open card and let user print
+    const html = generateAthleteCard(athlete)
+    const win = window.open('', '_blank')
+    win.document.write(html)
+    win.document.close()
+    setTimeout(() => win.print(), 600)
+  }
+  return (
+    <button onClick={handlePDF} className="action-btn"
+      style={{ borderColor:'#009F6B', color:'#009F6B', padding:'5px 12px' }}
+      onMouseEnter={e => { e.currentTarget.style.background='#e6f4ee' }}
+      onMouseLeave={e => { e.currentTarget.style.background='' }}>
+      <i className="ti ti-printer" style={{ fontSize:14 }} /> Export PDF
+    </button>
+  )
+}
+
+export default function Profile({ user, profile, athletes, coaches, employees, results, events, registrations, onNav }) {
   const { lang, tc } = useLang()
   const ar = lang === 'ar'
   const L = (en, a) => ar ? a : en
@@ -51,6 +72,9 @@ export default function Profile({ user, profile, athletes, coaches, employees, r
     personData && (String(r.athlete_id) === String(personData?.id))
   ) || []
 
+  const myEventIds = registrations?.filter(r => personData && String(r.athlete_id) === String(personData?.id)).map(r => r.event_id) || []
+  const myEvents   = events?.filter(e => myEventIds.includes(e.id)).sort((a,b) => new Date(b.start_date) - new Date(a.start_date)) || []
+
   const totalMedals = myResults.reduce((s, r) => ({
     gold:   s.gold   + (r.medal === 'gold'   ? 1 : 0),
     silver: s.silver + (r.medal === 'silver' ? 1 : 0),
@@ -60,6 +84,55 @@ export default function Profile({ user, profile, athletes, coaches, employees, r
   const myAthletes = role === 'coach' && personData
     ? athletes?.filter(a => String(a.coach_id) === String(personData.id)) || []
     : []
+
+  function exportAthleteProfile(a, myResults, myEvents) {
+    const isAr = lang === 'ar'
+    const L2 = (en, ar2) => isAr ? ar2 : en
+    const SPORT_AR = {'Athletics':'ألعاب القوى','Swimming':'السباحة','Powerlifting':'رفع الأثقال','Boccia':'البوتشيا','Goalball':'كرة الهدف','Table Tennis':'تنس الطاولة','Special Olympics':'الأولمبياد الخاص','Shooting':'الرماية','Wheelchair Tennis':'تنس الكراسي المتحركة'}
+    const STATUS_AR = {'Active':'نشط','Inactive':'غير نشط','Suspended':'موقوف','Under Medical Review':'تحت المراجعة الطبية','Injured':'مصاب','Retired':'متقاعد'}
+    const field = (k, v) => v ? `<div class="field"><span class="k">${k}</span><span class="v">${v}</span></div>` : ''
+    const html = `<!DOCTYPE html><html dir="${isAr?'rtl':'ltr'}" lang="${isAr?'ar':'en'}"><head><meta charset="UTF-8"/>
+<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;color:#1a1d23;padding:32px;font-size:13px}
+.header{display:flex;align-items:center;gap:20px;margin-bottom:24px;padding-bottom:20px;border-bottom:3px solid #0085C7}
+.profile-header{display:flex;gap:20px;margin-bottom:24px}.photo{width:80px;height:80px;border-radius:50%;background:#0085C7;display:flex;align-items:center;justify-content:center;color:#fff;font-size:28px;font-weight:700;flex-shrink:0;overflow:hidden}
+.photo img{width:100%;height:100%;object-fit:cover}.profile-info h2{font-size:22px;font-weight:700}.badges{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.badge{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600}.badge-blue{background:#e8f3fb;color:#1565a0}.badge-green{background:#e6f4ee;color:#0d6e42}.badge-gray{background:#f0f1f3;color:#555e70}
+.section{margin-bottom:20px}.section-title{font-size:11px;font-weight:700;color:#9aa3b2;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #e2e5ea}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:6px 20px}.field{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f0f1f3;font-size:12px}
+.field .k{color:#5a6272}.field .v{font-weight:600;text-align:${isAr?'left':'right'}}.medal-row{display:flex;gap:24px}.medal-item{text-align:center}.medal-num{font-size:24px;font-weight:700}
+.result-row{display:flex;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid #f0f1f3;font-size:12px}.footer{margin-top:32px;padding-top:12px;border-top:1px solid #e2e5ea;font-size:10px;color:#9aa3b2;text-align:center}
+</style></head><body>
+<div class="header"><div class="header-text"><h1>${isAr?'الاتحاد القطري لذوي الاحتياجات الخاصة':'Qatar Paralympic Committee'}</h1><p>${isAr?'ملف الرياضي الرسمي · تم الإنشاء '+new Date().toLocaleDateString('ar-QA'):'Official Athlete Profile · Generated '+new Date().toLocaleDateString()}</p></div></div>
+<div class="profile-header">
+  <div class="photo">${a.photo_url?`<img src="${a.photo_url}"/>`:(a.name||'').split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2)}</div>
+  <div class="profile-info">
+    <h2>${isAr&&a.name_ar?a.name_ar:a.name}</h2>
+    <div class="badges">
+      <span class="badge badge-blue">${isAr?(SPORT_AR[a.sport]||a.sport||''):a.sport||''}</span>
+      ${a.classification?`<span class="badge badge-blue">${a.classification}</span>`:''}
+      <span class="badge badge-${a.status==='Active'?'green':'gray'}">${isAr?(STATUS_AR[a.status]||a.status||''):(a.status||'')}</span>
+    </div>
+  </div>
+</div>
+<div class="section"><div class="section-title">${L2('Personal Information','المعلومات الشخصية')}</div><div class="grid-2">
+${field(L2('Date of birth','تاريخ الميلاد'),a.dob)}${field(L2('Gender','الجنس'),a.gender)}${field(L2('Nationality','الجنسية'),a.nationality)}${field(L2('Phone','الهاتف'),a.phone)}${field(L2('Email','البريد الإلكتروني'),a.email)}
+</div></div>
+<div class="section"><div class="section-title">${L2('Sport & Classification','الرياضة والتصنيف')}</div><div class="grid-2">
+${field(L2('Sport','الرياضة'),isAr?(SPORT_AR[a.sport]||a.sport):a.sport)}${field(L2('Classification','التصنيف'),a.classification)}${field(L2('Disability type','نوع الإعاقة'),a.disability)}
+</div></div>
+<div class="section"><div class="section-title">${L2('Medals','الميداليات')}</div><div class="medal-row">
+<div class="medal-item"><div class="medal-num" style="color:#f1c40f">${a.medals_gold||0}</div><div style="font-size:11px;color:#9aa3b2">${L2('Gold','ذهب')}</div></div>
+<div class="medal-item"><div class="medal-num" style="color:#aaa">${a.medals_silver||0}</div><div style="font-size:11px;color:#9aa3b2">${L2('Silver','فضة')}</div></div>
+<div class="medal-item"><div class="medal-num" style="color:#cd7f32">${a.medals_bronze||0}</div><div style="font-size:11px;color:#9aa3b2">${L2('Bronze','برونز')}</div></div>
+</div></div>
+${myResults.length>0?`<div class="section"><div class="section-title">${L2('Competition Results','سجل النتائج')}</div>${myResults.map(r=>`<div class="result-row"><span style="font-size:18px">${r.medal==='gold'?'🥇':r.medal==='silver'?'🥈':'🥉'}</span><div style="flex:1"><div style="font-weight:500">${r.event_name}</div><div style="color:#9aa3b2">${r.discipline||''}</div></div><span style="font-weight:600;color:#0085C7">${r.result||''}</span></div>`).join('')}</div>`:''}
+<div class="footer">${isAr?'الاتحاد القطري لذوي الاحتياجات الخاصة · سري · ':'Qatar Paralympic Committee · Confidential · '}${new Date().getFullYear()}</div>
+</body></html>`
+    const win = window.open('', '_blank')
+    win.document.write(html)
+    win.document.close()
+    setTimeout(() => win.print(), 500)
+  }
 
   const ROLE_COLORS = { admin:'#0085C7', coach:'#009F6B', athlete:'#EE334E', guest:'#9aa3b2' }
   const roleColor = ROLE_COLORS[role] || '#9aa3b2'
@@ -113,8 +186,15 @@ export default function Profile({ user, profile, athletes, coaches, employees, r
 
             {/* Edit name button */}
             {role === 'athlete' && personData && (
-              <div style={{ marginTop:14 }}>
+              <div style={{ marginTop:14, display:'flex', gap:8, flexDirection:'column' }}>
                 <AthleteCardButton athlete={personData} />
+                <button className="action-btn"
+                  style={{ borderColor:'#009F6B', color:'#009F6B', justifyContent:'center' }}
+                  onMouseEnter={e => { e.currentTarget.style.background='#e6f4ee' }}
+                  onMouseLeave={e => { e.currentTarget.style.background='' }}
+                  onClick={() => exportAthleteProfile(personData, myResults, myEvents)}>
+                  <i className="ti ti-printer" style={{ fontSize:14 }} /> {L('Export PDF','تصدير PDF')}
+                </button>
               </div>
             )}
             {!editing ? (
