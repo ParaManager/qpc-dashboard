@@ -16,14 +16,14 @@ function getFirstDay(year, month) {
   return new Date(year, month, 1).getDay()
 }
 
-export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly, athleteId, athletes }) {
+export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly, athleteId, athletes, initSessionId }) {
   const { lang } = useLang()
   const ar = lang === 'ar'
   const [sessions, setSessions]       = useState([])
   const [view, setView]               = useState('month') // month | week | list
   const [today]                       = useState(new Date())
   const [curDate, setCurDate]         = useState(new Date())
-  const [selected, setSelected]       = useState(null)   // selected session
+  const [selected, setSelected]       = useState(initSessionId || null)   // selected session
   const [showForm, setShowForm]       = useState(false)
   const [editData, setEditData]       = useState(null)
   const [requestModal, setRequestModal] = useState(null)  // session to request for
@@ -34,6 +34,14 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
   const month = curDate.getMonth()
 
   useEffect(() => { loadSessions(); loadRequests() }, [coachId, year, month, athleteId])
+
+  // Auto-open session from notification click
+  useEffect(() => {
+    if (initSessionId && sessions.length > 0) {
+      const s = sessions.find(x => x.id === initSessionId)
+      if (s) { setSelected(initSessionId); if (onClearSession) onClearSession() }
+    }
+  }, [initSessionId, sessions])
 
   async function loadRequests() {
     if (!coachId && !athleteId) return
@@ -165,6 +173,7 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
                   type: 'excuse_request',
                   title: ar ? 'طلب عذر جديد' : 'New excuse/reschedule request',
                   body: `${type === 'excuse' ? (ar?'عذر':'Excuse') : (ar?'إعادة جدولة':'Reschedule')} - ${requestModal.title || requestModal.session_date}`,
+                  data: { session_id: requestModal.id },
                   read: false,
                 })
               }
@@ -265,7 +274,7 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
                           await supabase.from('session_requests').update({ status:'approved' }).eq('id', req.id)
                           const { data: athProfile } = await supabase.from('profiles').select('id,athlete_id').then(r => r)
                           const ap = (athProfile||[]).find(p => String(p.athlete_id) === String(req.athlete_id))
-                          if (ap) await supabase.from('notifications').insert({ user_id: String(ap.id), type:'request_approved', title: ar?'تم قبول طلبك':'Request approved', body: ar?'تم قبول طلب العذر/إعادة الجدولة':'Your request was approved', read: false })
+                          if (ap) await supabase.from('notifications').insert({ user_id: String(ap.id), type:'request_approved', title: ar?'تم قبول طلبك':'Request approved', body: ar?'تم قبول طلب العذر/إعادة الجدولة':'Your request was approved', data: { session_id: req.session_id }, read: false })
                           loadRequests()
                           toast(L('Request approved','تم قبول الطلب'))
                         }} style={{ padding:'5px 14px', background:'#009F6B', color:'#fff', border:'none', borderRadius:7, fontSize:12, cursor:'pointer' }}>
@@ -275,7 +284,7 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
                           await supabase.from('session_requests').update({ status:'rejected' }).eq('id', req.id)
                           const { data: athProfile } = await supabase.from('profiles').select('id,athlete_id').then(r => r)
                           const ap = (athProfile||[]).find(p => String(p.athlete_id) === String(req.athlete_id))
-                          if (ap) await supabase.from('notifications').insert({ user_id: String(ap.id), type:'request_rejected', title: ar?'تم رفض طلبك':'Request rejected', body: ar?'تم رفض طلب العذر/إعادة الجدولة':'Your request was rejected', read: false })
+                          if (ap) await supabase.from('notifications').insert({ user_id: String(ap.id), type:'request_rejected', title: ar?'تم رفض طلبك':'Request rejected', body: ar?'تم رفض طلب العذر/إعادة الجدولة':'Your request was rejected', data: { session_id: req.session_id }, read: false })
                           loadRequests()
                           toast(L('Request rejected','تم رفض الطلب'))
                         }} style={{ padding:'5px 14px', background:'#EE334E', color:'#fff', border:'none', borderRadius:7, fontSize:12, cursor:'pointer' }}>
