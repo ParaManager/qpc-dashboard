@@ -142,8 +142,12 @@ export default function NotificationBell({ isAdmin, userId }) {
                 onClick={() => {
                   markRead(n.id)
                   setOpen(false)
-                  const page = n.type==='excuse_request'?'schedule':n.type==='session_added'?'schedule':n.type==='request_approved'||n.type==='request_rejected'?'schedule':null
-                  if (page) window.dispatchEvent(new CustomEvent('navigate', { detail: page }))
+                  const sessionId = n.data?.session_id
+                  if (n.type==='excuse_request' || n.type==='session_added' || n.type==='request_approved' || n.type==='request_rejected') {
+                    window.dispatchEvent(new CustomEvent('navigate', { detail: { page:'schedule', sessionId } }))
+                  } else if (n.type==='access_request') {
+                    window.dispatchEvent(new CustomEvent('navigate', { detail: { page:'users' } }))
+                  }
                 }}
                 style={{ padding:'12px 16px', borderBottom:'1px solid var(--border)', display:'flex', gap:10, alignItems:'flex-start', background:'#0085C705', cursor:'pointer', transition:'background .15s' }}
                 onMouseEnter={e => e.currentTarget.style.background='var(--surface2)'}
