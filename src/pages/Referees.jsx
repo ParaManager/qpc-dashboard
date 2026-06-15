@@ -7,55 +7,65 @@ import * as XLSX from 'xlsx'
 
 const COUNTRIES_EN = ['Afghanistan','Algeria','Argentina','Armenia','Australia','Azerbaijan','Bahrain','Bangladesh','Belarus','Belgium','Brazil','Cameroon','Canada','Chile','China','Colombia','Croatia','Czech Republic','Denmark','Egypt','Eritrea','Ethiopia','Finland','France','Georgia','Germany','Ghana','Greece','Guinea','Hungary','India','Indonesia','Iran','Iraq','Ireland','Italy','Japan','Jordan','Kazakhstan','Kenya','Kuwait','Kyrgyzstan','Lebanon','Libya','Malaysia','Mali','Mauritania','Mexico','Mongolia','Morocco','Myanmar','Nepal','Netherlands','New Zealand','Nigeria','Norway','Oman','Pakistan','Palestine','Peru','Philippines','Poland','Portugal','Qatar','Romania','Russia','Rwanda','Saudi Arabia','Scotland','Senegal','Serbia','Singapore','Slovakia','Somalia','South Africa','South Korea','Spain','Sri Lanka','Sudan','Sweden','Syria','Tajikistan','Tanzania','Thailand','Tunisia','Turkey','Turkmenistan','UAE','Uganda','UK','Ukraine','USA','Uzbekistan','Venezuela','Vietnam','Wales','Yemen','Zambia','Zimbabwe']
 
+const COUNTRY_AR = {'Qatar':'قطر','Egypt':'مصر','Yemen':'اليمن','Algeria':'الجزائر','Morocco':'المغرب','Jordan':'الأردن','Saudi Arabia':'المملكة العربية السعودية','Somalia':'الصومال','Sudan':'السودان','Libya':'ليبيا','Tunisia':'تونس','Syria':'سوريا','Iraq':'العراق','Palestine':'فلسطين','UAE':'الإمارات','Kuwait':'الكويت','Bahrain':'البحرين','Oman':'عُمان','Iran':'إيران','Pakistan':'باكستان','India':'الهند','Turkey':'تركيا','France':'فرنسا','Germany':'ألمانيا','UK':'المملكة المتحدة','USA':'الولايات المتحدة','Tanzania':'تنزانيا','Morocco':'المغرب'}
+
 function exportExcel(list, lang) {
   const ar = lang === 'ar'
-  const COUNTRY_AR = {'Qatar':'قطر','Egypt':'مصر','Yemen':'اليمن','Algeria':'الجزائر','Morocco':'المغرب','Jordan':'الأردن','Saudi Arabia':'المملكة العربية السعودية','Somalia':'الصومال','Sudan':'السودان','Libya':'ليبيا','Tunisia':'تونس','Syria':'سوريا','Iraq':'العراق','Palestine':'فلسطين','UAE':'الإمارات','Kuwait':'الكويت','Bahrain':'البحرين','Oman':'عُمان'}
   const L = (en, a) => ar ? a : en
   const rows = list.map(r => ({
-    [L('#','#')]:                    r.number || '',
-    [L('QSS #','رقم QSS')]:          r.qss_number || '',
-    [L('ID Number','الرقم الشخصي')]:  r.id_number || '',
-    [L('Name (Arabic)','الاسم')]:     r.name_ar || '',
-    [L('Nationality','الجنسية')]:     ar ? (COUNTRY_AR[r.nationality]||r.nationality||'') : (r.nationality||''),
-    [L('Gender','الجنس')]:            r.gender ? (ar?(r.gender==='Male'?'ذكر':'أنثى'):r.gender) : '',
-    [L('Career Profile #','رقم المسار')]: r.career_profile || '',
+    [L('Full Name (English)','الاسم الكامل بالإنجليزي')]: r.name || '',
+    [L('Full Name (Arabic)','الاسم الكامل بالعربي')]:     r.name_ar || '',
+    [L('Nationality','الجنسية')]:    ar ? (COUNTRY_AR[r.nationality]||r.nationality||'') : (r.nationality||''),
+    [L('Gender','الجنس')]:           r.gender ? (ar?(r.gender==='Male'?'ذكر':'أنثى'):r.gender) : '',
+    [L('Date of Birth','تاريخ الميلاد')]: r.dob || '',
+    [L('ID Number','الرقم الشخصي')]: r.id_number || '',
+    [L('Joined QPC','تاريخ الانضمام')]: r.joined_qpc || '',
   }))
   const ws = XLSX.utils.json_to_sheet(rows)
-  ws['!cols'] = [{wch:5},{wch:10},{wch:16},{wch:28},{wch:16},{wch:8},{wch:14}]
+  ws['!cols'] = [{wch:28},{wch:28},{wch:16},{wch:10},{wch:14},{wch:18},{wch:14}]
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, ar?'الحكام':'Referees')
   XLSX.writeFile(wb, `QPC_${ar?'الحكام':'Referees'}_${new Date().toISOString().slice(0,10)}.xlsx`)
 }
 
 export default function Referees({ referees, onRefresh, profile }) {
-  const { lang, tx, tc } = useLang()
+  const { lang, tc } = useLang()
   const ar = lang === 'ar'
   const L = (en, a) => ar ? a : en
 
   const [search, setSearch]     = useState('')
   const [natF, setNatF]         = useState('All')
   const [genderF, setGenderF]   = useState('All')
-  const [sort, setSort]         = useState('number-asc')
+  const [sort, setSort]         = useState('name-asc')
   const [selected, setSelected] = useState(null)
   const [showForm, setShowForm] = useState(false)
   const [editData, setEditData] = useState(null)
   const [saving, setSaving]     = useState(false)
 
-  const nationalities = ['All', ...COUNTRIES_EN]
-
   const list = useMemo(() => {
     let d = [...(referees||[])]
     if (search) {
       const q = search.toLowerCase()
-      d = d.filter(r => (r.name_ar||'').toLowerCase().includes(q) || (r.qss_number||'').includes(q) || (r.id_number||'').includes(q) || (r.career_profile||'').toString().includes(q))
+      d = d.filter(r =>
+        (r.name||'').toLowerCase().includes(q) ||
+        (r.name_ar||'').toLowerCase().includes(q) ||
+        (r.id_number||'').includes(q) ||
+        (r.nationality||'').toLowerCase().includes(q)
+      )
     }
-    if (natF !== 'All')    d = d.filter(r => r.nationality === natF)
+    if (natF !== 'All')    d = d.filter(r => r.nationality?.toLowerCase() === natF.toLowerCase())
     if (genderF !== 'All') d = d.filter(r => r.gender === genderF)
     d.sort((a,b) => {
-      if (sort==='number-asc')  return (a.number||0)-(b.number||0)
-      if (sort==='number-desc') return (b.number||0)-(a.number||0)
-      if (sort==='name-asc')    return (a.name_ar||'').localeCompare(b.name_ar||'')
-      if (sort==='name-desc')   return (b.name_ar||'').localeCompare(a.name_ar||'')
+      if (sort==='name-asc')  return (a.name||'').localeCompare(b.name||'')
+      if (sort==='name-desc') return (b.name||'').localeCompare(a.name||'')
+      if (sort==='name_ar-asc')  return (a.name_ar||'').localeCompare(b.name_ar||'')
+      if (sort==='name_ar-desc') return (b.name_ar||'').localeCompare(a.name_ar||'')
+      if (sort==='nationality-asc')  return (a.nationality||'').localeCompare(b.nationality||'')
+      if (sort==='nationality-desc') return (b.nationality||'').localeCompare(a.nationality||'')
+      if (sort==='dob-asc')  return new Date(a.dob||0) - new Date(b.dob||0)
+      if (sort==='dob-desc') return new Date(b.dob||0) - new Date(a.dob||0)
+      if (sort==='joined_qpc-asc')  return new Date(a.joined_qpc||0) - new Date(b.joined_qpc||0)
+      if (sort==='joined_qpc-desc') return new Date(b.joined_qpc||0) - new Date(a.joined_qpc||0)
       return 0
     })
     return d
@@ -64,14 +74,13 @@ export default function Referees({ referees, onRefresh, profile }) {
   async function handleSave(form) {
     setSaving(true)
     const payload = {
-      number:         form.number ? parseInt(form.number) : null,
-      qss_number:     form.qss_number || null,
-      id_number:      form.id_number || null,
-      name_ar:        form.name_ar || null,
-      nationality:    form.nationality || null,
-      gender:         form.gender || null,
-      career_profile: form.career_profile || null,
-      notes:          form.notes || null,
+      name:        form.name || null,
+      name_ar:     form.name_ar || null,
+      nationality: form.nationality || null,
+      gender:      form.gender || null,
+      dob:         form.dob || null,
+      id_number:   form.id_number || null,
+      joined_qpc:  form.joined_qpc || null,
     }
     if (form.id) {
       const { error } = await supabase.from('referees').update(payload).eq('id', form.id)
@@ -95,10 +104,12 @@ export default function Referees({ referees, onRefresh, profile }) {
   }
 
   const sortBtn = (key, label) => (
-    <span onClick={() => setSort(sort===`${key}-asc`?`${key}-desc`:`${key}-asc`)} style={{ cursor:'pointer', userSelect:'none' }}>
-      {label} {sort.startsWith(key) ? (sort.endsWith('asc')?'▲':'▼') : ''}
+    <span onClick={() => setSort(sort===`${key}-asc`?`${key}-desc`:`${key}-asc`)} style={{ cursor:'pointer', userSelect:'none', whiteSpace:'nowrap' }}>
+      {label} <span style={{ fontSize:9, color: sort.startsWith(key)?'#0085C7':'#ccc' }}>{sort===`${key}-asc`?'▲':sort===`${key}-desc`?'▼':'▲▼'}</span>
     </span>
   )
+
+  const tcNat = n => n ? (ar ? (COUNTRY_AR[n] || COUNTRY_AR[n?.toLowerCase()] || n) : n) : '—'
 
   // ── DETAIL VIEW ──
   if (selected) {
@@ -112,25 +123,24 @@ export default function Referees({ referees, onRefresh, profile }) {
         <div className="detail-grid">
           <div className="detail-profile">
             <div className="detail-avatar">
-              {r.photo_url
-                ? <img src={r.photo_url} alt={r.name_ar} style={{ width:'100%',height:'100%',objectFit:'cover' }} />
-                : <span>{(r.name_ar||'?')[0]}</span>}
+              <span>{(r.name||r.name_ar||'?')[0].toUpperCase()}</span>
             </div>
-            <div className="detail-name">{r.name_ar || '—'}</div>
-            <div className="detail-sub">{tc(r.nationality)}</div>
+            <div className="detail-name">{ar && r.name_ar ? r.name_ar : (r.name || '—')}</div>
+            {r.name_ar && r.name && <div className="detail-sub">{ar ? r.name : r.name_ar}</div>}
+            <div className="detail-sub">{tcNat(r.nationality)}</div>
             <div className="detail-fields" style={{ marginTop:16 }}>
               {[
-                [L('QSS #','رقم QSS'),              r.qss_number],
-                [L('ID Number','الرقم الشخصي'),      r.id_number],
-                [L('Gender','الجنس'),                r.gender?(ar?(r.gender==='Male'?'ذكر':'أنثى'):r.gender):null],
-                [L('Nationality','الجنسية'),          tc(r.nationality)],
-                [L('Career Profile #','رقم المسار'), r.career_profile],
-                [L('Number','الرقم'),                r.number],
+                [L('Full Name (English)','الاسم الكامل بالإنجليزي'), r.name],
+                [L('Full Name (Arabic)','الاسم الكامل بالعربي'),    r.name_ar],
+                [L('Gender','الجنس'),       r.gender?(ar?(r.gender==='Male'?'ذكر':'أنثى'):r.gender):null],
+                [L('Nationality','الجنسية'), tcNat(r.nationality)],
+                [L('Date of Birth','تاريخ الميلاد'), r.dob],
+                [L('ID Number','الرقم الشخصي'), r.id_number],
+                [L('Joined QPC','تاريخ الانضمام'), r.joined_qpc],
               ].map(([k,v]) => v ? (
                 <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv">{v}</span></div>
               ) : null)}
             </div>
-            {r.notes && <div style={{ marginTop:12, fontSize:13, color:'var(--text2)', lineHeight:1.6 }}>{r.notes}</div>}
             <div style={{ display:'flex', gap:8, marginTop:16, flexWrap:'wrap' }}>
               <button className="action-btn action-btn-edit" onClick={() => { setEditData(r); setShowForm(true); setSelected(null) }}>
                 <i className="ti ti-pencil" /> {L('Edit','تعديل')}
@@ -150,7 +160,7 @@ export default function Referees({ referees, onRefresh, profile }) {
     const [form, setForm] = useState(editData || {})
     const set = (k,v) => setForm(f=>({...f,[k]:v}))
     const genderOpts = [{value:'',label:''},{value:'Male',label:ar?'ذكر':'Male'},{value:'Female',label:ar?'أنثى':'Female'}]
-    const natOpts = [{value:'',label:''},...COUNTRIES_EN.map(c=>({value:c,label:ar?(({'Qatar':'قطر','Yemen':'اليمن','Egypt':'مصر','Algeria':'الجزائر','Morocco':'المغرب','Jordan':'الأردن','Saudi Arabia':'المملكة العربية السعودية','Somalia':'الصومال','Sudan':'السودان','Libya':'ليبيا','Tunisia':'تونس','Syria':'سوريا','Iraq':'العراق','Palestine':'فلسطين','UAE':'الإمارات','Kuwait':'الكويت','Bahrain':'البحرين','Oman':'عُمان'})[c]||c):c}))]
+    const natOpts = [{value:'',label:''},...COUNTRIES_EN.map(c=>({value:c,label:ar?(COUNTRY_AR[c]||c):c}))]
     const F = ({label,name,type='text',placeholder,options}) => (
       <div className="form-group">
         <label className="form-label">{label}</label>
@@ -168,24 +178,17 @@ export default function Referees({ referees, onRefresh, profile }) {
           </div>
           <div className="modal-body">
             <div className="form-section">{L('Personal Information','المعلومات الشخصية')}</div>
-            <F label={L('Name (Arabic)','الاسم بالعربي')} name="name_ar" placeholder="مثال: أحمد محمد" />
+            <F label={L('Full Name (English)','الاسم الكامل بالإنجليزي')} name="name" placeholder="e.g. Ahmed Mohammed" />
+            <F label={L('Full Name (Arabic)','الاسم الكامل بالعربي')} name="name_ar" placeholder="مثال: أحمد محمد" />
             <div className="form-row">
               <F label={L('Gender','الجنس')} name="gender" options={genderOpts} />
               <F label={L('Nationality','الجنسية')} name="nationality" options={natOpts} />
             </div>
-            <div className="form-section">{L('Official Details','تفاصيل الحكم')}</div>
             <div className="form-row">
-              <F label={L('QSS #','رقم QSS')} name="qss_number" placeholder="e.g. 4152" />
+              <F label={L('Date of Birth','تاريخ الميلاد')} name="dob" type="date" />
               <F label={L('ID Number','الرقم الشخصي')} name="id_number" placeholder="e.g. 28688600328" />
             </div>
-            <div className="form-row">
-              <F label={L('Career Profile #','رقم المسار')} name="career_profile" placeholder="e.g. 99790" />
-              <F label={L('Number','الرقم')} name="number" type="number" placeholder="1" />
-            </div>
-            <div className="form-group">
-              <label className="form-label">{L('Notes','ملاحظات')}</label>
-              <textarea className="form-input" rows={2} value={form.notes||''} onChange={e=>set('notes',e.target.value)} style={{resize:'vertical'}} />
-            </div>
+            <F label={L('Joined QPC','تاريخ الانضمام')} name="joined_qpc" type="date" />
           </div>
           <div className="modal-footer">
             <button className="btn-cancel" onClick={() => { setShowForm(false); setEditData(null) }}>{L('Cancel','إلغاء')}</button>
@@ -219,11 +222,11 @@ export default function Referees({ referees, onRefresh, profile }) {
       <div className="filters" style={{ marginBottom:16 }}>
         <div className="search-wrap">
           <i className="ti ti-search" />
-          <input placeholder={L('Search by name, QSS, ID…','بحث بالاسم أو QSS أو الهوية…')} value={search} onChange={e=>setSearch(e.target.value)} />
+          <input placeholder={L('Search by name, ID…','بحث بالاسم أو الهوية…')} value={search} onChange={e=>setSearch(e.target.value)} />
         </div>
         <select className="filter" value={natF} onChange={e=>setNatF(e.target.value)}>
           <option value="All">{L('All nationalities','جميع الجنسيات')}</option>
-          {COUNTRIES_EN.map(c=><option key={c} value={c}>{ar?(({'Qatar':'قطر','Yemen':'اليمن','Egypt':'مصر','Algeria':'الجزائر','Morocco':'المغرب','Jordan':'الأردن','Saudi Arabia':'المملكة العربية السعودية','Somalia':'الصومال','Sudan':'السودان','Libya':'ليبيا','Tunisia':'تونس','Syria':'سوريا','Iraq':'العراق','Palestine':'فلسطين','UAE':'الإمارات','Kuwait':'الكويت','Bahrain':'البحرين','Oman':'عُمان'})[c]||c):c}</option>)}
+          {COUNTRIES_EN.map(c=><option key={c} value={c}>{ar?(COUNTRY_AR[c]||c):c}</option>)}
         </select>
         <select className="filter" value={genderF} onChange={e=>setGenderF(e.target.value)}>
           <option value="All">{L('All genders','جميع')}</option>
@@ -237,13 +240,13 @@ export default function Referees({ referees, onRefresh, profile }) {
         <table className="tbl">
           <thead>
             <tr>
-              <th>{sortBtn('number', L('#','#'))}</th>
-              <th>{L('Name','الاسم')}</th>
-              <th>{L('Nationality','الجنسية')}</th>
+              <th>{sortBtn('name', L('Full Name (English)','الاسم بالإنجليزي'))}</th>
+              <th>{sortBtn('name_ar', L('Full Name (Arabic)','الاسم بالعربي'))}</th>
+              <th>{sortBtn('nationality', L('Nationality','الجنسية'))}</th>
               <th>{L('Gender','الجنس')}</th>
-              <th>{L('QSS #','رقم QSS')}</th>
+              <th>{sortBtn('dob', L('Date of Birth','تاريخ الميلاد'))}</th>
               <th>{L('ID Number','الرقم الشخصي')}</th>
-              <th>{L('Career Profile #','رقم المسار')}</th>
+              <th>{sortBtn('joined_qpc', L('Joined QPC','تاريخ الانضمام'))}</th>
             </tr>
           </thead>
           <tbody>
@@ -251,20 +254,18 @@ export default function Referees({ referees, onRefresh, profile }) {
               <tr><td colSpan={7} style={{ textAlign:'center', padding:32, color:'var(--text3)' }}>{L('No referees found','لا يوجد حكام')}</td></tr>
             ) : list.map(r => (
               <tr key={r.id} onClick={() => setSelected(r.id)} style={{ cursor:'pointer' }}>
-                <td style={{ color:'var(--text3)', fontSize:12 }}>{r.number}</td>
                 <td>
                   <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                    <Avatar name={r.name_ar||'?'} id={r.id} size={32} fs={11} />
-                    <div>
-                      <div style={{ fontWeight:500, fontSize:13 }}>{r.name_ar || '—'}</div>
-                    </div>
+                    <Avatar name={r.name||r.name_ar||'?'} id={r.id} size={32} fs={11} />
+                    <span style={{ fontWeight:500, fontSize:13 }}>{r.name || '—'}</span>
                   </div>
                 </td>
-                <td>{tc(r.nationality)}</td>
+                <td style={{ fontSize:13 }}>{r.name_ar || '—'}</td>
+                <td>{tcNat(r.nationality)}</td>
                 <td>{r.gender ? (ar?(r.gender==='Male'?'ذكر':'أنثى'):r.gender) : '—'}</td>
-                <td style={{ fontSize:12 }}>{r.qss_number || '—'}</td>
-                <td style={{ fontSize:12 }}>{r.id_number || '—'}</td>
-                <td style={{ fontSize:12 }}>{r.career_profile || '—'}</td>
+                <td style={{ fontSize:12, color:'var(--text2)' }}>{r.dob || '—'}</td>
+                <td style={{ fontSize:12, fontFamily:'monospace' }}>{r.id_number || '—'}</td>
+                <td style={{ fontSize:12, color:'var(--text2)' }}>{r.joined_qpc || '—'}</td>
               </tr>
             ))}
           </tbody>
