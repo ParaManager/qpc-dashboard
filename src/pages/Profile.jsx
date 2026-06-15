@@ -7,10 +7,9 @@ import CareerHistory from '../components/CareerHistory.jsx'
 import { toast } from '../components/Toast'
 
 function ExportPDFButton({ athlete }) {
+  const { lang } = useLang()
+  const ar = lang === 'ar'
   function handlePDF() {
-    const { lang } = { lang: 'en' }
-    // Reuse the Athletes.jsx PDF export by opening the athlete detail window
-    // For now open card and let user print
     const html = generateAthleteCard(athlete)
     const win = window.open('', '_blank')
     win.document.write(html)
@@ -22,7 +21,7 @@ function ExportPDFButton({ athlete }) {
       style={{ borderColor:'#009F6B', color:'#009F6B', padding:'5px 12px' }}
       onMouseEnter={e => { e.currentTarget.style.background='#e6f4ee' }}
       onMouseLeave={e => { e.currentTarget.style.background='' }}>
-      <i className="ti ti-printer" style={{ fontSize:14 }} /> Export PDF
+      <i className="ti ti-printer" style={{ fontSize:14 }} /> {ar ? 'تصدير PDF' : 'Export PDF'}
     </button>
   )
 }
