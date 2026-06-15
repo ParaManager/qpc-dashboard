@@ -41,13 +41,13 @@ export function generateAthleteCard(athlete) {
 <style>
   * { box-sizing:border-box; margin:0; padding:0; }
   body {
-    background:#888;
+    background:#fff;
     font-family:Arial,sans-serif;
     display:flex;
     flex-direction:column;
     align-items:center;
-    gap:32px;
-    padding:32px 20px;
+    gap:6px;
+    padding:24px 20px;
   }
   .card {
     width:400px;
@@ -57,7 +57,7 @@ export function generateAthleteCard(athlete) {
     box-shadow:0 10px 40px rgba(0,0,0,.5), 0 4px 12px rgba(0,0,0,.3);
   }
   @media print {
-    body { background:white; padding:0; gap:14mm; }
+    body { background:white; padding:0; gap:6mm; }
     .card { box-shadow:none; page-break-inside:avoid; }
     .no-print { display:none !important; }
   }
@@ -132,7 +132,7 @@ export function generateAthleteCard(athlete) {
           <table cellpadding="0" cellspacing="0" width="100%">
             <tr>
               <td style="font-size:12px;font-weight:600;color:#000;white-space:nowrap;width:90px;padding-right:8px;text-align:right">الرقم الشخصي</td>
-              <td style="font-size:13px;font-weight:500;color:#111;direction:ltr;text-align:right">${athlete.id_number || '—'}</td>
+              <td style="font-size:15px;font-weight:900;color:#000;direction:ltr;text-align:right;letter-spacing:1px">${athlete.id_number || '—'}</td>
             </tr>
           </table>
         </td>
