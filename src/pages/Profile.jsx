@@ -18,10 +18,11 @@ function ExportPDFButton({ athlete }) {
   }
   return (
     <button onClick={handlePDF} className="action-btn"
-      style={{ borderColor:'#009F6B', color:'#009F6B', padding:'5px 12px' }}
+      style={{ borderColor:'#009F6B', color:'#009F6B', padding:'5px 12px', display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}
       onMouseEnter={e => { e.currentTarget.style.background='#e6f4ee' }}
       onMouseLeave={e => { e.currentTarget.style.background='' }}>
-      <i className="ti ti-printer" style={{ fontSize:14 }} /> {ar ? 'تصدير PDF' : 'Export PDF'}
+      <i className="ti ti-printer" style={{ fontSize:14 }} />
+      <span>{ar ? 'تصدير PDF' : 'Export PDF'}</span>
     </button>
   )
 }
