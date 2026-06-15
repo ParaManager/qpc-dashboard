@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
 import { Avatar, MedalDisplay, initials, avColor } from '../lib/helpers'
+import AthleteCardButton from '../components/AthleteCard'
 import CareerHistory from '../components/CareerHistory.jsx'
 import { toast } from '../components/Toast'
 
@@ -111,8 +112,13 @@ export default function Profile({ user, profile, athletes, coaches, employees, r
             </div>
 
             {/* Edit name button */}
+            {role === 'athlete' && personData && (
+              <div style={{ marginTop:14 }}>
+                <AthleteCardButton athlete={personData} />
+              </div>
+            )}
             {!editing ? (
-              <button className="action-btn action-btn-edit" style={{ marginTop:14, width:'100%', justifyContent:'center' }}
+              <button className="action-btn action-btn-edit" style={{ marginTop:8, width:'100%', justifyContent:'center' }}
                 onClick={() => { setForm({ full_name: profile?.full_name }); setEditing(true) }}>
                 <i className="ti ti-pencil" /> {L('Edit display name', 'تعديل الاسم')}
               </button>
