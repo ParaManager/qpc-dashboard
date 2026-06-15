@@ -1,8 +1,9 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
-import { Avatar } from '../lib/helpers'
-import { toast } from '../components/Toast'
+import { Avatar, avColor, initials } from '../lib/helpers'
+import { toast, ConfirmModal } from '../components/Toast'
+import { canEdit } from '../lib/useAuth'
 import * as XLSX from 'xlsx'
 
 const COUNTRIES_EN = ['Afghanistan','Algeria','Argentina','Armenia','Australia','Azerbaijan','Bahrain','Bangladesh','Belarus','Belgium','Brazil','Cameroon','Canada','Chile','China','Colombia','Croatia','Czech Republic','Denmark','Egypt','Eritrea','Ethiopia','Finland','France','Georgia','Germany','Ghana','Greece','Guinea','Hungary','India','Indonesia','Iran','Iraq','Ireland','Italy','Japan','Jordan','Kazakhstan','Kenya','Kuwait','Kyrgyzstan','Lebanon','Libya','Malaysia','Mali','Mauritania','Mexico','Mongolia','Morocco','Myanmar','Nepal','Netherlands','New Zealand','Nigeria','Norway','Oman','Pakistan','Palestine','Peru','Philippines','Poland','Portugal','Qatar','Romania','Russia','Rwanda','Saudi Arabia','Scotland','Senegal','Serbia','Singapore','Slovakia','Somalia','South Africa','South Korea','Spain','Sri Lanka','Sudan','Sweden','Syria','Tajikistan','Tanzania','Thailand','Tunisia','Turkey','Turkmenistan','UAE','Uganda','UK','Ukraine','USA','Uzbekistan','Venezuela','Vietnam','Wales','Yemen','Zambia','Zimbabwe']
@@ -26,6 +27,218 @@ function exportExcel(list, lang) {
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, ar?'الحكام':'Referees')
   XLSX.writeFile(wb, `QPC_${ar?'الحكام':'Referees'}_${new Date().toISOString().slice(0,10)}.xlsx`)
+}
+
+function RefereeDetail({ r, ar, L, tcNat, profile, onBack, onEdit, onDelete, onRefresh }) {
+  const photoInput   = useRef(null)
+  const docInput     = useRef(null)
+  const [uploading, setUploading]     = useState(false)
+  const [docUploading, setDocUploading] = useState(false)
+  const [docType, setDocType]         = useState('Qatar ID')
+  const [docs, setDocs]               = useState([])
+  const [docConfirm, setDocConfirm]   = useState(null)
+
+  const DOC_TYPES = ['Photo', 'Qatar ID']
+  const DOC_TYPES_AR = { 'Photo':'صورة', 'Qatar ID':'الرقم الشخصي' }
+  const DOC_COLORS = { 'Photo':'#0085C7', 'Qatar ID':'#009F6B' }
+  const DOC_ICONS  = { 'Photo':'ti-photo', 'Qatar ID':'ti-id-badge' }
+
+  useEffect(() => { loadDocs() }, [r.id])
+
+  async function loadDocs() {
+    const { data } = await supabase.from('referee_documents')
+      .select('*').eq('referee_id', r.id).order('uploaded_at', { ascending: false })
+    setDocs(data || [])
+  }
+
+  async function handlePhotoUpload(file) {
+    if (!file.type.startsWith('image/')) { toast(L('Please select an image','اختر صورة'), 'error'); return }
+    if (file.size > 5*1024*1024) { toast(L('Image must be under 5MB','الصورة يجب أن تكون أقل من 5MB'), 'error'); return }
+    setUploading(true)
+    try {
+      const ext  = file.name.split('.').pop()
+      const path = `referee_${r.id}.${ext}`
+      const { error: upErr } = await supabase.storage.from('athlete-photos').upload(path, file, { upsert: true })
+      if (upErr) throw upErr
+      const { data } = supabase.storage.from('athlete-photos').getPublicUrl(path)
+      const photoUrl = data.publicUrl + '?t=' + Date.now()
+      const { error: dbErr } = await supabase.from('referees').update({ photo_url: photoUrl }).eq('id', r.id)
+      if (dbErr) throw dbErr
+      toast(L('Photo updated!','تم تحديث الصورة!')); onRefresh()
+    } catch(err) { toast(err.message, 'error') }
+    finally { setUploading(false) }
+  }
+
+  async function handlePhotoRemove() {
+    await supabase.from('referees').update({ photo_url: null }).eq('id', r.id)
+    toast(L('Photo removed','تم حذف الصورة')); onRefresh()
+  }
+
+  async function handleDocUpload(file) {
+    if (file.size > 20*1024*1024) { toast(L('File must be under 20MB','الملف يجب أن يكون أقل من 20MB'), 'error'); return }
+    setDocUploading(true)
+    try {
+      const ext  = file.name.split('.').pop()
+      const path = `referee_${r.id}/${Date.now()}.${ext}`
+      const { error: upErr } = await supabase.storage.from('athlete-documents').upload(path, file)
+      if (upErr) throw upErr
+      const { data } = supabase.storage.from('athlete-documents').getPublicUrl(path)
+      await supabase.from('referee_documents').insert({
+        referee_id: r.id, name: file.name, type: docType,
+        file_url: data.publicUrl, file_path: path, file_size: file.size,
+      })
+      toast(L(`${docType} uploaded!`,`تم رفع ${DOC_TYPES_AR[docType]}!`)); loadDocs()
+    } catch(err) { toast(err.message, 'error') }
+    finally { setDocUploading(false); if (docInput.current) docInput.current.value = '' }
+  }
+
+  async function handleDocDelete(doc) {
+    await supabase.storage.from('athlete-documents').remove([doc.file_path])
+    await supabase.from('referee_documents').delete().eq('id', doc.id)
+    toast(L('Document deleted','تم حذف الوثيقة')); setDocConfirm(null); loadDocs()
+  }
+
+  function formatSize(bytes) {
+    if (!bytes) return ''
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024*1024) return `${(bytes/1024).toFixed(1)} KB`
+    return `${(bytes/(1024*1024)).toFixed(1)} MB`
+  }
+
+  return (
+    <div>
+      {docConfirm && <ConfirmModal title={L('Delete document','حذف وثيقة')} message={`${L('Delete','حذف')} "${docConfirm.name}"?`} onConfirm={() => handleDocDelete(docConfirm)} onCancel={() => setDocConfirm(null)} />}
+      <button className="back-btn" onClick={onBack}>
+        <i className="ti ti-arrow-left" /> {L('Back to referees','رجوع إلى الحكام')}
+      </button>
+      {canEdit(profile) && (
+        <div style={{ display:'flex', gap:8, marginBottom:16 }}>
+          <button className="action-btn action-btn-edit" onClick={onEdit}><i className="ti ti-pencil" /> {L('Edit','تعديل')}</button>
+          <button className="action-btn action-btn-delete" onClick={onDelete}><i className="ti ti-trash" /> {L('Delete','حذف')}</button>
+        </div>
+      )}
+      <div className="detail-grid">
+        <div>
+          <div className="detail-profile">
+            {/* Photo */}
+            <div style={{ position:'relative', width:90, height:90, margin:'0 auto 14px' }}>
+              {r.photo_url
+                ? <img src={r.photo_url} alt={r.name} style={{ width:90, height:90, borderRadius:'50%', objectFit:'cover', border:'3px solid var(--border)' }} />
+                : <div style={{ width:90, height:90, borderRadius:'50%', background:avColor(r.id), display:'flex', alignItems:'center', justifyContent:'center', fontSize:28, fontWeight:600, color:'#fff' }}>{initials(r.name||r.name_ar||'?')}</div>
+              }
+              {canEdit(profile) && (
+                <div style={{ position:'absolute', bottom:0, right:0, display:'flex', gap:3 }}>
+                  <button onClick={() => photoInput.current.click()} disabled={uploading} title={L('Upload photo','رفع صورة')}
+                    style={{ width:26, height:26, borderRadius:'50%', background:'#0085C7', border:'2px solid #fff', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'#fff' }}>
+                    {uploading ? <div style={{ width:10, height:10, border:'2px solid rgba(255,255,255,.4)', borderTopColor:'#fff', borderRadius:'50%', animation:'spin .7s linear infinite' }} /> : <i className="ti ti-camera" style={{ fontSize:12 }} />}
+                  </button>
+                  {r.photo_url && (
+                    <button onClick={handlePhotoRemove} title={L('Remove photo','حذف الصورة')}
+                      style={{ width:26, height:26, borderRadius:'50%', background:'#dc2626', border:'2px solid #fff', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'#fff' }}>
+                      <i className="ti ti-x" style={{ fontSize:12 }} />
+                    </button>
+                  )}
+                </div>
+              )}
+              <input ref={photoInput} type="file" accept="image/*" style={{ display:'none' }} onChange={e => { if(e.target.files[0]) handlePhotoUpload(e.target.files[0]) }} />
+            </div>
+
+            <div className="detail-name">{ar && r.name_ar ? r.name_ar : (r.name || '—')}</div>
+            {r.name_ar && r.name && <div className="detail-sub">{ar ? r.name : r.name_ar}</div>}
+            <div className="detail-sub">{tcNat(r.nationality)}</div>
+
+            <div className="detail-fields" style={{ marginTop:16 }}>
+              {[
+                [L('Full Name (English)','الاسم الكامل بالإنجليزي'), r.name],
+                [L('Full Name (Arabic)','الاسم الكامل بالعربي'),    r.name_ar],
+                [L('Gender','الجنس'),        r.gender?(ar?(r.gender==='Male'?'ذكر':'أنثى'):r.gender):null],
+                [L('Nationality','الجنسية'),  tcNat(r.nationality)],
+                [L('Date of Birth','تاريخ الميلاد'), r.dob],
+                [L('ID Number','الرقم الشخصي'), r.id_number],
+                [L('Joined QPC','تاريخ الانضمام'), r.joined_qpc],
+              ].map(([k,v]) => v ? (
+                <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv">{v}</span></div>
+              ) : null)}
+            </div>
+          </div>
+        </div>
+
+        <div>
+          {/* Documents */}
+          <div className="info-card">
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
+              <div className="info-title" style={{ margin:0 }}>
+                {L('Documents','الوثائق')}
+                <span style={{ marginLeft:8, fontSize:11, fontWeight:400, color:'var(--text3)', textTransform:'none', letterSpacing:0 }}>{docs.length} {L('file','ملف')}{docs.length !== 1 ? (ar?'':' files') : ''}</span>
+              </div>
+            </div>
+
+            {canEdit(profile) && (
+              <div style={{ display:'flex', gap:8, marginBottom:16, padding:'10px 12px', background:'var(--surface2)', borderRadius:10, alignItems:'center' }}>
+                <div style={{ display:'flex', gap:6 }}>
+                  {DOC_TYPES.map(t => (
+                    <button key={t} onClick={() => setDocType(t)}
+                      style={{ padding:'5px 12px', borderRadius:7, border:'1px solid var(--border)', fontSize:12, cursor:'pointer', fontFamily:'DM Sans, sans-serif',
+                        background: t===docType ? '#0085C7' : 'var(--surface)',
+                        color: t===docType ? '#fff' : 'var(--text2)', fontWeight: t===docType ? 600 : 400 }}>
+                      {ar ? (DOC_TYPES_AR[t]||t) : t}
+                    </button>
+                  ))}
+                </div>
+                <button onClick={() => docInput.current.click()} disabled={docUploading}
+                  style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', background:'#0085C7', color:'#fff', border:'none', borderRadius:8, fontSize:12, fontWeight:500, cursor:'pointer', marginLeft:'auto', fontFamily:'DM Sans, sans-serif' }}>
+                  {docUploading ? <><div style={{ width:12, height:12, border:'2px solid rgba(255,255,255,.4)', borderTopColor:'#fff', borderRadius:'50%', animation:'spin .7s linear infinite' }} />{L('Uploading…','جارٍ الرفع…')}</> : <><i className="ti ti-upload" style={{ fontSize:14 }} />{L('Upload','رفع')}</>}
+                </button>
+                <input ref={docInput} type="file" style={{ display:'none' }} accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={e => { if(e.target.files[0]) handleDocUpload(e.target.files[0]) }} />
+              </div>
+            )}
+
+            {docs.length === 0
+              ? <div className="empty" style={{ padding:'20px 0' }}>{L('No documents uploaded yet.','لم يتم رفع وثائق بعد.')}</div>
+              : DOC_TYPES.map(type => {
+                  const typeDocs = docs.filter(d => d.type === type)
+                  if (typeDocs.length === 0) return null
+                  const color = DOC_COLORS[type]
+                  const icon  = DOC_ICONS[type]
+                  return (
+                    <div key={type} style={{ marginBottom:14 }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:6 }}>
+                        <i className={`ti ${icon}`} style={{ fontSize:13, color }} />
+                        <span style={{ fontSize:11, fontWeight:600, color }}>{ar?(DOC_TYPES_AR[type]||type):type}</span>
+                      </div>
+                      {typeDocs.map(doc => (
+                        <div key={doc.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 10px', background:'var(--surface2)', borderRadius:9, marginBottom:6, border:'1px solid var(--border)' }}>
+                          <div style={{ width:34, height:34, borderRadius:8, background:color+'15', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                            <i className={`ti ${icon}`} style={{ fontSize:16, color }} />
+                          </div>
+                          <div style={{ flex:1, minWidth:0 }}>
+                            <div style={{ fontSize:13, fontWeight:500, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{doc.name}</div>
+                            <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>{formatSize(doc.file_size)} · {doc.uploaded_at?.slice(0,10)}</div>
+                          </div>
+                          <div style={{ display:'flex', gap:6, flexShrink:0 }}>
+                            <a href={doc.file_url} target="_blank" rel="noreferrer"
+                              style={{ display:'flex', alignItems:'center', justifyContent:'center', width:28, height:28, borderRadius:7, background:'var(--surface)', border:'1px solid var(--border)', color:'var(--text2)', fontSize:14, textDecoration:'none' }}>
+                              <i className="ti ti-download" />
+                            </a>
+                            {canEdit(profile) && (
+                              <button onClick={() => setDocConfirm(doc)}
+                                style={{ display:'flex', alignItems:'center', justifyContent:'center', width:28, height:28, borderRadius:7, background:'#fef2f2', border:'1px solid #fca5a5', color:'#dc2626', cursor:'pointer' }}>
+                                <i className="ti ti-trash" style={{ fontSize:14 }} />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                })
+            }
+          </div>
+        </div>
+      </div>
+      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+    </div>
+  )
 }
 
 export default function Referees({ referees, onRefresh, profile }) {
@@ -115,44 +328,13 @@ export default function Referees({ referees, onRefresh, profile }) {
   if (selected) {
     const r = (referees||[]).find(x => x.id === selected)
     if (!r) { setSelected(null); return null }
-    return (
-      <div>
-        <button className="back-btn" onClick={() => setSelected(null)}>
-          <i className="ti ti-arrow-left" /> {L('Back to referees','رجوع إلى الحكام')}
-        </button>
-        <div className="detail-grid">
-          <div className="detail-profile">
-            <div className="detail-avatar">
-              <span>{(r.name||r.name_ar||'?')[0].toUpperCase()}</span>
-            </div>
-            <div className="detail-name">{ar && r.name_ar ? r.name_ar : (r.name || '—')}</div>
-            {r.name_ar && r.name && <div className="detail-sub">{ar ? r.name : r.name_ar}</div>}
-            <div className="detail-sub">{tcNat(r.nationality)}</div>
-            <div className="detail-fields" style={{ marginTop:16 }}>
-              {[
-                [L('Full Name (English)','الاسم الكامل بالإنجليزي'), r.name],
-                [L('Full Name (Arabic)','الاسم الكامل بالعربي'),    r.name_ar],
-                [L('Gender','الجنس'),       r.gender?(ar?(r.gender==='Male'?'ذكر':'أنثى'):r.gender):null],
-                [L('Nationality','الجنسية'), tcNat(r.nationality)],
-                [L('Date of Birth','تاريخ الميلاد'), r.dob],
-                [L('ID Number','الرقم الشخصي'), r.id_number],
-                [L('Joined QPC','تاريخ الانضمام'), r.joined_qpc],
-              ].map(([k,v]) => v ? (
-                <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv">{v}</span></div>
-              ) : null)}
-            </div>
-            <div style={{ display:'flex', gap:8, marginTop:16, flexWrap:'wrap' }}>
-              <button className="action-btn action-btn-edit" onClick={() => { setEditData(r); setShowForm(true); setSelected(null) }}>
-                <i className="ti ti-pencil" /> {L('Edit','تعديل')}
-              </button>
-              <button className="action-btn action-btn-delete" onClick={() => handleDelete(r.id)}>
-                <i className="ti ti-trash" /> {L('Delete','حذف')}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    )
+    return <RefereeDetail
+      r={r} ar={ar} L={L} tcNat={tcNat} profile={profile}
+      onBack={() => setSelected(null)}
+      onEdit={() => { setEditData(r); setShowForm(true); setSelected(null) }}
+      onDelete={() => handleDelete(r.id)}
+      onRefresh={onRefresh}
+    />
   }
 
   // ── FORM MODAL ──
