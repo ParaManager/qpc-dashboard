@@ -114,7 +114,14 @@ export default function App() {
 
   // Listen for navigation events from NotificationBell
   useEffect(() => {
-    function handleNav(e) { goTo(e.detail) }
+    function handleNav(e) {
+      const detail = e.detail
+      if (typeof detail === 'string') {
+        goTo(detail)
+      } else if (detail?.page) {
+        goTo(detail.page, detail)
+      }
+    }
     window.addEventListener('navigate', handleNav)
     return () => window.removeEventListener('navigate', handleNav)
   }, [goTo])
@@ -260,7 +267,7 @@ export default function App() {
           {page==='athletes'  && <Athletes  athletes={myAthletes} coaches={coaches} employees={employees} results={results} documents={documents} events={events} registrations={registrations} onRefresh={fetchAll} onNav={goTo} initAthleteId={navState.athleteId} initStatusFilter={navState.statusFilter} navState={navState} profile={profile} />}
           {page==='coaches'   && isAdmin && <Coaches   coaches={coaches} athletes={athletes} personDocs={personDocs} onRefresh={fetchAll} onNav={goTo} initCoachId={navState.coachId} navState={navState} profile={profile} />}
           {page==='events'    && <Events    events={events} athletes={athletes} results={results} registrations={registrations} onRefresh={fetchAll} onNav={goTo} initEventId={navState.eventId} initStatusFilter={navState.statusFilter} profile={profile} />}
-          {page==='schedule'  && <Schedule  profile={profile} coachId={myCoachId} myAthletes={myAthletes} athletes={athletes} onNav={goTo} readOnly={isAthlete} athleteId={isAthlete ? myAthleteId : null} />}
+          {page==='schedule'  && <Schedule  profile={profile} coachId={myCoachId} myAthletes={myAthletes} athletes={athletes} onNav={goTo} readOnly={isAthlete} athleteId={isAthlete ? myAthleteId : null} initSessionId={navState?.sessionId} />}
           {page==='attendance' && <Attendance profile={profile} coachId={myCoachId} myAthletes={myAthletes} onNav={goTo} />}
           {page==='users'     && isAdmin && <UserManagement profile={profile} />}
           {page==='athlete-dashboard' && <AthleteDashboard athlete={myAthlete} coach={myCoach} results={results} events={events} registrations={registrations} onNav={goTo} />}
