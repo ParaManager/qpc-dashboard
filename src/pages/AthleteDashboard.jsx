@@ -80,7 +80,7 @@ export default function AthleteDashboard({ athlete, coach, results, events, regi
           <div style={{ fontSize:12, color:'var(--text3)' }}>{L('Gold','ذهب')}</div>
         </div>
         {/* Silver */}
-        <div style={{ background:'#aaa15', border:'1px solid #aaa30', borderRadius:14, padding:'16px', textAlign:'center' }}>
+        <div style={{ background:'#aaaaaa15', border:'1px solid #aaaaaa30', borderRadius:14, padding:'16px', textAlign:'center' }}>
           <div style={{ fontSize:32 }}>🥈</div>
           <div style={{ fontSize:28, fontWeight:700, color:'#aaa' }}>{silver}</div>
           <div style={{ fontSize:12, color:'var(--text3)' }}>{L('Silver','فضة')}</div>
