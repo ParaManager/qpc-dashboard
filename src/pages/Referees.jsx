@@ -29,9 +29,10 @@ function exportExcel(list, lang) {
   XLSX.writeFile(wb, `QPC_${ar?'الحكام':'Referees'}_${new Date().toISOString().slice(0,10)}.xlsx`)
 }
 
-function RefereeDetail({ r, ar, L, tcNat, profile, onBack, onEdit, onDelete, onRefresh }) {
+function RefereeDetail({ r: initialR, ar, L, tcNat, profile, onBack, onEdit, onDelete, onRefresh }) {
   const photoInput   = useRef(null)
   const docInput     = useRef(null)
+  const [r, setR]                     = useState(initialR)
   const [uploading, setUploading]     = useState(false)
   const [docUploading, setDocUploading] = useState(false)
   const [docType, setDocType]         = useState('Qatar ID')
@@ -43,7 +44,12 @@ function RefereeDetail({ r, ar, L, tcNat, profile, onBack, onEdit, onDelete, onR
   const DOC_COLORS = { 'Photo':'#0085C7', 'Qatar ID':'#009F6B' }
   const DOC_ICONS  = { 'Photo':'ti-photo', 'Qatar ID':'ti-id-badge' }
 
-  useEffect(() => { loadDocs() }, [r.id])
+  useEffect(() => { loadDocs(); refreshReferee() }, [initialR.id])
+
+  async function refreshReferee() {
+    const { data } = await supabase.from('referees').select('*').eq('id', initialR.id).maybeSingle()
+    if (data) setR(data)
+  }
 
   async function loadDocs() {
     const { data } = await supabase.from('referee_documents')
@@ -64,14 +70,14 @@ function RefereeDetail({ r, ar, L, tcNat, profile, onBack, onEdit, onDelete, onR
       const photoUrl = data.publicUrl + '?t=' + Date.now()
       const { error: dbErr } = await supabase.from('referees').update({ photo_url: photoUrl }).eq('id', r.id)
       if (dbErr) throw dbErr
-      toast(L('Photo updated!','تم تحديث الصورة!')); onRefresh()
+      toast(L('Photo updated!','تم تحديث الصورة!')); refreshReferee(); onRefresh()
     } catch(err) { toast(err.message, 'error') }
     finally { setUploading(false) }
   }
 
   async function handlePhotoRemove() {
     await supabase.from('referees').update({ photo_url: null }).eq('id', r.id)
-    toast(L('Photo removed','تم حذف الصورة')); onRefresh()
+    toast(L('Photo removed','تم حذف الصورة')); refreshReferee(); onRefresh()
   }
 
   async function handleDocUpload(file) {
@@ -275,6 +281,10 @@ export default function Referees({ referees, onRefresh, profile }) {
       if (sort==='dob-desc') return new Date(b.dob||0) - new Date(a.dob||0)
       if (sort==='joined_qpc-asc')  return new Date(a.joined_qpc||0) - new Date(b.joined_qpc||0)
       if (sort==='joined_qpc-desc') return new Date(b.joined_qpc||0) - new Date(a.joined_qpc||0)
+      if (sort==='gender-asc')      return (a.gender||'').localeCompare(b.gender||'')
+      if (sort==='gender-desc')     return (b.gender||'').localeCompare(a.gender||'')
+      if (sort==='id_number-asc')   return (a.id_number||'').localeCompare(b.id_number||'')
+      if (sort==='id_number-desc')  return (b.id_number||'').localeCompare(a.id_number||'')
       return 0
     })
     return d
@@ -306,7 +316,8 @@ export default function Referees({ referees, onRefresh, profile }) {
   }
 
   async function handleDelete(id) {
-    await supabase.from('referees').delete().eq('id', id)
+    const { error } = await supabase.from('referees').delete().eq('id', id)
+    if (error) { toast(error.message,'error'); return }
     toast(L('Deleted','تم الحذف'))
     setSelected(null)
     onRefresh()
@@ -418,9 +429,9 @@ export default function Referees({ referees, onRefresh, profile }) {
               <th>{sortBtn('name', L('Full Name (English)','الاسم بالإنجليزي'))}</th>
               <th>{sortBtn('name_ar', L('Full Name (Arabic)','الاسم بالعربي'))}</th>
               <th>{sortBtn('nationality', L('Nationality','الجنسية'))}</th>
-              <th>{L('Gender','الجنس')}</th>
+              <th>{sortBtn('gender', L('Gender','الجنس'))}</th>
               <th>{sortBtn('dob', L('Date of Birth','تاريخ الميلاد'))}</th>
-              <th>{L('ID Number','الرقم الشخصي')}</th>
+              <th>{sortBtn('id_number', L('ID Number','الرقم الشخصي'))}</th>
               <th>{sortBtn('joined_qpc', L('Joined QPC','تاريخ الانضمام'))}</th>
             </tr>
             <tr style={{ background:'#f8f9fb' }}>

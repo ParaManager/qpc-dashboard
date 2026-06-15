@@ -392,7 +392,31 @@ export default function Athletes({ athletes, coaches, employees, results, docume
     if (sort === 'join_date-asc')    return new Date(a.join_date||0) - new Date(b.join_date||0)
     if (sort === 'join_date-desc')   return new Date(b.join_date||0) - new Date(a.join_date||0)
     if (sort === 'join-desc')        return new Date(b.join_date) - new Date(a.join_date)
-    if (sort === 'join-asc')         return new Date(a.join_date) - new Date(b.join_date)
+    if (sort === 'join-asc')              return new Date(a.join_date) - new Date(b.join_date)
+    if (sort === 'medical_status-asc')    return (a.medical_status||'').localeCompare(b.medical_status||'')
+    if (sort === 'medical_status-desc')   return (b.medical_status||'').localeCompare(a.medical_status||'')
+    if (sort === 'phone-asc')             return (a.phone||'').localeCompare(b.phone||'')
+    if (sort === 'phone-desc')            return (b.phone||'').localeCompare(a.phone||'')
+    if (sort === 'email-asc')             return (a.email||'').localeCompare(b.email||'')
+    if (sort === 'email-desc')            return (b.email||'').localeCompare(a.email||'')
+    if (sort === 'passport_number-asc')   return (a.passport_number||'').localeCompare(b.passport_number||'')
+    if (sort === 'passport_number-desc')  return (b.passport_number||'').localeCompare(a.passport_number||'')
+    if (sort === 'passport_expiry-asc')   return new Date(a.passport_expiry||0) - new Date(b.passport_expiry||0)
+    if (sort === 'passport_expiry-desc')  return new Date(b.passport_expiry||0) - new Date(a.passport_expiry||0)
+    if (sort === 'id_number-asc')         return (a.id_number||'').localeCompare(b.id_number||'')
+    if (sort === 'id_number-desc')        return (b.id_number||'').localeCompare(a.id_number||'')
+    if (sort === 'id_expiry-asc')         return new Date(a.id_expiry||0) - new Date(b.id_expiry||0)
+    if (sort === 'id_expiry-desc')        return new Date(b.id_expiry||0) - new Date(a.id_expiry||0)
+    if (sort === 'qss_number-asc')        return (a.qss_number||'').localeCompare(b.qss_number||'')
+    if (sort === 'qss_number-desc')       return (b.qss_number||'').localeCompare(a.qss_number||'')
+    if (sort === 'career_profile-asc')    return (a.career_profile||'').localeCompare(b.career_profile||'')
+    if (sort === 'career_profile-desc')   return (b.career_profile||'').localeCompare(a.career_profile||'')
+    if (sort === 'medals-desc')           return (b.medals_gold+b.medals_silver+b.medals_bronze)-(a.medals_gold+a.medals_silver+a.medals_bronze)
+    if (sort === 'medals-asc')            return (a.medals_gold+a.medals_silver+a.medals_bronze)-(b.medals_gold+b.medals_silver+b.medals_bronze)
+    if (sort === 'emergency_contact_name-asc')  return (a.emergency_contact_name||'').localeCompare(b.emergency_contact_name||'')
+    if (sort === 'emergency_contact_name-desc') return (b.emergency_contact_name||'').localeCompare(a.emergency_contact_name||'')
+    if (sort === 'emergency_contact_phone-asc')  return (a.emergency_contact_phone||'').localeCompare(b.emergency_contact_phone||'')
+    if (sort === 'emergency_contact_phone-desc') return (b.emergency_contact_phone||'').localeCompare(a.emergency_contact_phone||'')
     return 0
   })
 
@@ -1350,7 +1374,7 @@ ${myDocs.length > 0 ? `<div class="section">
           <thead>
             <tr>
               {ALL_COLS.filter(c => isVisible(c.key)).map(c => {
-                const isSortable = ['name','name_ar','sport','classification','nationality','status','dob','join_date','age_category','disability','coach_id','gender','blood_type'].includes(c.key)
+                const isSortable = ['name','name_ar','sport','classification','nationality','status','dob','join_date','age_category','disability','coach_id','gender','blood_type','medical_status','phone','email','passport_number','passport_expiry','id_number','id_expiry','qss_number','career_profile','medals','emergency_contact_name','emergency_contact_phone'].includes(c.key)
                 const isAsc  = sort === `${c.key}-asc`
                 const isDesc = sort === `${c.key}-desc`
                 const active = isAsc || isDesc

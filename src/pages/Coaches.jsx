@@ -203,6 +203,13 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
   const [sport, setSport]       = useState('All sports')
   const [status, setStatus]     = useState('All statuses')
   const [sort, setSort]         = useState('name-asc')
+  const sortBtn = (key, label) => {
+    const isAsc = sort === `${key}-asc`
+    const isDesc = sort === `${key}-desc`
+    return <span onClick={() => setSort(isAsc ? `${key}-desc` : `${key}-asc`)} style={{ cursor:'pointer', userSelect:'none', whiteSpace:'nowrap' }}>
+      {label} <span style={{ fontSize:9, color: (isAsc||isDesc)?'#0085C7':'#ccc' }}>{isAsc?'▲':isDesc?'▼':'▲▼'}</span>
+    </span>
+  }
   const [selected, setSelected] = useState(initCoachId || null)
   const [form, setForm]         = useState(null)
   const [confirm, setConfirm]   = useState(null)
@@ -245,6 +252,13 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
     if (sort === 'name-desc')     return b.name.localeCompare(a.name)
     if (sort === 'athletes-desc') return bC - aC
     if (sort === 'since-asc')     return new Date(a.since) - new Date(b.since)
+    if (sort === 'since-desc')    return new Date(b.since) - new Date(a.since)
+    if (sort === 'sport-asc')     return (a.sport||'').localeCompare(b.sport||'')
+    if (sort === 'sport-desc')    return (b.sport||'').localeCompare(a.sport||'')
+    if (sort === 'nationality-asc')  return (a.nationality||'').localeCompare(b.nationality||'')
+    if (sort === 'nationality-desc') return (b.nationality||'').localeCompare(a.nationality||'')
+    if (sort === 'status-asc')    return (a.status||'').localeCompare(b.status||'')
+    if (sort === 'status-desc')   return (b.status||'').localeCompare(a.status||'')
     return 0
   })
 
@@ -494,8 +508,13 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
         <select className="filter" value={sort} onChange={e => setSort(e.target.value)}>
           <option value="name-asc">{tx('filters.nameAZ','Name A→Z')}</option>
           <option value="name-desc">{tx('filters.nameZA','Name Z→A')}</option>
+          <option value="sport-asc">{lang==='ar'?'الرياضة أ-ي':'Sport A→Z'}</option>
+          <option value="sport-desc">{lang==='ar'?'الرياضة ي-أ':'Sport Z→A'}</option>
+          <option value="nationality-asc">{lang==='ar'?'الجنسية أ-ي':'Nationality A→Z'}</option>
+          <option value="status-asc">{lang==='ar'?'الحالة':'Status'}</option>
           <option value="athletes-desc">{tx('filters.mostAthletes','Most athletes')}</option>
           <option value="since-asc">{tx('filters.longestWithQPC','Longest with QPC')}</option>
+          <option value="since-desc">{lang==='ar'?'الأحدث':'Newest'}</option>
         </select>
       </div>
       <div className="coach-grid">

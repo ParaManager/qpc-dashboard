@@ -365,6 +365,14 @@ export default function Employees({ employees, personDocs, onRefresh, onNav, nav
     if (sort === 'desig-desc') return (b.designation||'').localeCompare(a.designation||'')
     if (sort === 'nat-asc')    return (a.nationality||'').localeCompare(b.nationality||'')
     if (sort === 'nat-desc')   return (b.nationality||'').localeCompare(a.nationality||'')
+    if (sort === 'gender-asc')   return (a.gender||'').localeCompare(b.gender||'')
+    if (sort === 'gender-desc')  return (b.gender||'').localeCompare(a.gender||'')
+    if (sort === 'emp-asc')      return (a.employee_number||'').localeCompare(b.employee_number||'')
+    if (sort === 'emp-desc')     return (b.employee_number||'').localeCompare(a.employee_number||'')
+    if (sort === 'qss-asc')      return (a.qss_number||'').localeCompare(b.qss_number||'')
+    if (sort === 'qss-desc')     return (b.qss_number||'').localeCompare(a.qss_number||'')
+    if (sort === 'status-asc')   return (a.status||'').localeCompare(b.status||'')
+    if (sort === 'status-desc')  return (b.status||'').localeCompare(a.status||'')
     return 0
   })
 
@@ -548,10 +556,10 @@ export default function Employees({ employees, personDocs, onRefresh, onNav, nav
               <SortTh field="name">{tx('employees.employee','Employee')}</SortTh>
               <SortTh field="desig">{tx('employees.designation','Designation')}</SortTh>
               <SortTh field="nat">{tx('employees.nationality','Nationality')}</SortTh>
-              <th>{tx('employees.gender','Gender')}</th>
-              <th>{tx('employees.employeeNum','Employee #')}</th>
-              <th>{tx('employees.qssNum','QSS #')}</th>
-              <th>{tx('employees.status','Status')}</th>
+              <th onClick={() => setSort(sort==='gender-asc'?'gender-desc':'gender-asc')} style={{ cursor:'pointer', userSelect:'none', whiteSpace:'nowrap' }}>{tx('employees.gender','Gender')} <span style={{ fontSize:9, color: sort.startsWith('gender')?'#0085C7':'#ccc' }}>{sort==='gender-asc'?'▲':sort==='gender-desc'?'▼':'▲▼'}</span></th>
+              <th onClick={() => setSort(sort==='emp-asc'?'emp-desc':'emp-asc')} style={{ cursor:'pointer', userSelect:'none', whiteSpace:'nowrap' }}>{tx('employees.employeeNum','Employee #')} <span style={{ fontSize:9, color: sort.startsWith('emp')?'#0085C7':'#ccc' }}>{sort==='emp-asc'?'▲':sort==='emp-desc'?'▼':'▲▼'}</span></th>
+              <th onClick={() => setSort(sort==='qss-asc'?'qss-desc':'qss-asc')} style={{ cursor:'pointer', userSelect:'none', whiteSpace:'nowrap' }}>{tx('employees.qssNum','QSS #')} <span style={{ fontSize:9, color: sort.startsWith('qss')?'#0085C7':'#ccc' }}>{sort==='qss-asc'?'▲':sort==='qss-desc'?'▼':'▲▼'}</span></th>
+              <th onClick={() => setSort(sort==='status-asc'?'status-desc':'status-asc')} style={{ cursor:'pointer', userSelect:'none', whiteSpace:'nowrap' }}>{tx('employees.status','Status')} <span style={{ fontSize:9, color: sort.startsWith('status')?'#0085C7':'#ccc' }}>{sort==='status-asc'?'▲':sort==='status-desc'?'▼':'▲▼'}</span></th>
               <th />
             </tr>
             <tr style={{ background:'#f8f9fb' }}>
