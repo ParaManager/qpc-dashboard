@@ -8,7 +8,33 @@ import * as XLSX from 'xlsx'
 
 const COUNTRIES_EN = ['Afghanistan','Algeria','Argentina','Armenia','Australia','Azerbaijan','Bahrain','Bangladesh','Belarus','Belgium','Brazil','Cameroon','Canada','Chile','China','Colombia','Croatia','Czech Republic','Denmark','Egypt','Eritrea','Ethiopia','Finland','France','Georgia','Germany','Ghana','Greece','Guinea','Hungary','India','Indonesia','Iran','Iraq','Ireland','Italy','Japan','Jordan','Kazakhstan','Kenya','Kuwait','Kyrgyzstan','Lebanon','Libya','Malaysia','Mali','Mauritania','Mexico','Mongolia','Morocco','Myanmar','Nepal','Netherlands','New Zealand','Nigeria','Norway','Oman','Pakistan','Palestine','Peru','Philippines','Poland','Portugal','Qatar','Romania','Russia','Rwanda','Saudi Arabia','Scotland','Senegal','Serbia','Singapore','Slovakia','Somalia','South Africa','South Korea','Spain','Sri Lanka','Sudan','Sweden','Syria','Tajikistan','Tanzania','Thailand','Tunisia','Turkey','Turkmenistan','UAE','Uganda','UK','Ukraine','USA','Uzbekistan','Venezuela','Vietnam','Wales','Yemen','Zambia','Zimbabwe']
 
-const COUNTRY_AR = {'Qatar':'قطر','Egypt':'مصر','Yemen':'اليمن','Algeria':'الجزائر','Morocco':'المغرب','Jordan':'الأردن','Saudi Arabia':'المملكة العربية السعودية','Somalia':'الصومال','Sudan':'السودان','Libya':'ليبيا','Tunisia':'تونس','Syria':'سوريا','Iraq':'العراق','Palestine':'فلسطين','UAE':'الإمارات','Kuwait':'الكويت','Bahrain':'البحرين','Oman':'عُمان','Iran':'إيران','Pakistan':'باكستان','India':'الهند','Turkey':'تركيا','France':'فرنسا','Germany':'ألمانيا','UK':'المملكة المتحدة','USA':'الولايات المتحدة','Tanzania':'تنزانيا','Morocco':'المغرب'}
+const COUNTRY_AR = {
+  'Qatar':'قطر','Egypt':'مصر','Yemen':'اليمن','Algeria':'الجزائر','Morocco':'المغرب',
+  'Jordan':'الأردن','Saudi Arabia':'المملكة العربية السعودية','Saudi arabia':'المملكة العربية السعودية',
+  'Somalia':'الصومال','Sudan':'السودان','Sudani':'السودان','Libya':'ليبيا','Tunisia':'تونس',
+  'Syria':'سوريا','Iraq':'العراق','Palestine':'فلسطين','UAE':'الإمارات','Kuwait':'الكويت',
+  'Bahrain':'البحرين','Oman':'عُمان','Iran':'إيران','Pakistan':'باكستان','India':'الهند',
+  'Turkey':'تركيا','France':'فرنسا','Germany':'ألمانيا','UK':'المملكة المتحدة','USA':'الولايات المتحدة',
+  'Tanzania':'تنزانيا','Indonesia':'إندونيسيا','Malaysia':'ماليزيا','Nigeria':'نيجيريا',
+  'Kenya':'كينيا','Ethiopia':'إثيوبيا','Eritrea':'إريتريا','Ghana':'غانا','Senegal':'السنغال',
+  'Cameroon':'الكاميرون','Uganda':'أوغندا','Rwanda':'رواندا','Zimbabwe':'زيمبابوي',
+  'South africa':'جنوب أفريقيا','South Africa':'جنوب أفريقيا','Morocco':'المغرب',
+  'Azerbaijan':'أذربيجان','Kazakhstan':'كازاخستان','Uzbekistan':'أوزبكستان',
+  'Tajikistan':'طاجيكستان','Kyrgyzstan':'قيرغيزستان','Turkmenistan':'تركمانستان',
+  'Afghanistan':'أفغانستان','Bangladesh':'بنغلاديش','Sri Lanka':'سريلانكا',
+  'Nepal':'نيبال','Myanmar':'ميانمار','Vietnam':'فيتنام','Philippines':'الفلبين',
+  'Thailand':'تايلاند','China':'الصين','Japan':'اليابان','South Korea':'كوريا الجنوبية',
+  'Mongolia':'منغوليا','Russia':'روسيا','Ukraine':'أوكرانيا','Poland':'بولندا',
+  'Romania':'رومانيا','Hungary':'هنغاريا','Czech Republic':'جمهورية التشيك',
+  'Slovakia':'سلوفاكيا','Croatia':'كرواتيا','Serbia':'صربيا','Bulgaria':'بلغاريا',
+  'Greece':'اليونان','Spain':'إسبانيا','Portugal':'البرتغال','Italy':'إيطاليا',
+  'Ireland':'أيرلندا','Scotland':'اسكتلندا','Wales':'ويلز','Netherlands':'هولندا',
+  'Belgium':'بلجيكا','Sweden':'السويد','Norway':'النرويج','Finland':'فنلندا',
+  'Denmark':'الدنمارك','Austria':'النمسا','Switzerland':'سويسرا','Georgia':'جورجيا',
+  'Armenia':'أرمينيا','Brazil':'البرازيل','Argentina':'الأرجنتين','Colombia':'كولومبيا',
+  'Venezuela':'فنزويلا','Peru':'بيرو','Chile':'تشيلي','Mexico':'المكسيك',
+  'Canada':'كندا','Australia':'أستراليا','New Zealand':'نيوزيلندا',
+}
 
 function exportExcel(list, lang) {
   const ar = lang === 'ar'
@@ -329,7 +355,7 @@ export default function Referees({ referees, onRefresh, profile }) {
     </span>
   )
 
-  const tcNat = n => n ? (ar ? (COUNTRY_AR[n] || COUNTRY_AR[n?.toLowerCase()] || n) : n) : '—'
+  const tcNat = n => { if (!n) return '—'; if (!ar) return n; const cap = n.charAt(0).toUpperCase()+n.slice(1).toLowerCase(); return COUNTRY_AR[n] || COUNTRY_AR[cap] || COUNTRY_AR[n.toLowerCase()] || n }
 
   // ── DETAIL VIEW ──
   if (selected) {
