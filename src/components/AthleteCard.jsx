@@ -83,7 +83,7 @@ export function generateAthleteCard(athlete) {
     </tr>
   </table>
 
-  <div style="text-align:center;font-size:19px;font-weight:bold;color:#000;padding:12px 20px 8px;direction:rtl">
+  <div style="text-align:center;font-size:19px;font-weight:bold;color:#000;padding:12px 20px 8px;direction:rtl;width:100%">
     ${athlete.name_ar || athlete.name}
   </div>
 
@@ -162,6 +162,8 @@ export function generateAthleteCard(athlete) {
 }
 
 export default function AthleteCardButton({ athlete }) {
+  const { lang } = useLang()
+  const ar = lang === 'ar'
   function handleGenerate() {
     const html = generateAthleteCard(athlete)
     const win = window.open('', '_blank')
@@ -173,7 +175,7 @@ export default function AthleteCardButton({ athlete }) {
       style={{ borderColor:'#8B1A1A', color:'#8B1A1A', padding:'5px 12px' }}
       onMouseEnter={e => { e.currentTarget.style.background='#fef2f2' }}
       onMouseLeave={e => { e.currentTarget.style.background='' }}>
-      <i className="ti ti-id-badge" style={{ fontSize:14 }} /> Generate Card
+      <i className="ti ti-id-badge" style={{ fontSize:14 }} /> {ar ? 'إنشاء البطاقة' : 'Generate Card'}
     </button>
   )
 }
