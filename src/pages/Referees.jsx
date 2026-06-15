@@ -450,7 +450,10 @@ export default function Referees({ referees, onRefresh, profile }) {
               <tr key={r.id} onClick={() => setSelected(r.id)} style={{ cursor:'pointer' }}>
                 <td>
                   <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                    <Avatar name={r.name||r.name_ar||'?'} id={r.id} size={32} fs={11} />
+                    {r.photo_url
+                      ? <img src={r.photo_url} alt={r.name} style={{ width:32, height:32, borderRadius:'50%', objectFit:'cover', flexShrink:0 }} />
+                      : <Avatar name={r.name||r.name_ar||'?'} id={r.id} size={32} fs={11} />
+                    }
                     <span style={{ fontWeight:500, fontSize:13 }}>{r.name || '—'}</span>
                   </div>
                 </td>
