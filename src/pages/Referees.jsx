@@ -12,6 +12,7 @@ const COUNTRY_AR = {
   'Qatar':'قطر','Egypt':'مصر','Yemen':'اليمن','Algeria':'الجزائر','Morocco':'المغرب',
   'Jordan':'الأردن','Saudi Arabia':'المملكة العربية السعودية','Saudi arabia':'المملكة العربية السعودية',
   'Somalia':'الصومال','Sudan':'السودان','Sudani':'السودان','Libya':'ليبيا','Tunisia':'تونس',
+  'Belarus':'بيلاروسيا','Guinea':'غينيا','Lebanon':'لبنان','Mali':'مالي','Mauritania':'موريتانيا','Singapore':'سنغافورة','Zambia':'زامبيا',
   'Syria':'سوريا','Iraq':'العراق','Palestine':'فلسطين','UAE':'الإمارات','Kuwait':'الكويت',
   'Bahrain':'البحرين','Oman':'عُمان','Iran':'إيران','Pakistan':'باكستان','India':'الهند',
   'Turkey':'تركيا','France':'فرنسا','Germany':'ألمانيا','UK':'المملكة المتحدة','USA':'الولايات المتحدة',
@@ -355,7 +356,16 @@ export default function Referees({ referees, onRefresh, profile }) {
     </span>
   )
 
-  const tcNat = n => { if (!n) return '—'; if (!ar) return n; const cap = n.charAt(0).toUpperCase()+n.slice(1).toLowerCase(); return COUNTRY_AR[n] || COUNTRY_AR[cap] || COUNTRY_AR[n.toLowerCase()] || n }
+  const tcNat = n => {
+    if (!n) return '—'
+    if (!ar) return n.charAt(0).toUpperCase() + n.slice(1)
+    const key = n.trim()
+    return COUNTRY_AR[key] ||
+      COUNTRY_AR[key.charAt(0).toUpperCase() + key.slice(1)] ||
+      COUNTRY_AR[key.charAt(0).toUpperCase() + key.slice(1).toLowerCase()] ||
+      COUNTRY_AR[key.toLowerCase()] ||
+      key.charAt(0).toUpperCase() + key.slice(1)
+  }
 
   // ── DETAIL VIEW ──
   if (selected) {
