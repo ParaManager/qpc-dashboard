@@ -83,6 +83,18 @@ export default function Profile({ user, profile, athletes, coaches, employees, r
     bronze: s.bronze + (r.medal === 'bronze' ? 1 : 0),
   }), { gold: 0, silver: 0, bronze: 0 })
 
+  const [hasCareerHistory, setHasCareerHistory] = useState(false)
+
+  useEffect(() => {
+    if (!personData?.id) return
+    const type = role === 'admin' ? 'employee' : role
+    supabase.from('career_history')
+      .select('id', { count: 'exact', head: true })
+      .eq('person_id', String(personData.id))
+      .eq('person_type', type)
+      .then(({ count }) => setHasCareerHistory((count || 0) > 0))
+  }, [personData?.id, role])
+
   const myAthletes = role === 'coach' && personData
     ? athletes?.filter(a => String(a.coach_id) === String(personData.id)) || []
     : []
@@ -344,8 +356,8 @@ ${myResults.length>0?`<div class="section"><div class="section-title">${L2('Comp
             </div>
           )}
 
-          {/* Career history for everyone */}
-          {personData && (
+          {/* Career history — only shown if entries exist */}
+          {personData && hasCareerHistory && (
             <CareerHistory
               personId={String(personData.id)}
               personType={role === 'admin' ? 'employee' : role}
