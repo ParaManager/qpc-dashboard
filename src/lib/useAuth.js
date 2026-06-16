@@ -62,8 +62,8 @@ export function useAuth() {
   return { user, profile, loading, signOut }
 }
 
-export const isAdmin   = p => p?.role === 'admin' || p?.account_type === 'admin'
-export const isCoach   = p => p?.role === 'coach' || p?.account_type === 'coach'
-export const isAthlete = p => p?.role === 'athlete' || p?.account_type === 'athlete'
-export const isGuest   = p => p?.role === 'guest'   || p?.account_type === 'guest'
-export const canEdit   = p => p?.role === 'admin'   || p?.account_type === 'admin'
+export const isAdmin   = p => p?.role === 'admin'
+export const isCoach   = p => p?.role === 'coach'
+export const isAthlete = p => p?.role === 'athlete'
+export const isGuest   = p => p?.role === 'guest'
+export const canEdit   = p => p?.role === 'admin'
