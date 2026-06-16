@@ -5,41 +5,38 @@ import { toast } from './Toast'
 import { canEdit } from '../lib/useAuth'
 
 const DOC_TYPES_AR = {
-  'Original Passport':'الجواز الأصلي', 'Mission Passport':'جواز المهمة',
-  'Qatar ID':'الرقم الشخصي',
+  'Passport':'جواز السفر', 'Qatar ID':'الرقم الشخصي',
   'Residence Permit':'تصريح الإقامة', 'Contract':'العقد',
   'Certificate':'الشهادة', 'Medical Report':'التقرير الطبي',
   'Photo':'صورة', 'Other':'أخرى',
 }
 
 const DOC_TYPES = [
-  'Original Passport', 'Mission Passport', 'Qatar ID', 'Residence Permit',
+  'Passport', 'Qatar ID', 'Residence Permit',
   'Contract', 'Certificate', 'Medical Report',
   'Photo', 'Other'
 ]
 
 const DOC_ICONS  = {
-  'Original Passport': 'ti-id',
-  'Mission Passport':  'ti-id',
-  'Qatar ID':          'ti-id-badge',
-  'Residence Permit':  'ti-home',
-  'Contract':          'ti-file-text',
-  'Certificate':       'ti-certificate',
-  'Medical Report':    'ti-heart-rate-monitor',
-  'Photo':             'ti-photo',
-  'Other':             'ti-file',
+  'Passport':         'ti-id',
+  'Qatar ID':         'ti-id-badge',
+  'Residence Permit': 'ti-home',
+  'Contract':         'ti-file-text',
+  'Certificate':      'ti-certificate',
+  'Medical Report':   'ti-heart-rate-monitor',
+  'Photo':            'ti-photo',
+  'Other':            'ti-file',
 }
 
 const DOC_COLORS = {
-  'Original Passport': '#0085C7',
-  'Mission Passport':  '#e67e22',
-  'Qatar ID':          '#009F6B',
-  'Residence Permit':  '#16a085',
-  'Contract':          '#8b5cf6',
-  'Certificate':       '#e67e22',
-  'Medical Report':    '#EE334E',
-  'Photo':             '#0085C7',
-  'Other':             '#9aa3b2',
+  'Passport':         '#0085C7',
+  'Qatar ID':         '#009F6B',
+  'Residence Permit': '#16a085',
+  'Contract':         '#8b5cf6',
+  'Certificate':      '#e67e22',
+  'Medical Report':   '#EE334E',
+  'Photo':            '#0085C7',
+  'Other':            '#9aa3b2',
 }
 
 function formatSize(bytes) {
@@ -67,7 +64,7 @@ async function downloadDoc(url, personName, docType, originalName) {
 
 export default function PersonDocuments({ personId, personType, personName, docs, onRefresh, profile }) {
   const { tx, lang } = useLang()
-  const [docType, setDocType]         = useState('Original Passport')
+  const [docType, setDocType]         = useState('Passport')
   const [uploading, setUploading]     = useState(false)
   const [dropOpen, setDropOpen]       = useState(false)
   const [confirmDel, setConfirmDel]   = useState(null)
@@ -201,7 +198,7 @@ export default function PersonDocuments({ personId, personType, personName, docs
         : DOC_TYPES.map(type => {
             const typeDocs = docsByType[type]
             if (!typeDocs || typeDocs.length === 0) return null
-            if (!canEdit(profile) && type === 'Mission Passport') return null
+
             const color = DOC_COLORS[type]
             const icon  = DOC_ICONS[type]
             return (
@@ -220,14 +217,12 @@ export default function PersonDocuments({ personId, personType, personName, docs
                       <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>{formatSize(doc.file_size)} · {doc.uploaded_at?.slice(0,10)}</div>
                     </div>
                     <div style={{ display:'flex', gap:6, flexShrink:0 }}>
-                      {(canEdit(profile) || doc.type !== 'Mission Passport') && (
-                        <button
-                          onClick={() => downloadDoc(doc.file_url, personName, doc.type, doc.name)}
-                          style={{ display:'flex', alignItems:'center', justifyContent:'center', width:28, height:28, borderRadius:7, background:'var(--surface)', border:'1px solid var(--border)', color:'var(--text2)', cursor:'pointer', fontSize:14 }}
-                          title={lang==='ar'?'تحميل':'Download'}>
-                          <i className="ti ti-download" />
-                        </button>
-                      )}
+                      <button
+                        onClick={() => downloadDoc(doc.file_url, personName, doc.type, doc.name)}
+                        style={{ display:'flex', alignItems:'center', justifyContent:'center', width:28, height:28, borderRadius:7, background:'var(--surface)', border:'1px solid var(--border)', color:'var(--text2)', cursor:'pointer', fontSize:14 }}
+                        title={lang==='ar'?'تحميل':'Download'}>
+                        <i className="ti ti-download" />
+                      </button>
                       {canEdit(profile) && (
                         <button onClick={() => setConfirmDel(doc)}
                           style={{ display:'flex', alignItems:'center', justifyContent:'center', width:28, height:28, borderRadius:7, background:'#fef2f2', border:'1px solid #fca5a5', color:'#dc2626', cursor:'pointer' }}
