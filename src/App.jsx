@@ -99,7 +99,7 @@ export default function App() {
   // Reset to correct default page whenever the logged-in user changes
   useEffect(() => {
     if (!profile) return
-    const role = profile?.account_type || profile?.role || 'guest'
+    const role = profile?.role || 'guest'
     if (role === 'athlete') {
       setPage('athlete-dashboard')
     } else {
@@ -168,7 +168,7 @@ export default function App() {
     </div>
   )
 
-  const role      = profile?.account_type || profile?.role || 'guest'
+  const role      = profile?.role || 'guest'
   const userStatus = profile?.status || 'active'
   const isAdmin   = role === 'admin'
   const isAthlete = role === 'athlete'
