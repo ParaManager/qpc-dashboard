@@ -1025,7 +1025,7 @@ ${myDocs.length > 0 ? `<div class="section">
                       <i className="ti ti-chevron-down" style={{ fontSize:12, color:'var(--text3)' }} />
                     </button>
                     {docDropOpen && (
-                      <div style={{ position:'fixed', zIndex:9999, background:'var(--surface)', border:'1px solid var(--border)', borderRadius:10, boxShadow:'0 8px 24px rgba(0,0,0,.15)', minWidth:200, maxHeight:280, overflowY:'auto', direction: lang==='ar'?'rtl':'ltr' }}
+                      <div onMouseDown={e => e.stopPropagation()} style={{ position:'fixed', zIndex:9999, background:'var(--surface)', border:'1px solid var(--border)', borderRadius:10, boxShadow:'0 8px 24px rgba(0,0,0,.15)', minWidth:200, maxHeight:280, overflowY:'auto', direction: lang==='ar'?'rtl':'ltr' }}
                         ref={el => {
                           if (el) {
                             const btn = el.previousSibling
