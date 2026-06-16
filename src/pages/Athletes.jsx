@@ -283,7 +283,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
   const [status, setStatus]         = useState('All statuses')
   const [gender, setGender]         = useState('All genders')
   const [sort, setSort]             = useState('name-asc')
-  const [selected, setSelected]     = useState(initAthleteId || null)
+  const [selected, setSelected]     = useState(initAthleteId ?? null)
   const [form, setForm]             = useState(null)
   const [confirm, setConfirm]       = useState(null)
   const [medalModal, setMedalModal] = useState(null)
@@ -305,8 +305,8 @@ export default function Athletes({ athletes, coaches, employees, results, docume
   const docInput   = useRef(null)
 
   useEffect(() => {
-    if (initAthleteId)    setSelected(initAthleteId)
-    if (initStatusFilter) setStatus(initStatusFilter)
+    if (initAthleteId != null) setSelected(initAthleteId)
+    if (initStatusFilter)      setStatus(initStatusFilter)
   }, [initAthleteId, initStatusFilter])
 
   // reset everything when nav clicked while already on athletes page
@@ -333,7 +333,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
   // sync notes when selected athlete changes
   useEffect(() => {
     if (selected) {
-      const a = athletes.find(x => x.id === selected)
+      const a = athletes.find(x => String(x.id) === String(selected))
       setNotes(a?.notes || '')
       setNotesChanged(false)
     }
@@ -680,7 +680,7 @@ ${myDocs.length > 0 ? `<div class="section">
 
   // ── DETAIL VIEW ──
   if (selected) {
-    const a = athletes.find(x => x.id === selected)
+    const a = athletes.find(x => String(x.id) === String(selected))
     if (!a) { setSelected(null); return null }
     const coach      = coaches.find(c => c.id === a.coach_id)
     const myResults  = (results || []).filter(r => r.athlete_id === a.id)
