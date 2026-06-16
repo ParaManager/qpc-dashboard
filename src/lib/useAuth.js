@@ -41,8 +41,8 @@ export function useAuth() {
 
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
         const u = session?.user ?? null
-        // Set loading true again while we fetch the new profile
-        if (mounted) setLoading(true)
+        // Clear old profile immediately so stale role never bleeds into new session
+        if (mounted) { setProfile(null); setLoading(true) }
         setUser(u)
         if (u) {
           const p = await fetchProfile(u.id)
