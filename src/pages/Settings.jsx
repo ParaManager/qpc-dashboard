@@ -41,7 +41,7 @@ export default function Settings({ user, profile, signOut }) {
         <div className="info-title">{L('Account', 'الحساب')}</div>
         <div className="detail-row">
           <span className="dk">{L('QID / Username', 'الرقم الشخصي')}</span>
-          <span className="dv">{profile?.qid || user?.email}</span>
+          <span className="dv">{profile?.qid || (user?.email?.endsWith('@qpc-system.qa') ? user.email.replace('@qpc-system.qa','') : user?.email)}</span>
         </div>
         <div className="detail-row">
           <span className="dk">{L('Display name', 'الاسم المعروض')}</span>
