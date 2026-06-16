@@ -183,6 +183,21 @@ export default function App() {
   const roleColor = ROLE_COLORS[role]
   const roleIcon  = ROLE_ICONS[role]
   const userName  = profile?.full_name || user.email
+  const userPhoto = (() => {
+    if (isAthlete && myAthleteId) {
+      const a = athletes.find(a => String(a.id) === String(myAthleteId))
+      return a?.photo_url || null
+    }
+    if (isCoach && profile?.coach_id) {
+      const c = coaches.find(c => String(c.id) === String(profile.coach_id))
+      return c?.photo_url || null
+    }
+    if (role === 'employee' && profile?.employee_id) {
+      const e = employees.find(e => String(e.id) === String(profile.employee_id))
+      return e?.photo_url || null
+    }
+    return null
+  })()
 
   return (
     <div className="app">
@@ -217,9 +232,18 @@ export default function App() {
           ))}
         </div>
         <div style={{ padding:'12px 16px', borderTop:'1px solid rgba(255,255,255,.07)' }}>
-          <div style={{ display:'flex', alignItems:'center', gap:9, marginBottom:10 }}>
-            <div style={{ width:32, height:32, borderRadius:'50%', background:roleColor, display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:600, color:'#fff', flexShrink:0 }}>
-              {userName.charAt(0).toUpperCase()}
+          <div
+            onClick={() => { setNavState({ reset: true }); setPage('profile'); setSidebarOpen(false) }}
+            style={{ display:'flex', alignItems:'center', gap:9, marginBottom:10, cursor:'pointer', borderRadius:9, padding:'6px 8px', margin:'0 -8px 10px', transition:'background .15s' }}
+            onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,.08)'}
+            onMouseLeave={e => e.currentTarget.style.background='transparent'}
+            title="Go to My Profile"
+          >
+            <div style={{ width:32, height:32, borderRadius:'50%', background:roleColor, display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:600, color:'#fff', flexShrink:0, overflow:'hidden', border:`2px solid ${roleColor}` }}>
+              {userPhoto
+                ? <img src={userPhoto} alt={userName} style={{ width:'100%', height:'100%', objectFit:'cover', objectPosition:'top center' }} />
+                : userName.charAt(0).toUpperCase()
+              }
             </div>
             <div style={{ flex:1, minWidth:0 }}>
               <div style={{ color:'#fff', fontSize:12, fontWeight:500, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{userName}</div>
@@ -228,6 +252,7 @@ export default function App() {
                 <span style={{ color:roleColor, fontSize:10, fontWeight:500, textTransform:'capitalize' }}>{role}</span>
               </div>
             </div>
+            <i className="ti ti-chevron-right" style={{ fontSize:12, color:'rgba(255,255,255,.3)', flexShrink:0 }} />
           </div>
           <button onClick={signOut} style={{ width:'100%', padding:'7px', background:'rgba(255,255,255,.07)', border:'1px solid rgba(255,255,255,.1)', borderRadius:7, color:'rgba(255,255,255,.6)', fontSize:12, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6, transition:'all .15s', fontFamily:'DM Sans, sans-serif' }}
             onMouseEnter={e => { e.currentTarget.style.background='rgba(255,255,255,.12)'; e.currentTarget.style.color='#fff' }}
