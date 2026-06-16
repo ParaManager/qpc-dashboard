@@ -4,6 +4,7 @@ import { useLang } from '../lib/LangContext.jsx'
 import { Avatar, MedalDisplay, initials, avColor } from '../lib/helpers'
 import AthleteCardButton, { generateAthleteCard } from '../components/AthleteCard'
 import CareerHistory from '../components/CareerHistory.jsx'
+import PersonDocuments from '../components/PersonDocuments'
 import { toast } from '../components/Toast'
 
 function ExportPDFButton({ athlete }) {
@@ -27,7 +28,7 @@ function ExportPDFButton({ athlete }) {
   )
 }
 
-export default function Profile({ user, profile, athletes, coaches, employees, results, events, registrations, onNav }) {
+export default function Profile({ user, profile, athletes, coaches, employees, results, events, registrations, onNav, documents, personDocs, onRefresh }) {
   const { lang, tc } = useLang()
   const ar = lang === 'ar'
   const L = (en, a) => ar ? a : en
@@ -329,6 +330,18 @@ ${myResults.length>0?`<div class="section"><div class="section-title">${L2('Comp
               personType={role === 'admin' ? 'employee' : role}
               personName={ar&&personData.name_ar?personData.name_ar:personData.name}
               readOnly={role !== 'admin'}
+            />
+          )}
+
+          {/* Documents — shown to athlete/coach/employee (non-admin) */}
+          {personData && role !== 'admin' && role !== 'guest' && (
+            <PersonDocuments
+              personId={personData.id}
+              personType={role === 'coach' ? 'coach' : role === 'athlete' ? 'athlete' : 'employee'}
+              personName={ar&&personData.name_ar?personData.name_ar:personData.name}
+              docs={role === 'athlete' ? (documents || []).map(d => ({ ...d, person_id: d.athlete_id, person_type: 'athlete' })) : (personDocs || [])}
+              onRefresh={onRefresh || (() => {})}
+              profile={profile}
             />
           )}
 

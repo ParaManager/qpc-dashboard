@@ -12,12 +12,12 @@ import AthleteCardButton from '../components/AthleteCard'
 
 const DOC_TYPES  = [
   'Photo',
-  'Passport',
+  'Original Passport',
+  'Mission Passport',
   'Qatar ID',
   'Medical Certificate',
   'QSS Registration',
   'Medical Report',
-  'QSS ID',
   'Birth Certificate',
   'QSRSN Membership',
   'Health Card',
@@ -27,9 +27,10 @@ const DOC_TYPES  = [
   'Other',
 ]
 const DOC_TYPES_AR = {
-  'Photo':'صورة', 'Passport':'جواز السفر', 'Qatar ID':'الرقم الشخصي',
+  'Photo':'صورة', 'Original Passport':'الجواز الأصلي', 'Mission Passport':'جواز المهمة',
+  'Qatar ID':'الرقم الشخصي',
   'Medical Certificate':'شهادة طبية', 'QSS Registration':'تسجيل QSS',
-  'Medical Report':'تقرير طبي', 'QSS ID':'هوية QSS',
+  'Medical Report':'تقرير طبي',
   'Birth Certificate':'شهادة ميلاد', 'QSRSN Membership':'عضوية QSRSN',
   'Health Card':'بطاقة صحية', 'MDF':'MDF',
   'IPC Athlete Eligibility Agreement':'اتفاقية أهلية IPC',
@@ -38,12 +39,12 @@ const DOC_TYPES_AR = {
 
 const DOC_ICONS  = {
   'Photo':                          'ti-photo',
-  'Passport':                       'ti-id',
+  'Original Passport':              'ti-id',
+  'Mission Passport':               'ti-id',
   'Qatar ID':                       'ti-id-badge',
   'Medical Certificate':            'ti-heart-rate-monitor',
   'QSS Registration':               'ti-clipboard-list',
   'Medical Report':                 'ti-stethoscope',
-  'QSS ID':                         'ti-id-badge-2',
   'Birth Certificate':              'ti-certificate',
   'QSRSN Membership':               'ti-users',
   'Health Card':                    'ti-heart',
@@ -54,12 +55,12 @@ const DOC_ICONS  = {
 }
 const DOC_COLORS = {
   'Photo':                          '#0085C7',
-  'Passport':                       '#0085C7',
+  'Original Passport':              '#0085C7',
+  'Mission Passport':               '#e67e22',
   'Qatar ID':                       '#009F6B',
   'Medical Certificate':            '#EE334E',
   'QSS Registration':               '#8b5cf6',
   'Medical Report':                 '#EE334E',
-  'QSS ID':                         '#009F6B',
   'Birth Certificate':              '#e67e22',
   'QSRSN Membership':               '#8b5cf6',
   'Health Card':                    '#EE334E',
@@ -288,7 +289,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
   const [medalModal, setMedalModal] = useState(null)
   const [uploading, setUploading]   = useState(false)
   const [docUploading, setDocUploading] = useState(false)
-  const [docType, setDocType]       = useState('Passport')
+  const [docType, setDocType]       = useState('Original Passport')
   const [docDropOpen, setDocDropOpen] = useState(false)
   const [docConfirm, setDocConfirm] = useState(null)
   const [notes, setNotes]           = useState('')
@@ -297,7 +298,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
   const [editMode, setEditMode]     = useState(false)
   const [edits, setEdits]           = useState({})
   const [savingAll, setSavingAll]   = useState(false)
-  const [visibleCols, setVisibleCols] = useState(['name','sport','classification','nationality','coach_id','status','medical_status','medals'])
+  const [visibleCols, setVisibleCols] = useState(['name','sport','classification','nationality','coach_id','status','medals','docs'])
   const [colPickerOpen, setColPickerOpen] = useState(false)
   const [colFilters, setColFilters] = useState({})
   const photoInput = useRef(null)
@@ -392,31 +393,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
     if (sort === 'join_date-asc')    return new Date(a.join_date||0) - new Date(b.join_date||0)
     if (sort === 'join_date-desc')   return new Date(b.join_date||0) - new Date(a.join_date||0)
     if (sort === 'join-desc')        return new Date(b.join_date) - new Date(a.join_date)
-    if (sort === 'join-asc')              return new Date(a.join_date) - new Date(b.join_date)
-    if (sort === 'medical_status-asc')    return (a.medical_status||'').localeCompare(b.medical_status||'')
-    if (sort === 'medical_status-desc')   return (b.medical_status||'').localeCompare(a.medical_status||'')
-    if (sort === 'phone-asc')             return (a.phone||'').localeCompare(b.phone||'')
-    if (sort === 'phone-desc')            return (b.phone||'').localeCompare(a.phone||'')
-    if (sort === 'email-asc')             return (a.email||'').localeCompare(b.email||'')
-    if (sort === 'email-desc')            return (b.email||'').localeCompare(a.email||'')
-    if (sort === 'passport_number-asc')   return (a.passport_number||'').localeCompare(b.passport_number||'')
-    if (sort === 'passport_number-desc')  return (b.passport_number||'').localeCompare(a.passport_number||'')
-    if (sort === 'passport_expiry-asc')   return new Date(a.passport_expiry||0) - new Date(b.passport_expiry||0)
-    if (sort === 'passport_expiry-desc')  return new Date(b.passport_expiry||0) - new Date(a.passport_expiry||0)
-    if (sort === 'id_number-asc')         return (a.id_number||'').localeCompare(b.id_number||'')
-    if (sort === 'id_number-desc')        return (b.id_number||'').localeCompare(a.id_number||'')
-    if (sort === 'id_expiry-asc')         return new Date(a.id_expiry||0) - new Date(b.id_expiry||0)
-    if (sort === 'id_expiry-desc')        return new Date(b.id_expiry||0) - new Date(a.id_expiry||0)
-    if (sort === 'qss_number-asc')        return (a.qss_number||'').localeCompare(b.qss_number||'')
-    if (sort === 'qss_number-desc')       return (b.qss_number||'').localeCompare(a.qss_number||'')
-    if (sort === 'career_profile-asc')    return (a.career_profile||'').localeCompare(b.career_profile||'')
-    if (sort === 'career_profile-desc')   return (b.career_profile||'').localeCompare(a.career_profile||'')
-    if (sort === 'medals-desc')           return (b.medals_gold+b.medals_silver+b.medals_bronze)-(a.medals_gold+a.medals_silver+a.medals_bronze)
-    if (sort === 'medals-asc')            return (a.medals_gold+a.medals_silver+a.medals_bronze)-(b.medals_gold+b.medals_silver+b.medals_bronze)
-    if (sort === 'emergency_contact_name-asc')  return (a.emergency_contact_name||'').localeCompare(b.emergency_contact_name||'')
-    if (sort === 'emergency_contact_name-desc') return (b.emergency_contact_name||'').localeCompare(a.emergency_contact_name||'')
-    if (sort === 'emergency_contact_phone-asc')  return (a.emergency_contact_phone||'').localeCompare(b.emergency_contact_phone||'')
-    if (sort === 'emergency_contact_phone-desc') return (b.emergency_contact_phone||'').localeCompare(a.emergency_contact_phone||'')
+    if (sort === 'join-asc')         return new Date(a.join_date) - new Date(b.join_date)
     return 0
   })
 
@@ -867,7 +844,7 @@ ${myDocs.length > 0 ? `<div class="section">
             {/* SPORT */}
             <div className="info-card">
               <div className="info-title">{lang==='ar'?'الرياضة والتصنيف':'Sport & classification'}</div>
-              {[[tx('form.sport','Sport'),SPORT_NAMES[a.sport]||a.sport],[tx('form.classification','Classification'),a.classification],[tx('form.disability','Disability type'), tDis(a.disability)],[tx('form.club','Club'),a.club],[lang==='ar'?'الوظيفة':'Designation', {'Player':'لاعب','Female Player':'لاعبة','Coach':'مدرب','Female Coach':'مدربة','Referee':'حكم','Admin Staff':'جهاز إداري','Technical Staff':'جهاز في','Medical Staff':'جهاز طبي'}[a.designation]||a.designation],[tx('form.residencyStatus','Residency status'),a.residency_status],[lang==='ar'?'الحالة الطبية':'Medical status', (() => { const ms = a.medical_status||'None'; const col = ms==='None'?'#EE334E':ms==='Screening'?'#009F6B':'#0085C7'; const lbl = lang==='ar'?{'None':'لا يوجد','Screening':'فحص','Medical Certificate':'شهادة طبية'}[ms]||ms:ms; return <span style={{padding:'2px 10px',borderRadius:20,fontSize:11,fontWeight:600,background:col+'20',color:col}}>{lbl}</span> })()]].map(([k,v]) => (
+              {[[tx('form.sport','Sport'),SPORT_NAMES[a.sport]||a.sport],[tx('form.classification','Classification'),a.classification],[tx('form.disability','Disability type'), tDis(a.disability)],[tx('form.club','Club'),a.club],[lang==='ar'?'الوظيفة':'Designation', {'Player':'لاعب','Female Player':'لاعبة','Coach':'مدرب','Female Coach':'مدربة','Referee':'حكم','Admin Staff':'جهاز إداري','Technical Staff':'جهاز في','Medical Staff':'جهاز طبي'}[a.designation]||a.designation],[tx('form.residencyStatus','Residency status'),a.residency_status]].map(([k,v]) => (
                 <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv">{v||'—'}</span></div>
               ))}
             </div>
@@ -1088,6 +1065,7 @@ ${myDocs.length > 0 ? `<div class="section">
                 : DOC_TYPES.map(type => {
                     const typeDocs = docsByType[type]
                     if (typeDocs.length === 0) return null
+                    if (!canEdit(profile) && type === 'Mission Passport') return null
                     const color = DOC_COLORS[type]
                     const icon  = DOC_ICONS[type]
                     return (
@@ -1106,14 +1084,16 @@ ${myDocs.length > 0 ? `<div class="section">
                               <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>{formatFileSize(doc.file_size)} · {doc.uploaded_at?.slice(0,10)}</div>
                             </div>
                             <div style={{ display:'flex', gap:6, flexShrink:0 }}>
-                              <button
-                                onClick={() => downloadDoc(doc.file_url, a.name, doc.type, doc.name)}
-                                style={{ display:'flex', alignItems:'center', justifyContent:'center', width:28, height:28, borderRadius:7, background:'var(--surface)', border:'1px solid var(--border)', color:'var(--text2)', cursor:'pointer', fontSize:14 }} title="Download">
-                                <i className="ti ti-download" />
-                              </button>
+                              {(canEdit(profile) || doc.type !== 'Mission Passport') && (
+                                <button
+                                  onClick={() => downloadDoc(doc.file_url, a.name, doc.type, doc.name)}
+                                  style={{ display:'flex', alignItems:'center', justifyContent:'center', width:28, height:28, borderRadius:7, background:'var(--surface)', border:'1px solid var(--border)', color:'var(--text2)', cursor:'pointer', fontSize:14 }} title={lang==='ar'?'تحميل':'Download'}>
+                                  <i className="ti ti-download" />
+                                </button>
+                              )}
                               {canEdit(profile) && (
                                 <button onClick={() => setDocConfirm(doc)}
-                                  style={{ display:'flex', alignItems:'center', justifyContent:'center', width:28, height:28, borderRadius:7, background:'#fef2f2', border:'1px solid #fca5a5', color:'#dc2626', cursor:'pointer' }} title="Delete">
+                                  style={{ display:'flex', alignItems:'center', justifyContent:'center', width:28, height:28, borderRadius:7, background:'#fef2f2', border:'1px solid #fca5a5', color:'#dc2626', cursor:'pointer' }} title={lang==='ar'?'حذف':'Delete'}>
                                   <i className="ti ti-trash" style={{ fontSize:14 }} />
                                 </button>
                               )}
@@ -1179,9 +1159,9 @@ ${myDocs.length > 0 ? `<div class="section">
     { key:'passport_number', label:tx('athletes.passportNo','Passport No'),   default:false, editable:false },
     { key:'passport_expiry', label:tx('athletes.passportExpiry','Passport Expiry'), default:false, editable:false },
     { key:'id_expiry',       label:tx('athletes.idExpiry','ID Expiry'),       default:false, editable:false },
-    { key:'blood_type',      label:tx('athletes.bloodType','Blood Type'),     default:false, editable:false, hidden:true },
-    { key:'emergency_contact_name',  label:tx('athletes.emergencyContact','Emergency Contact'), default:false, editable:false, hidden:true },
-    { key:'emergency_contact_phone', label:tx('athletes.emergencyPhone','Emergency Phone'),     default:false, editable:false, hidden:true },
+    { key:'blood_type',      label:tx('athletes.bloodType','Blood Type'),     default:false, editable:false },
+    { key:'emergency_contact_name',  label:tx('athletes.emergencyContact','Emergency Contact'), default:false, editable:false },
+    { key:'emergency_contact_phone', label:tx('athletes.emergencyPhone','Emergency Phone'),     default:false, editable:false },
     { key:'medals',          label:tx('athletes.medals','Medals'),            default:true,  editable:false },
     { key:'docs',            label:tx('athletes.documents','Documents'),      default:false,  editable:false, hidden:true },
   ]
@@ -1309,7 +1289,7 @@ ${myDocs.length > 0 ? `<div class="section">
                 <div style={{ position:'absolute', top:'calc(100% + 6px)', right:0, background:'var(--surface)', border:'1px solid var(--border)', borderRadius:12, padding:'12px 4px', zIndex:200, boxShadow:'0 8px 24px rgba(0,0,0,.12)', minWidth:200, maxHeight:420, overflowY:'auto' }}
                   onMouseLeave={() => setColPickerOpen(false)}>
                   <div style={{ fontSize:11, fontWeight:600, color:'var(--text3)', textTransform:'uppercase', letterSpacing:'.06em', padding:'0 12px 8px' }}>{tx('actions.columns','Show / hide columns')}</div>
-                  {ALL_COLS.filter(col => !col.hidden).map(col => (
+                  {ALL_COLS.map(col => (
                     <label key={col.key} style={{ display:'flex', alignItems:'center', gap:10, padding:'7px 12px', cursor:col.key==='name'?'not-allowed':'pointer', borderRadius:8, transition:'background .1s' }}
                       onMouseEnter={e => { if(col.key!=='name') e.currentTarget.style.background='var(--surface2)' }}
                       onMouseLeave={e => { e.currentTarget.style.background='' }}>
@@ -1374,7 +1354,7 @@ ${myDocs.length > 0 ? `<div class="section">
           <thead>
             <tr>
               {ALL_COLS.filter(c => isVisible(c.key)).map(c => {
-                const isSortable = ['name','name_ar','sport','classification','nationality','status','dob','join_date','age_category','disability','coach_id','gender','blood_type','medical_status','phone','email','passport_number','passport_expiry','id_number','id_expiry','qss_number','career_profile','medals','emergency_contact_name','emergency_contact_phone'].includes(c.key)
+                const isSortable = ['name','name_ar','sport','classification','nationality','status','dob','join_date','age_category','disability','coach_id','gender','blood_type'].includes(c.key)
                 const isAsc  = sort === `${c.key}-asc`
                 const isDesc = sort === `${c.key}-desc`
                 const active = isAsc || isDesc
@@ -1438,8 +1418,7 @@ ${myDocs.length > 0 ? `<div class="section">
                             nationality: { 'All':allLabel, ...Object.fromEntries(['Afghanistan','Algeria','Argentina','Armenia','Australia','Austria','Azerbaijan','Bahrain','Bangladesh','Belarus','Belgium','Brazil','Cameroon','Canada','Chile','China','Colombia','Croatia','Czech Republic','Denmark','Egypt','Eritrea','Ethiopia','Finland','France','Georgia','Germany','Ghana','Greece','Guinea','Hungary','India','Indonesia','Iran','Iraq','Ireland','Italy','Japan','Jordan','Kazakhstan','Kenya','Kuwait','Kyrgyzstan','Lebanon','Libya','Malaysia','Mali','Mauritania','Mexico','Mongolia','Morocco','Myanmar','Nepal','Netherlands','New Zealand','Nigeria','Norway','Oman','Pakistan','Palestine','Peru','Philippines','Poland','Portugal','Qatar','Romania','Russia','Rwanda','Saudi Arabia','Scotland','Senegal','Serbia','Singapore','Slovakia','Somalia','South Africa','South Korea','Spain','Sri Lanka','Sudan','Sweden','Syria','Tajikistan','Tanzania','Thailand','Tunisia','Turkey','Turkmenistan','UAE','Uganda','UK','Ukraine','USA','Uzbekistan','Venezuela','Vietnam','Wales','Yemen','Zambia','Zimbabwe'].map(n => [n, tc(n)])) },
                             disability:  { 'All':allLabel, ...Object.fromEntries(athletes.map(a=>a.disability).filter(Boolean).map(d=>[d, lang==='ar' ? (tDis(d)||d) : d])) },
                             coach_id:    { 'All':allLabel, ...Object.fromEntries(coaches.map(co => [co.name, lang==='ar' && co.name_ar ? co.name_ar : co.name])) },
-                            age_category:  { 'All':allLabel },
-                            medical_status:{ 'All':allLabel, 'None':lang==='ar'?'لا يوجد':'None', 'Screening':lang==='ar'?'فحص':'Screening', 'Medical Certificate':lang==='ar'?'شهادة طبية':'Medical Certificate' },
+                            age_category:{ 'All':allLabel },
                           }
                           return <option key={o} value={o}>{LABELS[col.key]?.[o] || o}</option>
                         })}
