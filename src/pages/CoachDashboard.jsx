@@ -131,23 +131,32 @@ export default function CoachDashboard({ coach, athletes, events, results, onNav
           <div style={{ fontSize:12, color:'var(--text3)', marginBottom:10, fontWeight:600 }}>{L('Squad Status','حالة الفريق')}</div>
           <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
             {[
-              ['#009F6B', L('Active','نشط'),   myAthletes.filter(a => a.status === 'Active').length],
-              ['#EE334E', L('Injured','مصاب'),  myAthletes.filter(a => a.status === 'Injured').length],
-              ['#9aa3b2', L('Inactive','غير نشط'), myAthletes.filter(a => a.status !== 'Active' && a.status !== 'Injured').length],
-            ].map(([color, label, count]) => (
-              <div key={label} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', fontSize:12 }}>
-                <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                  <div style={{ width:8, height:8, borderRadius:'50%', background:color, flexShrink:0 }} />
-                  <span style={{ color:'var(--text2)' }}>{label}</span>
+              ['#009F6B', 'Active',             'نشط',         '#009F6B'],
+              ['#EE334E', 'Injured',            'مصاب',        '#EE334E'],
+              ['#f59e0b', 'Under Medical Review','تحت المراجعة الطبية', '#f59e0b'],
+              ['#9aa3b2', 'Inactive',           'غير نشط',     '#9aa3b2'],
+              ['#6366f1', 'Retired',            'متقاعد',      '#6366f1'],
+              ['#dc2626', 'Suspended',          'موقوف',       '#dc2626'],
+            ]
+              .map(([color, status, statusAr]) => ({ color, status, statusAr, count: myAthletes.filter(a => a.status === status).length }))
+              .filter(({ count }) => count > 0)
+              .map(({ color, status, statusAr, count }) => (
+                <div key={status} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', fontSize:12 }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                    <div style={{ width:8, height:8, borderRadius:'50%', background:color, flexShrink:0 }} />
+                    <span style={{ color:'var(--text2)' }}>{ar ? statusAr : status}</span>
+                  </div>
+                  <span style={{ fontWeight:700, color }}>{count}</span>
                 </div>
-                <span style={{ fontWeight:700, color }}>{count}</span>
-              </div>
-            ))}
+              ))
+            }
           </div>
         </div>
         {/* Upcoming events */}
-        <div style={{ background:'#8b5cf610', border:'1px solid #8b5cf630', borderRadius:14, padding:'16px', textAlign:'center', cursor: upcomingEvents.length > 0 ? 'pointer' : 'default' }}
-          onClick={() => upcomingEvents.length > 0 && onNav('events')}>
+        <div style={{ background:'#8b5cf610', border:'1px solid #8b5cf630', borderRadius:14, padding:'16px', textAlign:'center', cursor:'pointer' }}
+          onClick={() => onNav('events')}
+          onMouseEnter={e => e.currentTarget.style.background='#8b5cf620'}
+          onMouseLeave={e => e.currentTarget.style.background='#8b5cf610'}>
           <i className="ti ti-flag" style={{ fontSize:36, color:'#8b5cf6' }} />
           <div style={{ fontSize:28, fontWeight:700, color:'#8b5cf6', marginTop:4 }}>{upcomingEvents.length}</div>
           <div style={{ fontSize:12, color:'var(--text3)' }}>{L('Upcoming Events','الفعاليات القادمة')}</div>
