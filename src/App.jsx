@@ -15,6 +15,7 @@ import Referees       from './pages/Referees'
 import Profile        from './pages/Profile'
 import Settings          from './pages/Settings'
 import AthleteDashboard  from './pages/AthleteDashboard'
+import CoachDashboard    from './pages/CoachDashboard'
 import AthleteEvents     from './pages/AthleteEvents'
 import AthleteResults    from './pages/AthleteResults'
 import Attendance  from './pages/Attendance'
@@ -174,7 +175,8 @@ export default function App() {
   const myAthleteId = profile?.athlete_id || null
   const myAthlete   = isAthlete ? athletes.find(a => String(a.id) === String(myAthleteId)) : null
   const myCoach     = myAthlete ? coaches.find(c => c.id === myAthlete.coach_id) : null
-  const myAthletes = isCoach ? athletes.filter(a => a.coach_id === myCoachId) : athletes
+  const myAthletes    = isCoach ? athletes.filter(a => a.coach_id === myCoachId) : athletes
+  const myCoachRecord = isCoach && myCoachId ? coaches.find(c => String(c.id) === String(myCoachId)) || null : null
 
   // Block pending/rejected (admins always pass)
   if (!isAdmin && userStatus === 'pending')  return <PendingScreen />
@@ -288,7 +290,8 @@ export default function App() {
           </div>
         </div>
         <div id="content">
-          {page==='dashboard' && <Dashboard athletes={myAthletes} coaches={coaches} events={events} results={results} onNav={goTo} profile={profile} />}
+          {page==='dashboard' && !isCoach && <Dashboard athletes={myAthletes} coaches={coaches} events={events} results={results} onNav={goTo} profile={profile} />}
+          {page==='dashboard' && isCoach  && <CoachDashboard coach={myCoachRecord} athletes={myAthletes} events={events} results={results} onNav={goTo} />}
           {page==='athletes'  && <Athletes  athletes={myAthletes} coaches={coaches} employees={employees} results={results} documents={documents} events={events} registrations={registrations} onRefresh={fetchAll} onNav={goTo} initAthleteId={navState.athleteId} initStatusFilter={navState.statusFilter} navState={navState} profile={profile} />}
           {page==='coaches'   && isAdmin && <Coaches   coaches={coaches} athletes={athletes} personDocs={personDocs} onRefresh={fetchAll} onNav={goTo} initCoachId={navState.coachId} navState={navState} profile={profile} />}
           {page==='events'    && <Events    events={events} athletes={athletes} results={results} registrations={registrations} onRefresh={fetchAll} onNav={goTo} initEventId={navState.eventId} initStatusFilter={navState.statusFilter} profile={profile} />}
