@@ -148,9 +148,17 @@ ${myResults.length>0?`<div class="section"><div class="section-title">${L2('Comp
         <div>
           <div className="detail-profile">
             {/* Avatar */}
-            <div className="detail-avatar" style={{ background: avColor(profile?.full_name||'') }}>
+            <div style={{
+              width: 90, height: 90, borderRadius: '50%',
+              background: personData?.photo_url ? 'transparent' : avColor(profile?.full_name || ''),
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 28, fontWeight: 700, color: '#fff',
+              margin: '0 auto 4px', overflow: 'hidden',
+              border: '3px solid var(--border)',
+              flexShrink: 0,
+            }}>
               {personData?.photo_url
-                ? <img src={personData.photo_url} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                ? <img src={personData.photo_url} style={{ width:'100%', height:'100%', objectFit:'cover', objectPosition:'top center' }} />
                 : <span>{initials(profile?.full_name || user?.email || '?')}</span>
               }
             </div>
