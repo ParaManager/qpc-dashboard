@@ -64,7 +64,8 @@ export default function UserManagement({ profile }) {
   async function approve(user) {
     await supabase.from('profiles').update({
       status: 'active',
-      role: user.account_type,
+      role: user.account_type || user.role,
+      account_type: user.account_type || user.role,  // keep in sync for legacy
       approved_at: new Date().toISOString(),
       approved_by: profile?.id,
     }).eq('id', user.id)
@@ -84,7 +85,7 @@ export default function UserManagement({ profile }) {
   }
 
   async function changeRole(userId, role) {
-    await supabase.from('profiles').update({ role, account_type: role }).eq('id', userId)
+    await supabase.from('profiles').update({ role, account_type: role }).eq('id', userId)  // keep both in sync
     toast(L('Role updated', 'تم تحديث الدور'))
     loadUsers()
   }

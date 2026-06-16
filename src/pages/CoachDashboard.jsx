@@ -20,7 +20,7 @@ export default function CoachDashboard({ coach, athletes, events, results, onNav
   useEffect(() => {
     if (!coach?.id) return
     const today = new Date().toISOString().split('T')[0]
-    supabase.from('sessions')
+    supabase.from('training_sessions')
       .select('*')
       .eq('coach_id', String(coach.id))
       .gte('session_date', today)

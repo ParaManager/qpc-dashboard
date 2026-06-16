@@ -42,7 +42,7 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
     const s = sessions.find(x => x.id === initSessionId)
     if (s) { setSelected(initSessionId); return }
     // Otherwise fetch it directly regardless of month filter
-    supabase.from('sessions').select('*').eq('id', initSessionId).maybeSingle()
+    supabase.from('training_sessions').select('*').eq('id', initSessionId).maybeSingle()
       .then(({ data }) => {
         if (data) {
           // Navigate calendar to that session's month so it renders correctly
@@ -55,7 +55,7 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
 
   async function loadRequests() {
     if (!coachId && !athleteId) return
-    let q = supabase.from('session_requests').select('*').order('created_at', { ascending: false })
+    let q = supabase.from('training_session_requests').select('*').order('created_at', { ascending: false })
     if (coachId)   q = q.eq('coach_id', String(coachId))
     if (athleteId) q = q.eq('athlete_id', String(athleteId))
     const { data } = await q
@@ -66,7 +66,7 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
     setLoading(true)
     const from = `${year}-${String(month+1).padStart(2,'0')}-01`
     const to   = `${year}-${String(month+1).padStart(2,'0')}-${getDaysInMonth(year,month)}`
-    let q = supabase.from('sessions').select('*, session_athletes(athlete_id)').gte('session_date', from).lte('session_date', to).order('session_date').order('start_time')
+    let q = supabase.from('training_sessions').select('*, session_athletes(athlete_id)').gte('session_date', from).lte('session_date', to).order('session_date').order('start_time')
     if (coachId) q = q.eq('coach_id', coachId)
     const { data, error } = await q
     if (!error) setSessions(data || [])
@@ -82,18 +82,18 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
     if (!payload.title || !payload.session_date) { toast(ar?'العنوان والتاريخ مطلوبان':'Title and date required','error'); return }
     let sessionId = form.id
     if (form.id) {
-      const { error } = await supabase.from('sessions').update(payload).eq('id', form.id)
+      const { error } = await supabase.from('training_sessions').update(payload).eq('id', form.id)
       if (error) { toast(error.message,'error'); return }
     } else {
-      const { data, error } = await supabase.from('sessions').insert(payload).select().single()
+      const { data, error } = await supabase.from('training_sessions').insert(payload).select().single()
       if (error) { toast(error.message,'error'); return }
       sessionId = data.id
     }
     // Update athlete links
     if (sessionId && form.athleteIds?.length >= 0) {
-      await supabase.from('session_athletes').delete().eq('session_id', sessionId)
+      await supabase.from('training_session_athletes').delete().eq('session_id', sessionId)
       if (form.athleteIds?.length > 0) {
-        await supabase.from('session_athletes').insert(form.athleteIds.map(aid => ({ session_id: sessionId, athlete_id: aid })))
+        await supabase.from('training_session_athletes').insert(form.athleteIds.map(aid => ({ session_id: sessionId, athlete_id: aid })))
         // Notify each athlete
         const notifs = form.athleteIds.map(aid => ({
           user_id: String(aid),
@@ -111,7 +111,7 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
   }
 
   async function deleteSession(id) {
-    await supabase.from('sessions').delete().eq('id', id)
+    await supabase.from('training_sessions').delete().eq('id', id)
     toast(ar?'تم الحذف':'Deleted')
     setSelected(null); loadSessions()
   }
@@ -164,7 +164,7 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
             ar={ar}
             onClose={() => setRequestModal(null)}
             onSave={async (type, reason) => {
-              const { error: reqErr } = await supabase.from('session_requests').insert({
+              const { error: reqErr } = await supabase.from('training_session_requests').insert({
                 session_id: requestModal.id,
                 athlete_id: String(athleteId),
                 coach_id: String(requestModal.coach_id || coachId || ''),
@@ -281,7 +281,7 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
                     {req.status === 'pending' && (
                       <div style={{ display:'flex', gap:6 }}>
                         <button onClick={async () => {
-                          await supabase.from('session_requests').update({ status:'approved' }).eq('id', req.id)
+                          await supabase.from('training_session_requests').update({ status:'approved' }).eq('id', req.id)
                           const { data: athProfile } = await supabase.from('profiles').select('id,athlete_id').then(r => r)
                           const ap = (athProfile||[]).find(p => String(p.athlete_id) === String(req.athlete_id))
                           if (ap) await supabase.from('notifications').insert({ user_id: String(ap.id), type:'request_approved', title: ar?'تم قبول طلبك':'Request approved', body: ar?'تم قبول طلب العذر/إعادة الجدولة':'Your request was approved', data: { session_id: req.session_id }, read: false })
@@ -291,7 +291,7 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
                           <i className="ti ti-check" /> {L('Approve','موافقة')}
                         </button>
                         <button onClick={async () => {
-                          await supabase.from('session_requests').update({ status:'rejected' }).eq('id', req.id)
+                          await supabase.from('training_session_requests').update({ status:'rejected' }).eq('id', req.id)
                           const { data: athProfile } = await supabase.from('profiles').select('id,athlete_id').then(r => r)
                           const ap = (athProfile||[]).find(p => String(p.athlete_id) === String(req.athlete_id))
                           if (ap) await supabase.from('notifications').insert({ user_id: String(ap.id), type:'request_rejected', title: ar?'تم رفض طلبك':'Request rejected', body: ar?'تم رفض طلب العذر/إعادة الجدولة':'Your request was rejected', data: { session_id: req.session_id }, read: false })
@@ -325,7 +325,7 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
           ar={ar}
           onClose={() => setRequestModal(null)}
           onSave={async (type, reason) => {
-            await supabase.from('session_requests').insert({
+            await supabase.from('training_session_requests').insert({
               session_id: requestModal.id,
               athlete_id: String(athleteId),
               coach_id: String(requestModal.coach_id || coachId || ''),

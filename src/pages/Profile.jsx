@@ -52,11 +52,17 @@ export default function Profile({ user, profile, athletes, coaches, employees, r
     } else if (role === 'athlete' && profile?.athlete_id) {
       const d = athletes?.find(a => String(a.id) === String(profile.athlete_id))
       setPersonData(d || null)
+    } else if (role === 'employee' && profile?.employee_id) {
+      const d = employees?.find(e => String(e.id) === String(profile.employee_id))
+      setPersonData(d || null)
+    } else if (role === 'admin' && profile?.employee_id) {
+      const d = employees?.find(e => String(e.id) === String(profile.employee_id))
+      setPersonData(d || null)
     } else if (role === 'admin' || role === 'employee') {
-      // Find in employees by email/name
+      // Fallback: match by qss or name if employee_id not set yet
       const d = employees?.find(e =>
-        e.name?.toLowerCase().includes(profile?.full_name?.split(' ')[0]?.toLowerCase() || '') ||
-        e.qss_number === profile?.qid
+        (profile?.qid && e.qss_number === profile.qid) ||
+        e.email === profile?.email
       )
       setPersonData(d || null)
     }

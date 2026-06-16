@@ -28,7 +28,7 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
   useEffect(() => { loadStats() }, [sessions])
 
   async function loadSessions() {
-    let q = supabase.from('sessions').select('*, session_athletes(athlete_id)').order('session_date', { ascending: false })
+    let q = supabase.from('training_sessions').select('*, session_athletes(athlete_id)').order('session_date', { ascending: false })
     if (coachId) q = q.eq('coach_id', coachId)
     const { data } = await q
     setSessions(data || [])
