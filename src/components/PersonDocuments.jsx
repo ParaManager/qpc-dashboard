@@ -202,8 +202,8 @@ export default function PersonDocuments({ personId, personType, personName, docs
 
       {myDocs.length === 0
         ? <div className="empty" style={{ padding:'16px 0' }}>{lang==='ar'?'لم يتم رفع وثائق بعد.':'No documents uploaded yet.'}</div>
-        : DOC_TYPES.map(type => {
-            const typeDocs = docsByType[type]
+        : [...new Set([...DOC_TYPES, ...myDocs.map(d => d.type)])].map(type => {
+            const typeDocs = myDocs.filter(d => d.type === type)
             if (!typeDocs || typeDocs.length === 0) return null
 
             const color = DOC_COLORS[type]
