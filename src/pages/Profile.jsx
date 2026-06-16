@@ -29,7 +29,7 @@ function ExportPDFButton({ athlete }) {
   )
 }
 
-export default function Profile({ user, profile, athletes, coaches, employees, results, events, registrations, onNav }) {
+export default function Profile({ user, profile, athletes, coaches, employees, results, events, registrations, onNav, documents, personDocs, onRefresh }) {
   const { lang, tc } = useLang()
   const ar = lang === 'ar'
   const L = (en, a) => ar ? a : en
