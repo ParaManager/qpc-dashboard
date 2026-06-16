@@ -29,6 +29,10 @@ export default function CoachDashboard({ coach, athletes, events, results, onNav
     .sort((a,b) => new Date(b.date||0) - new Date(a.date||0))
     .slice(0, 5)
 
+  const totalGold   = myAthletes.reduce((s, a) => s + (a.medals_gold   || 0), 0)
+  const totalSilver = myAthletes.reduce((s, a) => s + (a.medals_silver || 0), 0)
+  const totalBronze = myAthletes.reduce((s, a) => s + (a.medals_bronze || 0), 0)
+
   const SPORT_AR = {'Athletics':'ألعاب القوى','Swimming':'السباحة','Powerlifting':'رفع الأثقال','Boccia':'البوتشيا','Goalball':'كرة الهدف','Table Tennis':'تنس الطاولة','Special Olympics':'الأولمبياد الخاص','Shooting':'الرماية','Wheelchair Tennis':'تنس الكراسي المتحركة'}
 
   const Card = ({ title, icon, color='#009F6B', children, onClick }) => (
@@ -75,24 +79,63 @@ export default function CoachDashboard({ coach, athletes, events, results, onNav
           <div style={{ fontSize:32, fontWeight:700, color:'#4ade80' }}>{myAthletes.length}</div>
           <div style={{ fontSize:11, opacity:.6 }}>{L('Athletes','رياضيون')}</div>
         </div>
+        {/* Total medals */}
+        {(totalGold + totalSilver + totalBronze) > 0 && (
+          <div style={{ textAlign:'center', flexShrink:0, borderLeft:'1px solid rgba(255,255,255,.15)', paddingLeft:20 }}>
+            <div style={{ fontSize:32, fontWeight:700, color:'#f1c40f' }}>{totalGold + totalSilver + totalBronze}</div>
+            <div style={{ fontSize:11, opacity:.6 }}>{L('Team Medals','ميداليات الفريق')}</div>
+          </div>
+        )}
       </div>
 
       {/* Stats row */}
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12, marginBottom:12 }}>
-        <div style={{ background:'#009F6B15', border:'1px solid #009F6B30', borderRadius:14, padding:'16px', textAlign:'center' }}>
-          <div style={{ fontSize:32 }}>🏃</div>
-          <div style={{ fontSize:28, fontWeight:700, color:'#009F6B' }}>{myAthletes.length}</div>
-          <div style={{ fontSize:12, color:'var(--text3)' }}>{L('Total Athletes','إجمالي الرياضيين')}</div>
+        {/* Medals */}
+        <div style={{ background:'#f1c40f10', border:'1px solid #f1c40f30', borderRadius:14, padding:'16px' }}>
+          <div style={{ fontSize:12, color:'var(--text3)', marginBottom:10, fontWeight:600 }}>{L('Team Medals','ميداليات الفريق')}</div>
+          <div style={{ display:'flex', justifyContent:'space-around' }}>
+            <div style={{ textAlign:'center' }}>
+              <div style={{ fontSize:22 }}>🥇</div>
+              <div style={{ fontSize:22, fontWeight:700, color:'#f1c40f' }}>{totalGold}</div>
+              <div style={{ fontSize:10, color:'var(--text3)' }}>{L('Gold','ذهب')}</div>
+            </div>
+            <div style={{ textAlign:'center' }}>
+              <div style={{ fontSize:22 }}>🥈</div>
+              <div style={{ fontSize:22, fontWeight:700, color:'#aaa' }}>{totalSilver}</div>
+              <div style={{ fontSize:10, color:'var(--text3)' }}>{L('Silver','فضة')}</div>
+            </div>
+            <div style={{ textAlign:'center' }}>
+              <div style={{ fontSize:22 }}>🥉</div>
+              <div style={{ fontSize:22, fontWeight:700, color:'#cd7f32' }}>{totalBronze}</div>
+              <div style={{ fontSize:10, color:'var(--text3)' }}>{L('Bronze','برونز')}</div>
+            </div>
+          </div>
         </div>
-        <div style={{ background:'#0085C715', border:'1px solid #0085C730', borderRadius:14, padding:'16px', textAlign:'center' }}>
-          <div style={{ fontSize:32 }}>✅</div>
-          <div style={{ fontSize:28, fontWeight:700, color:'#0085C7' }}>{activeCount}</div>
-          <div style={{ fontSize:12, color:'var(--text3)' }}>{L('Active','نشط')}</div>
+        {/* Squad status */}
+        <div style={{ background:'#0085C710', border:'1px solid #0085C730', borderRadius:14, padding:'16px' }}>
+          <div style={{ fontSize:12, color:'var(--text3)', marginBottom:10, fontWeight:600 }}>{L('Squad Status','حالة الفريق')}</div>
+          <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
+            {[
+              ['#009F6B', L('Active','نشط'),   myAthletes.filter(a => a.status === 'Active').length],
+              ['#EE334E', L('Injured','مصاب'),  myAthletes.filter(a => a.status === 'Injured').length],
+              ['#9aa3b2', L('Inactive','غير نشط'), myAthletes.filter(a => a.status !== 'Active' && a.status !== 'Injured').length],
+            ].map(([color, label, count]) => (
+              <div key={label} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', fontSize:12 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                  <div style={{ width:8, height:8, borderRadius:'50%', background:color, flexShrink:0 }} />
+                  <span style={{ color:'var(--text2)' }}>{label}</span>
+                </div>
+                <span style={{ fontWeight:700, color }}>{count}</span>
+              </div>
+            ))}
+          </div>
         </div>
-        <div style={{ background:'#EE334E15', border:'1px solid #EE334E30', borderRadius:14, padding:'16px', textAlign:'center' }}>
-          <div style={{ fontSize:32 }}>🏅</div>
-          <div style={{ fontSize:28, fontWeight:700, color:'#EE334E' }}>{myResults.length}</div>
-          <div style={{ fontSize:12, color:'var(--text3)' }}>{L('Recent Results','نتائج حديثة')}</div>
+        {/* Upcoming events */}
+        <div style={{ background:'#8b5cf610', border:'1px solid #8b5cf630', borderRadius:14, padding:'16px', textAlign:'center', cursor: upcomingEvents.length > 0 ? 'pointer' : 'default' }}
+          onClick={() => upcomingEvents.length > 0 && onNav('events')}>
+          <div style={{ fontSize:36 }}>📅</div>
+          <div style={{ fontSize:28, fontWeight:700, color:'#8b5cf6' }}>{upcomingEvents.length}</div>
+          <div style={{ fontSize:12, color:'var(--text3)' }}>{L('Upcoming Events','الفعاليات القادمة')}</div>
         </div>
       </div>
 
@@ -134,10 +177,12 @@ export default function CoachDashboard({ coach, athletes, events, results, onNav
           <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
             {[
               [L('Total athletes','إجمالي الرياضيين'), myAthletes.length],
-              [L('Active athletes','الرياضيون النشطون'), activeCount],
+              [L('Active','نشط'), myAthletes.filter(a => a.status === 'Active').length],
               [L('Injured','مصاب'), myAthletes.filter(a => a.status === 'Injured').length],
-              [L('Upcoming events','الفعاليات القادمة'), upcomingEvents.length],
               [L('Total results recorded','إجمالي النتائج'), (results||[]).filter(r => myAthleteIds.includes(r.athlete_id)).length],
+              [L('🥇 Gold medals','🥇 ذهب'), totalGold],
+              [L('🥈 Silver medals','🥈 فضة'), totalSilver],
+              [L('🥉 Bronze medals','🥉 برونز'), totalBronze],
             ].map(([label, val]) => (
               <div key={label} style={{ display:'flex', justifyContent:'space-between', fontSize:13 }}>
                 <span style={{ color:'var(--text2)' }}>{label}</span>
@@ -164,24 +209,35 @@ export default function CoachDashboard({ coach, athletes, events, results, onNav
           }
         </Card>
 
-        {/* Recent results */}
-        <Card title={L('Recent Results','آخر النتائج')} icon="ti-medal" color="#EE334E"
-          onClick={myResults.length > 0 ? () => onNav('results') : null}>
-          {myResults.length === 0
-            ? <div className="empty" style={{ padding:'8px 0', fontSize:13 }}>{L('No results yet','لا توجد نتائج بعد')}</div>
-            : myResults.map(r => (
-              <div key={r.id} style={{ display:'flex', gap:8, padding:'6px 0', borderBottom:'1px solid var(--border)', alignItems:'center', fontSize:13 }}>
-                <span style={{ fontSize:18 }}>{r.medal==='gold'?'🥇':r.medal==='silver'?'🥈':r.medal==='bronze'?'🥉':'📋'}</span>
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontWeight:500, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{r.event_name}</div>
-                  <div style={{ fontSize:11, color:'var(--text3)' }}>
-                    {athletes.find(a => a.id === r.athlete_id)?.name || ''} · {r.discipline}
-                  </div>
-                </div>
-                <span style={{ fontWeight:600, color:'#0085C7', flexShrink:0 }}>{r.result}</span>
-              </div>
-            ))
+        {/* Top medal earners */}
+        <Card title={L('Top Medal Earners','أكثر الرياضيين تتويجاً')} icon="ti-trophy" color="#f1c40f">
+          {myAthletes.length === 0
+            ? <div className="empty" style={{ padding:'8px 0', fontSize:13 }}>{L('No athletes yet','لا يوجد رياضيون بعد')}</div>
+            : [...myAthletes]
+                .sort((a,b) => ((b.medals_gold||0)+(b.medals_silver||0)+(b.medals_bronze||0)) - ((a.medals_gold||0)+(a.medals_silver||0)+(a.medals_bronze||0)))
+                .filter(a => (a.medals_gold||0)+(a.medals_silver||0)+(a.medals_bronze||0) > 0)
+                .slice(0, 5)
+                .map(a => {
+                  const total = (a.medals_gold||0)+(a.medals_silver||0)+(a.medals_bronze||0)
+                  return (
+                    <div key={a.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'7px 0', borderBottom:'1px solid var(--border)' }}>
+                      <div style={{ width:30, height:30, borderRadius:'50%', background: a.photo_url?'transparent':avColor(a.id), display:'flex', alignItems:'center', justifyContent:'center', fontSize:10, fontWeight:700, color:'#fff', flexShrink:0, overflow:'hidden' }}>
+                        {a.photo_url ? <img src={a.photo_url} style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : initials(a.name)}
+                      </div>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontSize:13, fontWeight:500, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{ar&&a.name_ar?a.name_ar:a.name}</div>
+                        <div style={{ fontSize:11, color:'var(--text3)' }}>
+                          {a.medals_gold||0}🥇 {a.medals_silver||0}🥈 {a.medals_bronze||0}🥉
+                        </div>
+                      </div>
+                      <span style={{ fontWeight:700, color:'#f1c40f', fontSize:15 }}>{total}</span>
+                    </div>
+                  )
+                })
           }
+          {myAthletes.every(a => (a.medals_gold||0)+(a.medals_silver||0)+(a.medals_bronze||0) === 0) && myAthletes.length > 0 && (
+            <div className="empty" style={{ padding:'8px 0', fontSize:13 }}>{L('No medals recorded yet','لا توجد ميداليات مسجلة بعد')}</div>
+          )}
         </Card>
       </div>
     </div>
