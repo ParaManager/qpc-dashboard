@@ -77,7 +77,7 @@ export default function PersonDocuments({ personId, personType, personName, docs
     return () => document.removeEventListener('mousedown', close)
   }, [dropOpen])
 
-  const myDocs = (docs || []).filter(d => d.person_id === personId && d.person_type === personType)
+  const myDocs = (docs || []).filter(d => String(d.person_id) === String(personId) && d.person_type === personType)
   const docsByType = DOC_TYPES.reduce((acc, t) => {
     acc[t] = myDocs.filter(d => d.type === t)
     return acc
@@ -106,10 +106,17 @@ export default function PersonDocuments({ personId, personType, personName, docs
   }
 
   async function handleDelete(doc) {
-    await supabase.storage.from('athlete-documents').remove([doc.file_path])
+    // Remove from storage (best effort — don't block on error)
+    if (doc.file_path) {
+      const { error: storageErr } = await supabase.storage.from('athlete-documents').remove([doc.file_path])
+      if (storageErr) console.warn('Storage delete error:', storageErr.message)
+    }
+    // Remove from DB
     const { error } = await supabase.from('person_documents').delete().eq('id', doc.id)
     if (error) { toast(error.message, 'error'); return }
-    toast('Document deleted'); setConfirmDel(null); await onRefresh()
+    toast(lang === 'ar' ? 'تم حذف الملف' : 'Document deleted')
+    setConfirmDel(null)
+    await onRefresh()
   }
 
   return (
