@@ -5,6 +5,7 @@ import { Avatar, MedalDisplay, initials, avColor } from '../lib/helpers'
 import AthleteCardButton, { generateAthleteCard } from '../components/AthleteCard'
 import EmployeeCardButton, { generateEmployeeCard } from '../components/EmployeeCard'
 import CareerHistory from '../components/CareerHistory.jsx'
+import PersonDocuments from '../components/PersonDocuments'
 import { toast } from '../components/Toast'
 
 function ExportPDFButton({ athlete }) {
@@ -350,6 +351,30 @@ ${myResults.length>0?`<div class="section"><div class="section-title">${L2('Comp
               personType={role === 'admin' ? 'employee' : role}
               personName={ar&&personData.name_ar?personData.name_ar:personData.name}
               readOnly={role !== 'admin'}
+            />
+          )}
+
+          {/* Documents for coach */}
+          {role === 'coach' && personData && (
+            <PersonDocuments
+              personId={personData.id}
+              personType="coach"
+              personName={ar&&personData.name_ar?personData.name_ar:personData.name}
+              docs={personDocs}
+              onRefresh={onRefresh || (() => {})}
+              profile={profile}
+            />
+          )}
+
+          {/* Documents for employee */}
+          {role === 'employee' && personData && (
+            <PersonDocuments
+              personId={personData.id}
+              personType="employee"
+              personName={ar&&personData.name_ar?personData.name_ar:personData.name}
+              docs={personDocs}
+              onRefresh={onRefresh || (() => {})}
+              profile={profile}
             />
           )}
 
