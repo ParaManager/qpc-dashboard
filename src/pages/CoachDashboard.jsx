@@ -148,8 +148,8 @@ export default function CoachDashboard({ coach, athletes, events, results, onNav
         {/* Upcoming events */}
         <div style={{ background:'#8b5cf610', border:'1px solid #8b5cf630', borderRadius:14, padding:'16px', textAlign:'center', cursor: upcomingEvents.length > 0 ? 'pointer' : 'default' }}
           onClick={() => upcomingEvents.length > 0 && onNav('events')}>
-          <div style={{ fontSize:36 }}>📅</div>
-          <div style={{ fontSize:28, fontWeight:700, color:'#8b5cf6' }}>{upcomingEvents.length}</div>
+          <i className="ti ti-flag" style={{ fontSize:36, color:'#8b5cf6' }} />
+          <div style={{ fontSize:28, fontWeight:700, color:'#8b5cf6', marginTop:4 }}>{upcomingEvents.length}</div>
           <div style={{ fontSize:12, color:'var(--text3)' }}>{L('Upcoming Events','الفعاليات القادمة')}</div>
         </div>
       </div>
@@ -192,12 +192,15 @@ export default function CoachDashboard({ coach, athletes, events, results, onNav
         </Card>
 
         {/* Upcoming Sessions */}
-        <Card title={L('Upcoming Sessions','الجلسات القادمة')} icon="ti-calendar-time" color="#8b5cf6"
-          onClick={upcomingSessions.length > 0 ? () => onNav('schedule') : null}>
+        <Card title={L('Upcoming Sessions','الجلسات القادمة')} icon="ti-calendar-time" color="#8b5cf6">
           {upcomingSessions.length === 0
             ? <div className="empty" style={{ padding:'8px 0', fontSize:13 }}>{L('No upcoming sessions','لا توجد جلسات قادمة')}</div>
             : upcomingSessions.map(s => (
-              <div key={s.id} style={{ padding:'8px 0', borderBottom:'1px solid var(--border)', fontSize:13 }}>
+              <div key={s.id}
+                onClick={() => onNav('schedule', { sessionId: s.id })}
+                style={{ padding:'8px 4px', borderBottom:'1px solid var(--border)', fontSize:13, cursor:'pointer', borderRadius:6, margin:'0 -4px', transition:'background .12s' }}
+                onMouseEnter={e => e.currentTarget.style.background='var(--surface2)'}
+                onMouseLeave={e => e.currentTarget.style.background='transparent'}>
                 <div style={{ fontWeight:500, marginBottom:2 }}>{s.title}</div>
                 <div style={{ display:'flex', gap:10, fontSize:11, color:'var(--text3)', flexWrap:'wrap' }}>
                   <span><i className="ti ti-calendar" style={{ fontSize:10, marginRight:3 }} />{s.session_date}</span>

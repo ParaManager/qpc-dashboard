@@ -35,12 +35,22 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
 
   useEffect(() => { loadSessions(); loadRequests() }, [coachId, year, month, athleteId])
 
-  // Auto-open session from notification click
+  // Auto-open session from dashboard click - fetch it directly if not in current month view
   useEffect(() => {
-    if (initSessionId && sessions.length > 0) {
-      const s = sessions.find(x => x.id === initSessionId)
-      if (s) { setSelected(initSessionId); if (onClearSession) onClearSession() }
-    }
+    if (!initSessionId) return
+    // If already in loaded sessions, open immediately
+    const s = sessions.find(x => x.id === initSessionId)
+    if (s) { setSelected(initSessionId); return }
+    // Otherwise fetch it directly regardless of month filter
+    supabase.from('sessions').select('*').eq('id', initSessionId).maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          // Navigate calendar to that session's month so it renders correctly
+          const d = new Date(data.session_date)
+          setCurDate(d)
+          setSelected(initSessionId)
+        }
+      })
   }, [initSessionId, sessions])
 
   async function loadRequests() {
