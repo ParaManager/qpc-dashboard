@@ -3,8 +3,8 @@ import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
 import { Avatar, MedalDisplay, initials, avColor } from '../lib/helpers'
 import AthleteCardButton, { generateAthleteCard } from '../components/AthleteCard'
+import EmployeeCardButton, { generateEmployeeCard } from '../components/EmployeeCard'
 import CareerHistory from '../components/CareerHistory.jsx'
-import PersonDocuments from '../components/PersonDocuments'
 import { toast } from '../components/Toast'
 
 function ExportPDFButton({ athlete }) {
@@ -28,7 +28,7 @@ function ExportPDFButton({ athlete }) {
   )
 }
 
-export default function Profile({ user, profile, athletes, coaches, employees, results, events, registrations, onNav, documents, personDocs, onRefresh }) {
+export default function Profile({ user, profile, athletes, coaches, employees, results, events, registrations, onNav }) {
   const { lang, tc } = useLang()
   const ar = lang === 'ar'
   const L = (en, a) => ar ? a : en
@@ -198,6 +198,18 @@ ${myResults.length>0?`<div class="section"><div class="section-title">${L2('Comp
                 </button>
               </div>
             )}
+            {(role === 'employee' || role === 'admin') && personData && (
+              <div style={{ marginTop:14, display:'flex', gap:8, flexDirection:'column' }}>
+                <EmployeeCardButton emp={personData} />
+                <button className="action-btn"
+                  style={{ borderColor:'#009F6B', color:'#009F6B', justifyContent:'center' }}
+                  onMouseEnter={e => { e.currentTarget.style.background='#e6f4ee' }}
+                  onMouseLeave={e => { e.currentTarget.style.background='' }}
+                  onClick={() => { const html = generateEmployeeCard(personData); const win = window.open('','_blank'); win.document.write(html); win.document.close(); setTimeout(()=>win.print(),600) }}>
+                  <i className="ti ti-printer" style={{ fontSize:14 }} /> {L('Export PDF','تصدير PDF')}
+                </button>
+              </div>
+            )}
             {!editing ? (
               <button className="action-btn action-btn-edit" style={{ marginTop:8, width:'100%', justifyContent:'center' }}
                 onClick={() => { setForm({ full_name: profile?.full_name }); setEditing(true) }}>
@@ -330,18 +342,6 @@ ${myResults.length>0?`<div class="section"><div class="section-title">${L2('Comp
               personType={role === 'admin' ? 'employee' : role}
               personName={ar&&personData.name_ar?personData.name_ar:personData.name}
               readOnly={role !== 'admin'}
-            />
-          )}
-
-          {/* Documents — shown to athlete/coach/employee (non-admin) */}
-          {personData && role !== 'admin' && role !== 'guest' && (
-            <PersonDocuments
-              personId={personData.id}
-              personType={role === 'coach' ? 'coach' : role === 'athlete' ? 'athlete' : 'employee'}
-              personName={ar&&personData.name_ar?personData.name_ar:personData.name}
-              docs={role === 'athlete' ? (documents || []).map(d => ({ ...d, person_id: d.athlete_id, person_type: 'athlete' })) : (personDocs || [])}
-              onRefresh={onRefresh || (() => {})}
-              profile={profile}
             />
           )}
 
