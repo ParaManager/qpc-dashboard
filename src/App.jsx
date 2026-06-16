@@ -182,7 +182,7 @@ export default function App() {
 
   const roleColor = ROLE_COLORS[role]
   const roleIcon  = ROLE_ICONS[role]
-  const userName  = profile?.full_name || user.email
+  const userName  = profile?.full_name || (user.email?.endsWith('@qpc-system.qa') ? user.email.replace('@qpc-system.qa','') : user.email)
   const userPhoto = (() => {
     if (isAthlete && myAthleteId) {
       const a = athletes.find(a => String(a.id) === String(myAthleteId))
