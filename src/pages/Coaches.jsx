@@ -299,9 +299,14 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
     if (file.size > 5 * 1024 * 1024) { toast('Image must be under 5MB', 'error'); return }
     setUploading(true)
     try {
-      const ext  = file.name.split('.').pop()
+      const ext  = file.name.split('.').pop().toLowerCase()
       const path = `${coachId}.${ext}`
-      const { error: upErr } = await supabase.storage.from('coach-photos').upload(path, file, { upsert: true })
+      // Remove any existing photos for this coach first (all extensions)
+      await supabase.storage.from('coach-photos').remove([
+        `${coachId}.jpg`, `${coachId}.jpeg`, `${coachId}.png`, `${coachId}.webp`
+      ])
+      // Upload fresh
+      const { error: upErr } = await supabase.storage.from('coach-photos').upload(path, file)
       if (upErr) throw upErr
       const { data } = supabase.storage.from('coach-photos').getPublicUrl(path)
       const photoUrl = data.publicUrl + '?t=' + Date.now()
