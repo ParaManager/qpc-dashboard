@@ -7,6 +7,7 @@ import CareerHistory from '../components/CareerHistory.jsx'
 import { useLang } from '../lib/LangContext.jsx'
 import PersonDocuments from '../components/PersonDocuments'
 import * as XLSX from 'xlsx'
+import EmployeeCardButton from '../components/EmployeeCard'
 
 const DESIGNATIONS = [
   'All designations',
@@ -459,8 +460,10 @@ export default function Employees({ employees, personDocs, onRefresh, onNav, nav
             onMouseEnter={e => e.currentTarget.style.background='#e6f4ee'}
             onMouseLeave={e => e.currentTarget.style.background=''}
             onClick={() => exportEmployeesPDF(emp, lang)}>
+            
             <i className="ti ti-printer" /> {tx('actions.exportPDF','Export PDF')}
           </button>
+          <EmployeeCardButton emp={emp} />
         </div>
         <div className="detail-grid">
           <div className="detail-profile">
