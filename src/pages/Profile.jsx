@@ -369,7 +369,7 @@ ${myResults.length>0?`<div class="section"><div class="section-title">${L2('Comp
           {/* Documents for coach */}
           {role === 'coach' && personData && (
             <PersonDocuments
-              personId={personData.id}
+              personId={String(personData.id)}
               personType="coach"
               personName={ar&&personData.name_ar?personData.name_ar:personData.name}
               docs={personDocs}
@@ -381,7 +381,7 @@ ${myResults.length>0?`<div class="section"><div class="section-title">${L2('Comp
           {/* Documents for employee */}
           {role === 'employee' && personData && (
             <PersonDocuments
-              personId={personData.id}
+              personId={String(personData.id)}
               personType="employee"
               personName={ar&&personData.name_ar?personData.name_ar:personData.name}
               docs={personDocs}
