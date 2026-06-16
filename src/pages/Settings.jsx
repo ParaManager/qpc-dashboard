@@ -103,8 +103,8 @@ export default function Settings({ user, profile, signOut }) {
       <div className="info-card" style={{ marginBottom: 16 }}>
         <div className="info-title">{L('Sessions', 'الجلسات')}</div>
         <p style={{ fontSize:13, color:'var(--text2)', marginBottom:12 }}>
-          {L('Sign out from all devices where your account is currently logged in.',
-             'تسجيل الخروج من جميع الأجهزة التي سجّلت الدخول منها.')}
+          {L('Sign out of your current session on this device.',
+             'تسجيل الخروج من جلستك الحالية على هذا الجهاز.')}
         </p>
         <button onClick={signOut} className="action-btn action-btn-delete">
           <i className="ti ti-logout" /> {L('Sign out', 'تسجيل الخروج')}
