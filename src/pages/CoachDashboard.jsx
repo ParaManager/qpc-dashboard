@@ -1,4 +1,6 @@
+import { useState, useEffect } from 'react'
 import { useLang } from '../lib/LangContext.jsx'
+import { supabase } from '../lib/supabase'
 import { initials, avColor } from '../lib/helpers'
 
 export default function CoachDashboard({ coach, athletes, events, results, onNav }) {
@@ -13,8 +15,21 @@ export default function CoachDashboard({ coach, athletes, events, results, onNav
     </div>
   )
 
-  const myAthletes   = (athletes||[]).filter(a => String(a.coach_id) === String(coach.id))
-  const activeCount  = myAthletes.filter(a => a.status === 'Active').length
+  const [upcomingSessions, setUpcomingSessions] = useState([])
+
+  useEffect(() => {
+    if (!coach?.id) return
+    const today = new Date().toISOString().split('T')[0]
+    supabase.from('sessions')
+      .select('*')
+      .eq('coach_id', String(coach.id))
+      .gte('session_date', today)
+      .order('session_date').order('start_time')
+      .limit(5)
+      .then(({ data }) => setUpcomingSessions(data || []))
+  }, [coach?.id])
+
+  const myAthletes   = (athletes||[]).filter(a => String(a.coach_id) === String(coach.id)).sort((a,b) => { if (a.status==='Active' && b.status!=='Active') return -1; if (a.status!=='Active' && b.status==='Active') return 1; return 0 })
   const myAthleteIds = myAthletes.map(a => a.id)
 
   // upcoming events any of my athletes are registered for
@@ -146,7 +161,11 @@ export default function CoachDashboard({ coach, athletes, events, results, onNav
           {myAthletes.length === 0
             ? <div className="empty" style={{ padding:'8px 0', fontSize:13 }}>{L('No athletes assigned','لا يوجد رياضيون معينون')}</div>
             : myAthletes.slice(0, 5).map(a => (
-              <div key={a.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'7px 0', borderBottom:'1px solid var(--border)' }}>
+              <div key={a.id}
+                onClick={() => onNav('athletes', { athleteId: a.id })}
+                style={{ display:'flex', alignItems:'center', gap:10, padding:'7px 0', borderBottom:'1px solid var(--border)', cursor:'pointer', borderRadius:6, margin:'0 -4px', padding:'7px 4px', transition:'background .12s' }}
+                onMouseEnter={e => e.currentTarget.style.background='var(--surface2)'}
+                onMouseLeave={e => e.currentTarget.style.background='transparent'}>
                 <div style={{ width:32, height:32, borderRadius:'50%', background: a.photo_url ? 'transparent' : avColor(a.id), display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:700, color:'#fff', flexShrink:0, overflow:'hidden', border:'2px solid var(--border)' }}>
                   {a.photo_url
                     ? <img src={a.photo_url} style={{ width:'100%', height:'100%', objectFit:'cover', objectPosition:'top center' }} />
@@ -172,24 +191,25 @@ export default function CoachDashboard({ coach, athletes, events, results, onNav
           )}
         </Card>
 
-        {/* Quick stats */}
-        <Card title={L('Overview','نظرة عامة')} icon="ti-chart-bar" color="#8b5cf6">
-          <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-            {[
-              [L('Total athletes','إجمالي الرياضيين'), myAthletes.length],
-              [L('Active','نشط'), myAthletes.filter(a => a.status === 'Active').length],
-              [L('Injured','مصاب'), myAthletes.filter(a => a.status === 'Injured').length],
-              [L('Total results recorded','إجمالي النتائج'), (results||[]).filter(r => myAthleteIds.includes(r.athlete_id)).length],
-              [L('🥇 Gold medals','🥇 ذهب'), totalGold],
-              [L('🥈 Silver medals','🥈 فضة'), totalSilver],
-              [L('🥉 Bronze medals','🥉 برونز'), totalBronze],
-            ].map(([label, val]) => (
-              <div key={label} style={{ display:'flex', justifyContent:'space-between', fontSize:13 }}>
-                <span style={{ color:'var(--text2)' }}>{label}</span>
-                <span style={{ fontWeight:600 }}>{val}</span>
+        {/* Upcoming Sessions */}
+        <Card title={L('Upcoming Sessions','الجلسات القادمة')} icon="ti-calendar-time" color="#8b5cf6"
+          onClick={upcomingSessions.length > 0 ? () => onNav('schedule') : null}>
+          {upcomingSessions.length === 0
+            ? <div className="empty" style={{ padding:'8px 0', fontSize:13 }}>{L('No upcoming sessions','لا توجد جلسات قادمة')}</div>
+            : upcomingSessions.map(s => (
+              <div key={s.id} style={{ padding:'8px 0', borderBottom:'1px solid var(--border)', fontSize:13 }}>
+                <div style={{ fontWeight:500, marginBottom:2 }}>{s.title}</div>
+                <div style={{ display:'flex', gap:10, fontSize:11, color:'var(--text3)', flexWrap:'wrap' }}>
+                  <span><i className="ti ti-calendar" style={{ fontSize:10, marginRight:3 }} />{s.session_date}</span>
+                  {s.start_time && <span><i className="ti ti-clock" style={{ fontSize:10, marginRight:3 }} />{s.start_time}{s.end_time ? ` → ${s.end_time}` : ''}</span>}
+                  {s.location   && <span><i className="ti ti-map-pin" style={{ fontSize:10, marginRight:3 }} />{s.location}</span>}
+                </div>
+                <span style={{ fontSize:10, fontWeight:600, padding:'2px 7px', borderRadius:8, background:'#8b5cf620', color:'#8b5cf6', marginTop:4, display:'inline-block' }}>
+                  {s.session_type || 'Training'}
+                </span>
               </div>
-            ))}
-          </div>
+            ))
+          }
         </Card>
 
         {/* Upcoming Events */}
@@ -197,13 +217,16 @@ export default function CoachDashboard({ coach, athletes, events, results, onNav
           onClick={upcomingEvents.length > 0 ? () => onNav('events') : null}>
           {upcomingEvents.length === 0
             ? <div className="empty" style={{ padding:'8px 0', fontSize:13 }}>{L('No upcoming events','لا توجد فعاليات قادمة')}</div>
-            : upcomingEvents.map(ev => (
+            : upcomingEvents.slice(0,4).map(ev => (
               <div key={ev.id} style={{ padding:'8px 0', borderBottom:'1px solid var(--border)', fontSize:13 }}>
                 <div style={{ fontWeight:500 }}>{ev.name}</div>
                 <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>
                   <i className="ti ti-calendar" style={{ fontSize:11, marginRight:3 }} />{ev.start_date}
                   {ev.venue && <span> · {ev.venue}</span>}
                 </div>
+                <span style={{ fontSize:10, fontWeight:600, padding:'2px 7px', borderRadius:8, background:'#0085C720', color:'#0085C7', marginTop:4, display:'inline-block' }}>
+                  {ar ? {'Upcoming':'قادم','Registration Open':'تسجيل مفتوح'}[ev.status]||ev.status : ev.status}
+                </span>
               </div>
             ))
           }
@@ -220,7 +243,11 @@ export default function CoachDashboard({ coach, athletes, events, results, onNav
                 .map(a => {
                   const total = (a.medals_gold||0)+(a.medals_silver||0)+(a.medals_bronze||0)
                   return (
-                    <div key={a.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'7px 0', borderBottom:'1px solid var(--border)' }}>
+                    <div key={a.id}
+                onClick={() => onNav('athletes', { athleteId: a.id })}
+                style={{ display:'flex', alignItems:'center', gap:10, padding:'7px 0', borderBottom:'1px solid var(--border)', cursor:'pointer', borderRadius:6, margin:'0 -4px', padding:'7px 4px', transition:'background .12s' }}
+                onMouseEnter={e => e.currentTarget.style.background='var(--surface2)'}
+                onMouseLeave={e => e.currentTarget.style.background='transparent'}>
                       <div style={{ width:30, height:30, borderRadius:'50%', background: a.photo_url?'transparent':avColor(a.id), display:'flex', alignItems:'center', justifyContent:'center', fontSize:10, fontWeight:700, color:'#fff', flexShrink:0, overflow:'hidden' }}>
                         {a.photo_url ? <img src={a.photo_url} style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : initials(a.name)}
                       </div>
