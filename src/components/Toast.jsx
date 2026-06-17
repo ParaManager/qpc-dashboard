@@ -27,7 +27,7 @@ export function ToastContainer() {
 export function toast(msg, type = 'success') { _toastFn?.(msg, type) }
 
 // ── CONFIRM MODAL ───────────────────────────────────────
-export function ConfirmModal({ title, message, onConfirm, onCancel, danger = true }) {
+export function ConfirmModal({ title, message, onConfirm, onCancel, danger = true, confirmLabel, cancelLabel }) {
   return (
     <div className="modal-overlay" onClick={onCancel}>
       <div className="confirm-box" onClick={e => e.stopPropagation()}>
@@ -35,9 +35,9 @@ export function ConfirmModal({ title, message, onConfirm, onCancel, danger = tru
         <div className="confirm-title">{title}</div>
         <div className="confirm-msg">{message}</div>
         <div className="confirm-btns">
-          <button className="btn-cancel" onClick={onCancel}>Cancel</button>
+          <button className="btn-cancel" onClick={onCancel}>{cancelLabel || 'Cancel'}</button>
           <button className="btn" style={{ background: danger ? '#dc2626' : '#0085C7' }} onClick={onConfirm}>
-            {danger ? 'Delete' : 'Confirm'}
+            {confirmLabel || (danger ? 'Delete' : 'Confirm')}
           </button>
         </div>
       </div>
