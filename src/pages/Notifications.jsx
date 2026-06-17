@@ -56,8 +56,10 @@ export default function Notifications({ profile, onNav }) {
   function handleClick(n) {
     if (!n.read) markRead(n.id)
     const sessionId = n.data?.session_id
-    if (['excuse_request','session_added','request_approved','request_rejected','needs_attendance','needs_closing'].includes(n.type)) {
+    if (['needs_attendance', 'needs_closing'].includes(n.type)) {
       onNav('attendance', sessionId ? { sessionId } : {})
+    } else if (['excuse_request','session_added','request_approved','request_rejected'].includes(n.type)) {
+      onNav('schedule', sessionId ? { sessionId } : {})
     } else if (n.type === 'access_request') {
       onNav('users', {})
     }
