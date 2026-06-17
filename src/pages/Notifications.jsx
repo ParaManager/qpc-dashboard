@@ -47,10 +47,11 @@ export default function Notifications({ profile, onNav }) {
   }
 
   async function markAllRead() {
-    const unreadIds = notifs.filter(n => !n.read).map(n => n.id)
+    const ACTION_REQUIRED_TYPES = ['excuse_request', 'needs_attendance', 'needs_closing']
+    const unreadIds = notifs.filter(n => !n.read && !ACTION_REQUIRED_TYPES.includes(n.type)).map(n => n.id)
     if (unreadIds.length === 0) return
     await supabase.from('notifications').update({ read: true }).in('id', unreadIds)
-    setNotifs(prev => prev.map(n => ({ ...n, read: true })))
+    setNotifs(prev => prev.map(n => unreadIds.includes(n.id) ? { ...n, read: true } : n))
   }
 
   function handleClick(n) {
