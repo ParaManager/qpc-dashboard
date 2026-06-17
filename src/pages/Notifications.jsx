@@ -64,6 +64,24 @@ export default function Notifications({ profile, onNav }) {
   }
 
   const visible = filter === 'unread' ? notifs.filter(n => !n.read) : notifs
+
+  // Group session-reminder types (needs_attendance / needs_closing) into one row per type,
+  // since these can pile up to one-per-session and shouldn't clutter the list individually.
+  const GROUPED_TYPES = ['needs_attendance', 'needs_closing']
+  const groupedNotifs = visible.filter(n => GROUPED_TYPES.includes(n.type))
+  const individualNotifs = visible.filter(n => !GROUPED_TYPES.includes(n.type))
+
+  const groups = GROUPED_TYPES.map(type => {
+    const items = groupedNotifs.filter(n => n.type === type)
+    if (items.length === 0) return null
+    return {
+      type,
+      items,
+      latestCreatedAt: items[0]?.created_at,
+      anyUnread: items.some(n => !n.read),
+    }
+  }).filter(Boolean)
+
   const unreadCount = notifs.filter(n => !n.read).length
 
   return (
@@ -99,52 +117,101 @@ export default function Notifications({ profile, onNav }) {
       <div className="card" style={{ padding:0, overflow:'hidden' }}>
         {loading ? (
           <div className="empty" style={{ padding:32 }}>{L('Loading…','جارٍ التحميل…')}</div>
-        ) : visible.length === 0 ? (
+        ) : (groups.length === 0 && individualNotifs.length === 0) ? (
           <div className="empty" style={{ padding:32 }}>
             <i className="ti ti-bell-off" style={{ fontSize:28, marginBottom:8 }} />
             <div>{filter === 'unread' ? L('No unread notifications','لا توجد إشعارات غير مقروءة') : L('No notifications yet','لا توجد إشعارات بعد')}</div>
           </div>
         ) : (
-          visible.map((n, i) => {
-            const meta = TYPE_META[n.type] || { icon:'ti-bell', color:'#9aa3b2' }
-            return (
-              <div key={n.id} onClick={() => handleClick(n)}
-                style={{
-                  display:'flex', gap:12, alignItems:'flex-start', padding:'14px 16px',
-                  borderBottom: i < visible.length-1 ? '1px solid var(--border)' : 'none',
-                  background: n.read ? 'transparent' : meta.color+'08',
-                  cursor:'pointer', transition:'background .15s',
-                }}
-                onMouseEnter={e => e.currentTarget.style.background='var(--surface2)'}
-                onMouseLeave={e => e.currentTarget.style.background= n.read ? 'transparent' : meta.color+'08'}>
-                <div style={{ width:36, height:36, borderRadius:10, background:meta.color+'18', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                  <i className={`ti ${meta.icon}`} style={{ fontSize:17, color:meta.color }} />
-                </div>
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                    <div style={{ fontSize:13, fontWeight:600 }}>{n.title}</div>
-                    {!n.read && <div style={{ width:7, height:7, borderRadius:'50%', background:meta.color, flexShrink:0 }} />}
+          <>
+            {groups.map(g => {
+              const meta = TYPE_META[g.type] || { icon:'ti-bell', color:'#9aa3b2' }
+              const isAttendance = g.type === 'needs_attendance'
+              const title = g.items.length === 1
+                ? (isAttendance ? L('1 session needs attendance','جلسة واحدة بحاجة لتسجيل الحضور') : L('1 session is ready to close','جلسة واحدة جاهزة للإغلاق'))
+                : (isAttendance ? L(`${g.items.length} sessions need attendance`,`${g.items.length} جلسات بحاجة لتسجيل الحضور`) : L(`${g.items.length} sessions are ready to close`,`${g.items.length} جلسات جاهزة للإغلاق`))
+              return (
+                <div key={g.type} style={{ borderBottom:'1px solid var(--border)' }}>
+                  <div style={{ display:'flex', gap:12, alignItems:'flex-start', padding:'14px 16px', background: g.anyUnread ? meta.color+'08' : 'transparent' }}>
+                    <div style={{ width:36, height:36, borderRadius:10, background:meta.color+'18', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                      <i className={`ti ${meta.icon}`} style={{ fontSize:17, color:meta.color }} />
+                    </div>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                        <div style={{ fontSize:13, fontWeight:600 }}>{title}</div>
+                        {g.anyUnread && <div style={{ width:7, height:7, borderRadius:'50%', background:meta.color, flexShrink:0 }} />}
+                      </div>
+                      <div style={{ fontSize:11, color:'var(--text3)', marginTop:5 }}>
+                        {new Date(g.latestCreatedAt).toLocaleString(ar?'ar-QA':'en-GB', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' })}
+                      </div>
+                    </div>
+                    <button onClick={() => { g.items.forEach(n => { if (!n.read) markRead(n.id) }) }}
+                      title={L('Mark all as read','تحديد الكل كمقروء')}
+                      style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text3)', fontSize:16, flexShrink:0, padding:4 }}>
+                      <i className="ti ti-checks" />
+                    </button>
+                    <button onClick={() => { g.items.forEach(n => deleteNotif(n.id)) }}
+                      title={L('Delete all','حذف الكل')}
+                      style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text3)', fontSize:16, flexShrink:0, padding:4 }}>
+                      <i className="ti ti-trash" />
+                    </button>
                   </div>
-                  <div style={{ fontSize:12, color:'var(--text3)', marginTop:3 }}>{n.body}</div>
-                  <div style={{ fontSize:11, color:'var(--text3)', marginTop:5 }}>
-                    {new Date(n.created_at).toLocaleString(ar?'ar-QA':'en-GB', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' })}
+                  <div style={{ padding:'0 16px 12px 64px', display:'flex', flexDirection:'column', gap:4 }}>
+                    {g.items.map(n => (
+                      <div key={n.id} onClick={() => handleClick(n)}
+                        style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, padding:'6px 10px', borderRadius:8, cursor:'pointer', fontSize:12 }}
+                        onMouseEnter={e => e.currentTarget.style.background='var(--surface2)'}
+                        onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+                        <span style={{ color:'var(--text2)' }}>{n.body}</span>
+                        <i className="ti ti-arrow-right" style={{ fontSize:12, color:'var(--text3)' }} />
+                      </div>
+                    ))}
                   </div>
                 </div>
-                {!n.read && (
-                  <button onClick={e => { e.stopPropagation(); markRead(n.id) }}
-                    title={L('Mark as read','تحديد كمقروء')}
+              )
+            })}
+
+            {individualNotifs.map((n, i) => {
+              const meta = TYPE_META[n.type] || { icon:'ti-bell', color:'#9aa3b2' }
+              return (
+                <div key={n.id} onClick={() => handleClick(n)}
+                  style={{
+                    display:'flex', gap:12, alignItems:'flex-start', padding:'14px 16px',
+                    borderBottom: i < individualNotifs.length-1 ? '1px solid var(--border)' : 'none',
+                    background: n.read ? 'transparent' : meta.color+'08',
+                    cursor:'pointer', transition:'background .15s',
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background='var(--surface2)'}
+                  onMouseLeave={e => e.currentTarget.style.background= n.read ? 'transparent' : meta.color+'08'}>
+                  <div style={{ width:36, height:36, borderRadius:10, background:meta.color+'18', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                    <i className={`ti ${meta.icon}`} style={{ fontSize:17, color:meta.color }} />
+                  </div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                      <div style={{ fontSize:13, fontWeight:600 }}>{n.title}</div>
+                      {!n.read && <div style={{ width:7, height:7, borderRadius:'50%', background:meta.color, flexShrink:0 }} />}
+                    </div>
+                    <div style={{ fontSize:12, color:'var(--text3)', marginTop:3 }}>{n.body}</div>
+                    <div style={{ fontSize:11, color:'var(--text3)', marginTop:5 }}>
+                      {new Date(n.created_at).toLocaleString(ar?'ar-QA':'en-GB', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' })}
+                    </div>
+                  </div>
+                  {!n.read && (
+                    <button onClick={e => { e.stopPropagation(); markRead(n.id) }}
+                      title={L('Mark as read','تحديد كمقروء')}
+                      style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text3)', fontSize:16, flexShrink:0, padding:4 }}>
+                      <i className="ti ti-check" />
+                    </button>
+                  )}
+                  <button onClick={e => { e.stopPropagation(); deleteNotif(n.id) }}
+                    title={L('Delete','حذف')}
                     style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text3)', fontSize:16, flexShrink:0, padding:4 }}>
-                    <i className="ti ti-check" />
+                    <i className="ti ti-trash" />
                   </button>
-                )}
-                <button onClick={e => { e.stopPropagation(); deleteNotif(n.id) }}
-                  title={L('Delete','حذف')}
-                  style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text3)', fontSize:16, flexShrink:0, padding:4 }}>
-                  <i className="ti ti-trash" />
-                </button>
-              </div>
-            )
-          })
+                </div>
+              )
+            })}
+          </>
         )}
       </div>
     </div>
