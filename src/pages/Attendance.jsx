@@ -32,11 +32,23 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
   const [exportFrom, setExportFrom]   = useState('')
   const [exportTo, setExportTo]       = useState('')
   const [exportSessionId, setExportSessionId] = useState('')
+  const [sessionTabAttendance, setSessionTabAttendance] = useState([])
   const [exporting, setExporting]     = useState(false)
 
   useEffect(() => { loadSessions() }, [coachId])
   useEffect(() => { if (selSession) loadAttendance(selSession) }, [selSession])
   useEffect(() => { loadStats() }, [sessions, tab])
+
+  useEffect(() => {
+    const todayStr2 = new Date().toISOString().slice(0,10)
+    const td = sessions.find(s => s.session_date === todayStr2)
+    const last = sessions.filter(s => s.session_date <= todayStr2).sort((a,b) => b.session_date.localeCompare(a.session_date))[0]
+    const target = td || last || null
+    if (tab === 'session' && target) {
+      supabase.from('attendance').select('*').eq('session_id', target.id)
+        .then(({ data }) => setSessionTabAttendance(data || []))
+    }
+  }, [tab, sessions])
 
   async function loadSessions() {
     let q = supabase.from('training_sessions').select('*, training_session_athletes(athlete_id)').order('session_date', { ascending: false })
@@ -216,6 +228,14 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
   const todaysSession = sessions.find(s => s.session_date === todayStr)
   const lastSession    = sessions.filter(s => s.session_date <= todayStr).sort((a,b) => b.session_date.localeCompare(a.session_date))[0]
   const sessionTabSession = todaysSession || lastSession || null
+  const sessionTabAthletes = sessionTabSession
+    ? myAthletes.filter(a => sessionTabSession.training_session_athletes?.some(sa => String(sa.athlete_id) === String(a.id)))
+    : []
+  const sessionTabStats = {}
+  sessionTabAthletes.forEach(a => {
+    const rec = sessionTabAttendance.find(r => String(r.athlete_id) === String(a.id))
+    sessionTabStats[a.id] = { status: rec?.status || null }
+  })
 
   if (viewMode === 'session' && selSession) {
     const present = sessionAthletes.filter(a => attendance[a.id] === 'Present').length
@@ -438,11 +458,14 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
         {tab === 'session' && (
           sessionTabSession ? (
             <div>
-              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:8, marginBottom:12 }}>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:8, marginBottom:14 }}>
                 <div>
                   <div style={{ fontWeight:600, fontSize:14 }}>{sessionTabSession.title}</div>
                   <div style={{ fontSize:12, color:'var(--text3)', marginTop:2 }}>
                     {sessionTabSession.session_date === todayStr ? L("Today's session","جلسة اليوم") : L('Last session','آخر جلسة')} · {sessionTabSession.session_date} · {sessionTabSession.start_time?.slice(0,5)||'—'}
+                    {sessionTabSession.attendance_closed && (
+                      <span style={{ marginLeft:8, color:'#9aa3b2' }}><i className="ti ti-lock" style={{ fontSize:11, marginRight:3 }} />{L('Closed','مغلقة')}</span>
+                    )}
                   </div>
                 </div>
                 <button className="btn" style={{ background:'#0085C7' }}
@@ -450,11 +473,56 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
                   <i className="ti ti-clipboard-check" /> {L('Take / View Attendance','تسجيل / عرض الحضور')}
                 </button>
               </div>
-              {sessionTabSession.attendance_closed && (
-                <div style={{ fontSize:11, color:'#9aa3b2', display:'flex', alignItems:'center', gap:5 }}>
-                  <i className="ti ti-lock" /> {L('This session is closed','هذه الجلسة مغلقة')}
-                </div>
-              )}
+
+              <div className="search-wrap" style={{ marginBottom:14 }}>
+                <i className="ti ti-search" />
+                <input placeholder={L('Search athletes…','بحث عن رياضي…')} value={search} onChange={e=>setSearch(e.target.value)} />
+              </div>
+
+              <div style={{ overflowX:'auto' }}>
+                <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
+                  <thead>
+                    <tr style={{ background:'var(--surface2)' }}>
+                      <th style={{ padding:'10px 12px', textAlign: ar?'right':'left', fontWeight:600, fontSize:12, color:'var(--text3)' }}>{L('Athlete','الرياضي')}</th>
+                      <th style={{ padding:'10px 12px', textAlign:'center', color:'#009F6B', fontSize:12 }}>{L('Present','حاضر')}</th>
+                      <th style={{ padding:'10px 12px', textAlign:'center', color:'#EE334E', fontSize:12 }}>{L('Absent','غائب')}</th>
+                      <th style={{ padding:'10px 12px', textAlign:'center', color:'#f59e0b', fontSize:12 }}>{L('Late','متأخر')}</th>
+                      <th style={{ padding:'10px 12px', textAlign:'center', color:'#8b5cf6', fontSize:12 }}>{L('Excused','معذور')}</th>
+                      <th style={{ padding:'10px 12px', textAlign:'center', fontSize:12 }}>{L('Status','الحالة')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sessionTabAthletes
+                      .filter(a => (ar && a.name_ar ? a.name_ar : a.name).toLowerCase().includes(search.toLowerCase()))
+                      .map(a => {
+                        const s = sessionTabStats[a.id] || { status: null }
+                        return (
+                          <tr key={a.id} style={{ borderBottom:'1px solid var(--border)' }}>
+                            <td style={{ padding:'10px 12px' }}>
+                              <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                                <Avatar name={a.name} id={a.id} size={28} fs={9} />
+                                <span style={{ fontWeight:500 }}>{ar&&a.name_ar?a.name_ar:a.name}</span>
+                              </div>
+                            </td>
+                            <td style={{ textAlign:'center', fontWeight:600, color:'#009F6B' }}>{s.status==='Present'?'✓':''}</td>
+                            <td style={{ textAlign:'center', fontWeight:600, color:'#EE334E' }}>{s.status==='Absent'||!s.status?'✓':''}</td>
+                            <td style={{ textAlign:'center', fontWeight:600, color:'#f59e0b' }}>{s.status==='Late'?'✓':''}</td>
+                            <td style={{ textAlign:'center', fontWeight:600, color:'#8b5cf6' }}>{s.status==='Excused'?'✓':''}</td>
+                            <td style={{ textAlign:'center' }}>
+                              <span style={{ fontSize:11, fontWeight:600, padding:'3px 10px', borderRadius:20, background:(STATUS_COLORS[s.status||'Absent'])+'20', color:STATUS_COLORS[s.status||'Absent'] }}>
+                                {ar ? STATUS_AR[s.status||'Absent'] : (s.status||'Absent')}
+                              </span>
+                            </td>
+                          </tr>
+                        )
+                      })
+                    }
+                  </tbody>
+                </table>
+                {sessionTabAthletes.length === 0 && (
+                  <div className="empty" style={{ padding:24 }}>{L('No athletes in this session','لا يوجد رياضيون في هذه الجلسة')}</div>
+                )}
+              </div>
             </div>
           ) : (
             <div className="empty" style={{ padding:24 }}>{L('No sessions yet','لا توجد جلسات بعد')}</div>
