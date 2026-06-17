@@ -85,8 +85,15 @@ export default function NotificationBell({ isAdmin, userId }) {
 
   async function markAllRead() {
     if (!userId) return
-    await supabase.from('notifications').update({ read: true }).eq('user_id', String(userId)).eq('read', false)
-    setNotifs([])
+    // Action-required types (excuse_request, needs_attendance, needs_closing) stay unread
+    // until actually resolved — "mark all read" shouldn't dismiss pending action items.
+    const ACTION_REQUIRED_TYPES = ['excuse_request', 'needs_attendance', 'needs_closing']
+    await supabase.from('notifications')
+      .update({ read: true })
+      .eq('user_id', String(userId))
+      .eq('read', false)
+      .not('type', 'in', `(${ACTION_REQUIRED_TYPES.join(',')})`)
+    setNotifs(prev => prev.filter(n => ACTION_REQUIRED_TYPES.includes(n.type)))
   }
 
   async function enableNotifications() {
@@ -163,7 +170,18 @@ export default function NotificationBell({ isAdmin, userId }) {
                   <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>{n.body}</div>
                   <div style={{ fontSize:10, color:'var(--text3)', marginTop:4 }}>{new Date(n.created_at).toLocaleDateString(ar?'ar-QA':'en-GB')}</div>
                 </div>
-                <button onClick={e => { e.stopPropagation(); markRead(n.id) }} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text3)', fontSize:16, padding:0, flexShrink:0 }}>×</button>
+                <button onClick={e => {
+                    e.stopPropagation()
+                    const isActionRequired = ['excuse_request','needs_attendance','needs_closing'].includes(n.type)
+                    if (isActionRequired) {
+                      // Don't mark as read — it's still unresolved. Just hide it from this dropdown view.
+                      setNotifs(prev => prev.filter(x => x.id !== n.id))
+                    } else {
+                      markRead(n.id)
+                    }
+                  }}
+                  title={['excuse_request','needs_attendance','needs_closing'].includes(n.type) ? L('Hide (still pending)','إخفاء (لا يزال معلقًا)') : L('Dismiss','تجاهل')}
+                  style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text3)', fontSize:16, padding:0, flexShrink:0 }}>×</button>
               </div>
             ))}
 
