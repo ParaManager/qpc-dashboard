@@ -30,6 +30,7 @@ export default function Notifications({ profile, onNav }) {
       .from('notifications')
       .select('*')
       .eq('user_id', String(profile.id))
+      .eq('dismissed', false)
       .order('created_at', { ascending: false })
       .limit(100)
     setNotifs(data || [])
@@ -41,22 +42,25 @@ export default function Notifications({ profile, onNav }) {
     setNotifs(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))
   }
 
+  async function dismiss(id) {
+    await supabase.from('notifications').update({ dismissed: true, read: true }).eq('id', id)
+    setNotifs(prev => prev.filter(n => n.id !== id))
+  }
+
   async function deleteNotif(id) {
     await supabase.from('notifications').delete().eq('id', id)
     setNotifs(prev => prev.filter(n => n.id !== id))
   }
 
   async function markAllRead() {
-    const ACTION_REQUIRED_TYPES = ['excuse_request', 'needs_attendance', 'needs_closing']
-    const unreadIds = notifs.filter(n => !n.read && !ACTION_REQUIRED_TYPES.includes(n.type)).map(n => n.id)
+    const unreadIds = notifs.filter(n => !n.read).map(n => n.id)
     if (unreadIds.length === 0) return
     await supabase.from('notifications').update({ read: true }).in('id', unreadIds)
     setNotifs(prev => prev.map(n => unreadIds.includes(n.id) ? { ...n, read: true } : n))
   }
 
   function handleClick(n) {
-    const isActionRequired = ['excuse_request', 'needs_attendance', 'needs_closing'].includes(n.type)
-    if (!n.read && !isActionRequired) markRead(n.id)
+    if (!n.read) markRead(n.id)
     const sessionId = n.data?.session_id
     if (['needs_attendance', 'needs_closing'].includes(n.type)) {
       onNav('attendance', sessionId ? { sessionId } : {})
@@ -99,11 +103,18 @@ export default function Notifications({ profile, onNav }) {
               : L('All caught up','لا توجد إشعارات جديدة')}
           </div>
         </div>
-        {unreadCount > 0 && (
-          <button className="action-btn" onClick={markAllRead}>
-            <i className="ti ti-checks" /> {L('Mark all read','تحديد الكل كمقروء')}
-          </button>
-        )}
+        <div style={{ display:'flex', gap:8 }}>
+          {unreadCount > 0 && (
+            <button className="action-btn" onClick={markAllRead}>
+              <i className="ti ti-checks" /> {L('Mark all read','تحديد الكل كمقروء')}
+            </button>
+          )}
+          {notifs.length > 0 && (
+            <button className="action-btn" onClick={() => notifs.forEach(n => dismiss(n.id))}>
+              <i className="ti ti-bell-off" /> {L('Clear all','مسح الكل')}
+            </button>
+          )}
+        </div>
       </div>
 
       <div style={{ display:'flex', gap:6, background:'var(--surface2)', borderRadius:10, padding:4, marginBottom:16, width:'fit-content' }}>
@@ -154,10 +165,10 @@ export default function Notifications({ profile, onNav }) {
                       style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text3)', fontSize:16, flexShrink:0, padding:4 }}>
                       <i className="ti ti-checks" />
                     </button>
-                    <button onClick={() => { g.items.forEach(n => deleteNotif(n.id)) }}
-                      title={L('Delete all','حذف الكل')}
+                    <button onClick={() => { g.items.forEach(n => dismiss(n.id)) }}
+                      title={L('Clear all','مسح الكل')}
                       style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text3)', fontSize:16, flexShrink:0, padding:4 }}>
-                      <i className="ti ti-trash" />
+                      <i className="ti ti-x" />
                     </button>
                   </div>
                   <div style={{ padding:'0 16px 12px 64px', display:'flex', flexDirection:'column', gap:4 }}>
@@ -207,10 +218,10 @@ export default function Notifications({ profile, onNav }) {
                       <i className="ti ti-check" />
                     </button>
                   )}
-                  <button onClick={e => { e.stopPropagation(); deleteNotif(n.id) }}
-                    title={L('Delete','حذف')}
+                  <button onClick={e => { e.stopPropagation(); dismiss(n.id) }}
+                    title={L('Clear','مسح')}
                     style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text3)', fontSize:16, flexShrink:0, padding:4 }}>
-                    <i className="ti ti-trash" />
+                    <i className="ti ti-x" />
                   </button>
                 </div>
               )
