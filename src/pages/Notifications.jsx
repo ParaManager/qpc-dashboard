@@ -41,6 +41,11 @@ export default function Notifications({ profile, onNav }) {
     setNotifs(prev => prev.map(n => n.id === id ? { ...n, read: true } : n))
   }
 
+  async function deleteNotif(id) {
+    await supabase.from('notifications').delete().eq('id', id)
+    setNotifs(prev => prev.filter(n => n.id !== id))
+  }
+
   async function markAllRead() {
     const unreadIds = notifs.filter(n => !n.read).map(n => n.id)
     if (unreadIds.length === 0) return
@@ -127,10 +132,16 @@ export default function Notifications({ profile, onNav }) {
                 </div>
                 {!n.read && (
                   <button onClick={e => { e.stopPropagation(); markRead(n.id) }}
-                    style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text3)', fontSize:18, flexShrink:0 }}>
-                    ×
+                    title={L('Mark as read','تحديد كمقروء')}
+                    style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text3)', fontSize:16, flexShrink:0, padding:4 }}>
+                    <i className="ti ti-check" />
                   </button>
                 )}
+                <button onClick={e => { e.stopPropagation(); deleteNotif(n.id) }}
+                  title={L('Delete','حذف')}
+                  style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text3)', fontSize:16, flexShrink:0, padding:4 }}>
+                  <i className="ti ti-trash" />
+                </button>
               </div>
             )
           })
