@@ -16,6 +16,7 @@ import Profile        from './pages/Profile'
 import Settings          from './pages/Settings'
 import AthleteDashboard  from './pages/AthleteDashboard'
 import CoachDashboard    from './pages/CoachDashboard'
+import Notifications     from './pages/Notifications'
 import AthleteEvents     from './pages/AthleteEvents'
 import AthleteResults    from './pages/AthleteResults'
 import Attendance  from './pages/Attendance'
@@ -293,7 +294,7 @@ export default function App() {
         </div>
         <div id="content">
           {page==='dashboard' && !isCoach && <Dashboard athletes={myAthletes} coaches={coaches} events={events} results={results} onNav={goTo} profile={profile} />}
-          {page==='dashboard' && isCoach  && <CoachDashboard coach={myCoachRecord} athletes={myAthletes} events={events} results={results} onNav={goTo} />}
+          {page==='dashboard' && isCoach  && <CoachDashboard coach={myCoachRecord} athletes={myAthletes} events={events} results={results} onNav={goTo} profile={profile} />}
           {page==='athletes'  && <Athletes  athletes={myAthletes} coaches={coaches} employees={employees} results={results} documents={documents} events={events} registrations={registrations} onRefresh={fetchAll} onNav={goTo} initAthleteId={navState.athleteId} initStatusFilter={navState.statusFilter} navState={navState} profile={profile} />}
           {page==='coaches'   && isAdmin && <Coaches   coaches={coaches} athletes={athletes} personDocs={personDocs} onRefresh={fetchAll} onNav={goTo} initCoachId={navState.coachId} navState={navState} profile={profile} />}
           {page==='events'    && <Events    events={events} athletes={athletes} results={results} registrations={registrations} onRefresh={fetchAll} onNav={goTo} initEventId={navState.eventId} initStatusFilter={navState.statusFilter} profile={profile} />}
@@ -305,6 +306,7 @@ export default function App() {
           {page==='athlete-results'   && <AthleteResults athlete={myAthlete} results={results} />}
           {page==='settings'  && <Settings user={user} profile={profile} signOut={signOut} />}
           {page==='profile'   && <Profile user={user} profile={profile} athletes={athletes} coaches={coaches} employees={employees} results={results} onNav={goTo} documents={documents} personDocs={personDocs} onRefresh={fetchAll} />}
+          {page==='notifications' && <Notifications profile={profile} onNav={goTo} />}
           {page==='referees'  && <Referees referees={referees} onRefresh={fetchAll} profile={profile} />}
           {page==='results'   && <Results   results={results} athletes={athletes} onRefresh={fetchAll} onNav={goTo} profile={profile} />}
           {page==='sports'    && <Sports    athletes={athletes} coaches={coaches} events={events} results={results} onNav={goTo} initSport={navState.sport} profile={profile} />}
