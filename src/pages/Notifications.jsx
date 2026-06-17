@@ -54,7 +54,8 @@ export default function Notifications({ profile, onNav }) {
   }
 
   function handleClick(n) {
-    if (!n.read) markRead(n.id)
+    const isActionRequired = ['excuse_request', 'needs_attendance', 'needs_closing'].includes(n.type)
+    if (!n.read && !isActionRequired) markRead(n.id)
     const sessionId = n.data?.session_id
     if (['needs_attendance', 'needs_closing'].includes(n.type)) {
       onNav('attendance', sessionId ? { sessionId } : {})
