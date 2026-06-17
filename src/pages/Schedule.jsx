@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
 import { Avatar, Badge } from '../lib/helpers'
-import { toast } from '../components/Toast'
+import { toast, ConfirmModal } from '../components/Toast'
 
 const SESSION_TYPES = ['Training','Competition','Medical','Meeting']
 const SESSION_COLORS = { Training:'#0085C7', Competition:'#EE334E', Medical:'#009F6B', Meeting:'#8b5cf6' }
@@ -21,6 +21,7 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
   const ar = lang === 'ar'
   const [sessions, setSessions]       = useState([])
   const [directSession, setDirectSession] = useState(null)  // session opened directly from dashboard
+  const [deleteConfirm, setDeleteConfirm] = useState(null)  // session pending delete confirmation
   const [view, setView]               = useState('month') // month | week | list
   const [today]                       = useState(new Date())
   const [curDate, setCurDate]         = useState(new Date())
