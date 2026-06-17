@@ -230,8 +230,13 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
         </div>
         <div className="detail-grid">
           <div className="detail-profile">
-            <div style={{ display:'flex', gap:6, marginBottom:12 }}>
+            <div style={{ display:'flex', gap:6, marginBottom:12, flexWrap:'wrap' }}>
               <span className="badge" style={{ background:color+'20', color }}>{L(s.session_type, {'Training':'تدريب','Competition':'منافسة','Medical':'طبي','Meeting':'اجتماع'}[s.session_type]||s.session_type)}</span>
+              {s.attendance_closed && (
+                <span className="badge" style={{ background:'#9aa3b220', color:'#9aa3b2', display:'flex', alignItems:'center', gap:4 }}>
+                  <i className="ti ti-lock" style={{ fontSize:11 }} /> {L('Attendance closed','الحضور مغلق')}
+                </span>
+              )}
             </div>
             <div className="detail-name">{s.title}</div>
             <div className="detail-fields" style={{ marginTop:14 }}>
