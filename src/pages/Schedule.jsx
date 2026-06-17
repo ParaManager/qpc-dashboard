@@ -94,16 +94,20 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
       await supabase.from('training_session_athletes').delete().eq('session_id', sessionId)
       if (form.athleteIds?.length > 0) {
         await supabase.from('training_session_athletes').insert(form.athleteIds.map(aid => ({ session_id: sessionId, athlete_id: aid })))
-        // Notify each athlete
-        const notifs = form.athleteIds.map(aid => ({
-          user_id: String(aid),
+        // Notify each athlete - resolve their profile UUID first
+        const { data: athleteProfiles } = await supabase
+          .from('profiles')
+          .select('id, athlete_id')
+          .in('athlete_id', form.athleteIds.map(String))
+        const notifs = (athleteProfiles || []).map(p => ({
+          user_id: p.id,
           type: 'session_added',
           title: ar ? 'تمت إضافة جلسة جديدة' : 'New session added',
           body: `${form.title || (ar?'جلسة تدريب':'Training session')} - ${form.date}`,
           data: { session_id: sessionId },
           read: false,
         }))
-        await supabase.from('notifications').insert(notifs)
+        if (notifs.length > 0) await supabase.from('notifications').insert(notifs)
       }
     }
     toast(form.id ? (ar?'تم التحديث':'Updated') : (ar?'تم الإضافة':'Session added'))
