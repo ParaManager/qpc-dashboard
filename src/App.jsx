@@ -110,10 +110,8 @@ export default function App() {
   }, [profile?.id])  // fires only when the actual user changes (new login)
 
   function goTo(targetPage, state = {}) {
-    setNavState({})          // clear stale state first
     setPage(targetPage)
-    if (Object.keys(state).length > 0)
-      setTimeout(() => setNavState(state), 0)  // set after Athletes mounts clean
+    setNavState(state)
   }
 
   // Listen for navigation events from NotificationBell
