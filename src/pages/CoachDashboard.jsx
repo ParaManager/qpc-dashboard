@@ -3,7 +3,7 @@ import { useLang } from '../lib/LangContext.jsx'
 import { supabase } from '../lib/supabase'
 import { initials, avColor } from '../lib/helpers'
 
-export default function CoachDashboard({ coach, athletes, events, results, onNav }) {
+export default function CoachDashboard({ coach, athletes, events, results, onNav, profile }) {
   const { lang, tc } = useLang()
   const ar = lang === 'ar'
   const L = (en, a) => ar ? a : en
@@ -59,6 +59,27 @@ export default function CoachDashboard({ coach, athletes, events, results, onNav
       setReminders({ needsAttendance, needsClosing })
     })()
   }, [coach?.id])
+
+  const [unreadNotifs, setUnreadNotifs] = useState([])
+
+  useEffect(() => {
+    if (!profile?.id) return
+    supabase.from('notifications')
+      .select('*')
+      .eq('user_id', String(profile.id))
+      .eq('read', false)
+      .order('created_at', { ascending: false })
+      .then(({ data }) => setUnreadNotifs(data || []))
+
+    const sub = supabase.channel(`coach-dash-notifs-${profile.id}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${profile.id}` },
+        payload => setUnreadNotifs(prev => [payload.new, ...prev]))
+      .subscribe()
+    return () => supabase.removeChannel(sub)
+  }, [profile?.id])
+
+  const excuseRequests = unreadNotifs.filter(n => n.type === 'excuse_request')
+  const otherNotifs     = unreadNotifs.filter(n => n.type !== 'excuse_request')
 
   const myAthletes   = (athletes||[]).filter(a => String(a.coach_id) === String(coach.id)).sort((a,b) => { if (a.status==='Active' && b.status!=='Active') return -1; if (a.status!=='Active' && b.status==='Active') return 1; return 0 })
   const myAthleteIds = myAthletes.map(a => a.id)
@@ -134,50 +155,89 @@ export default function CoachDashboard({ coach, athletes, events, results, onNav
         )}
       </div>
 
-      {/* Reminders */}
-      {(reminders.needsAttendance.length > 0 || reminders.needsClosing.length > 0) && (
-        <div style={{ display:'flex', flexDirection:'column', gap:8, marginBottom:16 }}>
-          {reminders.needsAttendance.length > 0 && (
-            <div style={{ display:'flex', alignItems:'center', gap:10, padding:'12px 16px', background:'#f59e0b15', border:'1px solid #f59e0b40', borderRadius:12 }}>
-              <i className="ti ti-alert-circle" style={{ fontSize:20, color:'#f59e0b', flexShrink:0 }} />
-              <div style={{ flex:1 }}>
-                <div style={{ fontSize:13, fontWeight:600, color:'#f59e0b' }}>
-                  {reminders.needsAttendance.length === 1
-                    ? L('1 session needs attendance', 'جلسة واحدة بحاجة لتسجيل الحضور')
-                    : L(`${reminders.needsAttendance.length} sessions need attendance`, `${reminders.needsAttendance.length} جلسات بحاجة لتسجيل الحضور`)}
+      {/* Reminders & notifications (capped to avoid crowding the dashboard) */}
+      {(() => {
+        const banners = []
+
+        if (reminders.needsAttendance.length > 0) {
+          banners.push({
+            key: 'needsAttendance', color: '#f59e0b', icon: 'ti-alert-circle',
+            title: reminders.needsAttendance.length === 1
+              ? L('1 session needs attendance', 'جلسة واحدة بحاجة لتسجيل الحضور')
+              : L(`${reminders.needsAttendance.length} sessions need attendance`, `${reminders.needsAttendance.length} جلسات بحاجة لتسجيل الحضور`),
+            sub: reminders.needsAttendance.slice(0,3).map(s => s.title || s.session_date).join(', ') + (reminders.needsAttendance.length > 3 ? '…' : ''),
+            actionLabel: L('Take attendance','تسجيل الحضور'),
+            onAction: () => onNav('attendance', { sessionId: reminders.needsAttendance[0].id }),
+          })
+        }
+
+        if (reminders.needsClosing.length > 0) {
+          banners.push({
+            key: 'needsClosing', color: '#0085C7', icon: 'ti-lock-open',
+            title: reminders.needsClosing.length === 1
+              ? L('1 session is ready to close', 'جلسة واحدة جاهزة للإغلاق')
+              : L(`${reminders.needsClosing.length} sessions are ready to close`, `${reminders.needsClosing.length} جلسات جاهزة للإغلاق`),
+            sub: L('Attendance was taken but the session is still open.', 'تم تسجيل الحضور ولكن الجلسة لا تزال مفتوحة.'),
+            actionLabel: L('Review & close','مراجعة وإغلاق'),
+            onAction: () => onNav('attendance', { sessionId: reminders.needsClosing[0].id }),
+          })
+        }
+
+        if (excuseRequests.length > 0) {
+          banners.push({
+            key: 'excuseRequests', color: '#8b5cf6', icon: 'ti-message-circle',
+            title: excuseRequests.length === 1
+              ? L('1 new excuse/reschedule request', 'طلب عذر/إعادة جدولة جديد')
+              : L(`${excuseRequests.length} new excuse/reschedule requests`, `${excuseRequests.length} طلبات عذر/إعادة جدولة جديدة`),
+            sub: excuseRequests.slice(0,2).map(n => n.body).join(' · '),
+            actionLabel: L('Review','مراجعة'),
+            onAction: () => onNav('attendance', excuseRequests[0]?.data?.session_id ? { sessionId: excuseRequests[0].data.session_id } : {}),
+          })
+        }
+
+        if (otherNotifs.length > 0) {
+          banners.push({
+            key: 'otherNotifs', color: '#0085C7', icon: 'ti-bell',
+            title: otherNotifs.length === 1
+              ? L('1 new notification', 'إشعار جديد واحد')
+              : L(`${otherNotifs.length} new notifications`, `${otherNotifs.length} إشعارات جديدة`),
+            sub: otherNotifs[0]?.title || '',
+            actionLabel: L('View','عرض'),
+            onAction: () => onNav('notifications'),
+          })
+        }
+
+        if (banners.length === 0) return null
+
+        const MAX_BANNERS = 2
+        const shown = banners.slice(0, MAX_BANNERS)
+        const overflowCount = banners.length - shown.length
+
+        return (
+          <div style={{ display:'flex', flexDirection:'column', gap:8, marginBottom:16 }}>
+            {shown.map(b => (
+              <div key={b.key} style={{ display:'flex', alignItems:'center', gap:10, padding:'12px 16px', background:b.color+'15', border:`1px solid ${b.color}40`, borderRadius:12 }}>
+                <i className={`ti ${b.icon}`} style={{ fontSize:20, color:b.color, flexShrink:0 }} />
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontSize:13, fontWeight:600, color:b.color }}>{b.title}</div>
+                  {b.sub && <div style={{ fontSize:11, color:'var(--text3)', marginTop:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{b.sub}</div>}
                 </div>
-                <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>
-                  {reminders.needsAttendance.slice(0,3).map(s => s.title || s.session_date).join(', ')}
-                  {reminders.needsAttendance.length > 3 ? '…' : ''}
-                </div>
+                <button className="btn" style={{ background:b.color, padding:'6px 14px', fontSize:12, flexShrink:0 }} onClick={b.onAction}>
+                  {b.actionLabel}
+                </button>
               </div>
-              <button className="btn" style={{ background:'#f59e0b', padding:'6px 14px', fontSize:12, flexShrink:0 }}
-                onClick={() => onNav('attendance', { sessionId: reminders.needsAttendance[0].id })}>
-                {L('Take attendance','تسجيل الحضور')}
-              </button>
-            </div>
-          )}
-          {reminders.needsClosing.length > 0 && (
-            <div style={{ display:'flex', alignItems:'center', gap:10, padding:'12px 16px', background:'#0085C715', border:'1px solid #0085C740', borderRadius:12 }}>
-              <i className="ti ti-lock-open" style={{ fontSize:20, color:'#0085C7', flexShrink:0 }} />
-              <div style={{ flex:1 }}>
-                <div style={{ fontSize:13, fontWeight:600, color:'#0085C7' }}>
-                  {reminders.needsClosing.length === 1
-                    ? L('1 session is ready to close', 'جلسة واحدة جاهزة للإغلاق')
-                    : L(`${reminders.needsClosing.length} sessions are ready to close`, `${reminders.needsClosing.length} جلسات جاهزة للإغلاق`)}
-                </div>
-                <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>
-                  {L('Attendance was taken but the session is still open.', 'تم تسجيل الحضور ولكن الجلسة لا تزال مفتوحة.')}
-                </div>
+            ))}
+            {overflowCount > 0 && (
+              <div onClick={() => onNav('notifications')}
+                style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'10px 16px', background:'var(--surface2)', borderRadius:12, cursor:'pointer', fontSize:12, fontWeight:600, color:'var(--text2)' }}>
+                <i className="ti ti-bell" style={{ fontSize:15 }} />
+                {L(`+${overflowCount} more — view all notifications`, `+${overflowCount} أخرى — عرض جميع الإشعارات`)}
+                <i className="ti ti-arrow-right" style={{ fontSize:13 }} />
               </div>
-              <button className="btn" style={{ background:'#0085C7', padding:'6px 14px', fontSize:12, flexShrink:0 }}
-                onClick={() => onNav('attendance', { sessionId: reminders.needsClosing[0].id })}>
-                {L('Review & close','مراجعة وإغلاق')}
-              </button>
-            </div>
-          )}
-        </div>
-      )}
+            )}
+          </div>
+        )
+      })()}
 
       {/* Stats row */}
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12, marginBottom:12 }}>

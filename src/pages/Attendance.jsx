@@ -38,6 +38,7 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
   const [athleteDetail, setAthleteDetail] = useState(null)  // athlete object when viewing their personal attendance
   const [athleteDetailTab, setAthleteDetailTab] = useState('week')
   const [athleteDetailRecords, setAthleteDetailRecords] = useState([])
+  const [viewedSessionId, setViewedSessionId] = useState(null)  // manually picked session in Per Session tab; null = auto (today/last)
 
   useEffect(() => { loadSessions() }, [coachId])
   useEffect(() => { if (selSession) loadAttendance(selSession) }, [selSession])
@@ -52,15 +53,20 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
   }, [athleteDetail, sessions])
 
   useEffect(() => {
+    if (tab !== 'session') return
     const todayStr2 = new Date().toISOString().slice(0,10)
     const td = sessions.find(s => s.session_date === todayStr2)
     const last = sessions.filter(s => s.session_date <= todayStr2).sort((a,b) => b.session_date.localeCompare(a.session_date))[0]
-    const target = td || last || null
-    if (tab === 'session' && target) {
+    const target = viewedSessionId
+      ? sessions.find(s => s.id === viewedSessionId)
+      : (td || last || null)
+    if (target) {
       supabase.from('attendance').select('*').eq('session_id', target.id)
         .then(({ data }) => setSessionTabAttendance(data || []))
+    } else {
+      setSessionTabAttendance([])
     }
-  }, [tab, sessions])
+  }, [tab, sessions, viewedSessionId])
 
   async function loadSessions() {
     let q = supabase.from('training_sessions').select('*, training_session_athletes(athlete_id)').order('session_date', { ascending: false })
@@ -260,7 +266,9 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
   const todayStr = new Date().toISOString().slice(0,10)
   const todaysSession = sessions.find(s => s.session_date === todayStr)
   const lastSession    = sessions.filter(s => s.session_date <= todayStr).sort((a,b) => b.session_date.localeCompare(a.session_date))[0]
-  const sessionTabSession = todaysSession || lastSession || null
+  const sessionTabSession = viewedSessionId
+    ? sessions.find(s => s.id === viewedSessionId) || null
+    : (todaysSession || lastSession || null)
   const sessionTabAthletes = sessionTabSession
     ? myAthletes.filter(a => sessionTabSession.training_session_athletes?.some(sa => String(sa.athlete_id) === String(a.id)))
     : []
@@ -494,20 +502,47 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
         {tab === 'session' && (
           sessionTabSession ? (
             <div>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:8, marginBottom:10 }}>
+                <select className="filter" style={{ minWidth:220 }}
+                  value={sessionTabSession.id}
+                  onChange={e => setViewedSessionId(e.target.value)}>
+                  {sessions.map(s => (
+                    <option key={s.id} value={s.id}>
+                      {s.session_date} — {s.title}{s.attendance_closed ? ` (${L('closed','مغلقة')})` : ''}
+                    </option>
+                  ))}
+                </select>
+                {viewedSessionId && (
+                  <button onClick={() => setViewedSessionId(null)}
+                    style={{ fontSize:11, color:'#0085C7', background:'none', border:'none', cursor:'pointer' }}>
+                    {L('Back to latest','رجوع إلى الأحدث')}
+                  </button>
+                )}
+              </div>
+
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:8, marginBottom:14 }}>
                 <div>
                   <div style={{ fontWeight:600, fontSize:14 }}>{sessionTabSession.title}</div>
                   <div style={{ fontSize:12, color:'var(--text3)', marginTop:2 }}>
-                    {sessionTabSession.session_date === todayStr ? L("Today's session","جلسة اليوم") : L('Last session','آخر جلسة')} · {sessionTabSession.session_date} · {sessionTabSession.start_time?.slice(0,5)||'—'}
+                    {sessionTabSession.session_date === todayStr ? L("Today's session","جلسة اليوم") : !viewedSessionId ? L('Last session','آخر جلسة') : ''} {sessionTabSession.session_date === todayStr || !viewedSessionId ? '·' : ''} {sessionTabSession.session_date} · {sessionTabSession.start_time?.slice(0,5)||'—'}
                     {sessionTabSession.attendance_closed && (
                       <span style={{ marginLeft:8, color:'#9aa3b2' }}><i className="ti ti-lock" style={{ fontSize:11, marginRight:3 }} />{L('Closed','مغلقة')}</span>
                     )}
                   </div>
                 </div>
-                <button className="btn" style={{ background:'#0085C7' }}
-                  onClick={() => openSessionFor(sessionTabSession)}>
-                  <i className="ti ti-clipboard-check" /> {L('Take / View Attendance','تسجيل / عرض الحضور')}
-                </button>
+                <div style={{ display:'flex', gap:8 }}>
+                  {sessionTabSession.attendance_closed ? (
+                    <button className="action-btn" style={{ borderColor:'#0085C7', color:'#0085C7' }}
+                      onClick={async () => { await reopenSession(sessionTabSession.id) }}>
+                      <i className="ti ti-lock-open" /> {L('Reopen to edit','إعادة فتح للتعديل')}
+                    </button>
+                  ) : (
+                    <button className="btn" style={{ background:'#0085C7' }}
+                      onClick={() => openSessionFor(sessionTabSession)}>
+                      <i className="ti ti-clipboard-check" /> {L('Take / View Attendance','تسجيل / عرض الحضور')}
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div className="search-wrap" style={{ marginBottom:14 }}>
