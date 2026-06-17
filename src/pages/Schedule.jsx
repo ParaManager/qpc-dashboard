@@ -235,10 +235,21 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
             <button className="action-btn action-btn-delete" onClick={() => setDeleteConfirm(s)}>
               <i className="ti ti-trash" /> {L('Delete','حذف')}
             </button>
-            <button className="btn" style={{ background:color, fontSize:13, padding:'6px 14px' }}
-              onClick={() => onNav('attendance', { sessionId: s.id })}>
-              <i className="ti ti-clipboard-check" /> {L('Take attendance','تسجيل الحضور')}
-            </button>
+            {s.attendance_closed ? (
+              <button className="action-btn" style={{ borderColor:'#0085C7', color:'#0085C7' }}
+                onClick={async () => {
+                  await supabase.from('training_sessions').update({ attendance_closed: false }).eq('id', s.id)
+                  toast(ar ? 'تم إعادة فتح الجلسة' : 'Session reopened')
+                  loadSessions()
+                }}>
+                <i className="ti ti-lock-open" /> {L('Reopen session','إعادة فتح الجلسة')}
+              </button>
+            ) : (
+              <button className="btn" style={{ background:color, fontSize:13, padding:'6px 14px' }}
+                onClick={() => onNav('attendance', { sessionId: s.id })}>
+                <i className="ti ti-clipboard-check" /> {L('Take attendance','تسجيل الحضور')}
+              </button>
+            )}
             <button className="action-btn" style={{ borderColor:'#009F6B', color:'#009F6B' }}
               onClick={() => exportSessionAttendance(s)}>
               <i className="ti ti-file-export" /> {L('Export attendance','تصدير الحضور')}

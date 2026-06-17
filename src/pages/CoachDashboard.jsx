@@ -58,6 +58,57 @@ export default function CoachDashboard({ coach, athletes, events, results, onNav
       const needsClosing    = pastSessions.filter(s => sessionsWithAttendance.has(s.id) && !s.attendance_closed)
 
       setReminders({ needsAttendance, needsClosing })
+
+      // Mirror these reminders into the notifications table so they also show on the
+      // full Notifications page and in the bell, not just here on the dashboard.
+      if (profile?.id) {
+        const { data: existing } = await supabase
+          .from('notifications')
+          .select('id, type, data')
+          .eq('user_id', String(profile.id))
+          .in('type', ['needs_attendance', 'needs_closing'])
+
+        const existingKeys = new Set((existing || []).map(n => `${n.type}:${n.data?.session_id}`))
+
+        const toInsert = []
+        needsAttendance.forEach(s => {
+          const key = `needs_attendance:${s.id}`
+          if (!existingKeys.has(key)) {
+            toInsert.push({
+              user_id: profile.id, type: 'needs_attendance', read: false,
+              title: L('Session needs attendance','جلسة بحاجة لتسجيل الحضور'),
+              body: s.title || s.session_date,
+              data: { session_id: s.id },
+            })
+          }
+        })
+        needsClosing.forEach(s => {
+          const key = `needs_closing:${s.id}`
+          if (!existingKeys.has(key)) {
+            toInsert.push({
+              user_id: profile.id, type: 'needs_closing', read: false,
+              title: L('Session ready to close','جلسة جاهزة للإغلاق'),
+              body: s.title || s.session_date,
+              data: { session_id: s.id },
+            })
+          }
+        })
+        if (toInsert.length > 0) await supabase.from('notifications').insert(toInsert)
+
+        // Clean up notifications for sessions that are no longer pending
+        // (attendance taken since, or session closed)
+        const stillPendingAttendanceIds = needsAttendance.map(s => s.id)
+        const stillPendingClosingIds    = needsClosing.map(s => s.id)
+        const idsToDelete = (existing || [])
+          .filter(n => {
+            const sid = n.data?.session_id
+            if (n.type === 'needs_attendance') return sid && !stillPendingAttendanceIds.includes(sid)
+            if (n.type === 'needs_closing')    return sid && !stillPendingClosingIds.includes(sid)
+            return false
+          })
+          .map(n => n.id)
+        if (idsToDelete.length > 0) await supabase.from('notifications').delete().in('id', idsToDelete)
+      }
     })()
   }, [coach?.id])
 
