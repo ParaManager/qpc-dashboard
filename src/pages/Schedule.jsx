@@ -201,7 +201,7 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
             <button className="action-btn action-btn-edit" onClick={() => { setEditData({ id:s.id, title:s.title, type:s.session_type, sport:s.sport, location:s.location, date:s.session_date, startTime:s.start_time, endTime:s.end_time, notes:s.notes, athleteIds: s.training_session_athletes?.map(sa=>sa.athlete_id)||[] }); setShowForm(true) }}>
               <i className="ti ti-pencil" /> {L('Edit','تعديل')}
             </button>
-            <button className="action-btn action-btn-delete" onClick={() => deleteSession(s.id)}>
+            <button className="action-btn action-btn-delete" onClick={() => setDeleteConfirm(s)}>
               <i className="ti ti-trash" /> {L('Delete','حذف')}
             </button>
             <button className="btn" style={{ background:color, fontSize:13, padding:'6px 14px' }}
@@ -308,6 +308,14 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
             </div>
           )}
         </div>
+        {deleteConfirm && (
+          <ConfirmModal
+            title={ar ? 'حذف الجلسة' : 'Delete session'}
+            message={ar ? `هل تريد حذف "${deleteConfirm.title || deleteConfirm.session_date}"؟ لا يمكن التراجع عن هذا.` : `Delete "${deleteConfirm.title || deleteConfirm.session_date}"? This cannot be undone.`}
+            onConfirm={async () => { await deleteSession(deleteConfirm.id); setDeleteConfirm(null) }}
+            onCancel={() => setDeleteConfirm(null)}
+          />
+        )}
       </div>
     )
   }
