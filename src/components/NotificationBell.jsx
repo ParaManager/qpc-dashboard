@@ -141,7 +141,10 @@ export default function NotificationBell({ isAdmin, userId }) {
               <div key={n.id} 
                 onClick={() => {
                   setOpen(false)
-                  markRead(n.id)
+                  // Action-required types (excuse_request, needs_attendance, needs_closing) stay
+                  // unread until actually resolved — viewing them shouldn't dismiss the action item.
+                  const isActionRequired = ['excuse_request', 'needs_attendance', 'needs_closing'].includes(n.type)
+                  if (!isActionRequired) markRead(n.id)
                   const sessionId = n.data?.session_id
                   if (n.type === 'needs_attendance' || n.type === 'needs_closing') {
                     window.dispatchEvent(new CustomEvent('navigate', { detail: { page:'attendance', sessionId } }))
