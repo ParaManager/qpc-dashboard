@@ -28,7 +28,7 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
   useEffect(() => { loadStats() }, [sessions])
 
   async function loadSessions() {
-    let q = supabase.from('training_sessions').select('*, session_athletes(athlete_id)').order('session_date', { ascending: false })
+    let q = supabase.from('training_sessions').select('*, training_session_athletes(athlete_id)').order('session_date', { ascending: false })
     if (coachId) q = q.eq('coach_id', coachId)
     const { data } = await q
     setSessions(data || [])
@@ -65,7 +65,7 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
     if (!selSession) return
     setSaving(true)
     const session = sessions.find(s => s.id === selSession)
-    const sessionAthletes = myAthletes.filter(a => session?.session_athletes?.some(sa => sa.athlete_id === a.id))
+    const sessionAthletes = myAthletes.filter(a => session?.training_session_athletes?.some(sa => sa.athlete_id === a.id))
     const rows = sessionAthletes.map(a => ({
       session_id: selSession,
       athlete_id: a.id,
@@ -84,7 +84,7 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
 
   function markAll(status) {
     const session = sessions.find(s => s.id === selSession)
-    const sessionAthletes = myAthletes.filter(a => session?.session_athletes?.some(sa => sa.athlete_id === a.id))
+    const sessionAthletes = myAthletes.filter(a => session?.training_session_athletes?.some(sa => sa.athlete_id === a.id))
     const newAtt = {}
     sessionAthletes.forEach(a => { newAtt[a.id] = status })
     setAttendance(prev => ({ ...prev, ...newAtt }))
@@ -92,7 +92,7 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
 
   const session = sessions.find(s => s.id === selSession)
   const sessionAthletes = session
-    ? myAthletes.filter(a => session.session_athletes?.some(sa => sa.athlete_id === a.id))
+    ? myAthletes.filter(a => session.training_session_athletes?.some(sa => sa.athlete_id === a.id))
     : []
 
   const filteredAthletes = myAthletes.filter(a =>

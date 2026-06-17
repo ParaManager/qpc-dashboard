@@ -20,6 +20,7 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
   const { lang } = useLang()
   const ar = lang === 'ar'
   const [sessions, setSessions]       = useState([])
+  const [directSession, setDirectSession] = useState(null)  // session opened directly from dashboard
   const [view, setView]               = useState('month') // month | week | list
   const [today]                       = useState(new Date())
   const [curDate, setCurDate]         = useState(new Date())
@@ -35,19 +36,18 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
 
   useEffect(() => { loadSessions(); loadRequests() }, [coachId, year, month, athleteId])
 
-  // Auto-open session from dashboard click - fetch it directly if not in current month view
+  // Auto-open session from dashboard click
   useEffect(() => {
     if (!initSessionId) return
-    // If already in loaded sessions, open immediately
     const s = sessions.find(x => x.id === initSessionId)
-    if (s) { setSelected(initSessionId); return }
-    // Otherwise fetch it directly regardless of month filter
+    if (s) { setDirectSession(null); setSelected(initSessionId); return }
+    // Not in current month — fetch directly and store it so detail view can find it
     supabase.from('training_sessions').select('*').eq('id', initSessionId).maybeSingle()
       .then(({ data }) => {
         if (data) {
-          // Navigate calendar to that session's month so it renders correctly
           const d = new Date(data.session_date)
           setCurDate(d)
+          setDirectSession(data)
           setSelected(initSessionId)
         }
       })
@@ -66,7 +66,7 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
     setLoading(true)
     const from = `${year}-${String(month+1).padStart(2,'0')}-01`
     const to   = `${year}-${String(month+1).padStart(2,'0')}-${getDaysInMonth(year,month)}`
-    let q = supabase.from('training_sessions').select('*, session_athletes(athlete_id)').gte('session_date', from).lte('session_date', to).order('session_date').order('start_time')
+    let q = supabase.from('training_sessions').select('*, training_session_athletes(athlete_id)').gte('session_date', from).lte('session_date', to).order('session_date').order('start_time')
     if (coachId) q = q.eq('coach_id', coachId)
     const { data, error } = await q
     if (!error) setSessions(data || [])
@@ -126,7 +126,7 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
 
   // Filter sessions for athlete view
   const filterSessions = (list) => athleteId
-    ? list.filter(s => (s.session_athletes||[]).some(sa => String(sa.athlete_id) === String(athleteId)))
+    ? list.filter(s => (s.training_session_athletes||[]).some(sa => String(sa.athlete_id) === String(athleteId)))
     : list
 
   const sessionsOnDay = (d) => {
@@ -150,9 +150,9 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
 
   // ── SESSION DETAIL ──
   if (selected) {
-    const s = sessions.find(x => x.id === selected)
-    if (!s) { setSelected(null); return null }
-    const sAthletes = myAthletes.filter(a => s.session_athletes?.some(sa => String(sa.athlete_id) === String(a.id)))
+    const s = sessions.find(x => x.id === selected) || (directSession?.id === selected ? directSession : null)
+    if (!s) { setSelected(null); setDirectSession(null); return null }
+    const sAthletes = myAthletes.filter(a => s.training_session_athletes?.some(sa => String(sa.athlete_id) === String(a.id)))
     const myRequest = requests.find(r => r.session_id === s.id && String(r.athlete_id) === String(athleteId))
     const color = SESSION_COLORS[s.session_type] || '#0085C7'
     return (
@@ -193,12 +193,12 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
             }}
           />
         )}
-        <button className="back-btn" onClick={() => setSelected(null)}>
+        <button className="back-btn" onClick={() => { setSelected(null); setDirectSession(null) }}>
           <i className="ti ti-arrow-left" /> {L('Back to schedule','رجوع إلى الجدول')}
         </button>
         <div style={{ display:'flex', gap:10, marginBottom:16, flexWrap:'wrap' }}>
           {!readOnly && <>
-            <button className="action-btn action-btn-edit" onClick={() => { setEditData({ id:s.id, title:s.title, type:s.session_type, sport:s.sport, location:s.location, date:s.session_date, startTime:s.start_time, endTime:s.end_time, notes:s.notes, athleteIds: s.session_athletes?.map(sa=>sa.athlete_id)||[] }); setShowForm(true) }}>
+            <button className="action-btn action-btn-edit" onClick={() => { setEditData({ id:s.id, title:s.title, type:s.session_type, sport:s.sport, location:s.location, date:s.session_date, startTime:s.start_time, endTime:s.end_time, notes:s.notes, athleteIds: s.training_session_athletes?.map(sa=>sa.athlete_id)||[] }); setShowForm(true) }}>
               <i className="ti ti-pencil" /> {L('Edit','تعديل')}
             </button>
             <button className="action-btn action-btn-delete" onClick={() => deleteSession(s.id)}>
@@ -420,7 +420,7 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
           <div className="card-title"><i className="ti ti-clock" /> {L('Upcoming sessions','الجلسات القادمة')}</div>
           {filterSessions(sessions.filter(s => s.session_date >= today.toISOString().slice(0,10))).slice(0,5).map(s => {
             const color = SESSION_COLORS[s.session_type]||'#0085C7'
-            const sAthletes = myAthletes.filter(a => s.session_athletes?.some(sa=>String(sa.athlete_id)===String(a.id)))
+            const sAthletes = myAthletes.filter(a => s.training_session_athletes?.some(sa=>String(sa.athlete_id)===String(a.id)))
             return (
               <div key={s.id} onClick={() => setSelected(s.id)}
                 style={{ display:'flex', gap:12, padding:'10px 0', borderBottom:'1px solid var(--border)', cursor:'pointer', alignItems:'center' }}>
