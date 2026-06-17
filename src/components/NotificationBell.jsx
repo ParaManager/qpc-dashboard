@@ -189,6 +189,14 @@ export default function NotificationBell({ isAdmin, userId }) {
           </div>
 
           {/* Footer */}
+          {notifications.length > 0 && (
+            <div style={{ padding:'10px 16px', borderTop:'1px solid var(--border)', textAlign:'center' }}>
+              <a href="#" onClick={e => { e.preventDefault(); setOpen(false); window.dispatchEvent(new CustomEvent('navigate', { detail: { page:'notifications' } })) }}
+                style={{ fontSize:12, color:'#0085C7', textDecoration:'none', fontWeight:600 }}>
+                {L('View all notifications →','عرض جميع الإشعارات ←')}
+              </a>
+            </div>
+          )}
           {isAdmin && pending.length > 0 && (
             <div style={{ padding:'10px 16px', borderTop:'1px solid var(--border)', textAlign:'center' }}>
               <a href="#" onClick={e => { e.preventDefault(); setOpen(false); window.dispatchEvent(new CustomEvent('navigate', { detail: 'users' })) }}
