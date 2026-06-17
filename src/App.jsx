@@ -26,7 +26,7 @@ import NotificationBell from './components/NotificationBell.jsx'
 import { useLang } from './lib/LangContext.jsx'
 
 const NAV_ADMIN = (tx) => [
-  { section: tx('nav.overview','Overview'),      items: [{ id:'dashboard', icon:'ti-layout-dashboard', label:tx('nav.dashboard','Dashboard') }, { id:'profile', icon:'ti-user-circle', label:tx('nav.profile','My Profile') }] },
+  { section: tx('nav.overview','Overview'),      items: [{ id:'dashboard', icon:'ti-layout-dashboard', label:tx('nav.dashboard','Dashboard') }, { id:'notifications', icon:'ti-bell', label:tx('nav.notifications','Notifications') }, { id:'profile', icon:'ti-user-circle', label:tx('nav.profile','My Profile') }] },
   { section: tx('nav.people','People'),          items: [{ id:'athletes', icon:'ti-run', label:tx('nav.athletes','Athletes') }, { id:'coaches', icon:'ti-user-star', label:tx('nav.coaches','Coaches') }, { id:'employees', icon:'ti-users', label:tx('nav.employees','Employees') }, { id:'referees', icon:'ti-award', label:tx('nav.referees','Referees') }] },
   { section: tx('nav.competitions','Competitions'), items: [{ id:'sports', icon:'ti-ball-football', label:tx('nav.sports','Sports') }, { id:'events', icon:'ti-calendar-event', label:tx('nav.events','Events') }, { id:'results', icon:'ti-medal', label:tx('nav.results','Results') }] },
   { section: tx('nav.admin','Admin'),            items: [{ id:'users', icon:'ti-users-group', label:tx('nav.users','User Management') }, { id:'settings', icon:'ti-settings', label:tx('nav.settings','Settings') }] },
@@ -301,7 +301,7 @@ export default function App() {
           {page==='schedule'  && <Schedule  profile={profile} coachId={myCoachId} myAthletes={myAthletes} athletes={athletes} onNav={goTo} readOnly={isAthlete} athleteId={isAthlete ? myAthleteId : null} initSessionId={navState?.sessionId} />}
           {page==='attendance' && <Attendance profile={profile} coachId={myCoachId} myAthletes={myAthletes} onNav={goTo} />}
           {page==='users'     && isAdmin && <UserManagement profile={profile} />}
-          {page==='athlete-dashboard' && <AthleteDashboard athlete={myAthlete} coach={myCoach} results={results} events={events} registrations={registrations} onNav={goTo} />}
+          {page==='athlete-dashboard' && <AthleteDashboard athlete={myAthlete} coach={myCoach} results={results} events={events} registrations={registrations} onNav={goTo} profile={profile} />}
           {page==='athlete-events'    && <AthleteEvents athlete={myAthlete} events={events} registrations={registrations} results={results} />}
           {page==='athlete-results'   && <AthleteResults athlete={myAthlete} results={results} />}
           {page==='settings'  && <Settings user={user} profile={profile} signOut={signOut} />}
