@@ -42,8 +42,11 @@ export default function DashboardBanners({ profile, onNav, extraBanners = [], ma
     return () => supabase.removeChannel(sub)
   }, [profile?.id])
 
+  // needs_attendance/needs_closing are session reminders shown via dedicated extraBanners
+  // on the coach dashboard — exclude them here to avoid showing the same thing twice.
+  const SESSION_REMINDER_TYPES = ['needs_attendance', 'needs_closing']
   const excuseRequests = unreadNotifs.filter(n => n.type === 'excuse_request')
-  const otherNotifs     = unreadNotifs.filter(n => n.type !== 'excuse_request')
+  const otherNotifs     = unreadNotifs.filter(n => n.type !== 'excuse_request' && !SESSION_REMINDER_TYPES.includes(n.type))
 
   const banners = [...extraBanners]
 
