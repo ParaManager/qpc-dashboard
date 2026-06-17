@@ -69,6 +69,22 @@ export default function App() {
   const [referees, setReferees]             = useState([])
   const [dataLoading, setDataLoading]     = useState(true)
   const [navState, setNavState]           = useState({})
+  const [notifCount, setNotifCount]       = useState(0)
+
+  useEffect(() => {
+    if (!profile?.id) { setNotifCount(0); return }
+    function refreshCount() {
+      supabase.from('notifications')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', String(profile.id))
+        .then(({ count }) => setNotifCount(count || 0))
+    }
+    refreshCount()
+    const sub = supabase.channel(`nav-notif-count-${profile.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${profile.id}` }, refreshCount)
+      .subscribe()
+    return () => supabase.removeChannel(sub)
+  }, [profile?.id])
 
   const fetchAll = useCallback(async () => {
     const [a, c, coa, e, r, reg, docs, emp, pdocs, refs] = await Promise.all([
@@ -229,6 +245,7 @@ export default function App() {
                   <i className={`ti ${icon}`} />
                   {label}
                   {id==='events' && upcomingCount>0 && <span className="nav-badge">{upcomingCount}</span>}
+                  {id==='notifications' && notifCount>0 && <span className="nav-badge">{notifCount}</span>}
                 </div>
               ))}
             </div>
