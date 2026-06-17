@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
+import * as XLSX from 'xlsx'
 import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
 import { Avatar } from '../lib/helpers'
-import { toast } from '../components/Toast'
+import { toast, ConfirmModal } from '../components/Toast'
 
 const STATUS_OPTS   = ['Present','Absent','Late','Excused']
 const STATUS_AR     = { Present:'حاضر', Absent:'غائب', Late:'متأخر', Excused:'معذور' }
@@ -16,16 +17,26 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
 
   const [sessions, setSessions]     = useState([])
   const [selSession, setSelSession] = useState(initSessionId || null)
-  const [attendance, setAttendance] = useState({}) // athlete_id -> status
-  const [notes, setNotes]           = useState({}) // athlete_id -> note
+  const [attendance, setAttendance] = useState({})
+  const [notes, setNotes]           = useState({})
   const [saving, setSaving]         = useState(false)
-  const [stats, setStats]           = useState({}) // athlete_id -> { present, absent, late, excused, total }
+  const [stats, setStats]           = useState({})
   const [viewMode, setViewMode]     = useState(initSessionId ? 'session' : 'overview')
   const [search, setSearch]         = useState('')
+  const [tab, setTab]               = useState('week')
+  const [closePrompt, setClosePrompt] = useState(false)
+  const [showExport, setShowExport]   = useState(false)
+  const [exportMode, setExportMode]   = useState('month')
+  const [exportMonth, setExportMonth] = useState(new Date().toISOString().slice(0,7))
+  const [exportWeekStart, setExportWeekStart] = useState(getWeekStart(new Date()).toISOString().slice(0,10))
+  const [exportFrom, setExportFrom]   = useState('')
+  const [exportTo, setExportTo]       = useState('')
+  const [exportSessionId, setExportSessionId] = useState('')
+  const [exporting, setExporting]     = useState(false)
 
   useEffect(() => { loadSessions() }, [coachId])
   useEffect(() => { if (selSession) loadAttendance(selSession) }, [selSession])
-  useEffect(() => { loadStats() }, [sessions])
+  useEffect(() => { loadStats() }, [sessions, tab])
 
   async function loadSessions() {
     let q = supabase.from('training_sessions').select('*, training_session_athletes(athlete_id)').order('session_date', { ascending: false })
@@ -43,13 +54,26 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
     setNotes(notesMap)
   }
 
+  function getPeriodStart(period) {
+    const now = new Date()
+    if (period === 'week') return getWeekStart(now)
+    if (period === 'month') return new Date(now.getFullYear(), now.getMonth(), 1)
+    return null
+  }
+
   async function loadStats() {
-    if (!sessions.length) return
-    const sessionIds = sessions.map(s => s.id)
+    if (tab === 'session') return
+    if (!sessions.length) { setStats({}); return }
+    const periodStart = getPeriodStart(tab)
+    const relevantSessions = periodStart
+      ? sessions.filter(s => new Date(s.session_date) >= periodStart)
+      : sessions
+    const sessionIds = relevantSessions.map(s => s.id)
+    if (sessionIds.length === 0) { setStats({}); return }
     const { data } = await supabase.from('attendance').select('*').in('session_id', sessionIds)
     const statsMap = {}
     myAthletes.forEach(a => {
-      const recs = (data||[]).filter(r => r.athlete_id === a.id)
+      const recs = (data||[]).filter(r => String(r.athlete_id) === String(a.id))
       statsMap[a.id] = {
         total:   recs.length,
         present: recs.filter(r=>r.status==='Present').length,
@@ -61,7 +85,7 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
     setStats(statsMap)
   }
 
-  async function saveAttendance() {
+  async function saveAttendance(promptClose = true) {
     if (!selSession) return
     setSaving(true)
     const session = sessions.find(s => s.id === selSession)
@@ -80,6 +104,21 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
     toast(L('Attendance saved','تم حفظ الحضور'))
     setSaving(false)
     loadStats()
+    if (promptClose && !session?.attendance_closed) setClosePrompt(true)
+  }
+
+  async function closeSession() {
+    await supabase.from('training_sessions').update({ attendance_closed: true }).eq('id', selSession)
+    toast(L('Session closed','تم إغلاق الجلسة'))
+    setClosePrompt(false)
+    setViewMode('overview')
+    loadSessions()
+  }
+
+  async function reopenSession(sessionId) {
+    await supabase.from('training_sessions').update({ attendance_closed: false }).eq('id', sessionId)
+    toast(L('Session reopened','تم إعادة فتح الجلسة'))
+    loadSessions()
   }
 
   function markAll(status) {
@@ -88,6 +127,80 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
     const newAtt = {}
     sessionAthletes.forEach(a => { newAtt[a.id] = status })
     setAttendance(prev => ({ ...prev, ...newAtt }))
+  }
+
+  async function runExport() {
+    setExporting(true)
+    try {
+      let sessionIds = []
+      let label = ''
+
+      if (exportMode === 'session') {
+        if (!exportSessionId) { toast(L('Pick a session','اختر جلسة'), 'error'); setExporting(false); return }
+        sessionIds = [exportSessionId]
+        const s = sessions.find(x => x.id === exportSessionId)
+        label = s ? `${s.session_date}_${(s.title||'session').replace(/\s+/g,'_')}` : 'session'
+      } else {
+        let from, to
+        if (exportMode === 'week') {
+          from = new Date(exportWeekStart)
+          to = new Date(from); to.setDate(to.getDate() + 6)
+          label = `Week_${exportWeekStart}`
+        } else if (exportMode === 'month') {
+          const [y, m] = exportMonth.split('-').map(Number)
+          from = new Date(y, m-1, 1)
+          to = new Date(y, m, 0)
+          label = `Month_${exportMonth}`
+        } else {
+          if (!exportFrom || !exportTo) { toast(L('Pick a date range','اختر فترة')); setExporting(false); return }
+          from = new Date(exportFrom)
+          to = new Date(exportTo)
+          label = `${exportFrom}_to_${exportTo}`
+        }
+        sessionIds = sessions
+          .filter(s => { const d = new Date(s.session_date); return d >= from && d <= to })
+          .map(s => s.id)
+      }
+
+      if (sessionIds.length === 0) {
+        toast(L('No sessions found for this period','لا توجد جلسات في هذه الفترة'), 'error')
+        setExporting(false)
+        return
+      }
+
+      const { data: attRows } = await supabase.from('attendance').select('*').in('session_id', sessionIds)
+      const sessionMap = {}
+      sessions.forEach(s => { sessionMap[s.id] = s })
+
+      const rows = (attRows || []).map(r => {
+        const s = sessionMap[r.session_id]
+        const a = myAthletes.find(x => String(x.id) === String(r.athlete_id))
+        return {
+          [L('Date','التاريخ')]:    s?.session_date || '',
+          [L('Session','الجلسة')]:  s?.title || '',
+          [L('Athlete','الرياضي')]: a ? (ar && a.name_ar ? a.name_ar : a.name) : r.athlete_id,
+          [L('Status','الحالة')]:   ar ? (STATUS_AR[r.status] || r.status) : r.status,
+          [L('Notes','ملاحظات')]:   r.notes || '',
+        }
+      }).sort((x,y) => (x[L('Date','التاريخ')] || '').localeCompare(y[L('Date','التاريخ')] || ''))
+
+      if (rows.length === 0) {
+        toast(L('No attendance records found for this period','لا توجد سجلات حضور لهذه الفترة'), 'error')
+        setExporting(false)
+        return
+      }
+
+      const ws = XLSX.utils.json_to_sheet(rows)
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, ar ? 'الحضور' : 'Attendance')
+      XLSX.writeFile(wb, `QPC_Attendance_${label}.xlsx`)
+      toast(L('Exported!','تم التصدير!'))
+      setShowExport(false)
+    } catch (err) {
+      toast(err.message || 'Export failed', 'error')
+    } finally {
+      setExporting(false)
+    }
   }
 
   const session = sessions.find(s => s.id === selSession)
@@ -99,11 +212,16 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
     (ar && a.name_ar ? a.name_ar : a.name).toLowerCase().includes(search.toLowerCase())
   )
 
-  // ── SESSION ATTENDANCE VIEW ──
+  const todayStr = new Date().toISOString().slice(0,10)
+  const todaysSession = sessions.find(s => s.session_date === todayStr)
+  const lastSession    = sessions.filter(s => s.session_date <= todayStr).sort((a,b) => b.session_date.localeCompare(a.session_date))[0]
+  const sessionTabSession = todaysSession || lastSession || null
+
   if (viewMode === 'session' && selSession) {
     const present = sessionAthletes.filter(a => attendance[a.id] === 'Present').length
     const absent  = sessionAthletes.filter(a => attendance[a.id] === 'Absent' || !attendance[a.id]).length
     const pct     = sessionAthletes.length ? Math.round((present / sessionAthletes.length) * 100) : 0
+    const isClosed = !!session?.attendance_closed
 
     return (
       <div>
@@ -113,7 +231,14 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
 
         {session && (
           <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14, padding:16, marginBottom:16, boxShadow:'var(--shadow)' }}>
-            <div style={{ fontSize:16, fontWeight:600 }}>{session.title}</div>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:8 }}>
+              <div style={{ fontSize:16, fontWeight:600 }}>{session.title}</div>
+              {isClosed && (
+                <span style={{ display:'flex', alignItems:'center', gap:6, fontSize:11, fontWeight:600, color:'#9aa3b2', background:'var(--surface2)', padding:'4px 10px', borderRadius:20 }}>
+                  <i className="ti ti-lock" style={{ fontSize:12 }} /> {L('Closed','مغلقة')}
+                </span>
+              )}
+            </div>
             <div style={{ fontSize:12, color:'var(--text3)', marginTop:4 }}>
               {session.session_date} · {session.start_time?.slice(0,5)||'—'} · {session.location||'—'}
             </div>
@@ -131,21 +256,25 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
                 </div>
               </div>
             </div>
+            {isClosed && (
+              <button className="action-btn" style={{ marginTop:12, borderColor:'#0085C7', color:'#0085C7' }}
+                onClick={() => reopenSession(session.id)}>
+                <i className="ti ti-lock-open" /> {L('Reopen to edit','إعادة فتح للتعديل')}
+              </button>
+            )}
           </div>
         )}
 
-        {/* Quick mark all */}
         <div style={{ display:'flex', gap:8, marginBottom:14, flexWrap:'wrap' }}>
           <span style={{ fontSize:12, color:'var(--text3)', alignSelf:'center' }}>{L('Mark all:','تحديد الكل:')}</span>
           {STATUS_OPTS.map(s => (
-            <button key={s} onClick={() => markAll(s)}
-              style={{ padding:'4px 12px', borderRadius:20, border:`1px solid ${STATUS_COLORS[s]}`, background:'transparent', color:STATUS_COLORS[s], fontSize:11, fontWeight:600, cursor:'pointer' }}>
+            <button key={s} onClick={() => markAll(s)} disabled={isClosed}
+              style={{ padding:'4px 12px', borderRadius:20, border:`1px solid ${STATUS_COLORS[s]}`, background:'transparent', color:STATUS_COLORS[s], fontSize:11, fontWeight:600, cursor: isClosed?'not-allowed':'pointer', opacity: isClosed?.5:1 }}>
               {ar ? STATUS_AR[s] : s}
             </button>
           ))}
         </div>
 
-        {/* Athlete attendance rows */}
         <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14, overflow:'hidden', marginBottom:16 }}>
           {sessionAthletes.length === 0
             ? <div className="empty" style={{ padding:24 }}>{L('No athletes in this session','لا يوجد رياضيون في هذه الجلسة')}</div>
@@ -159,12 +288,11 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
                       <div style={{ fontSize:13, fontWeight:500 }}>{ar&&a.name_ar?a.name_ar:a.name}</div>
                       <div style={{ fontSize:11, color:'var(--text3)' }}>{a.classification}</div>
                     </div>
-                    {/* Status buttons */}
                     <div style={{ display:'flex', gap:6 }}>
                       {STATUS_OPTS.map(s => (
-                        <button key={s} onClick={() => setAttendance(prev => ({...prev, [a.id]: s}))}
+                        <button key={s} disabled={isClosed} onClick={() => setAttendance(prev => ({...prev, [a.id]: s}))}
                           title={ar ? STATUS_AR[s] : s}
-                          style={{ width:32, height:32, borderRadius:8, border:'2px solid', borderColor: status===s ? STATUS_COLORS[s] : 'var(--border)', background: status===s ? STATUS_COLORS[s]+'20' : 'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                          style={{ width:32, height:32, borderRadius:8, border:'2px solid', borderColor: status===s ? STATUS_COLORS[s] : 'var(--border)', background: status===s ? STATUS_COLORS[s]+'20' : 'transparent', cursor: isClosed?'not-allowed':'pointer', opacity: isClosed && status!==s ? .4 : 1, display:'flex', alignItems:'center', justifyContent:'center' }}>
                           <i className={`ti ${STATUS_ICONS[s]}`} style={{ fontSize:14, color: status===s ? STATUS_COLORS[s] : 'var(--text3)' }} />
                         </button>
                       ))}
@@ -176,16 +304,33 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
           }
         </div>
 
-        <div style={{ display:'flex', justifyContent:'flex-end' }}>
-          <button className="btn" style={{ background:'#009F6B', padding:'9px 24px' }} onClick={saveAttendance} disabled={saving}>
-            {saving ? (L('Saving…','جارٍ الحفظ…')) : <><i className="ti ti-device-floppy" /> {L('Save attendance','حفظ الحضور')}</>}
-          </button>
-        </div>
+        {!isClosed && (
+          <div style={{ display:'flex', justifyContent:'flex-end' }}>
+            <button className="btn" style={{ background:'#009F6B', padding:'9px 24px' }} onClick={() => saveAttendance(true)} disabled={saving}>
+              {saving ? (L('Saving…','جارٍ الحفظ…')) : <><i className="ti ti-device-floppy" /> {L('Save attendance','حفظ الحضور')}</>}
+            </button>
+          </div>
+        )}
+
+        {closePrompt && (
+          <ConfirmModal
+            title={L('Close this session?','إغلاق هذه الجلسة؟')}
+            message={L(
+              'Attendance has been saved. Closing it will hide it from the active list, but you can still view, export, or reopen it anytime from the Schedule calendar.',
+              'تم حفظ الحضور. سيؤدي إغلاق الجلسة إلى إخفائها من القائمة النشطة، ولكن يمكنك دائمًا عرضها أو تصديرها أو إعادة فتحها من تقويم الجدول.'
+            )}
+            confirmLabel={L('Close session','إغلاق الجلسة')}
+            cancelLabel={L('Keep it open','إبقاؤها مفتوحة')}
+            onConfirm={closeSession}
+            onCancel={() => { setClosePrompt(false); setViewMode('overview') }}
+          />
+        )}
       </div>
     )
   }
 
-  // ── OVERVIEW ──
+  const openSessions = sessions.filter(s => !s.attendance_closed)
+
   return (
     <div>
       <div className="page-header">
@@ -193,15 +338,17 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
           <div className="page-title">{L('Attendance','الحضور والغياب')}</div>
           <div className="page-sub">{myAthletes.length} {L('athletes','رياضيون')}</div>
         </div>
+        <button className="btn" style={{ background:'#0085C7' }} onClick={() => setShowExport(true)}>
+          <i className="ti ti-file-export" /> {L('Export','تصدير')}
+        </button>
       </div>
 
-      {/* Session selector */}
       <div className="card" style={{ marginBottom:16 }}>
         <div className="card-title"><i className="ti ti-clipboard-check" /> {L('Take attendance for a session','تسجيل الحضور لجلسة')}</div>
         <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
           <select className="filter" style={{ flex:1, minWidth:200 }} value={selSession||''} onChange={e => setSelSession(e.target.value)}>
             <option value="">{L('Select a session…','اختر جلسة…')}</option>
-            {sessions.map(s => (
+            {openSessions.map(s => (
               <option key={s.id} value={s.id}>{s.session_date} — {s.title}</option>
             ))}
           </select>
@@ -210,58 +357,181 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
             {L('Open','فتح')} <i className="ti ti-arrow-right" />
           </button>
         </div>
+        {sessions.length > openSessions.length && (
+          <div style={{ fontSize:11, color:'var(--text3)', marginTop:10 }}>
+            <i className="ti ti-info-circle" style={{ marginRight:4 }} />
+            {L('Closed sessions are hidden here — view, export, or reopen them from the Schedule calendar.','الجلسات المغلقة مخفية هنا — يمكنك عرضها أو تصديرها أو إعادة فتحها من تقويم الجدول.')}
+          </div>
+        )}
       </div>
 
-      {/* Stats overview */}
       <div className="card">
-        <div className="card-title"><i className="ti ti-chart-bar" /> {L('Attendance overview','نظرة عامة على الحضور')}</div>
-        <div className="search-wrap" style={{ marginBottom:14 }}>
-          <i className="ti ti-search" />
-          <input placeholder={L('Search athletes…','بحث عن رياضي…')} value={search} onChange={e=>setSearch(e.target.value)} />
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:10, marginBottom:14 }}>
+          <div className="card-title" style={{ margin:0 }}><i className="ti ti-chart-bar" /> {L('Attendance overview','نظرة عامة على الحضور')}</div>
+          <div style={{ display:'flex', gap:6, background:'var(--surface2)', borderRadius:10, padding:4 }}>
+            {[['week',L('This Week','هذا الأسبوع')],['month',L('This Month','هذا الشهر')],['session',L('Per Session','حسب الجلسة')]].map(([key,label]) => (
+              <button key={key} onClick={() => setTab(key)}
+                style={{
+                  padding:'6px 14px', borderRadius:8, border:'none', cursor:'pointer',
+                  fontSize:12, fontWeight:600,
+                  background: tab===key ? 'var(--surface)' : 'transparent',
+                  color: tab===key ? 'var(--text)' : 'var(--text3)',
+                  boxShadow: tab===key ? '0 1px 3px rgba(0,0,0,.1)' : 'none',
+                }}>
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
-        <div style={{ overflowX:'auto' }}>
-          <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
-            <thead>
-              <tr style={{ background:'var(--surface2)' }}>
-                <th style={{ padding:'10px 12px', textAlign: ar?'right':'left', fontWeight:600, fontSize:12, color:'var(--text3)' }}>{L('Athlete','الرياضي')}</th>
-                <th style={{ padding:'10px 12px', textAlign:'center', color:'#009F6B', fontSize:12 }}>{L('Present','حاضر')}</th>
-                <th style={{ padding:'10px 12px', textAlign:'center', color:'#EE334E', fontSize:12 }}>{L('Absent','غائب')}</th>
-                <th style={{ padding:'10px 12px', textAlign:'center', color:'#f59e0b', fontSize:12 }}>{L('Late','متأخر')}</th>
-                <th style={{ padding:'10px 12px', textAlign:'center', color:'#8b5cf6', fontSize:12 }}>{L('Excused','معذور')}</th>
-                <th style={{ padding:'10px 12px', textAlign:'center', fontSize:12 }}>{L('Rate','المعدل')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredAthletes.map(a => {
-                const s = stats[a.id] || { total:0, present:0, absent:0, late:0, excused:0 }
-                const rate = s.total ? Math.round((s.present / s.total) * 100) : 0
-                return (
-                  <tr key={a.id} style={{ borderBottom:'1px solid var(--border)' }}>
-                    <td style={{ padding:'10px 12px' }}>
-                      <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                        <Avatar name={a.name} id={a.id} size={28} fs={9} />
-                        <span style={{ fontWeight:500 }}>{ar&&a.name_ar?a.name_ar:a.name}</span>
-                      </div>
-                    </td>
-                    <td style={{ textAlign:'center', fontWeight:600, color:'#009F6B' }}>{s.present}</td>
-                    <td style={{ textAlign:'center', fontWeight:600, color:'#EE334E' }}>{s.absent}</td>
-                    <td style={{ textAlign:'center', fontWeight:600, color:'#f59e0b' }}>{s.late}</td>
-                    <td style={{ textAlign:'center', fontWeight:600, color:'#8b5cf6' }}>{s.excused}</td>
-                    <td style={{ textAlign:'center' }}>
-                      <div style={{ display:'flex', alignItems:'center', gap:6, justifyContent:'center' }}>
-                        <div style={{ width:50, height:6, background:'var(--surface2)', borderRadius:3, overflow:'hidden' }}>
-                          <div style={{ height:'100%', width:`${rate}%`, background: rate>=80?'#009F6B':rate>=60?'#f59e0b':'#EE334E', borderRadius:3 }} />
-                        </div>
-                        <span style={{ fontSize:11, fontWeight:600 }}>{s.total?`${rate}%`:L('N/A','—')}</span>
-                      </div>
-                    </td>
+
+        {tab !== 'session' && (
+          <>
+            <div className="search-wrap" style={{ marginBottom:14 }}>
+              <i className="ti ti-search" />
+              <input placeholder={L('Search athletes…','بحث عن رياضي…')} value={search} onChange={e=>setSearch(e.target.value)} />
+            </div>
+            <div style={{ overflowX:'auto' }}>
+              <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
+                <thead>
+                  <tr style={{ background:'var(--surface2)' }}>
+                    <th style={{ padding:'10px 12px', textAlign: ar?'right':'left', fontWeight:600, fontSize:12, color:'var(--text3)' }}>{L('Athlete','الرياضي')}</th>
+                    <th style={{ padding:'10px 12px', textAlign:'center', color:'#009F6B', fontSize:12 }}>{L('Present','حاضر')}</th>
+                    <th style={{ padding:'10px 12px', textAlign:'center', color:'#EE334E', fontSize:12 }}>{L('Absent','غائب')}</th>
+                    <th style={{ padding:'10px 12px', textAlign:'center', color:'#f59e0b', fontSize:12 }}>{L('Late','متأخر')}</th>
+                    <th style={{ padding:'10px 12px', textAlign:'center', color:'#8b5cf6', fontSize:12 }}>{L('Excused','معذور')}</th>
+                    <th style={{ padding:'10px 12px', textAlign:'center', fontSize:12 }}>{L('Rate','المعدل')}</th>
                   </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
+                </thead>
+                <tbody>
+                  {filteredAthletes.map(a => {
+                    const s = stats[a.id] || { total:0, present:0, absent:0, late:0, excused:0 }
+                    const rate = s.total ? Math.round((s.present / s.total) * 100) : 0
+                    return (
+                      <tr key={a.id} style={{ borderBottom:'1px solid var(--border)' }}>
+                        <td style={{ padding:'10px 12px' }}>
+                          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                            <Avatar name={a.name} id={a.id} size={28} fs={9} />
+                            <span style={{ fontWeight:500 }}>{ar&&a.name_ar?a.name_ar:a.name}</span>
+                          </div>
+                        </td>
+                        <td style={{ textAlign:'center', fontWeight:600, color:'#009F6B' }}>{s.present}</td>
+                        <td style={{ textAlign:'center', fontWeight:600, color:'#EE334E' }}>{s.absent}</td>
+                        <td style={{ textAlign:'center', fontWeight:600, color:'#f59e0b' }}>{s.late}</td>
+                        <td style={{ textAlign:'center', fontWeight:600, color:'#8b5cf6' }}>{s.excused}</td>
+                        <td style={{ textAlign:'center' }}>
+                          <div style={{ display:'flex', alignItems:'center', gap:6, justifyContent:'center' }}>
+                            <div style={{ width:50, height:6, background:'var(--surface2)', borderRadius:3, overflow:'hidden' }}>
+                              <div style={{ height:'100%', width:`${rate}%`, background: rate>=80?'#009F6B':rate>=60?'#f59e0b':'#EE334E', borderRadius:3 }} />
+                            </div>
+                            <span style={{ fontSize:11, fontWeight:600 }}>{s.total?`${rate}%`:L('N/A','—')}</span>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+
+        {tab === 'session' && (
+          sessionTabSession ? (
+            <div>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:8, marginBottom:12 }}>
+                <div>
+                  <div style={{ fontWeight:600, fontSize:14 }}>{sessionTabSession.title}</div>
+                  <div style={{ fontSize:12, color:'var(--text3)', marginTop:2 }}>
+                    {sessionTabSession.session_date === todayStr ? L("Today's session","جلسة اليوم") : L('Last session','آخر جلسة')} · {sessionTabSession.session_date} · {sessionTabSession.start_time?.slice(0,5)||'—'}
+                  </div>
+                </div>
+                <button className="btn" style={{ background:'#0085C7' }}
+                  onClick={() => { setSelSession(sessionTabSession.id); setViewMode('session') }}>
+                  <i className="ti ti-clipboard-check" /> {L('Take / View Attendance','تسجيل / عرض الحضور')}
+                </button>
+              </div>
+              {sessionTabSession.attendance_closed && (
+                <div style={{ fontSize:11, color:'#9aa3b2', display:'flex', alignItems:'center', gap:5 }}>
+                  <i className="ti ti-lock" /> {L('This session is closed','هذه الجلسة مغلقة')}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="empty" style={{ padding:24 }}>{L('No sessions yet','لا توجد جلسات بعد')}</div>
+          )
+        )}
       </div>
+
+      {showExport && (
+        <div onClick={() => setShowExport(false)} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:9999, padding:20 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background:'var(--surface)', borderRadius:16, padding:24, width:420, maxWidth:'100%', boxShadow:'0 12px 40px rgba(0,0,0,.25)' }}>
+            <div style={{ fontSize:16, fontWeight:700, marginBottom:16 }}>{L('Export Attendance','تصدير الحضور')}</div>
+
+            <div style={{ display:'flex', gap:6, marginBottom:16, flexWrap:'wrap' }}>
+              {[['week',L('Week','أسبوع')],['month',L('Month','شهر')],['range',L('Custom range','فترة مخصصة')],['session',L('Single session','جلسة واحدة')]].map(([key,label]) => (
+                <button key={key} onClick={() => setExportMode(key)}
+                  style={{ padding:'6px 12px', borderRadius:20, border:`1.5px solid ${exportMode===key?'#0085C7':'var(--border)'}`, background: exportMode===key?'#0085C720':'transparent', color: exportMode===key?'#0085C7':'var(--text2)', fontSize:12, fontWeight:600, cursor:'pointer' }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {exportMode === 'week' && (
+              <div>
+                <label style={{ fontSize:12, color:'var(--text3)', display:'block', marginBottom:6 }}>{L('Week starting','الأسبوع يبدأ من')}</label>
+                <input type="date" className="filter" style={{ width:'100%' }} value={exportWeekStart} onChange={e => setExportWeekStart(e.target.value)} />
+              </div>
+            )}
+
+            {exportMode === 'month' && (
+              <div>
+                <label style={{ fontSize:12, color:'var(--text3)', display:'block', marginBottom:6 }}>{L('Month','الشهر')}</label>
+                <input type="month" className="filter" style={{ width:'100%' }} value={exportMonth} onChange={e => setExportMonth(e.target.value)} />
+              </div>
+            )}
+
+            {exportMode === 'range' && (
+              <div style={{ display:'flex', gap:10 }}>
+                <div style={{ flex:1 }}>
+                  <label style={{ fontSize:12, color:'var(--text3)', display:'block', marginBottom:6 }}>{L('From','من')}</label>
+                  <input type="date" className="filter" style={{ width:'100%' }} value={exportFrom} onChange={e => setExportFrom(e.target.value)} />
+                </div>
+                <div style={{ flex:1 }}>
+                  <label style={{ fontSize:12, color:'var(--text3)', display:'block', marginBottom:6 }}>{L('To','إلى')}</label>
+                  <input type="date" className="filter" style={{ width:'100%' }} value={exportTo} onChange={e => setExportTo(e.target.value)} />
+                </div>
+              </div>
+            )}
+
+            {exportMode === 'session' && (
+              <div>
+                <label style={{ fontSize:12, color:'var(--text3)', display:'block', marginBottom:6 }}>{L('Session','الجلسة')}</label>
+                <select className="filter" style={{ width:'100%' }} value={exportSessionId} onChange={e => setExportSessionId(e.target.value)}>
+                  <option value="">{L('Select a session…','اختر جلسة…')}</option>
+                  {sessions.map(s => (
+                    <option key={s.id} value={s.id}>{s.session_date} — {s.title}{s.attendance_closed ? ` (${L('closed','مغلقة')})` : ''}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:20 }}>
+              <button className="action-btn" onClick={() => setShowExport(false)}>{L('Cancel','إلغاء')}</button>
+              <button className="btn" style={{ background:'#009F6B' }} onClick={runExport} disabled={exporting}>
+                {exporting ? L('Exporting…','جارٍ التصدير…') : <><i className="ti ti-file-export" /> {L('Export Excel','تصدير Excel')}</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
+}
+
+function getWeekStart(date) {
+  const d = new Date(date)
+  const day = d.getDay()
+  d.setDate(d.getDate() - day)
+  d.setHours(0,0,0,0)
+  return d
 }
