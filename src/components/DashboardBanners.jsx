@@ -24,20 +24,29 @@ export default function DashboardBanners({ profile, onNav, extraBanners = [], ma
   const ar = lang === 'ar'
   const L = (en, a) => ar ? a : en
 
-  const [unreadNotifs, setUnreadNotifs] = useState([])
+  const [activeNotifs, setActiveNotifs] = useState([])
 
   useEffect(() => {
     if (!profile?.id) return
+    // Dashboard banners exist to keep nagging about unresolved items, so they ignore
+    // both `read` and `dismissed` — those only control the bell dropdown / list view.
+    // A notification only disappears from here once it's actually resolved (i.e. its
+    // row is deleted by the relevant resync/cleanup logic elsewhere).
     supabase.from('notifications')
       .select('*')
       .eq('user_id', String(profile.id))
-      .eq('read', false)
       .order('created_at', { ascending: false })
-      .then(({ data }) => setUnreadNotifs(data || []))
+      .then(({ data }) => setActiveNotifs(data || []))
 
     const sub = supabase.channel(`dash-notifs-${profile.id}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${profile.id}` },
-        payload => setUnreadNotifs(prev => [payload.new, ...prev]))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${profile.id}` },
+        () => {
+          supabase.from('notifications')
+            .select('*')
+            .eq('user_id', String(profile.id))
+            .order('created_at', { ascending: false })
+            .then(({ data }) => setActiveNotifs(data || []))
+        })
       .subscribe()
     return () => supabase.removeChannel(sub)
   }, [profile?.id])
@@ -45,8 +54,8 @@ export default function DashboardBanners({ profile, onNav, extraBanners = [], ma
   // needs_attendance/needs_closing are session reminders shown via dedicated extraBanners
   // on the coach dashboard — exclude them here to avoid showing the same thing twice.
   const SESSION_REMINDER_TYPES = ['needs_attendance', 'needs_closing']
-  const excuseRequests = unreadNotifs.filter(n => n.type === 'excuse_request')
-  const otherNotifs     = unreadNotifs.filter(n => n.type !== 'excuse_request' && !SESSION_REMINDER_TYPES.includes(n.type))
+  const excuseRequests = activeNotifs.filter(n => n.type === 'excuse_request')
+  const otherNotifs     = activeNotifs.filter(n => n.type !== 'excuse_request' && !SESSION_REMINDER_TYPES.includes(n.type))
 
   const banners = [...extraBanners]
 

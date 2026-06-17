@@ -72,28 +72,24 @@ export default function NotificationBell({ isAdmin, userId }) {
       .from('notifications')
       .select('*')
       .eq('user_id', String(userId))
-      .eq('read', false)
+      .eq('dismissed', false)
       .order('created_at', { ascending: false })
       .limit(20)
     setNotifs(data || [])
   }
 
-  async function markRead(id) {
-    await supabase.from('notifications').update({ read: true }).eq('id', id)
+  async function dismiss(id) {
+    await supabase.from('notifications').update({ dismissed: true, read: true }).eq('id', id)
     setNotifs(prev => prev.filter(n => n.id !== id))
   }
 
-  async function markAllRead() {
+  async function dismissAll() {
     if (!userId) return
-    // Action-required types (excuse_request, needs_attendance, needs_closing) stay unread
-    // until actually resolved — "mark all read" shouldn't dismiss pending action items.
-    const ACTION_REQUIRED_TYPES = ['excuse_request', 'needs_attendance', 'needs_closing']
     await supabase.from('notifications')
-      .update({ read: true })
+      .update({ dismissed: true, read: true })
       .eq('user_id', String(userId))
-      .eq('read', false)
-      .not('type', 'in', `(${ACTION_REQUIRED_TYPES.join(',')})`)
-    setNotifs(prev => prev.filter(n => ACTION_REQUIRED_TYPES.includes(n.type)))
+      .eq('dismissed', false)
+    setNotifs([])
   }
 
   async function enableNotifications() {
@@ -130,8 +126,8 @@ export default function NotificationBell({ isAdmin, userId }) {
             </div>
             <div style={{ display:'flex', gap:8, alignItems:'center' }}>
               {notifications.length > 0 && (
-                <button onClick={markAllRead} style={{ fontSize:11, color:'#0085C7', background:'none', border:'none', cursor:'pointer' }}>
-                  {L('Mark all read', 'تحديد الكل كمقروء')}
+                <button onClick={dismissAll} style={{ fontSize:11, color:'#0085C7', background:'none', border:'none', cursor:'pointer' }}>
+                  {L('Clear all', 'مسح الكل')}
                 </button>
               )}
               {permission !== 'granted' && (
@@ -148,10 +144,9 @@ export default function NotificationBell({ isAdmin, userId }) {
               <div key={n.id} 
                 onClick={() => {
                   setOpen(false)
-                  // Action-required types (excuse_request, needs_attendance, needs_closing) stay
-                  // unread until actually resolved — viewing them shouldn't dismiss the action item.
-                  const isActionRequired = ['excuse_request', 'needs_attendance', 'needs_closing'].includes(n.type)
-                  if (!isActionRequired) markRead(n.id)
+                  // Clicking through marks it seen, but never affects whether the underlying
+                  // thing is resolved — dashboard banners track resolution separately.
+                  supabase.from('notifications').update({ read: true }).eq('id', n.id)
                   const sessionId = n.data?.session_id
                   if (n.type === 'needs_attendance' || n.type === 'needs_closing') {
                     window.dispatchEvent(new CustomEvent('navigate', { detail: { page:'attendance', sessionId } }))
@@ -170,17 +165,8 @@ export default function NotificationBell({ isAdmin, userId }) {
                   <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>{n.body}</div>
                   <div style={{ fontSize:10, color:'var(--text3)', marginTop:4 }}>{new Date(n.created_at).toLocaleDateString(ar?'ar-QA':'en-GB')}</div>
                 </div>
-                <button onClick={e => {
-                    e.stopPropagation()
-                    const isActionRequired = ['excuse_request','needs_attendance','needs_closing'].includes(n.type)
-                    if (isActionRequired) {
-                      // Don't mark as read — it's still unresolved. Just hide it from this dropdown view.
-                      setNotifs(prev => prev.filter(x => x.id !== n.id))
-                    } else {
-                      markRead(n.id)
-                    }
-                  }}
-                  title={['excuse_request','needs_attendance','needs_closing'].includes(n.type) ? L('Hide (still pending)','إخفاء (لا يزال معلقًا)') : L('Dismiss','تجاهل')}
+                <button onClick={e => { e.stopPropagation(); dismiss(n.id) }}
+                  title={L('Clear from bell','مسح من الجرس')}
                   style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text3)', fontSize:16, padding:0, flexShrink:0 }}>×</button>
               </div>
             ))}
