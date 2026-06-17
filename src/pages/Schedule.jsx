@@ -195,12 +195,12 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
             ar={ar}
             onClose={() => setRequestModal(null)}
             onSave={async (type, reason) => {
-              const { error: reqErr } = await supabase.from('training_session_requests').insert({
+              const { data: newReq, error: reqErr } = await supabase.from('training_session_requests').insert({
                 session_id: requestModal.id,
                 athlete_id: String(athleteId),
                 coach_id: String(requestModal.coach_id || coachId || ''),
                 type, reason, status: 'pending'
-              })
+              }).select().single()
               if (reqErr) { toast(reqErr.message, 'error'); return }
               // Find coach's profile ID to send notification
               const targetCoachId = String(requestModal.coach_id || coachId || '')
@@ -214,7 +214,7 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
                   type: 'excuse_request',
                   title: ar ? 'طلب عذر جديد' : 'New excuse/reschedule request',
                   body: `${type === 'excuse' ? (ar?'عذر':'Excuse') : (ar?'إعادة جدولة':'Reschedule')} - ${requestModal.title || requestModal.session_date}`,
-                  data: { session_id: requestModal.id },
+                  data: { session_id: requestModal.id, request_id: newReq?.id },
                   read: false,
                 })
               }
@@ -384,13 +384,13 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
           ar={ar}
           onClose={() => setRequestModal(null)}
           onSave={async (type, reason) => {
-            await supabase.from('training_session_requests').insert({
+            const { data: newReq2 } = await supabase.from('training_session_requests').insert({
               session_id: requestModal.id,
               athlete_id: String(athleteId),
               coach_id: String(requestModal.coach_id || coachId || ''),
               type, reason,
               status: 'pending'
-            })
+            }).select().single()
             const targetId = String(requestModal.coach_id || coachId || '')
             const { data: cpList2 } = await supabase.from('profiles').select('id, coach_id')
             const cp = (cpList2||[]).find(p => String(p.coach_id) === targetId)
@@ -400,6 +400,7 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
                 type: 'excuse_request',
                 title: ar ? 'طلب عذر جديد' : 'New excuse/reschedule request',
                 body: `${type === 'excuse' ? (ar?'عذر':'Excuse') : (ar?'إعادة جدولة':'Reschedule')} - ${requestModal.title || requestModal.session_date}`,
+                data: { session_id: requestModal.id, request_id: newReq2?.id },
                 read: false,
               })
             }

@@ -112,6 +112,43 @@ export default function CoachDashboard({ coach, athletes, events, results, onNav
     })()
   }, [coach?.id])
 
+  // Resync excuse/reschedule request notifications: keep firing while still pending,
+  // remove once approved/rejected (so deleting one re-appears if it's still unresolved).
+  useEffect(() => {
+    if (!coach?.id || !profile?.id) return
+    ;(async () => {
+      const { data: pendingRequests } = await supabase
+        .from('training_session_requests')
+        .select('*')
+        .eq('coach_id', String(coach.id))
+        .eq('status', 'pending')
+
+      const { data: existing } = await supabase
+        .from('notifications')
+        .select('id, data')
+        .eq('user_id', String(profile.id))
+        .eq('type', 'excuse_request')
+
+      const existingSessionRequestIds = new Set((existing || []).map(n => n.data?.request_id).filter(Boolean))
+      const pendingIds = (pendingRequests || []).map(r => r.id)
+
+      const toInsert = (pendingRequests || [])
+        .filter(r => !existingSessionRequestIds.has(r.id))
+        .map(r => ({
+          user_id: profile.id, type: 'excuse_request', read: false,
+          title: L('New excuse/reschedule request','طلب عذر/إعادة جدولة جديد'),
+          body: r.type === 'excuse' ? L('Excuse request','طلب عذر') : L('Reschedule request','طلب إعادة جدولة'),
+          data: { session_id: r.session_id, request_id: r.id },
+        }))
+      if (toInsert.length > 0) await supabase.from('notifications').insert(toInsert)
+
+      const idsToDelete = (existing || [])
+        .filter(n => n.data?.request_id && !pendingIds.includes(n.data.request_id))
+        .map(n => n.id)
+      if (idsToDelete.length > 0) await supabase.from('notifications').delete().in('id', idsToDelete)
+    })()
+  }, [coach?.id, profile?.id])
+
   const myAthletes   = (athletes||[]).filter(a => String(a.coach_id) === String(coach.id)).sort((a,b) => { if (a.status==='Active' && b.status!=='Active') return -1; if (a.status!=='Active' && b.status==='Active') return 1; return 0 })
   const myAthleteIds = myAthletes.map(a => a.id)
 
