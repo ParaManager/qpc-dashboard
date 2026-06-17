@@ -58,7 +58,7 @@ export default function DashboardBanners({ profile, onNav, extraBanners = [], ma
         : L(`${excuseRequests.length} new excuse/reschedule requests`, `${excuseRequests.length} طلبات عذر/إعادة جدولة جديدة`),
       sub: excuseRequests.slice(0,2).map(n => n.body).join(' · '),
       actionLabel: L('Review','مراجعة'),
-      onAction: () => onNav('attendance', excuseRequests[0]?.data?.session_id ? { sessionId: excuseRequests[0].data.session_id } : {}),
+      onAction: () => onNav('schedule', excuseRequests[0]?.data?.session_id ? { sessionId: excuseRequests[0].data.session_id } : {}),
     })
   }
 

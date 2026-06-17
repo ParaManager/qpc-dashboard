@@ -143,8 +143,10 @@ export default function NotificationBell({ isAdmin, userId }) {
                   setOpen(false)
                   markRead(n.id)
                   const sessionId = n.data?.session_id
-                  if (['excuse_request','session_added','request_approved','request_rejected','needs_attendance','needs_closing'].includes(n.type)) {
+                  if (n.type === 'needs_attendance' || n.type === 'needs_closing') {
                     window.dispatchEvent(new CustomEvent('navigate', { detail: { page:'attendance', sessionId } }))
+                  } else if (n.type==='excuse_request' || n.type==='session_added' || n.type==='request_approved' || n.type==='request_rejected') {
+                    window.dispatchEvent(new CustomEvent('navigate', { detail: { page:'schedule', sessionId } }))
                   } else if (n.type==='access_request') {
                     window.dispatchEvent(new CustomEvent('navigate', { detail: { page:'users' } }))
                   }
