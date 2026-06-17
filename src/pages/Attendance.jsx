@@ -34,10 +34,22 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
   const [exportSessionId, setExportSessionId] = useState('')
   const [sessionTabAttendance, setSessionTabAttendance] = useState([])
   const [exporting, setExporting]     = useState(false)
+  const [unclosedWarning, setUnclosedWarning] = useState(null)  // { target, blocking } when trying to open a new session with an older one still open
+  const [athleteDetail, setAthleteDetail] = useState(null)  // athlete object when viewing their personal attendance
+  const [athleteDetailTab, setAthleteDetailTab] = useState('week')
+  const [athleteDetailRecords, setAthleteDetailRecords] = useState([])
 
   useEffect(() => { loadSessions() }, [coachId])
   useEffect(() => { if (selSession) loadAttendance(selSession) }, [selSession])
   useEffect(() => { loadStats() }, [sessions, tab])
+
+  useEffect(() => {
+    if (!athleteDetail) { setAthleteDetailRecords([]); return }
+    const sessionIds = sessions.map(s => s.id)
+    if (sessionIds.length === 0) { setAthleteDetailRecords([]); return }
+    supabase.from('attendance').select('*').eq('athlete_id', String(athleteDetail.id)).in('session_id', sessionIds)
+      .then(({ data }) => setAthleteDetailRecords(data || []))
+  }, [athleteDetail, sessions])
 
   useEffect(() => {
     const todayStr2 = new Date().toISOString().slice(0,10)
@@ -131,6 +143,27 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
     await supabase.from('training_sessions').update({ attendance_closed: false }).eq('id', sessionId)
     toast(L('Session reopened','تم إعادة فتح الجلسة'))
     loadSessions()
+  }
+
+  // Find any older sessions (by date) that are still unclosed, excluding the target itself
+  function findOlderUnclosed(targetSession) {
+    if (!targetSession) return []
+    return sessions.filter(s =>
+      s.id !== targetSession.id &&
+      !s.attendance_closed &&
+      s.session_date < targetSession.session_date
+    )
+  }
+
+  // Wraps opening a session: if older unclosed sessions exist, warn first
+  function openSessionFor(targetSession) {
+    const blocking = findOlderUnclosed(targetSession)
+    if (blocking.length > 0) {
+      setUnclosedWarning({ target: targetSession, blocking })
+      return
+    }
+    setSelSession(targetSession.id)
+    setViewMode('session')
   }
 
   function markAll(status) {
@@ -373,7 +406,7 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
             ))}
           </select>
           <button className="btn" style={{ background:'#0085C7' }} disabled={!selSession}
-            onClick={() => setViewMode('session')}>
+            onClick={() => { const s = sessions.find(x => x.id === selSession); if (s) openSessionFor(s) }}>
             {L('Open','فتح')} <i className="ti ti-arrow-right" />
           </button>
         </div>
@@ -427,7 +460,10 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
                     const s = stats[a.id] || { total:0, present:0, absent:0, late:0, excused:0 }
                     const rate = s.total ? Math.round((s.present / s.total) * 100) : 0
                     return (
-                      <tr key={a.id} style={{ borderBottom:'1px solid var(--border)' }}>
+                      <tr key={a.id} onClick={() => setAthleteDetail(a)}
+                        style={{ borderBottom:'1px solid var(--border)', cursor:'pointer' }}
+                        onMouseEnter={e => e.currentTarget.style.background='var(--surface2)'}
+                        onMouseLeave={e => e.currentTarget.style.background='transparent'}>
                         <td style={{ padding:'10px 12px' }}>
                           <div style={{ display:'flex', alignItems:'center', gap:8 }}>
                             <Avatar name={a.name} id={a.id} size={28} fs={9} />
@@ -469,7 +505,7 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
                   </div>
                 </div>
                 <button className="btn" style={{ background:'#0085C7' }}
-                  onClick={() => { setSelSession(sessionTabSession.id); setViewMode('session') }}>
+                  onClick={() => openSessionFor(sessionTabSession)}>
                   <i className="ti ti-clipboard-check" /> {L('Take / View Attendance','تسجيل / عرض الحضور')}
                 </button>
               </div>
@@ -529,6 +565,123 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
           )
         )}
       </div>
+
+      {athleteDetail && (() => {
+        const periodStart = athleteDetailTab === 'week' ? getWeekStart(new Date())
+          : athleteDetailTab === 'month' ? new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+          : null
+        const sessionMap = {}
+        sessions.forEach(s => { sessionMap[s.id] = s })
+        const relevant = athleteDetailRecords.filter(r => {
+          const s = sessionMap[r.session_id]
+          if (!s) return false
+          if (!periodStart) return true
+          return new Date(s.session_date) >= periodStart
+        })
+        const counts = {
+          present: relevant.filter(r => r.status === 'Present').length,
+          absent:  relevant.filter(r => r.status === 'Absent').length,
+          late:    relevant.filter(r => r.status === 'Late').length,
+          excused: relevant.filter(r => r.status === 'Excused').length,
+        }
+        const total = relevant.length
+        const rate  = total ? Math.round((counts.present / total) * 100) : 0
+        const sortedRows = relevant
+          .map(r => ({ ...r, session: sessionMap[r.session_id] }))
+          .sort((a,b) => (b.session?.session_date||'').localeCompare(a.session?.session_date||''))
+
+        return (
+          <div onClick={() => setAthleteDetail(null)} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:9999, padding:20 }}>
+            <div onClick={e => e.stopPropagation()} style={{ background:'var(--surface)', borderRadius:16, padding:24, width:480, maxWidth:'100%', maxHeight:'85vh', overflowY:'auto', boxShadow:'0 12px 40px rgba(0,0,0,.25)' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:16 }}>
+                <Avatar name={athleteDetail.name} id={athleteDetail.id} size={40} fs={14} />
+                <div style={{ flex:1 }}>
+                  <div style={{ fontSize:16, fontWeight:700 }}>{ar && athleteDetail.name_ar ? athleteDetail.name_ar : athleteDetail.name}</div>
+                  <div style={{ fontSize:12, color:'var(--text3)' }}>{L('Attendance history','سجل الحضور')}</div>
+                </div>
+                <button onClick={() => setAthleteDetail(null)} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text3)', fontSize:20 }}>×</button>
+              </div>
+
+              <div style={{ display:'flex', gap:6, background:'var(--surface2)', borderRadius:10, padding:4, marginBottom:16 }}>
+                {[['week',L('This Week','هذا الأسبوع')],['month',L('This Month','هذا الشهر')]].map(([key,label]) => (
+                  <button key={key} onClick={() => setAthleteDetailTab(key)}
+                    style={{ flex:1, padding:'6px 14px', borderRadius:8, border:'none', cursor:'pointer', fontSize:12, fontWeight:600,
+                      background: athleteDetailTab===key ? 'var(--surface)' : 'transparent',
+                      color: athleteDetailTab===key ? 'var(--text)' : 'var(--text3)',
+                      boxShadow: athleteDetailTab===key ? '0 1px 3px rgba(0,0,0,.1)' : 'none' }}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              <div style={{ display:'flex', gap:16, marginBottom:16, justifyContent:'space-around' }}>
+                {[['Present','حاضر',counts.present,'#009F6B'],['Absent','غائب',counts.absent,'#EE334E'],['Late','متأخر',counts.late,'#f59e0b'],['Excused','معذور',counts.excused,'#8b5cf6']].map(([en,arLbl,val,col])=>(
+                  <div key={en} style={{ textAlign:'center' }}>
+                    <div style={{ fontSize:20, fontWeight:700, color:col }}>{val}</div>
+                    <div style={{ fontSize:10, color:'var(--text3)' }}>{ar?arLbl:en}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ marginBottom:16 }}>
+                <div style={{ fontSize:11, color:'var(--text3)', marginBottom:4 }}>{rate}% {L('attendance rate','معدل الحضور')}</div>
+                <div style={{ height:8, background:'var(--surface2)', borderRadius:4, overflow:'hidden' }}>
+                  <div style={{ height:'100%', width:`${rate}%`, background:'#009F6B', borderRadius:4 }} />
+                </div>
+              </div>
+
+              <div style={{ borderTop:'1px solid var(--border)', paddingTop:12 }}>
+                {sortedRows.length === 0
+                  ? <div className="empty" style={{ padding:16, fontSize:13 }}>{L('No records for this period','لا توجد سجلات لهذه الفترة')}</div>
+                  : sortedRows.map(r => (
+                    <div key={r.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 0', borderBottom:'1px solid var(--border)', fontSize:13 }}>
+                      <div>
+                        <div style={{ fontWeight:500 }}>{r.session?.title || r.session?.session_date}</div>
+                        <div style={{ fontSize:11, color:'var(--text3)' }}>{r.session?.session_date}</div>
+                      </div>
+                      <span style={{ fontSize:11, fontWeight:600, padding:'3px 10px', borderRadius:20, background:STATUS_COLORS[r.status]+'20', color:STATUS_COLORS[r.status] }}>
+                        {ar ? STATUS_AR[r.status] : r.status}
+                      </span>
+                    </div>
+                  ))
+                }
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
+      {unclosedWarning && (
+        <ConfirmModal
+          danger={false}
+          title={L('Previous session still open','جلسة سابقة لا تزال مفتوحة')}
+          message={
+            unclosedWarning.blocking.length === 1
+              ? L(
+                  `"${unclosedWarning.blocking[0].title || unclosedWarning.blocking[0].session_date}" from ${unclosedWarning.blocking[0].session_date} hasn't been closed yet. We recommend closing it before starting a new one, so it doesn't get forgotten.`,
+                  `الجلسة "${unclosedWarning.blocking[0].title || unclosedWarning.blocking[0].session_date}" من ${unclosedWarning.blocking[0].session_date} لم تُغلق بعد. ننصح بإغلاقها قبل بدء جلسة جديدة حتى لا تُنسى.`
+                )
+              : L(
+                  `You have ${unclosedWarning.blocking.length} earlier sessions that haven't been closed yet. We recommend closing them before starting a new one.`,
+                  `لديك ${unclosedWarning.blocking.length} جلسات سابقة لم تُغلق بعد. ننصح بإغلاقها قبل بدء جلسة جديدة.`
+                )
+          }
+          confirmLabel={L('Continue anyway','المتابعة على أي حال')}
+          cancelLabel={L('Go close it first','إغلاقها أولاً')}
+          onConfirm={() => {
+            const t = unclosedWarning.target
+            setUnclosedWarning(null)
+            setSelSession(t.id)
+            setViewMode('session')
+          }}
+          onCancel={() => {
+            const oldest = unclosedWarning.blocking[0]
+            setUnclosedWarning(null)
+            setSelSession(oldest.id)
+            setViewMode('session')
+          }}
+        />
+      )}
 
       {showExport && (
         <div onClick={() => setShowExport(false)} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:9999, padding:20 }}>

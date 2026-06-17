@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import * as XLSX from 'xlsx'
 import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
 import { Avatar, Badge } from '../lib/helpers'
@@ -121,6 +122,31 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
     setSelected(null); loadSessions()
   }
 
+  const STATUS_AR_EXPORT = { Present:'حاضر', Absent:'غائب', Late:'متأخر', Excused:'معذور' }
+
+  async function exportSessionAttendance(session) {
+    const { data: attRows } = await supabase.from('attendance').select('*').eq('session_id', session.id)
+    if (!attRows || attRows.length === 0) {
+      toast(ar ? 'لا توجد سجلات حضور لهذه الجلسة' : 'No attendance records for this session', 'error')
+      return
+    }
+    const rows = attRows.map(r => {
+      const a = myAthletes.find(x => String(x.id) === String(r.athlete_id))
+      return {
+        [L('Date','التاريخ')]:    session.session_date,
+        [L('Session','الجلسة')]:  session.title || '',
+        [L('Athlete','الرياضي')]: a ? (ar && a.name_ar ? a.name_ar : a.name) : r.athlete_id,
+        [L('Status','الحالة')]:   ar ? (STATUS_AR_EXPORT[r.status] || r.status) : r.status,
+        [L('Notes','ملاحظات')]:   r.notes || '',
+      }
+    })
+    const ws = XLSX.utils.json_to_sheet(rows)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, ar ? 'الحضور' : 'Attendance')
+    XLSX.writeFile(wb, `QPC_Attendance_${session.session_date}_${(session.title||'session').replace(/\s+/g,'_')}.xlsx`)
+    toast(ar ? 'تم التصدير!' : 'Exported!')
+  }
+
   const L = (en, a) => ar ? a : en
   const monthNames = ar
     ? ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر']
@@ -212,6 +238,10 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
             <button className="btn" style={{ background:color, fontSize:13, padding:'6px 14px' }}
               onClick={() => onNav('attendance', { sessionId: s.id })}>
               <i className="ti ti-clipboard-check" /> {L('Take attendance','تسجيل الحضور')}
+            </button>
+            <button className="action-btn" style={{ borderColor:'#009F6B', color:'#009F6B' }}
+              onClick={() => exportSessionAttendance(s)}>
+              <i className="ti ti-file-export" /> {L('Export attendance','تصدير الحضور')}
             </button>
           </>}
           {readOnly && athleteId && (

@@ -16,6 +16,7 @@ export default function CoachDashboard({ coach, athletes, events, results, onNav
   )
 
   const [upcomingSessions, setUpcomingSessions] = useState([])
+  const [reminders, setReminders] = useState({ needsAttendance: [], needsClosing: [] })
 
   useEffect(() => {
     if (!coach?.id) return
@@ -27,6 +28,36 @@ export default function CoachDashboard({ coach, athletes, events, results, onNav
       .order('session_date').order('start_time')
       .limit(5)
       .then(({ data }) => setUpcomingSessions(data || []))
+  }, [coach?.id])
+
+  useEffect(() => {
+    if (!coach?.id) return
+    const today = new Date().toISOString().split('T')[0]
+    ;(async () => {
+      // Past or today's sessions for this coach
+      const { data: pastSessions } = await supabase
+        .from('training_sessions')
+        .select('*')
+        .eq('coach_id', String(coach.id))
+        .lte('session_date', today)
+        .order('session_date', { ascending: false })
+        .limit(30)
+
+      if (!pastSessions?.length) { setReminders({ needsAttendance: [], needsClosing: [] }); return }
+
+      const sessionIds = pastSessions.map(s => s.id)
+      const { data: attRows } = await supabase
+        .from('attendance')
+        .select('session_id')
+        .in('session_id', sessionIds)
+
+      const sessionsWithAttendance = new Set((attRows || []).map(r => r.session_id))
+
+      const needsAttendance = pastSessions.filter(s => !sessionsWithAttendance.has(s.id) && !s.attendance_closed)
+      const needsClosing    = pastSessions.filter(s => sessionsWithAttendance.has(s.id) && !s.attendance_closed)
+
+      setReminders({ needsAttendance, needsClosing })
+    })()
   }, [coach?.id])
 
   const myAthletes   = (athletes||[]).filter(a => String(a.coach_id) === String(coach.id)).sort((a,b) => { if (a.status==='Active' && b.status!=='Active') return -1; if (a.status!=='Active' && b.status==='Active') return 1; return 0 })
@@ -102,6 +133,51 @@ export default function CoachDashboard({ coach, athletes, events, results, onNav
           </div>
         )}
       </div>
+
+      {/* Reminders */}
+      {(reminders.needsAttendance.length > 0 || reminders.needsClosing.length > 0) && (
+        <div style={{ display:'flex', flexDirection:'column', gap:8, marginBottom:16 }}>
+          {reminders.needsAttendance.length > 0 && (
+            <div style={{ display:'flex', alignItems:'center', gap:10, padding:'12px 16px', background:'#f59e0b15', border:'1px solid #f59e0b40', borderRadius:12 }}>
+              <i className="ti ti-alert-circle" style={{ fontSize:20, color:'#f59e0b', flexShrink:0 }} />
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:13, fontWeight:600, color:'#f59e0b' }}>
+                  {reminders.needsAttendance.length === 1
+                    ? L('1 session needs attendance', 'جلسة واحدة بحاجة لتسجيل الحضور')
+                    : L(`${reminders.needsAttendance.length} sessions need attendance`, `${reminders.needsAttendance.length} جلسات بحاجة لتسجيل الحضور`)}
+                </div>
+                <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>
+                  {reminders.needsAttendance.slice(0,3).map(s => s.title || s.session_date).join(', ')}
+                  {reminders.needsAttendance.length > 3 ? '…' : ''}
+                </div>
+              </div>
+              <button className="btn" style={{ background:'#f59e0b', padding:'6px 14px', fontSize:12, flexShrink:0 }}
+                onClick={() => onNav('attendance', { sessionId: reminders.needsAttendance[0].id })}>
+                {L('Take attendance','تسجيل الحضور')}
+              </button>
+            </div>
+          )}
+          {reminders.needsClosing.length > 0 && (
+            <div style={{ display:'flex', alignItems:'center', gap:10, padding:'12px 16px', background:'#0085C715', border:'1px solid #0085C740', borderRadius:12 }}>
+              <i className="ti ti-lock-open" style={{ fontSize:20, color:'#0085C7', flexShrink:0 }} />
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:13, fontWeight:600, color:'#0085C7' }}>
+                  {reminders.needsClosing.length === 1
+                    ? L('1 session is ready to close', 'جلسة واحدة جاهزة للإغلاق')
+                    : L(`${reminders.needsClosing.length} sessions are ready to close`, `${reminders.needsClosing.length} جلسات جاهزة للإغلاق`)}
+                </div>
+                <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>
+                  {L('Attendance was taken but the session is still open.', 'تم تسجيل الحضور ولكن الجلسة لا تزال مفتوحة.')}
+                </div>
+              </div>
+              <button className="btn" style={{ background:'#0085C7', padding:'6px 14px', fontSize:12, flexShrink:0 }}
+                onClick={() => onNav('attendance', { sessionId: reminders.needsClosing[0].id })}>
+                {L('Review & close','مراجعة وإغلاق')}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Stats row */}
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12, marginBottom:12 }}>
