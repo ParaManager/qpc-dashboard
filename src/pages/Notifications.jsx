@@ -30,7 +30,6 @@ export default function Notifications({ profile, onNav }) {
       .from('notifications')
       .select('*')
       .eq('user_id', String(profile.id))
-      .eq('dismissed', false)
       .order('created_at', { ascending: false })
       .limit(100)
     setNotifs(data || [])
@@ -43,8 +42,9 @@ export default function Notifications({ profile, onNav }) {
   }
 
   async function dismiss(id) {
+    // Dismissing only clears it from the bell — it should stay visible in this full list.
     await supabase.from('notifications').update({ dismissed: true, read: true }).eq('id', id)
-    setNotifs(prev => prev.filter(n => n.id !== id))
+    setNotifs(prev => prev.map(n => n.id === id ? { ...n, dismissed: true, read: true } : n))
   }
 
   async function deleteNotif(id) {
@@ -109,8 +109,8 @@ export default function Notifications({ profile, onNav }) {
               <i className="ti ti-checks" /> {L('Mark all read','تحديد الكل كمقروء')}
             </button>
           )}
-          {notifs.length > 0 && (
-            <button className="action-btn" onClick={() => notifs.forEach(n => dismiss(n.id))}>
+          {notifs.some(n => !n.dismissed) && (
+            <button className="action-btn" onClick={() => notifs.filter(n => !n.dismissed).forEach(n => dismiss(n.id))}>
               <i className="ti ti-bell-off" /> {L('Clear all','مسح الكل')}
             </button>
           )}
@@ -218,11 +218,17 @@ export default function Notifications({ profile, onNav }) {
                       <i className="ti ti-check" />
                     </button>
                   )}
-                  <button onClick={e => { e.stopPropagation(); dismiss(n.id) }}
-                    title={L('Clear','مسح')}
-                    style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text3)', fontSize:16, flexShrink:0, padding:4 }}>
-                    <i className="ti ti-x" />
-                  </button>
+                  {n.dismissed ? (
+                    <span title={L('Cleared from bell','تم مسحها من الجرس')} style={{ fontSize:10, color:'var(--text3)', flexShrink:0, padding:4 }}>
+                      <i className="ti ti-bell-off" />
+                    </span>
+                  ) : (
+                    <button onClick={e => { e.stopPropagation(); dismiss(n.id) }}
+                      title={L('Clear from bell','مسح من الجرس')}
+                      style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text3)', fontSize:16, flexShrink:0, padding:4 }}>
+                      <i className="ti ti-x" />
+                    </button>
+                  )}
                 </div>
               )
             })}
