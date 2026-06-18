@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
 
@@ -29,6 +29,16 @@ export default function DashboardBanners({ profile, onNav, extraBanners = [], ma
 
   const [activeNotifs, setActiveNotifs] = useState([])
   const [pickerFor, setPickerFor] = useState(null) // banner key currently showing its picker
+  const containerRef = useRef(null)
+
+  // Close the open picker when clicking anywhere outside the banner container
+  useEffect(() => {
+    function handleOutsideClick(e) {
+      if (containerRef.current && !containerRef.current.contains(e.target)) setPickerFor(null)
+    }
+    document.addEventListener('mousedown', handleOutsideClick)
+    return () => document.removeEventListener('mousedown', handleOutsideClick)
+  }, [])
 
   useEffect(() => {
     if (!profile?.id) return
@@ -105,7 +115,7 @@ export default function DashboardBanners({ profile, onNav, extraBanners = [], ma
   }
 
   return (
-    <div style={{ display:'flex', flexDirection:'column', gap:8, marginBottom:16 }}>
+    <div ref={containerRef} style={{ display:'flex', flexDirection:'column', gap:8, marginBottom:16 }}>
       {shown.map(b => (
         <div key={b.key} style={{ position:'relative' }}>
           <div style={{ display:'flex', alignItems:'center', gap:10, padding:'12px 16px', background:b.color+'15', border:`1px solid ${b.color}40`, borderRadius:12 }}>
