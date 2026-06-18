@@ -9,6 +9,7 @@ const SESSION_TYPES = ['Training','Competition','Medical','Meeting']
 const SESSION_COLORS = { Training:'#0085C7', Competition:'#EE334E', Medical:'#009F6B', Meeting:'#8b5cf6' }
 const STATUS_OPTS = ['Present','Absent','Late','Excused']
 const STATUS_COLORS = { Present:'#009F6B', Absent:'#EE334E', Late:'#f59e0b', Excused:'#8b5cf6' }
+const STATUS_AR = { Present:'حاضر', Absent:'غائب', Late:'متأخر', Excused:'معذور' }
 
 function getDaysInMonth(year, month) {
   return new Date(year, month + 1, 0).getDate()
@@ -32,11 +33,18 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
   const [requestModal, setRequestModal] = useState(null)  // session to request for
   const [requests, setRequests]         = useState([])
   const [loading, setLoading]         = useState(true)
+  const [sessionAttendance, setSessionAttendance] = useState([])  // attendance rows for the currently viewed session
 
   const year  = curDate.getFullYear()
   const month = curDate.getMonth()
 
   useEffect(() => { loadSessions(); loadRequests() }, [coachId, year, month, athleteId])
+
+  useEffect(() => {
+    if (!selected) { setSessionAttendance([]); return }
+    supabase.from('attendance').select('*').eq('session_id', selected)
+      .then(({ data }) => setSessionAttendance(data || []))
+  }, [selected])
 
   // Auto-open session from dashboard click
   useEffect(() => {
@@ -287,19 +295,60 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
               ))}
             </div>
           </div>
+          {sessionAttendance.length > 0 && (() => {
+            const present = sessionAttendance.filter(r => r.status === 'Present').length
+            const absent  = sessionAttendance.filter(r => r.status === 'Absent').length
+            const late    = sessionAttendance.filter(r => r.status === 'Late').length
+            const excused = sessionAttendance.filter(r => r.status === 'Excused').length
+            const total   = sessionAttendance.length
+            const rate    = total ? Math.round((present / total) * 100) : 0
+            return (
+              <div className="info-card">
+                <div className="info-title">{L('Attendance summary','ملخص الحضور')}</div>
+                <div style={{ display:'flex', gap:16, marginBottom:12 }}>
+                  {[['Present','حاضر',present,'#009F6B'],['Absent','غائب',absent,'#EE334E'],['Late','متأخر',late,'#f59e0b'],['Excused','معذور',excused,'#8b5cf6']].map(([en,arLbl,val,col])=>(
+                    <div key={en} style={{ textAlign:'center' }}>
+                      <div style={{ fontSize:20, fontWeight:700, color:col }}>{val}</div>
+                      <div style={{ fontSize:10, color:'var(--text3)' }}>{ar?arLbl:en}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ fontSize:11, color:'var(--text3)', marginBottom:4 }}>{rate}% {L('attendance rate','معدل الحضور')}</div>
+                <div style={{ height:8, background:'var(--surface2)', borderRadius:4, overflow:'hidden' }}>
+                  <div style={{ height:'100%', width:`${rate}%`, background:'#009F6B', borderRadius:4 }} />
+                </div>
+              </div>
+            )
+          })()}
+
           <div className="info-card">
-            <div className="info-title">{L('Athletes in this session','الرياضيون في هذه الجلسة')} ({sAthletes.length})</div>
+            <div className="info-title">
+              {L('Athletes in this session','الرياضيون في هذه الجلسة')} ({sAthletes.length})
+              {sessionAttendance.length > 0 && (
+                <span style={{ fontWeight:400, fontSize:11, color:'var(--text3)', marginLeft:8 }}>
+                  · {L('attendance taken','تم تسجيل الحضور')}
+                </span>
+              )}
+            </div>
             {sAthletes.length === 0
               ? <div className="empty">{L('No athletes assigned','لا يوجد رياضيون')}</div>
-              : sAthletes.map(a => (
-                <div key={a.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 0', borderBottom:'1px solid var(--border)' }}>
-                  <Avatar name={a.name} id={a.id} size={32} fs={10} />
-                  <div>
-                    <div style={{ fontSize:13, fontWeight:500 }}>{ar && a.name_ar ? a.name_ar : a.name}</div>
-                    <div style={{ fontSize:11, color:'var(--text3)' }}>{a.classification}</div>
+              : sAthletes.map(a => {
+                const rec = sessionAttendance.find(r => String(r.athlete_id) === String(a.id))
+                return (
+                  <div key={a.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 0', borderBottom:'1px solid var(--border)' }}>
+                    <Avatar name={a.name} id={a.id} size={32} fs={10} />
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontSize:13, fontWeight:500 }}>{ar && a.name_ar ? a.name_ar : a.name}</div>
+                      <div style={{ fontSize:11, color:'var(--text3)' }}>{a.classification}</div>
+                    </div>
+                    {rec && (
+                      <span style={{ fontSize:11, fontWeight:600, padding:'3px 10px', borderRadius:20, background:(STATUS_COLORS[rec.status]||'#9aa3b2')+'20', color:STATUS_COLORS[rec.status]||'#9aa3b2', flexShrink:0 }}>
+                        {ar ? (STATUS_AR[rec.status]||rec.status) : rec.status}
+                      </span>
+                    )}
                   </div>
-                </div>
-              ))
+                )
+              })
             }
           </div>
 
