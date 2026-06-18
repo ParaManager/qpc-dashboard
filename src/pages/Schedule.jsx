@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
 import { Avatar, Badge } from '../lib/helpers'
 import { toast, ConfirmModal } from '../components/Toast'
+import WeeklyTimetable, { generateUpcomingSessions } from './WeeklyTimetable'
 
 const SESSION_TYPES = ['Training','Competition','Medical','Meeting']
 const SESSION_COLORS = { Training:'#0085C7', Competition:'#EE334E', Medical:'#009F6B', Meeting:'#8b5cf6' }
@@ -33,12 +34,20 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
   const [requestModal, setRequestModal] = useState(null)  // session to request for
   const [requests, setRequests]         = useState([])
   const [loading, setLoading]         = useState(true)
+  const [view, setView]               = useState('calendar')  // 'calendar' | 'timetable'
   const [sessionAttendance, setSessionAttendance] = useState([])  // attendance rows for the currently viewed session
 
   const year  = curDate.getFullYear()
   const month = curDate.getMonth()
 
   useEffect(() => { loadSessions(); loadRequests() }, [coachId, year, month, athleteId])
+
+  // Materialize upcoming sessions from active weekly_schedule rules. Safe to call
+  // repeatedly — it skips any (rule, date) pair that already has a generated session.
+  useEffect(() => {
+    if (!coachId || readOnly) return
+    generateUpcomingSessions(coachId).then(() => loadSessions())
+  }, [coachId, readOnly])
 
   useEffect(() => {
     if (!selected) { setSessionAttendance([]); return }
@@ -187,6 +196,17 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
     />
   }
 
+  // ── WEEKLY TIMETABLE ──
+  if (view === 'timetable') {
+    return <WeeklyTimetable
+      coachId={coachId}
+      myAthletes={myAthletes}
+      ar={ar}
+      onClose={() => setView('calendar')}
+      onChanged={loadSessions}
+    />
+  }
+
   // ── SESSION DETAIL ──
   if (selected) {
     const s = sessions.find(x => x.id === selected) || (directSession?.id === selected ? directSession : null)
@@ -288,7 +308,12 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
                 </span>
               )}
             </div>
-            <div className="detail-name">{s.title}</div>
+            <div className="detail-name" style={{ display:'flex', alignItems:'center', gap:8 }}>
+              {s.title}
+              {s.generated_from_rule_id && (
+                <i className="ti ti-calendar-repeat" title={L('From weekly timetable','من الجدول الأسبوعي')} style={{ fontSize:14, color:'var(--text3)' }} />
+              )}
+            </div>
             <div className="detail-fields" style={{ marginTop:14 }}>
               {[[L('Date','التاريخ'),s.session_date],[L('Time','الوقت'),s.start_time?(s.start_time+(s.end_time?' → '+s.end_time:'')):'—'],[L('Location','المكان'),s.location||'—'],[L('Sport','الرياضة'),s.sport||'—'],[L('Athletes','الرياضيون'),sAthletes.length],[L('Notes','ملاحظات'),s.notes||'—']].map(([k,v]) => (
                 <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv">{v}</span></div>
@@ -466,10 +491,15 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
         </div>
         <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
           {!readOnly && (
-            <button className="btn" style={{ background:'#0085C7', fontSize:13, padding:'6px 14px' }}
-              onClick={() => setShowForm(true)}>
-              <i className="ti ti-plus" /> {L('Add Session','إضافة جلسة')}
-            </button>
+            <>
+              <button className="action-btn" onClick={() => setView('timetable')}>
+                <i className="ti ti-calendar-repeat" /> {L('Weekly Timetable','الجدول الأسبوعي')}
+              </button>
+              <button className="btn" style={{ background:'#0085C7', fontSize:13, padding:'6px 14px' }}
+                onClick={() => setShowForm(true)}>
+                <i className="ti ti-plus" /> {L('Add Session','إضافة جلسة')}
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -535,7 +565,12 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
                 style={{ display:'flex', gap:12, padding:'10px 0', borderBottom:'1px solid var(--border)', cursor:'pointer', alignItems:'center' }}>
                 <div style={{ width:4, borderRadius:4, alignSelf:'stretch', background:color, flexShrink:0 }} />
                 <div style={{ flex:1 }}>
-                  <div style={{ fontSize:13, fontWeight:600 }}>{s.title}</div>
+                  <div style={{ fontSize:13, fontWeight:600, display:'flex', alignItems:'center', gap:5 }}>
+                    {s.title}
+                    {s.generated_from_rule_id && (
+                      <i className="ti ti-calendar-repeat" title={L('From weekly timetable','من الجدول الأسبوعي')} style={{ fontSize:11, color:'var(--text3)' }} />
+                    )}
+                  </div>
                   <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>
                     {s.session_date} {s.start_time?.slice(0,5)} · {s.location||'—'} · {sAthletes.length} {L('athletes','رياضيون')}
                   </div>
