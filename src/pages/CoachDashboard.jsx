@@ -235,7 +235,10 @@ export default function CoachDashboard({ coach, athletes, events, results, onNav
               : L(`${reminders.needsAttendance.length} sessions need attendance`, `${reminders.needsAttendance.length} جلسات بحاجة لتسجيل الحضور`),
             sub: reminders.needsAttendance.slice(0,3).map(s => s.title || s.session_date).join(', ') + (reminders.needsAttendance.length > 3 ? '…' : ''),
             actionLabel: L('Take attendance','تسجيل الحضور'),
-            onAction: () => onNav('attendance', { sessionId: reminders.needsAttendance[0].id }),
+            items: reminders.needsAttendance.map(s => ({
+              label: `${s.title || s.session_date} (${s.session_date})`,
+              onSelect: () => onNav('attendance', { sessionId: s.id }),
+            })),
           }] : []),
           ...(reminders.needsClosing.length > 0 ? [{
             key: 'needsClosing', color: '#0085C7', icon: 'ti-lock-open',
@@ -244,7 +247,10 @@ export default function CoachDashboard({ coach, athletes, events, results, onNav
               : L(`${reminders.needsClosing.length} sessions are ready to close`, `${reminders.needsClosing.length} جلسات جاهزة للإغلاق`),
             sub: L('Attendance was taken but the session is still open.', 'تم تسجيل الحضور ولكن الجلسة لا تزال مفتوحة.'),
             actionLabel: L('Review & close','مراجعة وإغلاق'),
-            onAction: () => onNav('attendance', { sessionId: reminders.needsClosing[0].id }),
+            items: reminders.needsClosing.map(s => ({
+              label: `${s.title || s.session_date} (${s.session_date})`,
+              onSelect: () => onNav('attendance', { sessionId: s.id }),
+            })),
           }] : []),
         ]}
       />
