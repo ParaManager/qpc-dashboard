@@ -34,7 +34,7 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
   const [requestModal, setRequestModal] = useState(null)  // session to request for
   const [requests, setRequests]         = useState([])
   const [loading, setLoading]         = useState(true)
-  const [view, setView]               = useState('calendar')  // 'calendar' | 'timetable'
+  const [scheduleView, setScheduleView] = useState('calendar')  // 'calendar' | 'timetable'
   const [sessionAttendance, setSessionAttendance] = useState([])  // attendance rows for the currently viewed session
 
   const year  = curDate.getFullYear()
@@ -197,12 +197,12 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
   }
 
   // ── WEEKLY TIMETABLE ──
-  if (view === 'timetable') {
+  if (scheduleView === 'timetable') {
     return <WeeklyTimetable
       coachId={coachId}
       myAthletes={myAthletes}
       ar={ar}
-      onClose={() => setView('calendar')}
+      onClose={() => setScheduleView('calendar')}
       onChanged={loadSessions}
     />
   }
@@ -492,7 +492,7 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
         <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
           {!readOnly && (
             <>
-              <button className="action-btn" onClick={() => setView('timetable')}>
+              <button className="action-btn" onClick={() => setScheduleView('timetable')}>
                 <i className="ti ti-calendar-repeat" /> {L('Weekly Timetable','الجدول الأسبوعي')}
               </button>
               <button className="btn" style={{ background:'#0085C7', fontSize:13, padding:'6px 14px' }}
