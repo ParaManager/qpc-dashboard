@@ -172,7 +172,7 @@ export default function Notifications({ profile, onNav }) {
                       <i className="ti ti-x" />
                     </button>
                   </div>
-                  <div style={{ padding:'0 16px 12px 64px', display:'flex', flexDirection:'column', gap:4 }}>
+                  <div className="notif-group-items" style={{ padding:'0 16px 12px 64px', display:'flex', flexDirection:'column', gap:4 }}>
                     {g.items.map(n => (
                       <div key={n.id} onClick={() => handleClick(n)}
                         style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, padding:'6px 10px', borderRadius:8, cursor:'pointer', fontSize:12 }}

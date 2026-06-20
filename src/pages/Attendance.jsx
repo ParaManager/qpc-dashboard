@@ -238,14 +238,14 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
             <div style={{ fontSize:12, color:'var(--text3)', marginTop:4 }}>
               {session.session_date} · {session.start_time?.slice(0,5)||'—'} · {session.location||'—'}
             </div>
-            <div style={{ display:'flex', gap:16, marginTop:12 }}>
+            <div style={{ display:'flex', gap:16, marginTop:12, flexWrap:'wrap' }}>
               {[['Present','حاضر',present,'#009F6B'],['Absent','غائب',absent,'#EE334E'],['Late','متأخر',sessionAthletes.filter(a=>attendance[a.id]==='Late').length,'#f59e0b'],['Excused','معذور',sessionAthletes.filter(a=>attendance[a.id]==='Excused').length,'#8b5cf6']].map(([en,a,val,col])=>(
                 <div key={en} style={{ textAlign:'center' }}>
                   <div style={{ fontSize:20, fontWeight:700, color:col }}>{val}</div>
                   <div style={{ fontSize:10, color:'var(--text3)' }}>{ar?a:en}</div>
                 </div>
               ))}
-              <div style={{ flex:1 }}>
+              <div style={{ flex:1, minWidth:140 }}>
                 <div style={{ fontSize:11, color:'var(--text3)', marginBottom:4 }}>{pct}% {L('attendance rate','معدل الحضور')}</div>
                 <div style={{ height:8, background:'var(--surface2)', borderRadius:4, overflow:'hidden' }}>
                   <div style={{ height:'100%', width:`${pct}%`, background:'#009F6B', borderRadius:4, transition:'width .3s' }} />
@@ -272,22 +272,26 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
                 const status = attendance[a.id] || 'Absent'
                 const color  = STATUS_COLORS[status]
                 return (
-                  <div key={a.id} style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 16px', borderBottom: i<sessionAthletes.length-1?'1px solid var(--border)':'' }}>
-                    <Avatar name={a.name} id={a.id} size={36} fs={11} />
-                    <div style={{ flex:1 }}>
-                      <div style={{ fontSize:13, fontWeight:500 }}>{ar&&a.name_ar?a.name_ar:a.name}</div>
-                      <div style={{ fontSize:11, color:'var(--text3)' }}>{a.classification}</div>
+                  <div key={a.id} style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 16px', borderBottom: i<sessionAthletes.length-1?'1px solid var(--border)':'', flexWrap:'wrap' }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:12, flex:'1 1 160px', minWidth:0 }}>
+                      <Avatar name={a.name} id={a.id} size={36} fs={11} />
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontSize:13, fontWeight:500, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{ar&&a.name_ar?a.name_ar:a.name}</div>
+                        <div style={{ fontSize:11, color:'var(--text3)' }}>{a.classification}</div>
+                      </div>
                     </div>
-                    <div style={{ display:'flex', gap:6 }}>
-                      {STATUS_OPTS.map(s => (
-                        <button key={s} onClick={() => setAttendance(prev => ({...prev, [a.id]: s}))}
-                          title={ar ? STATUS_AR[s] : s}
-                          style={{ width:32, height:32, borderRadius:8, border:'2px solid', borderColor: status===s ? STATUS_COLORS[s] : 'var(--border)', background: status===s ? STATUS_COLORS[s]+'20' : 'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
-                          <i className={`ti ${STATUS_ICONS[s]}`} style={{ fontSize:14, color: status===s ? STATUS_COLORS[s] : 'var(--text3)' }} />
-                        </button>
-                      ))}
+                    <div style={{ display:'flex', alignItems:'center', gap:10, flexWrap:'wrap' }}>
+                      <div style={{ display:'flex', gap:6 }}>
+                        {STATUS_OPTS.map(s => (
+                          <button key={s} onClick={() => setAttendance(prev => ({...prev, [a.id]: s}))}
+                            title={ar ? STATUS_AR[s] : s}
+                            style={{ width:32, height:32, borderRadius:8, border:'2px solid', borderColor: status===s ? STATUS_COLORS[s] : 'var(--border)', background: status===s ? STATUS_COLORS[s]+'20' : 'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                            <i className={`ti ${STATUS_ICONS[s]}`} style={{ fontSize:14, color: status===s ? STATUS_COLORS[s] : 'var(--text3)' }} />
+                          </button>
+                        ))}
+                      </div>
+                      <span style={{ fontSize:12, fontWeight:600, color, minWidth:50, textAlign:'center' }}>{ar?STATUS_AR[status]:status}</span>
                     </div>
-                    <span style={{ fontSize:12, fontWeight:600, color, minWidth:50, textAlign:'center' }}>{ar?STATUS_AR[status]:status}</span>
                   </div>
                 )
               })

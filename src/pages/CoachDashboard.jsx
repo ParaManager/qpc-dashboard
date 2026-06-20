@@ -229,7 +229,7 @@ export default function CoachDashboard({ coach, athletes, events, results, onNav
       />
 
       {/* Stats row */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12, marginBottom:12 }}>
+      <div className="stat-grid" style={{ marginBottom:12 }}>
         {/* Medals */}
         <div style={{ background:'#f1c40f10', border:'1px solid #f1c40f30', borderRadius:14, padding:'16px' }}>
           <div style={{ fontSize:12, color:'var(--text3)', marginBottom:10, fontWeight:600 }}>{L('Team Medals','ميداليات الفريق')}</div>
@@ -288,7 +288,7 @@ export default function CoachDashboard({ coach, athletes, events, results, onNav
         </div>
       </div>
 
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+      <div className="two-col-even">
         {/* My Athletes */}
         <Card title={L('My Athletes','رياضيّوي')} icon="ti-run" color="#009F6B"
           onClick={myAthletes.length > 0 ? () => onNav('athletes') : null}>

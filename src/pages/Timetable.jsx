@@ -439,16 +439,18 @@ export function CreateTimetableForm({ coachId, myAthletes, ar, onClose, onCreate
                   {isSelected && (
                     <div style={{ paddingLeft:28, marginTop:8, display:'flex', flexDirection:'column', gap:8 }}>
                       {dayData.slots.map((slot, slotIdx) => (
-                        <div key={slotIdx} style={{ display:'flex', gap:8, alignItems:'center' }}>
-                          <input className="form-input" style={{ flex:1, fontSize:12 }} placeholder={L('Label (optional, e.g. Morning)','تسمية (اختياري، مثال: صباحي)')} value={slot.label||''} onChange={e=>setSlotField(dow,slotIdx,'label',e.target.value)} />
-                          <input type="time" className="form-input" style={{ flex:1 }} value={slot.start_time||''} onChange={e=>setSlotField(dow,slotIdx,'start_time',e.target.value)} />
-                          <span style={{ color:'var(--text3)' }}>→</span>
-                          <input type="time" className="form-input" style={{ flex:1 }} value={slot.end_time||''} onChange={e=>setSlotField(dow,slotIdx,'end_time',e.target.value)} />
-                          {dayData.slots.length > 1 && (
-                            <button type="button" onClick={() => removeSlot(dow, slotIdx)} style={{ background:'none', border:'none', cursor:'pointer', color:'#EE334E', flexShrink:0 }}>
-                              <i className="ti ti-x" />
-                            </button>
-                          )}
+                        <div key={slotIdx} style={{ display:'flex', flexDirection:'column', gap:6 }}>
+                          <input className="form-input" style={{ fontSize:12 }} placeholder={L('Label (optional, e.g. Morning)','تسمية (اختياري، مثال: صباحي)')} value={slot.label||''} onChange={e=>setSlotField(dow,slotIdx,'label',e.target.value)} />
+                          <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+                            <input type="time" className="form-input" style={{ flex:'1 1 90px', minWidth:0 }} value={slot.start_time||''} onChange={e=>setSlotField(dow,slotIdx,'start_time',e.target.value)} />
+                            <span style={{ color:'var(--text3)', flexShrink:0 }}>→</span>
+                            <input type="time" className="form-input" style={{ flex:'1 1 90px', minWidth:0 }} value={slot.end_time||''} onChange={e=>setSlotField(dow,slotIdx,'end_time',e.target.value)} />
+                            {dayData.slots.length > 1 && (
+                              <button type="button" onClick={() => removeSlot(dow, slotIdx)} style={{ background:'none', border:'none', cursor:'pointer', color:'#EE334E', flexShrink:0 }}>
+                                <i className="ti ti-x" />
+                              </button>
+                            )}
+                          </div>
                         </div>
                       ))}
                       <button type="button" onClick={() => addSlot(dow)} style={{ alignSelf:'flex-start', background:'none', border:'none', cursor:'pointer', color:'#0085C7', fontSize:12, fontWeight:600, padding:'4px 0', display:'flex', alignItems:'center', gap:4 }}>
@@ -639,14 +641,16 @@ export function EditTimetableForm({ timetableId, myAthletes, ar, coachId, onClos
                   <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
                     {slotsForDay.map(d => (
                       <div key={d.id} style={{ opacity: d.active ? 1 : .5 }}>
-                        <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+                        <div style={{ display:'flex', gap:8, alignItems:'center', marginBottom:6 }}>
                           <div onClick={() => toggleDayActive(d.id)} style={{width:18,height:18,borderRadius:4,border:'2px solid',borderColor:d.active?'#0085C7':'var(--border)',background:d.active?'#0085C7':'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,cursor:'pointer'}}>
                             {d.active && <i className="ti ti-check" style={{ fontSize:10, color:'#fff' }} />}
                           </div>
-                          <input className="form-input" style={{ flex:1, fontSize:12 }} placeholder={L('Label (optional)','تسمية (اختياري)')} value={d.label||''} onChange={e=>setDayField(d.id,'label',e.target.value)} disabled={!d.active} />
-                          <input type="time" className="form-input" style={{ flex:1 }} value={d.start_time||''} onChange={e=>setDayField(d.id,'start_time',e.target.value)} disabled={!d.active} />
-                          <span style={{ color:'var(--text3)' }}>→</span>
-                          <input type="time" className="form-input" style={{ flex:1 }} value={d.end_time||''} onChange={e=>setDayField(d.id,'end_time',e.target.value)} disabled={!d.active} />
+                          <input className="form-input" style={{ flex:1, fontSize:12, minWidth:0 }} placeholder={L('Label (optional)','تسمية (اختياري)')} value={d.label||''} onChange={e=>setDayField(d.id,'label',e.target.value)} disabled={!d.active} />
+                        </div>
+                        <div style={{ display:'flex', gap:8, alignItems:'center', paddingLeft:26 }}>
+                          <input type="time" className="form-input" style={{ flex:'1 1 90px', minWidth:0 }} value={d.start_time||''} onChange={e=>setDayField(d.id,'start_time',e.target.value)} disabled={!d.active} />
+                          <span style={{ color:'var(--text3)', flexShrink:0 }}>→</span>
+                          <input type="time" className="form-input" style={{ flex:'1 1 90px', minWidth:0 }} value={d.end_time||''} onChange={e=>setDayField(d.id,'end_time',e.target.value)} disabled={!d.active} />
                           <button type="button" onClick={() => removeSlot(d.id)} style={{ background:'none', border:'none', cursor:'pointer', color:'#EE334E', flexShrink:0 }}>
                             <i className="ti ti-trash" />
                           </button>

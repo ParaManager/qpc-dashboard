@@ -72,7 +72,7 @@ export default function AthleteDashboard({ athlete, coach, results, events, regi
         )}
       </div>
 
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12, marginBottom:12 }}>
+      <div className="stat-grid" style={{ marginBottom:12 }}>
         {/* Gold */}
         <div style={{ background:'#f1c40f15', border:'1px solid #f1c40f30', borderRadius:14, padding:'16px', textAlign:'center' }}>
           <div style={{ fontSize:32 }}>🥇</div>
@@ -93,7 +93,7 @@ export default function AthleteDashboard({ athlete, coach, results, events, regi
         </div>
       </div>
 
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+      <div className="two-col-even">
         {/* Coach */}
         <Card title={L('My Coach','مدربي')} icon="ti-user-star" color="#009F6B">
           {coach ? (

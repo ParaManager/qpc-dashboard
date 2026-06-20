@@ -574,18 +574,18 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
       </div>
 
       {/* Calendar grid */}
-      <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14, overflow:'hidden', boxShadow:'var(--shadow)' }}>
+      <div className="cal-wrap" style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14, overflow:'hidden', boxShadow:'var(--shadow)' }}>
         {/* Day headers */}
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', borderBottom:'1px solid var(--border)' }}>
+        <div className="cal-headers" style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', borderBottom:'1px solid var(--border)' }}>
           {dayNames.map(d => (
-            <div key={d} style={{ padding:'10px 0', textAlign:'center', fontSize:12, fontWeight:600, color:'var(--text3)', textTransform:'uppercase', letterSpacing:'.05em' }}>{d}</div>
+            <div key={d} className="cal-header-cell" style={{ padding:'10px 0', textAlign:'center', fontSize:12, fontWeight:600, color:'var(--text3)', textTransform:'uppercase', letterSpacing:'.05em' }}>{d}</div>
           ))}
         </div>
         {/* Days */}
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)' }}>
+        <div className="cal-grid" style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)' }}>
           {/* Empty cells */}
           {Array.from({length: firstDay}).map((_,i) => (
-            <div key={`e${i}`} style={{ minHeight:90, borderRight:'1px solid var(--border)', borderBottom:'1px solid var(--border)', background:'var(--surface2)' }} />
+            <div key={`e${i}`} className="cal-cell" style={{ minHeight:90, borderRight:'1px solid var(--border)', borderBottom:'1px solid var(--border)', background:'var(--surface2)' }} />
           ))}
           {/* Day cells */}
           {Array.from({length: daysInMonth}).map((_,i) => {
@@ -594,14 +594,14 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
             const isTod = isToday(d)
             const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`
             return (
-              <div key={d}
+              <div key={d} className="cal-cell"
                 onClick={() => { if (!readOnly) { setEditData({ type:'Training', date:dateStr, athleteIds:[] }); setShowForm(true) } }}
                 style={{ minHeight:90, borderRight:'1px solid var(--border)', borderBottom:'1px solid var(--border)', padding:'6px 4px', position:'relative', background: isTod ? 'var(--surface2)' : 'var(--surface)', cursor: readOnly ? 'default' : 'pointer' }}
                 onMouseEnter={e => { if (!readOnly) e.currentTarget.style.background = 'var(--surface2)' }}
                 onMouseLeave={e => { e.currentTarget.style.background = isTod ? 'var(--surface2)' : 'var(--surface)' }}>
-                <div style={{ fontSize:12, fontWeight: isTod?700:500, color: isTod?'#0085C7':'var(--text)', marginBottom:4, width:24, height:24, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', background: isTod?'#0085C7':'transparent', color: isTod?'#fff':'var(--text)' }}>{d}</div>
+                <div className="cal-daynum" style={{ fontSize:12, fontWeight: isTod?700:500, color: isTod?'#0085C7':'var(--text)', marginBottom:4, width:24, height:24, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', background: isTod?'#0085C7':'transparent', color: isTod?'#fff':'var(--text)' }}>{d}</div>
                 {daySessions.slice(0,3).map(s => (
-                  <div key={s.id} onClick={(e) => { e.stopPropagation(); setSelected(s.id) }}
+                  <div key={s.id} className="cal-pill" onClick={(e) => { e.stopPropagation(); setSelected(s.id) }}
                     style={{ fontSize:10, fontWeight:500, padding:'2px 5px', borderRadius:4, marginBottom:2, cursor:'pointer', background:(SESSION_COLORS[s.session_type]||'#0085C7')+'20', color:SESSION_COLORS[s.session_type]||'#0085C7', overflow:'hidden', whiteSpace:'nowrap', textOverflow:'ellipsis' }}>
                     {s.start_time?.slice(0,5)} {s.title}
                   </div>
