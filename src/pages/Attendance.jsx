@@ -3,7 +3,8 @@ import * as XLSX from 'xlsx'
 import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
 import { Avatar } from '../lib/helpers'
-import { toast, ConfirmModal } from '../components/Toast'
+import { toast } from '../components/Toast'
+import { toLocalDateStr } from './Timetable'
 
 const STATUS_OPTS   = ['Present','Absent','Late','Excused']
 const STATUS_AR     = { Present:'حاضر', Absent:'غائب', Late:'متأخر', Excused:'معذور' }
@@ -24,7 +25,7 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
   const [viewMode, setViewMode]     = useState(initSessionId ? 'session' : 'overview')
   const [search, setSearch]         = useState('')
   const [tab, setTab]               = useState('week')
-  const [closePrompt, setClosePrompt] = useState(false)
+  const [showDayPicker, setShowDayPicker] = useState(false)  // shown when today has more than one session
   const [showExport, setShowExport]   = useState(false)
   const [exportMode, setExportMode]   = useState('month')
   const [exportMonth, setExportMonth] = useState(new Date().toISOString().slice(0,7))
@@ -33,7 +34,6 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
   const [exportTo, setExportTo]       = useState('')
   const [exportSessionId, setExportSessionId] = useState('')
   const [exporting, setExporting]     = useState(false)
-  const [unclosedWarning, setUnclosedWarning] = useState(null)  // { target, blocking } when trying to open a new session with an older one still open
   const [athleteDetail, setAthleteDetail] = useState(null)  // athlete object when viewing their personal attendance
   const [athleteDetailTab, setAthleteDetailTab] = useState('week')
   const [athleteDetailRecords, setAthleteDetailRecords] = useState([])
@@ -96,7 +96,7 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
     setStats(statsMap)
   }
 
-  async function saveAttendance(promptClose = true) {
+  async function saveAttendance() {
     if (!selSession) return
     setSaving(true)
     const session = sessions.find(s => s.id === selSession)
@@ -115,42 +115,6 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
     toast(L('Attendance saved','تم حفظ الحضور'))
     setSaving(false)
     loadStats()
-    if (promptClose && !session?.attendance_closed) setClosePrompt(true)
-  }
-
-  async function closeSession() {
-    await supabase.from('training_sessions').update({ attendance_closed: true }).eq('id', selSession)
-    toast(L('Session closed','تم إغلاق الجلسة'))
-    setClosePrompt(false)
-    setViewMode('overview')
-    loadSessions()
-  }
-
-  async function reopenSession(sessionId) {
-    await supabase.from('training_sessions').update({ attendance_closed: false }).eq('id', sessionId)
-    toast(L('Session reopened','تم إعادة فتح الجلسة'))
-    loadSessions()
-  }
-
-  // Find any older sessions (by date) that are still unclosed, excluding the target itself
-  function findOlderUnclosed(targetSession) {
-    if (!targetSession) return []
-    return sessions.filter(s =>
-      s.id !== targetSession.id &&
-      !s.attendance_closed &&
-      s.session_date < targetSession.session_date
-    )
-  }
-
-  // Wraps opening a session: if older unclosed sessions exist, warn first
-  function openSessionFor(targetSession) {
-    const blocking = findOlderUnclosed(targetSession)
-    if (blocking.length > 0) {
-      setUnclosedWarning({ target: targetSession, blocking })
-      return
-    }
-    setSelSession(targetSession.id)
-    setViewMode('session')
   }
 
   function markAll(status) {
@@ -159,6 +123,23 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
     const newAtt = {}
     sessionAthletes.forEach(a => { newAtt[a.id] = status })
     setAttendance(prev => ({ ...prev, ...newAtt }))
+  }
+
+  // Sessions happening today for this coach — this is the whole pool "Take Attendance" works from now.
+  const todayStr = toLocalDateStr(new Date())
+  const todaysSessions = sessions.filter(s => s.session_date === todayStr)
+
+  function openTodaysAttendance() {
+    if (todaysSessions.length === 0) {
+      toast(L('No sessions scheduled for today','لا توجد جلسات مجدولة اليوم'), 'error')
+      return
+    }
+    if (todaysSessions.length === 1) {
+      setSelSession(todaysSessions[0].id)
+      setViewMode('session')
+      return
+    }
+    setShowDayPicker(true)
   }
 
   async function runExport() {
@@ -248,7 +229,6 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
     const present = sessionAthletes.filter(a => attendance[a.id] === 'Present').length
     const absent  = sessionAthletes.filter(a => attendance[a.id] === 'Absent' || !attendance[a.id]).length
     const pct     = sessionAthletes.length ? Math.round((present / sessionAthletes.length) * 100) : 0
-    const isClosed = !!session?.attendance_closed
 
     return (
       <div>
@@ -258,14 +238,7 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
 
         {session && (
           <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14, padding:16, marginBottom:16, boxShadow:'var(--shadow)' }}>
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:8 }}>
-              <div style={{ fontSize:16, fontWeight:600 }}>{session.title}</div>
-              {isClosed && (
-                <span style={{ display:'flex', alignItems:'center', gap:6, fontSize:11, fontWeight:600, color:'#9aa3b2', background:'var(--surface2)', padding:'4px 10px', borderRadius:20 }}>
-                  <i className="ti ti-lock" style={{ fontSize:12 }} /> {L('Closed','مغلقة')}
-                </span>
-              )}
-            </div>
+            <div style={{ fontSize:16, fontWeight:600 }}>{session.title}</div>
             <div style={{ fontSize:12, color:'var(--text3)', marginTop:4 }}>
               {session.session_date} · {session.start_time?.slice(0,5)||'—'} · {session.location||'—'}
             </div>
@@ -283,20 +256,14 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
                 </div>
               </div>
             </div>
-            {isClosed && (
-              <button className="action-btn" style={{ marginTop:12, borderColor:'#0085C7', color:'#0085C7' }}
-                onClick={() => reopenSession(session.id)}>
-                <i className="ti ti-lock-open" /> {L('Reopen to edit','إعادة فتح للتعديل')}
-              </button>
-            )}
           </div>
         )}
 
         <div style={{ display:'flex', gap:8, marginBottom:14, flexWrap:'wrap' }}>
           <span style={{ fontSize:12, color:'var(--text3)', alignSelf:'center' }}>{L('Mark all:','تحديد الكل:')}</span>
           {STATUS_OPTS.map(s => (
-            <button key={s} onClick={() => markAll(s)} disabled={isClosed}
-              style={{ padding:'4px 12px', borderRadius:20, border:`1px solid ${STATUS_COLORS[s]}`, background:'transparent', color:STATUS_COLORS[s], fontSize:11, fontWeight:600, cursor: isClosed?'not-allowed':'pointer', opacity: isClosed?.5:1 }}>
+            <button key={s} onClick={() => markAll(s)}
+              style={{ padding:'4px 12px', borderRadius:20, border:`1px solid ${STATUS_COLORS[s]}`, background:'transparent', color:STATUS_COLORS[s], fontSize:11, fontWeight:600, cursor:'pointer' }}>
               {ar ? STATUS_AR[s] : s}
             </button>
           ))}
@@ -317,9 +284,9 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
                     </div>
                     <div style={{ display:'flex', gap:6 }}>
                       {STATUS_OPTS.map(s => (
-                        <button key={s} disabled={isClosed} onClick={() => setAttendance(prev => ({...prev, [a.id]: s}))}
+                        <button key={s} onClick={() => setAttendance(prev => ({...prev, [a.id]: s}))}
                           title={ar ? STATUS_AR[s] : s}
-                          style={{ width:32, height:32, borderRadius:8, border:'2px solid', borderColor: status===s ? STATUS_COLORS[s] : 'var(--border)', background: status===s ? STATUS_COLORS[s]+'20' : 'transparent', cursor: isClosed?'not-allowed':'pointer', opacity: isClosed && status!==s ? .4 : 1, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                          style={{ width:32, height:32, borderRadius:8, border:'2px solid', borderColor: status===s ? STATUS_COLORS[s] : 'var(--border)', background: status===s ? STATUS_COLORS[s]+'20' : 'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
                           <i className={`ti ${STATUS_ICONS[s]}`} style={{ fontSize:14, color: status===s ? STATUS_COLORS[s] : 'var(--text3)' }} />
                         </button>
                       ))}
@@ -331,32 +298,14 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
           }
         </div>
 
-        {!isClosed && (
-          <div style={{ display:'flex', justifyContent:'flex-end' }}>
-            <button className="btn" style={{ background:'#009F6B', padding:'9px 24px' }} onClick={() => saveAttendance(true)} disabled={saving}>
-              {saving ? (L('Saving…','جارٍ الحفظ…')) : <><i className="ti ti-device-floppy" /> {L('Save attendance','حفظ الحضور')}</>}
-            </button>
-          </div>
-        )}
-
-        {closePrompt && (
-          <ConfirmModal
-            title={L('Close this session?','إغلاق هذه الجلسة؟')}
-            message={L(
-              'Attendance has been saved. Closing it will hide it from the active list, but you can still view, export, or reopen it anytime from the Schedule calendar.',
-              'تم حفظ الحضور. سيؤدي إغلاق الجلسة إلى إخفائها من القائمة النشطة، ولكن يمكنك دائمًا عرضها أو تصديرها أو إعادة فتحها من تقويم الجدول.'
-            )}
-            confirmLabel={L('Close session','إغلاق الجلسة')}
-            cancelLabel={L('Keep it open','إبقاؤها مفتوحة')}
-            onConfirm={closeSession}
-            onCancel={() => { setClosePrompt(false); setViewMode('overview') }}
-          />
-        )}
+        <div style={{ display:'flex', justifyContent:'flex-end' }}>
+          <button className="btn" style={{ background:'#009F6B', padding:'9px 24px' }} onClick={saveAttendance} disabled={saving}>
+            {saving ? (L('Saving…','جارٍ الحفظ…')) : <><i className="ti ti-device-floppy" /> {L('Save attendance','حفظ الحضور')}</>}
+          </button>
+        </div>
       </div>
     )
   }
-
-  const openSessions = sessions.filter(s => !s.attendance_closed)
 
   return (
     <div>
@@ -371,25 +320,30 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
       </div>
 
       <div className="card" style={{ marginBottom:16 }}>
-        <div className="card-title"><i className="ti ti-clipboard-check" /> {L('Take attendance for a session','تسجيل الحضور لجلسة')}</div>
-        <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
-          <select className="filter" style={{ flex:1, minWidth:200 }} value={selSession||''} onChange={e => setSelSession(e.target.value)}>
-            <option value="">{L('Select a session…','اختر جلسة…')}</option>
-            {openSessions.map(s => (
-              <option key={s.id} value={s.id}>{s.session_date} — {s.title}</option>
-            ))}
-          </select>
-          <button className="btn" style={{ background:'#0085C7' }} disabled={!selSession}
-            onClick={() => { const s = sessions.find(x => x.id === selSession); if (s) openSessionFor(s) }}>
-            {L('Open','فتح')} <i className="ti ti-arrow-right" />
-          </button>
-        </div>
-        {sessions.length > openSessions.length && (
-          <div style={{ fontSize:11, color:'var(--text3)', marginTop:10 }}>
-            <i className="ti ti-info-circle" style={{ marginRight:4 }} />
-            {L('Closed sessions are hidden here — view, export, or reopen them from the Schedule calendar.','الجلسات المغلقة مخفية هنا — يمكنك عرضها أو تصديرها أو إعادة فتحها من تقويم الجدول.')}
+        <div className="card-title"><i className="ti ti-clipboard-check" /> {L("Today's attendance","حضور اليوم")}</div>
+        {todaysSessions.length === 0 ? (
+          <div style={{ fontSize:13, color:'var(--text3)' }}>
+            {L('No sessions scheduled for today.','لا توجد جلسات مجدولة اليوم.')}{' '}
+            <span onClick={() => onNav('schedule')} style={{ color:'#0085C7', cursor:'pointer', fontWeight:600 }}>
+              {L('View Schedule','عرض الجدول')}
+            </span>
+          </div>
+        ) : (
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:10 }}>
+            <div style={{ fontSize:13, color:'var(--text3)' }}>
+              {todaysSessions.length === 1
+                ? (todaysSessions[0].title || todaysSessions[0].session_date)
+                : L(`${todaysSessions.length} sessions today`, `${todaysSessions.length} جلسات اليوم`)}
+            </div>
+            <button className="btn" style={{ background:'#0085C7' }} onClick={openTodaysAttendance}>
+              <i className="ti ti-clipboard-check" /> {L('Take Attendance','تسجيل الحضور')}
+            </button>
           </div>
         )}
+        <div style={{ fontSize:11, color:'var(--text3)', marginTop:10 }}>
+          <i className="ti ti-info-circle" style={{ marginRight:4 }} />
+          {L('To edit attendance for a past session, open it directly from the Schedule calendar.','لتعديل حضور جلسة سابقة، افتحها مباشرة من تقويم الجدول.')}
+        </div>
       </div>
 
       <div className="card">
@@ -414,54 +368,76 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
         <div className="search-wrap" style={{ marginBottom:14 }}>
           <i className="ti ti-search" />
           <input placeholder={L('Search athletes…','بحث عن رياضي…')} value={search} onChange={e=>setSearch(e.target.value)} />
-            </div>
-            <div style={{ overflowX:'auto' }}>
-              <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
-                <thead>
-                  <tr style={{ background:'var(--surface2)' }}>
-                    <th style={{ padding:'10px 12px', textAlign: ar?'right':'left', fontWeight:600, fontSize:12, color:'var(--text3)' }}>{L('Athlete','الرياضي')}</th>
-                    <th style={{ padding:'10px 12px', textAlign:'center', color:'#009F6B', fontSize:12 }}>{L('Present','حاضر')}</th>
-                    <th style={{ padding:'10px 12px', textAlign:'center', color:'#EE334E', fontSize:12 }}>{L('Absent','غائب')}</th>
-                    <th style={{ padding:'10px 12px', textAlign:'center', color:'#f59e0b', fontSize:12 }}>{L('Late','متأخر')}</th>
-                    <th style={{ padding:'10px 12px', textAlign:'center', color:'#8b5cf6', fontSize:12 }}>{L('Excused','معذور')}</th>
-                    <th style={{ padding:'10px 12px', textAlign:'center', fontSize:12 }}>{L('Rate','المعدل')}</th>
+        </div>
+        <div style={{ overflowX:'auto' }}>
+          <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
+            <thead>
+              <tr style={{ background:'var(--surface2)' }}>
+                <th style={{ padding:'10px 12px', textAlign: ar?'right':'left', fontWeight:600, fontSize:12, color:'var(--text3)' }}>{L('Athlete','الرياضي')}</th>
+                <th style={{ padding:'10px 12px', textAlign:'center', color:'#009F6B', fontSize:12 }}>{L('Present','حاضر')}</th>
+                <th style={{ padding:'10px 12px', textAlign:'center', color:'#EE334E', fontSize:12 }}>{L('Absent','غائب')}</th>
+                <th style={{ padding:'10px 12px', textAlign:'center', color:'#f59e0b', fontSize:12 }}>{L('Late','متأخر')}</th>
+                <th style={{ padding:'10px 12px', textAlign:'center', color:'#8b5cf6', fontSize:12 }}>{L('Excused','معذور')}</th>
+                <th style={{ padding:'10px 12px', textAlign:'center', fontSize:12 }}>{L('Rate','المعدل')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredAthletes.map(a => {
+                const s = stats[a.id] || { total:0, present:0, absent:0, late:0, excused:0 }
+                const rate = s.total ? Math.round((s.present / s.total) * 100) : 0
+                return (
+                  <tr key={a.id} onClick={() => setAthleteDetail(a)}
+                    style={{ borderBottom:'1px solid var(--border)', cursor:'pointer' }}
+                    onMouseEnter={e => e.currentTarget.style.background='var(--surface2)'}
+                    onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+                    <td style={{ padding:'10px 12px' }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                        <Avatar name={a.name} id={a.id} size={28} fs={9} />
+                        <span style={{ fontWeight:500 }}>{ar&&a.name_ar?a.name_ar:a.name}</span>
+                      </div>
+                    </td>
+                    <td style={{ textAlign:'center', fontWeight:600, color:'#009F6B' }}>{s.present}</td>
+                    <td style={{ textAlign:'center', fontWeight:600, color:'#EE334E' }}>{s.absent}</td>
+                    <td style={{ textAlign:'center', fontWeight:600, color:'#f59e0b' }}>{s.late}</td>
+                    <td style={{ textAlign:'center', fontWeight:600, color:'#8b5cf6' }}>{s.excused}</td>
+                    <td style={{ textAlign:'center' }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:6, justifyContent:'center' }}>
+                        <div style={{ width:50, height:6, background:'var(--surface2)', borderRadius:3, overflow:'hidden' }}>
+                          <div style={{ height:'100%', width:`${rate}%`, background: rate>=80?'#009F6B':rate>=60?'#f59e0b':'#EE334E', borderRadius:3 }} />
+                        </div>
+                        <span style={{ fontSize:11, fontWeight:600 }}>{s.total?`${rate}%`:L('N/A','—')}</span>
+                      </div>
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {filteredAthletes.map(a => {
-                    const s = stats[a.id] || { total:0, present:0, absent:0, late:0, excused:0 }
-                    const rate = s.total ? Math.round((s.present / s.total) * 100) : 0
-                    return (
-                      <tr key={a.id} onClick={() => setAthleteDetail(a)}
-                        style={{ borderBottom:'1px solid var(--border)', cursor:'pointer' }}
-                        onMouseEnter={e => e.currentTarget.style.background='var(--surface2)'}
-                        onMouseLeave={e => e.currentTarget.style.background='transparent'}>
-                        <td style={{ padding:'10px 12px' }}>
-                          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                            <Avatar name={a.name} id={a.id} size={28} fs={9} />
-                            <span style={{ fontWeight:500 }}>{ar&&a.name_ar?a.name_ar:a.name}</span>
-                          </div>
-                        </td>
-                        <td style={{ textAlign:'center', fontWeight:600, color:'#009F6B' }}>{s.present}</td>
-                        <td style={{ textAlign:'center', fontWeight:600, color:'#EE334E' }}>{s.absent}</td>
-                        <td style={{ textAlign:'center', fontWeight:600, color:'#f59e0b' }}>{s.late}</td>
-                        <td style={{ textAlign:'center', fontWeight:600, color:'#8b5cf6' }}>{s.excused}</td>
-                        <td style={{ textAlign:'center' }}>
-                          <div style={{ display:'flex', alignItems:'center', gap:6, justifyContent:'center' }}>
-                            <div style={{ width:50, height:6, background:'var(--surface2)', borderRadius:3, overflow:'hidden' }}>
-                              <div style={{ height:'100%', width:`${rate}%`, background: rate>=80?'#009F6B':rate>=60?'#f59e0b':'#EE334E', borderRadius:3 }} />
-                            </div>
-                            <span style={{ fontSize:11, fontWeight:600 }}>{s.total?`${rate}%`:L('N/A','—')}</span>
-                          </div>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
+
+      {showDayPicker && (
+        <div onClick={() => setShowDayPicker(false)} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:9999, padding:20 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background:'var(--surface)', borderRadius:16, padding:20, width:380, maxWidth:'100%', boxShadow:'0 12px 40px rgba(0,0,0,.25)' }}>
+            <div style={{ fontSize:15, fontWeight:700, marginBottom:4 }}>{L('Which session?','أي جلسة؟')}</div>
+            <div style={{ fontSize:12, color:'var(--text3)', marginBottom:14 }}>{L('You have more than one session today.','لديك أكثر من جلسة اليوم.')}</div>
+            <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+              {todaysSessions.map(s => (
+                <div key={s.id} onClick={() => { setSelSession(s.id); setViewMode('session'); setShowDayPicker(false) }}
+                  style={{ padding:'10px 14px', borderRadius:10, border:'1px solid var(--border)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'space-between' }}
+                  onMouseEnter={e => e.currentTarget.style.background='var(--surface2)'}
+                  onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+                  <div>
+                    <div style={{ fontSize:13, fontWeight:600 }}>{s.title}</div>
+                    <div style={{ fontSize:11, color:'var(--text3)' }}>{s.start_time?.slice(0,5)||'—'} · {s.location||'—'}</div>
+                  </div>
+                  <i className="ti ti-arrow-right" style={{ color:'var(--text3)' }} />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {athleteDetail && (() => {
         const periodStart = athleteDetailTab === 'week' ? getWeekStart(new Date())
@@ -548,38 +524,6 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
         )
       })()}
 
-      {unclosedWarning && (
-        <ConfirmModal
-          danger={false}
-          title={L('Previous session still open','جلسة سابقة لا تزال مفتوحة')}
-          message={
-            unclosedWarning.blocking.length === 1
-              ? L(
-                  `"${unclosedWarning.blocking[0].title || unclosedWarning.blocking[0].session_date}" from ${unclosedWarning.blocking[0].session_date} hasn't been closed yet. We recommend closing it before starting a new one, so it doesn't get forgotten.`,
-                  `الجلسة "${unclosedWarning.blocking[0].title || unclosedWarning.blocking[0].session_date}" من ${unclosedWarning.blocking[0].session_date} لم تُغلق بعد. ننصح بإغلاقها قبل بدء جلسة جديدة حتى لا تُنسى.`
-                )
-              : L(
-                  `You have ${unclosedWarning.blocking.length} earlier sessions that haven't been closed yet. We recommend closing them before starting a new one.`,
-                  `لديك ${unclosedWarning.blocking.length} جلسات سابقة لم تُغلق بعد. ننصح بإغلاقها قبل بدء جلسة جديدة.`
-                )
-          }
-          confirmLabel={L('Continue anyway','المتابعة على أي حال')}
-          cancelLabel={L('Go close it first','إغلاقها أولاً')}
-          onConfirm={() => {
-            const t = unclosedWarning.target
-            setUnclosedWarning(null)
-            setSelSession(t.id)
-            setViewMode('session')
-          }}
-          onCancel={() => {
-            const oldest = unclosedWarning.blocking[0]
-            setUnclosedWarning(null)
-            setSelSession(oldest.id)
-            setViewMode('session')
-          }}
-        />
-      )}
-
       {showExport && (
         <div onClick={() => setShowExport(false)} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:9999, padding:20 }}>
           <div onClick={e => e.stopPropagation()} style={{ background:'var(--surface)', borderRadius:16, padding:24, width:420, maxWidth:'100%', boxShadow:'0 12px 40px rgba(0,0,0,.25)' }}>
@@ -627,7 +571,7 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
                 <select className="filter" style={{ width:'100%' }} value={exportSessionId} onChange={e => setExportSessionId(e.target.value)}>
                   <option value="">{L('Select a session…','اختر جلسة…')}</option>
                   {sessions.map(s => (
-                    <option key={s.id} value={s.id}>{s.session_date} — {s.title}{s.attendance_closed ? ` (${L('closed','مغلقة')})` : ''}</option>
+                    <option key={s.id} value={s.id}>{s.session_date} — {s.title}</option>
                   ))}
                 </select>
               </div>

@@ -5,10 +5,10 @@ import { useLang } from '../lib/LangContext.jsx'
 const TYPE_META = {
   excuse_request:     { icon:'ti-clock',           color:'#f59e0b' },
   session_added:      { icon:'ti-calendar-plus',   color:'#009F6B' },
+  timetable_created:  { icon:'ti-calendar-repeat', color:'#8b5cf6' },
   request_approved:   { icon:'ti-circle-check',    color:'#009F6B' },
   request_rejected:   { icon:'ti-circle-x',        color:'#EE334E' },
   needs_attendance:   { icon:'ti-clipboard-check', color:'#f59e0b' },
-  needs_closing:      { icon:'ti-lock-open',        color:'#0085C7' },
   access_request:     { icon:'ti-user-plus',        color:'#0085C7' },
 }
 
@@ -62,10 +62,12 @@ export default function Notifications({ profile, onNav }) {
   function handleClick(n) {
     if (!n.read) markRead(n.id)
     const sessionId = n.data?.session_id
-    if (['needs_attendance', 'needs_closing'].includes(n.type)) {
+    if (n.type === 'needs_attendance') {
       onNav('attendance', sessionId ? { sessionId } : {})
     } else if (['excuse_request','session_added','request_approved','request_rejected'].includes(n.type)) {
       onNav('schedule', sessionId ? { sessionId } : {})
+    } else if (n.type === 'timetable_created') {
+      onNav('schedule', {})
     } else if (n.type === 'access_request') {
       onNav('users', {})
     }
@@ -73,9 +75,9 @@ export default function Notifications({ profile, onNav }) {
 
   const visible = filter === 'unread' ? notifs.filter(n => !n.read) : notifs
 
-  // Group session-reminder types (needs_attendance / needs_closing) into one row per type,
-  // since these can pile up to one-per-session and shouldn't clutter the list individually.
-  const GROUPED_TYPES = ['needs_attendance', 'needs_closing']
+  // Group needs_attendance into one row, since these can pile up to one-per-session
+  // and shouldn't clutter the list individually.
+  const GROUPED_TYPES = ['needs_attendance']
   const groupedNotifs = visible.filter(n => GROUPED_TYPES.includes(n.type))
   const individualNotifs = visible.filter(n => !GROUPED_TYPES.includes(n.type))
 
@@ -141,10 +143,9 @@ export default function Notifications({ profile, onNav }) {
           <>
             {groups.map(g => {
               const meta = TYPE_META[g.type] || { icon:'ti-bell', color:'#9aa3b2' }
-              const isAttendance = g.type === 'needs_attendance'
               const title = g.items.length === 1
-                ? (isAttendance ? L('1 session needs attendance','جلسة واحدة بحاجة لتسجيل الحضور') : L('1 session is ready to close','جلسة واحدة جاهزة للإغلاق'))
-                : (isAttendance ? L(`${g.items.length} sessions need attendance`,`${g.items.length} جلسات بحاجة لتسجيل الحضور`) : L(`${g.items.length} sessions are ready to close`,`${g.items.length} جلسات جاهزة للإغلاق`))
+                ? L('1 session needs attendance','جلسة واحدة بحاجة لتسجيل الحضور')
+                : L(`${g.items.length} sessions need attendance`,`${g.items.length} جلسات بحاجة لتسجيل الحضور`)
               return (
                 <div key={g.type} style={{ borderBottom:'1px solid var(--border)' }}>
                   <div style={{ display:'flex', gap:12, alignItems:'flex-start', padding:'14px 16px', background: g.anyUnread ? meta.color+'08' : 'transparent' }}>

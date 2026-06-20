@@ -17,7 +17,7 @@ export default function CoachDashboard({ coach, athletes, events, results, onNav
   )
 
   const [upcomingSessions, setUpcomingSessions] = useState([])
-  const [reminders, setReminders] = useState({ needsAttendance: [], needsClosing: [] })
+  const [reminders, setReminders] = useState({ needsAttendance: [] })
 
   useEffect(() => {
     if (!coach?.id) return
@@ -35,38 +35,36 @@ export default function CoachDashboard({ coach, athletes, events, results, onNav
     if (!coach?.id) return
     const today = new Date().toISOString().split('T')[0]
     ;(async () => {
-      // Past or today's sessions for this coach
-      const { data: pastSessions } = await supabase
+      // Only today's sessions — attendance is taken day-of, there's no concept of
+      // "closing" sessions or chasing a backlog anymore. Anything older is handled
+      // by opening that specific session directly from Schedule.
+      const { data: todaysSessions } = await supabase
         .from('training_sessions')
         .select('*')
         .eq('coach_id', String(coach.id))
-        .lte('session_date', today)
-        .order('session_date', { ascending: false })
-        .limit(30)
+        .eq('session_date', today)
 
-      if (!pastSessions?.length) { setReminders({ needsAttendance: [], needsClosing: [] }); return }
+      if (!todaysSessions?.length) { setReminders({ needsAttendance: [] }); return }
 
-      const sessionIds = pastSessions.map(s => s.id)
+      const sessionIds = todaysSessions.map(s => s.id)
       const { data: attRows } = await supabase
         .from('attendance')
         .select('session_id')
         .in('session_id', sessionIds)
 
       const sessionsWithAttendance = new Set((attRows || []).map(r => r.session_id))
+      const needsAttendance = todaysSessions.filter(s => !sessionsWithAttendance.has(s.id))
 
-      const needsAttendance = pastSessions.filter(s => !sessionsWithAttendance.has(s.id) && !s.attendance_closed)
-      const needsClosing    = pastSessions.filter(s => sessionsWithAttendance.has(s.id) && !s.attendance_closed)
+      setReminders({ needsAttendance })
 
-      setReminders({ needsAttendance, needsClosing })
-
-      // Mirror these reminders into the notifications table so they also show on the
+      // Mirror this reminder into the notifications table so it also shows on the
       // full Notifications page and in the bell, not just here on the dashboard.
       if (profile?.id) {
         const { data: existing } = await supabase
           .from('notifications')
           .select('id, type, data')
           .eq('user_id', String(profile.id))
-          .in('type', ['needs_attendance', 'needs_closing'])
+          .eq('type', 'needs_attendance')
 
         const existingKeys = new Set((existing || []).map(n => `${n.type}:${n.data?.session_id}`))
 
@@ -82,29 +80,15 @@ export default function CoachDashboard({ coach, athletes, events, results, onNav
             })
           }
         })
-        needsClosing.forEach(s => {
-          const key = `needs_closing:${s.id}`
-          if (!existingKeys.has(key)) {
-            toInsert.push({
-              user_id: profile.id, type: 'needs_closing', read: false,
-              title: L('Session ready to close','جلسة جاهزة للإغلاق'),
-              body: s.title || s.session_date,
-              data: { session_id: s.id },
-            })
-          }
-        })
         if (toInsert.length > 0) await supabase.from('notifications').insert(toInsert)
 
         // Clean up notifications for sessions that are no longer pending
-        // (attendance taken since, or session closed)
-        const stillPendingAttendanceIds = needsAttendance.map(s => s.id)
-        const stillPendingClosingIds    = needsClosing.map(s => s.id)
+        // (attendance taken since, or no longer today)
+        const stillPendingIds = needsAttendance.map(s => s.id)
         const idsToDelete = (existing || [])
           .filter(n => {
             const sid = n.data?.session_id
-            if (n.type === 'needs_attendance') return sid && !stillPendingAttendanceIds.includes(sid)
-            if (n.type === 'needs_closing')    return sid && !stillPendingClosingIds.includes(sid)
-            return false
+            return sid && !stillPendingIds.includes(sid)
           })
           .map(n => n.id)
         if (idsToDelete.length > 0) await supabase.from('notifications').delete().in('id', idsToDelete)
@@ -236,18 +220,6 @@ export default function CoachDashboard({ coach, athletes, events, results, onNav
             sub: reminders.needsAttendance.slice(0,3).map(s => s.title || s.session_date).join(', ') + (reminders.needsAttendance.length > 3 ? '…' : ''),
             actionLabel: L('Take attendance','تسجيل الحضور'),
             items: reminders.needsAttendance.map(s => ({
-              label: `${s.title || s.session_date} (${s.session_date})`,
-              onSelect: () => onNav('attendance', { sessionId: s.id }),
-            })),
-          }] : []),
-          ...(reminders.needsClosing.length > 0 ? [{
-            key: 'needsClosing', color: '#0085C7', icon: 'ti-lock-open',
-            title: reminders.needsClosing.length === 1
-              ? L('1 session is ready to close', 'جلسة واحدة جاهزة للإغلاق')
-              : L(`${reminders.needsClosing.length} sessions are ready to close`, `${reminders.needsClosing.length} جلسات جاهزة للإغلاق`),
-            sub: L('Attendance was taken but the session is still open.', 'تم تسجيل الحضور ولكن الجلسة لا تزال مفتوحة.'),
-            actionLabel: L('Review & close','مراجعة وإغلاق'),
-            items: reminders.needsClosing.map(s => ({
               label: `${s.title || s.session_date} (${s.session_date})`,
               onSelect: () => onNav('attendance', { sessionId: s.id }),
             })),

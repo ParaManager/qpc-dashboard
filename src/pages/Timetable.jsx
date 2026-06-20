@@ -212,7 +212,7 @@ export function CreateTimetableForm({ coachId, myAthletes, ar, onClose, onCreate
   const [location, setLocation] = useState('')
   const [notes, setNotes] = useState('')
   const [athleteIds, setAthleteIds] = useState([])
-  const [days, setDays] = useState({})  // { [day_of_week]: { selected, start_time, end_time } }
+  const [days, setDays] = useState({})  // { [day_of_week]: { selected, slots: [{ start_time, end_time, label }] } }
   const [saving, setSaving] = useState(false)
 
   const toggleAth = (id) => {
@@ -228,12 +228,29 @@ export function CreateTimetableForm({ coachId, myAthletes, ar, onClose, onCreate
         next[dow] = { ...cur, selected: false }
         return next
       }
-      return { ...prev, [dow]: { selected: true, start_time: cur?.start_time || '16:00', end_time: cur?.end_time || '18:00' } }
+      return { ...prev, [dow]: { selected: true, slots: cur?.slots?.length ? cur.slots : [{ start_time:'16:00', end_time:'18:00', label:'' }] } }
     })
   }
 
-  function setDayTime(dow, field, value) {
-    setDays(prev => ({ ...prev, [dow]: { ...prev[dow], [field]: value } }))
+  function setSlotField(dow, slotIdx, field, value) {
+    setDays(prev => {
+      const slots = prev[dow].slots.map((s,i) => i===slotIdx ? { ...s, [field]: value } : s)
+      return { ...prev, [dow]: { ...prev[dow], slots } }
+    })
+  }
+
+  function addSlot(dow) {
+    setDays(prev => {
+      const slots = [...prev[dow].slots, { start_time:'16:00', end_time:'18:00', label:'' }]
+      return { ...prev, [dow]: { ...prev[dow], slots } }
+    })
+  }
+
+  function removeSlot(dow, slotIdx) {
+    setDays(prev => {
+      const slots = prev[dow].slots.filter((_,i) => i !== slotIdx)
+      return { ...prev, [dow]: { ...prev[dow], slots } }
+    })
   }
 
   async function handleSubmit() {
@@ -250,17 +267,41 @@ export function CreateTimetableForm({ coachId, myAthletes, ar, onClose, onCreate
 
     if (error || !tt) { toast(error?.message || 'Error', 'error'); setSaving(false); return }
 
-    const dayRows = selectedDays.map(([dow, v]) => ({
-      timetable_id: tt.id,
-      day_of_week: Number(dow),
-      start_time: v.start_time || null,
-      end_time: v.end_time || null,
-      active: true,
-    }))
+    const dayRows = []
+    selectedDays.forEach(([dow, v]) => {
+      (v.slots || []).forEach(slot => {
+        dayRows.push({
+          timetable_id: tt.id,
+          day_of_week: Number(dow),
+          start_time: slot.start_time || null,
+          end_time: slot.end_time || null,
+          label: slot.label || null,
+          active: true,
+        })
+      })
+    })
     const { error: daysError } = await supabase.from('timetable_days').insert(dayRows)
     if (daysError) { toast(daysError.message, 'error'); setSaving(false); return }
 
     await generateUpcomingSessions(coachId)
+
+    // Notify assigned athletes that a new recurring timetable was created for them
+    if (athleteIds.length > 0) {
+      const { data: athleteProfiles } = await supabase
+        .from('profiles')
+        .select('id, athlete_id')
+        .in('athlete_id', athleteIds.map(String))
+      const notifs = (athleteProfiles || []).map(p => ({
+        user_id: p.id,
+        type: 'timetable_created',
+        title: ar ? 'تم إنشاء جدول أسبوعي جديد' : 'New weekly timetable created',
+        body: title,
+        data: { timetable_id: tt.id },
+        read: false,
+      }))
+      if (notifs.length > 0) await supabase.from('notifications').insert(notifs)
+    }
+
     toast(L('Timetable created','تم إنشاء الجدول'))
     setSaving(false)
     onCreated?.()
@@ -314,10 +355,23 @@ export function CreateTimetableForm({ coachId, myAthletes, ar, onClose, onCreate
                     <span style={{ fontSize:13, fontWeight:600 }}>{ar ? DAYS_AR[dow] : d}</span>
                   </div>
                   {isSelected && (
-                    <div style={{ display:'flex', gap:10, marginTop:8, paddingLeft:28 }}>
-                      <input type="time" className="form-input" style={{ flex:1 }} value={dayData.start_time||''} onChange={e=>setDayTime(dow,'start_time',e.target.value)} />
-                      <span style={{ alignSelf:'center', color:'var(--text3)' }}>→</span>
-                      <input type="time" className="form-input" style={{ flex:1 }} value={dayData.end_time||''} onChange={e=>setDayTime(dow,'end_time',e.target.value)} />
+                    <div style={{ paddingLeft:28, marginTop:8, display:'flex', flexDirection:'column', gap:8 }}>
+                      {dayData.slots.map((slot, slotIdx) => (
+                        <div key={slotIdx} style={{ display:'flex', gap:8, alignItems:'center' }}>
+                          <input className="form-input" style={{ flex:1, fontSize:12 }} placeholder={L('Label (optional, e.g. Morning)','تسمية (اختياري، مثال: صباحي)')} value={slot.label||''} onChange={e=>setSlotField(dow,slotIdx,'label',e.target.value)} />
+                          <input type="time" className="form-input" style={{ flex:1 }} value={slot.start_time||''} onChange={e=>setSlotField(dow,slotIdx,'start_time',e.target.value)} />
+                          <span style={{ color:'var(--text3)' }}>→</span>
+                          <input type="time" className="form-input" style={{ flex:1 }} value={slot.end_time||''} onChange={e=>setSlotField(dow,slotIdx,'end_time',e.target.value)} />
+                          {dayData.slots.length > 1 && (
+                            <button type="button" onClick={() => removeSlot(dow, slotIdx)} style={{ background:'none', border:'none', cursor:'pointer', color:'#EE334E', flexShrink:0 }}>
+                              <i className="ti ti-x" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      <button type="button" onClick={() => addSlot(dow)} style={{ alignSelf:'flex-start', background:'none', border:'none', cursor:'pointer', color:'#0085C7', fontSize:12, fontWeight:600, padding:'4px 0', display:'flex', alignItems:'center', gap:4 }}>
+                        <i className="ti ti-plus" style={{ fontSize:12 }} /> {L('Add another time','إضافة وقت آخر')}
+                      </button>
                     </div>
                   )}
                 </div>
@@ -368,6 +422,7 @@ export function EditTimetableForm({ timetableId, myAthletes, ar, coachId, onClos
     const { data: dayRows } = await supabase.from('timetable_days').select('*').eq('timetable_id', timetableId).order('day_of_week')
     setTimetable(tt)
     setDays(dayRows || [])
+    setRemovedDayIds([])
     setLoading(false)
   }
 
@@ -382,6 +437,18 @@ export function EditTimetableForm({ timetableId, myAthletes, ar, coachId, onClos
   function toggleDayActive(dayId) {
     setDays(prev => prev.map(d => d.id === dayId ? { ...d, active: !d.active } : d))
   }
+  const [removedDayIds, setRemovedDayIds] = useState([])
+
+  function addNewSlot(dow) {
+    // Temporary client-side id (negative timestamp) so React can key it before it's saved.
+    const tempId = `new-${Date.now()}-${Math.random().toString(36).slice(2)}`
+    setDays(prev => [...prev, { id: tempId, _isNew: true, timetable_id: timetableId, day_of_week: dow, start_time:'16:00', end_time:'18:00', label:'', active:true }])
+  }
+  function removeSlot(dayId) {
+    const removed = days.find(d => d.id === dayId)
+    if (removed && !removed._isNew) setRemovedDayIds(prev => [...prev, dayId])
+    setDays(prev => prev.filter(d => d.id !== dayId))
+  }
 
   async function handleSave() {
     if (!timetable.title) { toast(L('Title is required','العنوان مطلوب'), 'error'); return }
@@ -391,15 +458,29 @@ export function EditTimetableForm({ timetableId, myAthletes, ar, coachId, onClos
       location: timetable.location, notes: timetable.notes, athlete_ids: timetable.athlete_ids,
     }).eq('id', timetable.id)
 
-    for (const d of days) {
+    const existingDays = days.filter(d => !d._isNew)
+    const newDays       = days.filter(d => d._isNew)
+
+    if (removedDayIds.length > 0) {
+      await supabase.from('timetable_days').delete().in('id', removedDayIds)
+    }
+
+    for (const d of existingDays) {
       await supabase.from('timetable_days').update({
-        start_time: d.start_time, end_time: d.end_time, active: d.active,
+        start_time: d.start_time, end_time: d.end_time, label: d.label || null, active: d.active,
       }).eq('id', d.id)
     }
 
+    if (newDays.length > 0) {
+      await supabase.from('timetable_days').insert(newDays.map(d => ({
+        timetable_id: timetable.id, day_of_week: d.day_of_week,
+        start_time: d.start_time, end_time: d.end_time, label: d.label || null, active: d.active,
+      })))
+    }
+
     // Regenerate: clear future sessions for the whole timetable, then rebuild from
-    // the updated pattern (covers time changes, day activation/deactivation, and
-    // shared-field changes like title/location/athletes all in one pass).
+    // the updated pattern (covers time changes, day activation/deactivation, new/removed
+    // slots, and shared-field changes like title/location/athletes all in one pass).
     const todayStr = toLocalDateStr(new Date())
     await supabase.from('training_sessions').delete().eq('timetable_id', timetable.id).gte('session_date', todayStr)
     await generateUpcomingSessions(coachId)
@@ -460,23 +541,43 @@ export function EditTimetableForm({ timetableId, myAthletes, ar, coachId, onClos
 
           <div className="form-section">{L('Days & Times','الأيام والأوقات')}</div>
           <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-            {days.map(d => (
-              <div key={d.id} style={{ border:'1px solid var(--border)', borderRadius:10, padding:'10px 12px', opacity: d.active ? 1 : .5 }}>
-                <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                  <div onClick={() => toggleDayActive(d.id)} style={{width:18,height:18,borderRadius:4,border:'2px solid',borderColor:d.active?'#0085C7':'var(--border)',background:d.active?'#0085C7':'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,cursor:'pointer'}}>
-                    {d.active && <i className="ti ti-check" style={{ fontSize:10, color:'#fff' }} />}
-                  </div>
-                  <span style={{ fontSize:13, fontWeight:600 }}>{ar ? DAYS_AR[d.day_of_week] : DAYS_EN[d.day_of_week]}</span>
+            {[0,1,2,3,4,5,6].map(dow => {
+              const slotsForDay = days.filter(d => d.day_of_week === dow)
+              if (slotsForDay.length === 0) return (
+                <div key={dow} style={{ border:'1px dashed var(--border)', borderRadius:10, padding:'8px 12px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                  <span style={{ fontSize:13, color:'var(--text3)' }}>{ar ? DAYS_AR[dow] : DAYS_EN[dow]}</span>
+                  <button type="button" onClick={() => addNewSlot(dow)} style={{ background:'none', border:'none', cursor:'pointer', color:'#0085C7', fontSize:12, fontWeight:600, display:'flex', alignItems:'center', gap:4 }}>
+                    <i className="ti ti-plus" style={{ fontSize:12 }} /> {L('Add time','إضافة وقت')}
+                  </button>
                 </div>
-                {d.active && (
-                  <div style={{ display:'flex', gap:10, marginTop:8, paddingLeft:28 }}>
-                    <input type="time" className="form-input" style={{ flex:1 }} value={d.start_time||''} onChange={e=>setDayField(d.id,'start_time',e.target.value)} />
-                    <span style={{ alignSelf:'center', color:'var(--text3)' }}>→</span>
-                    <input type="time" className="form-input" style={{ flex:1 }} value={d.end_time||''} onChange={e=>setDayField(d.id,'end_time',e.target.value)} />
+              )
+              return (
+                <div key={dow} style={{ border:'1px solid var(--border)', borderRadius:10, padding:'10px 12px' }}>
+                  <div style={{ fontSize:13, fontWeight:600, marginBottom:8 }}>{ar ? DAYS_AR[dow] : DAYS_EN[dow]}</div>
+                  <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                    {slotsForDay.map(d => (
+                      <div key={d.id} style={{ opacity: d.active ? 1 : .5 }}>
+                        <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+                          <div onClick={() => toggleDayActive(d.id)} style={{width:18,height:18,borderRadius:4,border:'2px solid',borderColor:d.active?'#0085C7':'var(--border)',background:d.active?'#0085C7':'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,cursor:'pointer'}}>
+                            {d.active && <i className="ti ti-check" style={{ fontSize:10, color:'#fff' }} />}
+                          </div>
+                          <input className="form-input" style={{ flex:1, fontSize:12 }} placeholder={L('Label (optional)','تسمية (اختياري)')} value={d.label||''} onChange={e=>setDayField(d.id,'label',e.target.value)} disabled={!d.active} />
+                          <input type="time" className="form-input" style={{ flex:1 }} value={d.start_time||''} onChange={e=>setDayField(d.id,'start_time',e.target.value)} disabled={!d.active} />
+                          <span style={{ color:'var(--text3)' }}>→</span>
+                          <input type="time" className="form-input" style={{ flex:1 }} value={d.end_time||''} onChange={e=>setDayField(d.id,'end_time',e.target.value)} disabled={!d.active} />
+                          <button type="button" onClick={() => removeSlot(d.id)} style={{ background:'none', border:'none', cursor:'pointer', color:'#EE334E', flexShrink:0 }}>
+                            <i className="ti ti-trash" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    <button type="button" onClick={() => addNewSlot(dow)} style={{ alignSelf:'flex-start', background:'none', border:'none', cursor:'pointer', color:'#0085C7', fontSize:12, fontWeight:600, padding:'4px 0', display:'flex', alignItems:'center', gap:4 }}>
+                      <i className="ti ti-plus" style={{ fontSize:12 }} /> {L('Add another time','إضافة وقت آخر')}
+                    </button>
                   </div>
-                )}
-              </div>
-            ))}
+                </div>
+              )
+            })}
           </div>
 
           <div className="form-section">{L('Athletes','الرياضيون')} ({(timetable.athlete_ids||[]).length} {L('selected','مختارون')})</div>

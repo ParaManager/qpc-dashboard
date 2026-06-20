@@ -297,21 +297,10 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
             <button className="action-btn action-btn-delete" onClick={() => setDeleteConfirm(s)}>
               <i className="ti ti-trash" /> {L('Delete','حذف')}
             </button>
-            {s.attendance_closed ? (
-              <button className="action-btn" style={{ borderColor:'#0085C7', color:'#0085C7' }}
-                onClick={async () => {
-                  await supabase.from('training_sessions').update({ attendance_closed: false }).eq('id', s.id)
-                  toast(ar ? 'تم إعادة فتح الجلسة' : 'Session reopened')
-                  loadSessions()
-                }}>
-                <i className="ti ti-lock-open" /> {L('Reopen session','إعادة فتح الجلسة')}
-              </button>
-            ) : (
-              <button className="btn" style={{ background:color, fontSize:13, padding:'6px 14px' }}
-                onClick={() => onNav('attendance', { sessionId: s.id })}>
-                <i className="ti ti-clipboard-check" /> {L('Take attendance','تسجيل الحضور')}
-              </button>
-            )}
+            <button className="btn" style={{ background:color, fontSize:13, padding:'6px 14px' }}
+              onClick={() => onNav('attendance', { sessionId: s.id })}>
+              <i className="ti ti-clipboard-check" /> {L('Take attendance','تسجيل الحضور')}
+            </button>
             <button className="action-btn" style={{ borderColor:'#009F6B', color:'#009F6B' }}
               onClick={() => exportSessionAttendance(s)}>
               <i className="ti ti-file-export" /> {L('Export attendance','تصدير الحضور')}
@@ -342,11 +331,6 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
           <div className="detail-profile">
             <div style={{ display:'flex', gap:6, marginBottom:12, flexWrap:'wrap' }}>
               <span className="badge" style={{ background:color+'20', color }}>{L(s.session_type, {'Training':'تدريب','Competition':'منافسة','Medical':'طبي','Meeting':'اجتماع'}[s.session_type]||s.session_type)}</span>
-              {s.attendance_closed && (
-                <span className="badge" style={{ background:'#9aa3b220', color:'#9aa3b2', display:'flex', alignItems:'center', gap:4 }}>
-                  <i className="ti ti-lock" style={{ fontSize:11 }} /> {L('Attendance closed','الحضور مغلق')}
-                </span>
-              )}
             </div>
             <div className="detail-name" style={{ display:'flex', alignItems:'center', gap:8 }}>
               {s.title}
