@@ -294,9 +294,8 @@ export default function App() {
             <span>{lang==='ar'?'QPC':'QPC'}</span> · <span>{tx(`pages.${page}`, page.charAt(0).toUpperCase()+page.slice(1))}</span><span className="hide-mobile"> · {tx('nav.season','Season')} 2026</span>
           </div></div>
           <div className="tb-actions">
-            <div className="role-badge" style={{ display:'flex', alignItems:'center', gap:5, padding:'4px 10px', background:roleColor+'15', border:`1px solid ${roleColor}40`, borderRadius:20, fontSize:11, color:roleColor, fontWeight:500, flexShrink:0 }}>
-              <i className={`ti ${roleIcon}`} style={{ fontSize:13, flexShrink:0 }} />
-              <span className="role-label">{role.charAt(0).toUpperCase()+role.slice(1)}</span>
+            <div className="role-badge-text" style={{ display:'flex', alignItems:'center', padding:'4px 10px', background:roleColor+'15', border:`1px solid ${roleColor}40`, borderRadius:20, fontSize:11, color:roleColor, fontWeight:600, flexShrink:0, whiteSpace:'nowrap' }}>
+              {role.charAt(0).toUpperCase()+role.slice(1)}
             </div>
             {/* Language toggle */}
             <button
