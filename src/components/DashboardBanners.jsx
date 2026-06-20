@@ -5,6 +5,7 @@ import { useLang } from '../lib/LangContext.jsx'
 const TYPE_META = {
   excuse_request:   { color:'#8b5cf6', icon:'ti-message-circle' },
   session_added:    { color:'#009F6B', icon:'ti-calendar-plus' },
+  timetable_created:{ color:'#8b5cf6', icon:'ti-calendar-repeat' },
   request_approved: { color:'#009F6B', icon:'ti-circle-check' },
   request_rejected: { color:'#EE334E', icon:'ti-circle-x' },
   access_request:   { color:'#0085C7', icon:'ti-user-plus' },
@@ -60,9 +61,9 @@ export default function DashboardBanners({ profile, onNav, extraBanners = [], ma
     return () => supabase.removeChannel(sub)
   }, [profile?.id])
 
-  // needs_attendance/needs_closing are session reminders shown via dedicated extraBanners
-  // on the coach dashboard — exclude them here to avoid showing the same thing twice.
-  const SESSION_REMINDER_TYPES = ['needs_attendance', 'needs_closing']
+  // needs_attendance is a session reminder shown via dedicated extraBanners
+  // on the coach dashboard — exclude it here to avoid showing the same thing twice.
+  const SESSION_REMINDER_TYPES = ['needs_attendance']
   const excuseRequests = activeNotifs.filter(n => n.type === 'excuse_request')
   const otherNotifs     = activeNotifs.filter(n => n.type !== 'excuse_request' && !SESSION_REMINDER_TYPES.includes(n.type))
 

@@ -148,10 +148,12 @@ export default function NotificationBell({ isAdmin, userId }) {
                   // thing is resolved — dashboard banners track resolution separately.
                   supabase.from('notifications').update({ read: true }).eq('id', n.id)
                   const sessionId = n.data?.session_id
-                  if (n.type === 'needs_attendance' || n.type === 'needs_closing') {
+                  if (n.type === 'needs_attendance') {
                     window.dispatchEvent(new CustomEvent('navigate', { detail: { page:'attendance', sessionId } }))
                   } else if (n.type==='excuse_request' || n.type==='session_added' || n.type==='request_approved' || n.type==='request_rejected') {
                     window.dispatchEvent(new CustomEvent('navigate', { detail: { page:'schedule', sessionId } }))
+                  } else if (n.type==='timetable_created') {
+                    window.dispatchEvent(new CustomEvent('navigate', { detail: { page:'schedule' } }))
                   } else if (n.type==='access_request') {
                     window.dispatchEvent(new CustomEvent('navigate', { detail: { page:'users' } }))
                   }
@@ -159,7 +161,7 @@ export default function NotificationBell({ isAdmin, userId }) {
                 style={{ padding:'12px 16px', borderBottom:'1px solid var(--border)', display:'flex', gap:10, alignItems:'flex-start', background:'#0085C705', cursor:'pointer', transition:'background .15s' }}
                 onMouseEnter={e => e.currentTarget.style.background='var(--surface2)'}
                 onMouseLeave={e => e.currentTarget.style.background='#0085C705'}>
-                <div style={{ width:8, height:8, borderRadius:'50%', background: n.type==='excuse_request'?'#f59e0b':n.type==='session_added'?'#009F6B':n.type==='needs_attendance'?'#f59e0b':n.type==='needs_closing'?'#0085C7':'#0085C7', flexShrink:0, marginTop:5 }} />
+                <div style={{ width:8, height:8, borderRadius:'50%', background: n.type==='excuse_request'?'#f59e0b':n.type==='session_added'?'#009F6B':n.type==='needs_attendance'?'#f59e0b':n.type==='timetable_created'?'#8b5cf6':'#0085C7', flexShrink:0, marginTop:5 }} />
                 <div style={{ flex:1 }}>
                   <div style={{ fontSize:13, fontWeight:500 }}>{n.title}</div>
                   <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>{n.body}</div>
