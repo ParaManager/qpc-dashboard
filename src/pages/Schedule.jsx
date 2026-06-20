@@ -431,6 +431,22 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
                       <div style={{ display:'flex', gap:6 }}>
                         <button onClick={async () => {
                           await supabase.from('training_session_requests').update({ status:'approved' }).eq('id', req.id)
+                          // If this was an excuse request, automatically mark the athlete's
+                          // attendance for that session as Excused — no need for the coach
+                          // to separately remember to do it when taking attendance.
+                          if (req.type === 'excuse') {
+                            const { data: existingAtt } = await supabase
+                              .from('attendance')
+                              .select('id')
+                              .eq('session_id', req.session_id)
+                              .eq('athlete_id', String(req.athlete_id))
+                              .maybeSingle()
+                            if (existingAtt) {
+                              await supabase.from('attendance').update({ status: 'Excused' }).eq('id', existingAtt.id)
+                            } else {
+                              await supabase.from('attendance').insert({ session_id: req.session_id, athlete_id: String(req.athlete_id), status: 'Excused' })
+                            }
+                          }
                           const { data: athProfile } = await supabase.from('profiles').select('id,athlete_id').then(r => r)
                           const ap = (athProfile||[]).find(p => String(p.athlete_id) === String(req.athlete_id))
                           if (ap) await supabase.from('notifications').insert({ user_id: String(ap.id), type:'request_approved', title: ar?'تم قبول طلبك':'Request approved', body: ar?'تم قبول طلب العذر/إعادة الجدولة':'Your request was approved', data: { session_id: req.session_id }, read: false })
