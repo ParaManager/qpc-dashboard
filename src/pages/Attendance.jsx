@@ -10,7 +10,7 @@ const STATUS_AR     = { Present:'حاضر', Absent:'غائب', Late:'متأخر'
 const STATUS_COLORS = { Present:'#009F6B', Absent:'#EE334E', Late:'#f59e0b', Excused:'#8b5cf6' }
 const STATUS_ICONS  = { Present:'ti-circle-check', Absent:'ti-circle-x', Late:'ti-clock', Excused:'ti-note' }
 
-export default function Attendance({ profile, coachId, myAthletes, initSessionId, onNav }) {
+export default function Attendance({ profile, coachId, myAthletes, initSessionId, onNav, viewOnly }) {
   const { lang } = useLang()
   const ar = lang === 'ar'
   const L = (en, a) => ar ? a : en
@@ -255,15 +255,17 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
           </div>
         )}
 
-        <div style={{ display:'flex', gap:8, marginBottom:14, flexWrap:'wrap' }}>
-          <span style={{ fontSize:12, color:'var(--text3)', alignSelf:'center' }}>{L('Mark all:','تحديد الكل:')}</span>
-          {STATUS_OPTS.map(s => (
-            <button key={s} onClick={() => markAll(s)}
-              style={{ padding:'4px 12px', borderRadius:20, border:`1px solid ${STATUS_COLORS[s]}`, background:'transparent', color:STATUS_COLORS[s], fontSize:11, fontWeight:600, cursor:'pointer' }}>
-              {ar ? STATUS_AR[s] : s}
-            </button>
-          ))}
-        </div>
+        {!viewOnly && (
+          <div style={{ display:'flex', gap:8, marginBottom:14, flexWrap:'wrap' }}>
+            <span style={{ fontSize:12, color:'var(--text3)', alignSelf:'center' }}>{L('Mark all:','تحديد الكل:')}</span>
+            {STATUS_OPTS.map(s => (
+              <button key={s} onClick={() => markAll(s)}
+                style={{ padding:'4px 12px', borderRadius:20, border:`1px solid ${STATUS_COLORS[s]}`, background:'transparent', color:STATUS_COLORS[s], fontSize:11, fontWeight:600, cursor:'pointer' }}>
+                {ar ? STATUS_AR[s] : s}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14, overflow:'hidden', marginBottom:16 }}>
           {sessionAthletes.length === 0
@@ -283,9 +285,10 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
                     <div style={{ display:'flex', alignItems:'center', gap:10, flexWrap:'wrap' }}>
                       <div style={{ display:'flex', gap:6 }}>
                         {STATUS_OPTS.map(s => (
-                          <button key={s} onClick={() => setAttendance(prev => ({...prev, [a.id]: s}))}
+                          <button key={s} onClick={() => !viewOnly && setAttendance(prev => ({...prev, [a.id]: s}))}
+                            disabled={viewOnly}
                             title={ar ? STATUS_AR[s] : s}
-                            style={{ width:32, height:32, borderRadius:8, border:'2px solid', borderColor: status===s ? STATUS_COLORS[s] : 'var(--border)', background: status===s ? STATUS_COLORS[s]+'20' : 'transparent', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                            style={{ width:32, height:32, borderRadius:8, border:'2px solid', borderColor: status===s ? STATUS_COLORS[s] : 'var(--border)', background: status===s ? STATUS_COLORS[s]+'20' : 'transparent', cursor: viewOnly ? 'default' : 'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, opacity: viewOnly && status!==s ? 0.5 : 1 }}>
                             <i className={`ti ${STATUS_ICONS[s]}`} style={{ fontSize:14, color: status===s ? STATUS_COLORS[s] : 'var(--text3)' }} />
                           </button>
                         ))}
@@ -298,11 +301,13 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
           }
         </div>
 
-        <div style={{ display:'flex', justifyContent:'flex-end' }}>
-          <button className="btn" style={{ background:'#009F6B', padding:'9px 24px' }} onClick={saveAttendance} disabled={saving}>
-            {saving ? (L('Saving…','جارٍ الحفظ…')) : <><i className="ti ti-device-floppy" /> {L('Save attendance','حفظ الحضور')}</>}
-          </button>
-        </div>
+        {!viewOnly && (
+          <div style={{ display:'flex', justifyContent:'flex-end' }}>
+            <button className="btn" style={{ background:'#009F6B', padding:'9px 24px' }} onClick={saveAttendance} disabled={saving}>
+              {saving ? (L('Saving…','جارٍ الحفظ…')) : <><i className="ti ti-device-floppy" /> {L('Save attendance','حفظ الحضور')}</>}
+            </button>
+          </div>
+        )}
       </div>
     )
   }
@@ -319,32 +324,34 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
         </button>
       </div>
 
-      <div className="card" style={{ marginBottom:16 }}>
-        <div className="card-title"><i className="ti ti-clipboard-check" /> {L("Today's attendance","حضور اليوم")}</div>
-        {todaysSessions.length === 0 ? (
-          <div style={{ fontSize:13, color:'var(--text3)' }}>
-            {L('No sessions scheduled for today.','لا توجد جلسات مجدولة اليوم.')}{' '}
-            <span onClick={() => onNav('schedule')} style={{ color:'#0085C7', cursor:'pointer', fontWeight:600 }}>
-              {L('View Schedule','عرض الجدول')}
-            </span>
-          </div>
-        ) : (
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:10 }}>
+      {!viewOnly && (
+        <div className="card" style={{ marginBottom:16 }}>
+          <div className="card-title"><i className="ti ti-clipboard-check" /> {L("Today's attendance","حضور اليوم")}</div>
+          {todaysSessions.length === 0 ? (
             <div style={{ fontSize:13, color:'var(--text3)' }}>
-              {todaysSessions.length === 1
-                ? (todaysSessions[0].title || todaysSessions[0].session_date)
-                : L(`${todaysSessions.length} sessions today`, `${todaysSessions.length} جلسات اليوم`)}
+              {L('No sessions scheduled for today.','لا توجد جلسات مجدولة اليوم.')}{' '}
+              <span onClick={() => onNav('schedule')} style={{ color:'#0085C7', cursor:'pointer', fontWeight:600 }}>
+                {L('View Schedule','عرض الجدول')}
+              </span>
             </div>
-            <button className="btn" style={{ background:'#0085C7' }} onClick={openTodaysAttendance}>
-              <i className="ti ti-clipboard-check" /> {L('Take Attendance','تسجيل الحضور')}
-            </button>
+          ) : (
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:10 }}>
+              <div style={{ fontSize:13, color:'var(--text3)' }}>
+                {todaysSessions.length === 1
+                  ? (todaysSessions[0].title || todaysSessions[0].session_date)
+                  : L(`${todaysSessions.length} sessions today`, `${todaysSessions.length} جلسات اليوم`)}
+              </div>
+              <button className="btn" style={{ background:'#0085C7' }} onClick={openTodaysAttendance}>
+                <i className="ti ti-clipboard-check" /> {L('Take Attendance','تسجيل الحضور')}
+              </button>
+            </div>
+          )}
+          <div style={{ fontSize:11, color:'var(--text3)', marginTop:10 }}>
+            <i className="ti ti-info-circle" style={{ marginRight:4 }} />
+            {L('To edit attendance for a past session, open it directly from the Schedule calendar.','لتعديل حضور جلسة سابقة، افتحها مباشرة من تقويم الجدول.')}
           </div>
-        )}
-        <div style={{ fontSize:11, color:'var(--text3)', marginTop:10 }}>
-          <i className="ti ti-info-circle" style={{ marginRight:4 }} />
-          {L('To edit attendance for a past session, open it directly from the Schedule calendar.','لتعديل حضور جلسة سابقة، افتحها مباشرة من تقويم الجدول.')}
         </div>
-      </div>
+      )}
 
       <div className="card">
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:10, marginBottom:14 }}>

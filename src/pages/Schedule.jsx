@@ -18,7 +18,7 @@ function getFirstDay(year, month) {
   return new Date(year, month, 1).getDay()
 }
 
-export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly, athleteId, athletes, initSessionId }) {
+export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly, viewOnly, athleteId, athletes, initSessionId }) {
   const { lang } = useLang()
   const ar = lang === 'ar'
   const [sessions, setSessions]       = useState([])
@@ -75,7 +75,6 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
   }, [initSessionId, sessions])
 
   async function loadRequests() {
-    if (!coachId && !athleteId) return
     let q = supabase.from('training_session_requests').select('*').order('created_at', { ascending: false })
     if (coachId)   q = q.eq('coach_id', String(coachId))
     if (athleteId) q = q.eq('athlete_id', String(athleteId))
@@ -277,7 +276,7 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
           <i className="ti ti-arrow-left" /> {L('Back to schedule','رجوع إلى الجدول')}
         </button>
         <div style={{ display:'flex', gap:10, marginBottom:16, flexWrap:'wrap' }}>
-          {!readOnly && <>
+          {!readOnly && !viewOnly && <>
             <button className="action-btn action-btn-edit" onClick={() => {
                 const editPayload = { id:s.id, title:s.title, type:s.session_type, sport:s.sport, location:s.location, date:s.session_date, startTime:s.start_time, endTime:s.end_time, notes:s.notes, athleteIds: s.training_session_athletes?.map(sa=>sa.athlete_id)||[] }
                 if (s.timetable_day_id) {
@@ -295,10 +294,6 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
               onClick={() => onNav('attendance', { sessionId: s.id })}>
               <i className="ti ti-clipboard-check" /> {L('Take attendance','تسجيل الحضور')}
             </button>
-            <button className="action-btn" style={{ borderColor:'#009F6B', color:'#009F6B' }}
-              onClick={() => exportSessionAttendance(s)}>
-              <i className="ti ti-file-export" /> {L('Export attendance','تصدير الحضور')}
-            </button>
             {s.timetable_id && (
               <button className="action-btn" style={{ borderColor:'#8b5cf6', color:'#8b5cf6' }}
                 onClick={() => setEditTimetableId(s.timetable_id)}>
@@ -306,6 +301,12 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
               </button>
             )}
           </>}
+          {!readOnly && (
+            <button className="action-btn" style={{ borderColor:'#009F6B', color:'#009F6B' }}
+              onClick={() => exportSessionAttendance(s)}>
+              <i className="ti ti-file-export" /> {L('Export attendance','تصدير الحضور')}
+            </button>
+          )}
           {readOnly && athleteId && (
             myRequest ? (
               <div style={{ padding:'8px 14px', borderRadius:8, fontSize:13, background: myRequest.status==='pending'?'#f59e0b15':myRequest.status==='approved'?'#009F6B15':'#EE334E15', color: myRequest.status==='pending'?'#f59e0b':myRequest.status==='approved'?'#009F6B':'#EE334E', border:`1px solid ${myRequest.status==='pending'?'#f59e0b40':myRequest.status==='approved'?'#009F6B40':'#EE334E40'}` }}>
@@ -395,7 +396,7 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
             }
           </div>
 
-          {/* Requests from athletes - coach only */}
+          {/* Requests from athletes - hidden in athlete read-only view, visible (no actions) for admin view-only */}
           {!readOnly && requests.filter(r => r.session_id === s.id).length > 0 && (
             <div className="info-card">
               <div className="info-title" style={{ color:'#f59e0b' }}>
@@ -421,7 +422,7 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
                         {ar?{'pending':'معلق','approved':'موافق','rejected':'مرفوض'}[req.status]:req.status}
                       </span>
                     </div>
-                    {req.status === 'pending' && (
+                    {req.status === 'pending' && !viewOnly && (
                       <div style={{ display:'flex', gap:6 }}>
                         <button onClick={async () => {
                           await supabase.from('training_session_requests').update({ status:'approved' }).eq('id', req.id)
@@ -545,7 +546,7 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
           <div className="page-sub">{monthNames[month]} {year}</div>
         </div>
         <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-          {!readOnly && (
+          {!readOnly && !viewOnly && (
             <>
               <button className="action-btn" onClick={() => setShowCreateTimetable(true)}>
                 <i className="ti ti-calendar-repeat" /> {L('New Timetable','جدول جديد')}
@@ -595,9 +596,9 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
             const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`
             return (
               <div key={d} className="cal-cell"
-                onClick={() => { if (!readOnly) { setEditData({ type:'Training', date:dateStr, athleteIds:[] }); setShowForm(true) } }}
-                style={{ minHeight:90, borderRight:'1px solid var(--border)', borderBottom:'1px solid var(--border)', padding:'6px 4px', position:'relative', background: isTod ? 'var(--surface2)' : 'var(--surface)', cursor: readOnly ? 'default' : 'pointer' }}
-                onMouseEnter={e => { if (!readOnly) e.currentTarget.style.background = 'var(--surface2)' }}
+                onClick={() => { if (!readOnly && !viewOnly) { setEditData({ type:'Training', date:dateStr, athleteIds:[] }); setShowForm(true) } }}
+                style={{ minHeight:90, borderRight:'1px solid var(--border)', borderBottom:'1px solid var(--border)', padding:'6px 4px', position:'relative', background: isTod ? 'var(--surface2)' : 'var(--surface)', cursor: (readOnly || viewOnly) ? 'default' : 'pointer' }}
+                onMouseEnter={e => { if (!readOnly && !viewOnly) e.currentTarget.style.background = 'var(--surface2)' }}
                 onMouseLeave={e => { e.currentTarget.style.background = isTod ? 'var(--surface2)' : 'var(--surface)' }}>
                 <div className="cal-daynum" style={{ fontSize:12, fontWeight: isTod?700:500, color: isTod?'#0085C7':'var(--text)', marginBottom:4, width:24, height:24, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', background: isTod?'#0085C7':'transparent', color: isTod?'#fff':'var(--text)' }}>{d}</div>
                 {daySessions.slice(0,3).map(s => (
