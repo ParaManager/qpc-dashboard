@@ -3,6 +3,7 @@ import { useLang } from '../lib/LangContext.jsx'
 import { supabase } from '../lib/supabase'
 import { initials, avColor } from '../lib/helpers'
 import DashboardBanners from '../components/DashboardBanners'
+import { formatDateWithDay } from './Timetable'
 
 export default function CoachDashboard({ coach, athletes, events, results, onNav, profile }) {
   const { lang, tc } = useLang()
@@ -336,7 +337,7 @@ export default function CoachDashboard({ coach, athletes, events, results, onNav
                 onMouseLeave={e => e.currentTarget.style.background='transparent'}>
                 <div style={{ fontWeight:500, marginBottom:2 }}>{s.title}</div>
                 <div style={{ display:'flex', gap:10, fontSize:11, color:'var(--text3)', flexWrap:'wrap' }}>
-                  <span><i className="ti ti-calendar" style={{ fontSize:10, marginRight:3 }} />{s.session_date}</span>
+                  <span><i className="ti ti-calendar" style={{ fontSize:10, marginRight:3 }} />{formatDateWithDay(s.session_date, ar)}</span>
                   {s.start_time && <span><i className="ti ti-clock" style={{ fontSize:10, marginRight:3 }} />{s.start_time}{s.end_time ? ` → ${s.end_time}` : ''}</span>}
                   {s.location   && <span><i className="ti ti-map-pin" style={{ fontSize:10, marginRight:3 }} />{s.location}</span>}
                 </div>

@@ -18,6 +18,17 @@ export function toLocalDateStr(d) {
   return `${y}-${m}-${day}`
 }
 
+// Formats a YYYY-MM-DD date string as "Weekday, YYYY-MM-DD" (or Arabic equivalent).
+// Parses the parts manually rather than via `new Date(dateStr)` to avoid any UTC
+// parsing surprises — the date string is already a local calendar date.
+export function formatDateWithDay(dateStr, ar) {
+  if (!dateStr) return ''
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const dow = new Date(y, m - 1, d).getDay()
+  const dayName = ar ? DAYS_AR[dow] : DAYS_EN[dow]
+  return `${dayName}, ${dateStr}`
+}
+
 /**
  * Materializes real training_sessions rows from active timetables/timetable_days,
  * covering today through GENERATE_WEEKS_AHEAD weeks out. Safe to call repeatedly —

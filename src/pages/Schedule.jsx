@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
 import { Avatar, Badge } from '../lib/helpers'
 import { toast, ConfirmModal } from '../components/Toast'
-import { CreateTimetableForm, EditTimetableForm, EditScopeModal, DayTimeForm, generateUpcomingSessions } from './Timetable'
+import { CreateTimetableForm, EditTimetableForm, EditScopeModal, DayTimeForm, generateUpcomingSessions, formatDateWithDay } from './Timetable'
 
 const SESSION_TYPES = ['Training','Competition','Medical','Meeting']
 const SESSION_COLORS = { Training:'#0085C7', Competition:'#EE334E', Medical:'#009F6B', Meeting:'#8b5cf6' }
@@ -339,7 +339,7 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
               )}
             </div>
             <div className="detail-fields" style={{ marginTop:14 }}>
-              {[[L('Date','التاريخ'),s.session_date],[L('Time','الوقت'),s.start_time?(s.start_time+(s.end_time?' → '+s.end_time:'')):'—'],[L('Location','المكان'),s.location||'—'],[L('Sport','الرياضة'),s.sport||'—'],[L('Athletes','الرياضيون'),sAthletes.length],[L('Notes','ملاحظات'),s.notes||'—']].map(([k,v]) => (
+              {[[L('Date','التاريخ'),formatDateWithDay(s.session_date, ar)],[L('Time','الوقت'),s.start_time?(s.start_time+(s.end_time?' → '+s.end_time:'')):'—'],[L('Location','المكان'),s.location||'—'],[L('Sport','الرياضة'),s.sport||'—'],[L('Athletes','الرياضيون'),sAthletes.length],[L('Notes','ملاحظات'),s.notes||'—']].map(([k,v]) => (
                 <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv">{v}</span></div>
               ))}
             </div>
@@ -622,7 +622,7 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
                     )}
                   </div>
                   <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>
-                    {s.session_date} {s.start_time?.slice(0,5)} · {s.location||'—'} · {sAthletes.length} {L('athletes','رياضيون')}
+                    {formatDateWithDay(s.session_date, ar)} {s.start_time?.slice(0,5)} · {s.location||'—'} · {sAthletes.length} {L('athletes','رياضيون')}
                   </div>
                 </div>
                 <span style={{ fontSize:11, padding:'3px 8px', borderRadius:20, background:color+'20', color }}>{L(s.session_type,{'Training':'تدريب','Competition':'منافسة','Medical':'طبي','Meeting':'اجتماع'}[s.session_type]||s.session_type)}</span>
