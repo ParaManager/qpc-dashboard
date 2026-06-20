@@ -228,6 +228,16 @@ select.filter { padding: 8px 12px; border-radius: 9px; border: 1px solid var(--b
 .form-label { font-size: 12px; font-weight: 500; color: var(--text2); display: block; margin-bottom: 5px; }
 .form-input { width: 100%; padding: 9px 12px; border-radius: 9px; border: 1px solid var(--border); background: var(--surface); font-size: 13px; color: var(--text); outline: none; transition: border .15s; }
 .form-input:focus { border-color: var(--blue); }
+/* Safari renders date/time/month/week inputs as inline-flex internally, which
+   ignores width:100% (a known WebKit quirk, not fixable via display changes
+   without introducing extra padding) — box-sizing + explicit min/max width
+   forces them to actually fill their container like every other input does. */
+.form-input[type="date"], .form-input[type="time"], .form-input[type="datetime-local"],
+.form-input[type="month"], .form-input[type="week"] {
+  box-sizing: border-box;
+  min-width: 100%;
+  max-width: 100%;
+}
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .form-section { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; margin: 18px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
 
@@ -313,6 +323,10 @@ body { overscroll-behavior: none; }
   }
   .tb-breadcrumb { font-size: 11px; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 1; }
   .tb-actions { gap: 4px; flex-shrink: 0; }
+  /* The role badge has no min-width of its own, so once its text label is
+     hidden (below) it can be squeezed down to near-nothing by its flex
+     siblings when the topbar is tight — pin it so the icon stays visible. */
+  .role-badge { flex-shrink: 0 !important; min-width: 24px; }
   .role-label { display: none; }
   .hide-mobile { display: none; }
   .lang-btn { padding: 5px 8px !important; font-size: 11px !important; }
