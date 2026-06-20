@@ -58,6 +58,7 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [requestSent, setRequestSent] = useState(false)
   const [page, setPage]               = useState('dashboard')
+  const [refreshToken, setRefreshToken] = useState(0)  // bumped on every nav click to force a fresh reload, even when clicking the already-active page
   const [athletes, setAthletes]           = useState([])
   const [coaches, setCoaches]             = useState([])
   const [events, setEvents]               = useState([])
@@ -239,6 +240,7 @@ export default function App() {
                 <div key={id} className={`nav-item${page===id?' active':''}`}
                   onClick={() => {
                     setNavState({ reset: true })
+                    if ((id === 'schedule' || id === 'attendance') ) setRefreshToken(t => t + 1)
                     setPage(id)
                     setSidebarOpen(false)
                   }}>
@@ -313,8 +315,8 @@ export default function App() {
           {page==='athletes'  && <Athletes  athletes={myAthletes} coaches={coaches} employees={employees} results={results} documents={documents} events={events} registrations={registrations} onRefresh={fetchAll} onNav={goTo} initAthleteId={navState.athleteId} initStatusFilter={navState.statusFilter} navState={navState} profile={profile} />}
           {page==='coaches'   && isAdmin && <Coaches   coaches={coaches} athletes={athletes} personDocs={personDocs} onRefresh={fetchAll} onNav={goTo} initCoachId={navState.coachId} navState={navState} profile={profile} />}
           {page==='events'    && <Events    events={events} athletes={athletes} results={results} registrations={registrations} onRefresh={fetchAll} onNav={goTo} initEventId={navState.eventId} initStatusFilter={navState.statusFilter} profile={profile} />}
-          {page==='schedule'  && <Schedule  profile={profile} coachId={myCoachId} myAthletes={myAthletes} athletes={athletes} onNav={goTo} readOnly={isAthlete} athleteId={isAthlete ? myAthleteId : null} initSessionId={navState?.sessionId} />}
-          {page==='attendance' && <Attendance profile={profile} coachId={myCoachId} myAthletes={myAthletes} onNav={goTo} initSessionId={navState.sessionId} />}
+          {page==='schedule'  && <Schedule  key={`schedule-${refreshToken}`} profile={profile} coachId={myCoachId} myAthletes={myAthletes} athletes={athletes} onNav={goTo} readOnly={isAthlete} athleteId={isAthlete ? myAthleteId : null} initSessionId={navState?.sessionId} />}
+          {page==='attendance' && <Attendance key={`attendance-${refreshToken}`} profile={profile} coachId={myCoachId} myAthletes={myAthletes} onNav={goTo} initSessionId={navState.sessionId} />}
           {page==='users'     && isAdmin && <UserManagement profile={profile} />}
           {page==='athlete-dashboard' && <AthleteDashboard athlete={myAthlete} coach={myCoach} results={results} events={events} registrations={registrations} onNav={goTo} profile={profile} />}
           {page==='athlete-events'    && <AthleteEvents athlete={myAthlete} events={events} registrations={registrations} results={results} />}
