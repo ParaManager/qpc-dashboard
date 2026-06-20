@@ -8,6 +8,16 @@ export const DAYS_EN = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Frid
 export const DAYS_AR = ['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت']
 const GENERATE_WEEKS_AHEAD = 8  // how many weeks into the future timetable_days get materialized into real sessions
 
+// Formats a Date as YYYY-MM-DD using its LOCAL date components, never UTC.
+// toISOString() converts to UTC first, which silently shifts the date by one day
+// for any timezone ahead of UTC (like Qatar, UTC+3) — this avoids that entirely.
+export function toLocalDateStr(d) {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 /**
  * Materializes real training_sessions rows from active timetables/timetable_days,
  * covering today through GENERATE_WEEKS_AHEAD weeks out. Safe to call repeatedly —
@@ -45,7 +55,7 @@ export async function generateUpcomingSessions(coachId) {
     const d = new Date(today)
     d.setDate(d.getDate() + i)
     const dow = d.getDay()
-    const dateStr = d.toISOString().slice(0,10)
+    const dateStr = toLocalDateStr(d)
     activeDays.filter(day => day.day_of_week === dow).forEach(day => {
       const key = `${day.id}:${dateStr}`
       if (existingKeys.has(key)) return
@@ -89,7 +99,7 @@ export async function generateUpcomingSessions(coachId) {
  * Past sessions and their attendance are always left untouched.
  */
 async function clearFutureGeneratedSessions({ timetableDayId, timetableId }) {
-  const todayStr = new Date().toISOString().slice(0,10)
+  const todayStr = toLocalDateStr(new Date())
   let q = supabase.from('training_sessions').delete().gte('session_date', todayStr)
   if (timetableDayId) q = q.eq('timetable_day_id', timetableDayId)
   else if (timetableId) q = q.eq('timetable_id', timetableId)
@@ -390,7 +400,7 @@ export function EditTimetableForm({ timetableId, myAthletes, ar, coachId, onClos
     // Regenerate: clear future sessions for the whole timetable, then rebuild from
     // the updated pattern (covers time changes, day activation/deactivation, and
     // shared-field changes like title/location/athletes all in one pass).
-    const todayStr = new Date().toISOString().slice(0,10)
+    const todayStr = toLocalDateStr(new Date())
     await supabase.from('training_sessions').delete().eq('timetable_id', timetable.id).gte('session_date', todayStr)
     await generateUpcomingSessions(coachId)
 
