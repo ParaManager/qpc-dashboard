@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
 import { Avatar, Badge } from '../lib/helpers'
 import { toast, ConfirmModal } from '../components/Toast'
-import WeeklyTimetable, { generateUpcomingSessions } from './WeeklyTimetable'
+import { CreateTimetableForm, EditTimetableForm, EditScopeModal, DayTimeForm, generateUpcomingSessions } from './Timetable'
 
 const SESSION_TYPES = ['Training','Competition','Medical','Meeting']
 const SESSION_COLORS = { Training:'#0085C7', Competition:'#EE334E', Medical:'#009F6B', Meeting:'#8b5cf6' }
@@ -34,7 +34,10 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
   const [requestModal, setRequestModal] = useState(null)  // session to request for
   const [requests, setRequests]         = useState([])
   const [loading, setLoading]         = useState(true)
-  const [scheduleView, setScheduleView] = useState('calendar')  // 'calendar' | 'timetable'
+  const [showCreateTimetable, setShowCreateTimetable] = useState(false)
+  const [editTimetableId, setEditTimetableId]   = useState(null)
+  const [editScopeFor, setEditScopeFor]         = useState(null)  // session pending a scope choice before editing
+  const [editDayTimeFor, setEditDayTimeFor]     = useState(null)  // session being edited at 'day' scope (time only)
   const [sessionAttendance, setSessionAttendance] = useState([])  // attendance rows for the currently viewed session
 
   const year  = curDate.getFullYear()
@@ -42,8 +45,8 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
 
   useEffect(() => { loadSessions(); loadRequests() }, [coachId, year, month, athleteId])
 
-  // Materialize upcoming sessions from active weekly_schedule rules. Safe to call
-  // repeatedly — it skips any (rule, date) pair that already has a generated session.
+  // Materialize upcoming sessions from active timetables. Safe to call repeatedly —
+  // it skips any (timetable_day, date) pair that already has a generated session.
   useEffect(() => {
     if (!coachId || readOnly) return
     generateUpcomingSessions(coachId).then(() => loadSessions())
@@ -196,16 +199,40 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
     />
   }
 
-  // ── WEEKLY TIMETABLE ──
-  if (scheduleView === 'timetable') {
-    return <WeeklyTimetable
+  // ── CREATE TIMETABLE ──
+  if (showCreateTimetable) {
+    return <CreateTimetableForm
       coachId={coachId}
       myAthletes={myAthletes}
       ar={ar}
-      onClose={() => setScheduleView('calendar')}
-      onChanged={loadSessions}
+      onClose={() => setShowCreateTimetable(false)}
+      onCreated={() => { setShowCreateTimetable(false); loadSessions() }}
     />
   }
+
+  // ── BULK EDIT TIMETABLE ──
+  if (editTimetableId) {
+    return <EditTimetableForm
+      timetableId={editTimetableId}
+      coachId={coachId}
+      myAthletes={myAthletes}
+      ar={ar}
+      onClose={() => setEditTimetableId(null)}
+      onSaved={() => { setEditTimetableId(null); loadSessions() }}
+    />
+  }
+
+  // ── DAY-SCOPE TIME EDIT ──
+  if (editDayTimeFor) {
+    return <DayTimeForm
+      session={editDayTimeFor}
+      coachId={coachId}
+      ar={ar}
+      onClose={() => setEditDayTimeFor(null)}
+      onSaved={() => { setEditDayTimeFor(null); loadSessions() }}
+    />
+  }
+
 
   // ── SESSION DETAIL ──
   if (selected) {
@@ -257,7 +284,14 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
         </button>
         <div style={{ display:'flex', gap:10, marginBottom:16, flexWrap:'wrap' }}>
           {!readOnly && <>
-            <button className="action-btn action-btn-edit" onClick={() => { setEditData({ id:s.id, title:s.title, type:s.session_type, sport:s.sport, location:s.location, date:s.session_date, startTime:s.start_time, endTime:s.end_time, notes:s.notes, athleteIds: s.training_session_athletes?.map(sa=>sa.athlete_id)||[] }); setShowForm(true) }}>
+            <button className="action-btn action-btn-edit" onClick={() => {
+                const editPayload = { id:s.id, title:s.title, type:s.session_type, sport:s.sport, location:s.location, date:s.session_date, startTime:s.start_time, endTime:s.end_time, notes:s.notes, athleteIds: s.training_session_athletes?.map(sa=>sa.athlete_id)||[] }
+                if (s.timetable_day_id) {
+                  setEditScopeFor(s)
+                } else {
+                  setEditData(editPayload); setShowForm(true)
+                }
+              }}>
               <i className="ti ti-pencil" /> {L('Edit','تعديل')}
             </button>
             <button className="action-btn action-btn-delete" onClick={() => setDeleteConfirm(s)}>
@@ -282,6 +316,12 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
               onClick={() => exportSessionAttendance(s)}>
               <i className="ti ti-file-export" /> {L('Export attendance','تصدير الحضور')}
             </button>
+            {s.timetable_id && (
+              <button className="action-btn" style={{ borderColor:'#8b5cf6', color:'#8b5cf6' }}
+                onClick={() => setEditTimetableId(s.timetable_id)}>
+                <i className="ti ti-calendar-repeat" /> {L('Edit whole timetable','تعديل الجدول كامل')}
+              </button>
+            )}
           </>}
           {readOnly && athleteId && (
             myRequest ? (
@@ -310,7 +350,7 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
             </div>
             <div className="detail-name" style={{ display:'flex', alignItems:'center', gap:8 }}>
               {s.title}
-              {s.generated_from_rule_id && (
+              {s.timetable_day_id && (
                 <i className="ti ti-calendar-repeat" title={L('From weekly timetable','من الجدول الأسبوعي')} style={{ fontSize:14, color:'var(--text3)' }} />
               )}
             </div>
@@ -435,10 +475,31 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
         </div>
         {deleteConfirm && (
           <ConfirmModal
-            title={ar ? 'حذف الجلسة' : 'Delete session'}
-            message={ar ? `هل تريد حذف "${deleteConfirm.title || deleteConfirm.session_date}"؟ لا يمكن التراجع عن هذا.` : `Delete "${deleteConfirm.title || deleteConfirm.session_date}"? This cannot be undone.`}
+            title={deleteConfirm.timetable_day_id ? (ar ? 'تجاهل هذه الجلسة' : 'Skip this occurrence') : (ar ? 'حذف الجلسة' : 'Delete session')}
+            message={deleteConfirm.timetable_day_id
+              ? (ar ? `سيتم حذف "${deleteConfirm.title || deleteConfirm.session_date}" فقط. ستستمر الجلسات الأخرى في الجدول الأسبوعي بدون تأثير.` : `Only "${deleteConfirm.title || deleteConfirm.session_date}" will be removed. The rest of the weekly timetable is unaffected.`)
+              : (ar ? `هل تريد حذف "${deleteConfirm.title || deleteConfirm.session_date}"؟ لا يمكن التراجع عن هذا.` : `Delete "${deleteConfirm.title || deleteConfirm.session_date}"? This cannot be undone.`)}
             onConfirm={async () => { await deleteSession(deleteConfirm.id); setDeleteConfirm(null) }}
             onCancel={() => setDeleteConfirm(null)}
+          />
+        )}
+        {editScopeFor && (
+          <EditScopeModal
+            session={editScopeFor}
+            ar={ar}
+            onCancel={() => setEditScopeFor(null)}
+            onPick={(scope) => {
+              const s2 = editScopeFor
+              setEditScopeFor(null)
+              if (scope === 'one') {
+                setEditData({ id:s2.id, title:s2.title, type:s2.session_type, sport:s2.sport, location:s2.location, date:s2.session_date, startTime:s2.start_time, endTime:s2.end_time, notes:s2.notes, athleteIds: s2.training_session_athletes?.map(sa=>sa.athlete_id)||[] })
+                setShowForm(true)
+              } else if (scope === 'day') {
+                setEditDayTimeFor(s2)
+              } else if (scope === 'timetable') {
+                setEditTimetableId(s2.timetable_id)
+              }
+            }}
           />
         )}
       </div>
@@ -492,8 +553,8 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
         <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
           {!readOnly && (
             <>
-              <button className="action-btn" onClick={() => setScheduleView('timetable')}>
-                <i className="ti ti-calendar-repeat" /> {L('Weekly Timetable','الجدول الأسبوعي')}
+              <button className="action-btn" onClick={() => setShowCreateTimetable(true)}>
+                <i className="ti ti-calendar-repeat" /> {L('New Timetable','جدول جديد')}
               </button>
               <button className="btn" style={{ background:'#0085C7', fontSize:13, padding:'6px 14px' }}
                 onClick={() => setShowForm(true)}>
@@ -567,7 +628,7 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
                 <div style={{ flex:1 }}>
                   <div style={{ fontSize:13, fontWeight:600, display:'flex', alignItems:'center', gap:5 }}>
                     {s.title}
-                    {s.generated_from_rule_id && (
+                    {s.timetable_day_id && (
                       <i className="ti ti-calendar-repeat" title={L('From weekly timetable','من الجدول الأسبوعي')} style={{ fontSize:11, color:'var(--text3)' }} />
                     )}
                   </div>
