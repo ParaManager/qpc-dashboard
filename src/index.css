@@ -361,11 +361,17 @@ body { overscroll-behavior: none; }
     margin: 0;
   }
 
+  /* Tighter form spacing on mobile - the default gaps look sparse on a long form */
+  .modal-body { padding: 14px 16px; }
+  .form-group { margin-bottom: 10px; }
+  .form-section { margin: 14px 0 8px; }
+  .form-row { gap: 10px; }
+
   /* Sports grid 2 cols */
   .sports-grid { grid-template-columns: repeat(2, 1fr); }
 
   /* Form rows stack */
-  .form-row { flex-direction: column; }
+  .form-row { grid-template-columns: 1fr; }
 
   /* Back button smaller */
   .back-btn { font-size: 13px; }
