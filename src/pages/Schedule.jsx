@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react'
-import * as XLSX from 'xlsx'
 import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
 import { Avatar, Badge } from '../lib/helpers'
 import { toast, ConfirmModal } from '../components/Toast'
-import { CreateTimetableForm, EditTimetableForm, EditScopeModal, DayTimeForm, generateUpcomingSessions, formatDateWithDay } from './Timetable'
+import { CreateTimetableForm, EditTimetableForm, EditScopeModal, DayTimeForm, generateUpcomingSessions, formatDateWithDay, exportAttendanceXlsx } from './Timetable'
 
 const SESSION_TYPES = ['Training','Competition','Medical','Meeting']
 const SESSION_COLORS = { Training:'#0085C7', Competition:'#EE334E', Medical:'#009F6B', Meeting:'#8b5cf6' }
@@ -142,8 +141,6 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
     setSelected(null); loadSessions()
   }
 
-  const STATUS_AR_EXPORT = { Present:'حاضر', Absent:'غائب', Late:'متأخر', Excused:'معذور' }
-
   async function exportSessionAttendance(session) {
     const { data: attRows } = await supabase.from('attendance').select('*').eq('session_id', session.id)
     if (!attRows || attRows.length === 0) {
@@ -153,17 +150,14 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
     const rows = attRows.map(r => {
       const a = myAthletes.find(x => String(x.id) === String(r.athlete_id))
       return {
-        [L('Date','التاريخ')]:    session.session_date,
-        [L('Session','الجلسة')]:  session.title || '',
-        [L('Athlete','الرياضي')]: a ? (ar && a.name_ar ? a.name_ar : a.name) : r.athlete_id,
-        [L('Status','الحالة')]:   ar ? (STATUS_AR_EXPORT[r.status] || r.status) : r.status,
-        [L('Notes','ملاحظات')]:   r.notes || '',
+        date:    session.session_date,
+        session: session.title || '',
+        athlete: a ? (ar && a.name_ar ? a.name_ar : a.name) : String(r.athlete_id),
+        status:  r.status,
+        notes:   r.notes || '',
       }
     })
-    const ws = XLSX.utils.json_to_sheet(rows)
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, ar ? 'الحضور' : 'Attendance')
-    XLSX.writeFile(wb, `QPC_Attendance_${session.session_date}_${(session.title||'session').replace(/\s+/g,'_')}.xlsx`)
+    exportAttendanceXlsx({ rows, ar, filenamePrefix: `QPC_Attendance_${session.session_date}_${(session.title||'session').replace(/\s+/g,'_')}` })
     toast(ar ? 'تم التصدير!' : 'Exported!')
   }
 

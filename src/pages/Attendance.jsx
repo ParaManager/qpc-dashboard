@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react'
-import * as XLSX from 'xlsx'
 import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
 import { Avatar } from '../lib/helpers'
 import { toast } from '../components/Toast'
-import { toLocalDateStr } from './Timetable'
+import { toLocalDateStr, exportAttendanceXlsx } from './Timetable'
 
 const STATUS_OPTS   = ['Present','Absent','Late','Excused']
 const STATUS_AR     = { Present:'حاضر', Absent:'غائب', Late:'متأخر', Excused:'معذور' }
@@ -189,24 +188,21 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
         const s = sessionMap[r.session_id]
         const a = myAthletes.find(x => String(x.id) === String(r.athlete_id))
         return {
-          [L('Date','التاريخ')]:    s?.session_date || '',
-          [L('Session','الجلسة')]:  s?.title || '',
-          [L('Athlete','الرياضي')]: a ? (ar && a.name_ar ? a.name_ar : a.name) : r.athlete_id,
-          [L('Status','الحالة')]:   ar ? (STATUS_AR[r.status] || r.status) : r.status,
-          [L('Notes','ملاحظات')]:   r.notes || '',
+          date:    s?.session_date || '',
+          session: s?.title || '',
+          athlete: a ? (ar && a.name_ar ? a.name_ar : a.name) : String(r.athlete_id),
+          status:  r.status,
+          notes:   r.notes || '',
         }
-      }).sort((x,y) => (x[L('Date','التاريخ')] || '').localeCompare(y[L('Date','التاريخ')] || ''))
+      })
 
-      if (rows.length === 0) {
+      const ok = exportAttendanceXlsx({ rows, ar, filenamePrefix: `QPC_Attendance_${label}` })
+      if (!ok) {
         toast(L('No attendance records found for this period','لا توجد سجلات حضور لهذه الفترة'), 'error')
         setExporting(false)
         return
       }
 
-      const ws = XLSX.utils.json_to_sheet(rows)
-      const wb = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(wb, ws, ar ? 'الحضور' : 'Attendance')
-      XLSX.writeFile(wb, `QPC_Attendance_${label}.xlsx`)
       toast(L('Exported!','تم التصدير!'))
       setShowExport(false)
     } catch (err) {

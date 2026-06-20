@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import * as XLSX from 'xlsx'
 import { supabase } from '../lib/supabase'
 import { toast } from '../components/Toast'
 
@@ -27,6 +28,76 @@ export function formatDateWithDay(dateStr, ar) {
   const dow = new Date(y, m - 1, d).getDay()
   const dayName = ar ? DAYS_AR[dow] : DAYS_EN[dow]
   return `${dayName}, ${dateStr}`
+}
+
+const STATUS_AR_EXPORT = { Present:'حاضر', Absent:'غائب', Late:'متأخر', Excused:'معذور' }
+
+/**
+ * Builds a clean, readable attendance .xlsx export — proper column widths, sorted
+ * rows, and a summary block with totals per status and the overall rate.
+ *
+ * rows: array of { date, day, session, athlete, status, notes }
+ * filenamePrefix: e.g. "QPC_Attendance_Week_2026-06-21"
+ */
+export function exportAttendanceXlsx({ rows, ar, filenamePrefix }) {
+  if (!rows || rows.length === 0) return false
+
+  const sorted = [...rows].sort((a, b) => {
+    if (a.date !== b.date) return a.date.localeCompare(b.date)
+    if (a.session !== b.session) return a.session.localeCompare(b.session)
+    return a.athlete.localeCompare(b.athlete)
+  })
+
+  const headers = ar
+    ? ['التاريخ', 'اليوم', 'الجلسة', 'الرياضي', 'الحالة', 'ملاحظات']
+    : ['Date', 'Day', 'Session', 'Athlete', 'Status', 'Notes']
+
+  const counts = { Present:0, Absent:0, Late:0, Excused:0 }
+  sorted.forEach(r => { if (counts[r.status] !== undefined) counts[r.status]++ })
+  const total = sorted.length
+  const rate = total ? Math.round((counts.Present / total) * 100) : 0
+
+  const dataRows = sorted.map(r => [
+    r.date,
+    formatDateWithDay(r.date, ar).split(', ')[0],
+    r.session,
+    r.athlete,
+    ar ? (STATUS_AR_EXPORT[r.status] || r.status) : r.status,
+    r.notes || '',
+  ])
+
+  const summaryLabel = ar ? 'الملخص' : 'Summary'
+  const summaryRows = [
+    [],
+    [summaryLabel],
+    [ar ? 'حاضر' : 'Present', counts.Present],
+    [ar ? 'غائب' : 'Absent', counts.Absent],
+    [ar ? 'متأخر' : 'Late', counts.Late],
+    [ar ? 'معذور' : 'Excused', counts.Excused],
+    [ar ? 'الإجمالي' : 'Total records', total],
+    [ar ? 'معدل الحضور' : 'Attendance rate', `${rate}%`],
+  ]
+
+  const aoa = [headers, ...dataRows, ...summaryRows]
+  const ws = XLSX.utils.aoa_to_sheet(aoa)
+
+  // Column widths sized for real content, not the default ~8 chars
+  ws['!cols'] = [
+    { wch: 12 }, // Date
+    { wch: 10 }, // Day
+    { wch: 24 }, // Session
+    { wch: 22 }, // Athlete
+    { wch: 10 }, // Status
+    { wch: 30 }, // Notes
+  ]
+
+  // Note: this xlsx build does not actually write frozen panes despite the property
+  // being documented, so we don't rely on it — column widths do the real work here.
+
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, ar ? 'الحضور' : 'Attendance')
+  XLSX.writeFile(wb, `${filenamePrefix}.xlsx`)
+  return true
 }
 
 /**
