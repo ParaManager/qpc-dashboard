@@ -18,7 +18,7 @@ function getFirstDay(year, month) {
   return new Date(year, month, 1).getDay()
 }
 
-export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly, viewOnly, athleteId, athletes, initSessionId }) {
+export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly, viewOnly, athleteId, athletes, coaches, initSessionId }) {
   const { lang } = useLang()
   const ar = lang === 'ar'
   const [sessions, setSessions]       = useState([])
@@ -28,6 +28,7 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
   const [today]                       = useState(new Date())
   const [curDate, setCurDate]         = useState(new Date())
   const [selected, setSelected]       = useState(initSessionId || null)   // selected session
+  const [dayDetail, setDayDetail]     = useState(null)  // { dateStr, sessions } when viewing all sessions for a busy day
   const [showForm, setShowForm]       = useState(false)
   const [editData, setEditData]       = useState(null)
   const [requestModal, setRequestModal] = useState(null)  // session to request for
@@ -232,6 +233,7 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
     const s = sessions.find(x => x.id === selected) || (directSession?.id === selected ? directSession : null)
     if (!s) { setSelected(null); setDirectSession(null); return null }
     const sAthletes = myAthletes.filter(a => s.training_session_athletes?.some(sa => String(sa.athlete_id) === String(a.id)))
+    const sessionCoach = viewOnly ? coaches?.find(c => String(c.id) === String(s.coach_id)) : null
     const myRequest = requests.find(r => r.session_id === s.id && String(r.athlete_id) === String(athleteId))
     const color = SESSION_COLORS[s.session_type] || '#0085C7'
     return (
@@ -334,7 +336,7 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
               )}
             </div>
             <div className="detail-fields" style={{ marginTop:14 }}>
-              {[[L('Date','التاريخ'),formatDateWithDay(s.session_date, ar)],[L('Time','الوقت'),s.start_time?(s.start_time+(s.end_time?' → '+s.end_time:'')):'—'],[L('Location','المكان'),s.location||'—'],[L('Sport','الرياضة'),s.sport||'—'],[L('Athletes','الرياضيون'),sAthletes.length],[L('Notes','ملاحظات'),s.notes||'—']].map(([k,v]) => (
+              {[...(sessionCoach ? [[L('Coach','المدرب'), ar && sessionCoach.name_ar ? sessionCoach.name_ar : sessionCoach.name]] : []), [L('Date','التاريخ'),formatDateWithDay(s.session_date, ar)],[L('Time','الوقت'),s.start_time?(s.start_time+(s.end_time?' → '+s.end_time:'')):'—'],[L('Location','المكان'),s.location||'—'],[L('Sport','الرياضة'),s.sport||'—'],[L('Athletes','الرياضيون'),sAthletes.length],[L('Notes','ملاحظات'),s.notes||'—']].map(([k,v]) => (
                 <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv">{v}</span></div>
               ))}
             </div>
@@ -601,13 +603,22 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
                 onMouseEnter={e => { if (!readOnly && !viewOnly) e.currentTarget.style.background = 'var(--surface2)' }}
                 onMouseLeave={e => { e.currentTarget.style.background = isTod ? 'var(--surface2)' : 'var(--surface)' }}>
                 <div className="cal-daynum" style={{ fontSize:12, fontWeight: isTod?700:500, color: isTod?'#0085C7':'var(--text)', marginBottom:4, width:24, height:24, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', background: isTod?'#0085C7':'transparent', color: isTod?'#fff':'var(--text)' }}>{d}</div>
-                {daySessions.slice(0,3).map(s => (
-                  <div key={s.id} className="cal-pill" onClick={(e) => { e.stopPropagation(); setSelected(s.id) }}
-                    style={{ fontSize:10, fontWeight:500, padding:'2px 5px', borderRadius:4, marginBottom:2, cursor:'pointer', background:(SESSION_COLORS[s.session_type]||'#0085C7')+'20', color:SESSION_COLORS[s.session_type]||'#0085C7', overflow:'hidden', whiteSpace:'nowrap', textOverflow:'ellipsis' }}>
-                    {s.start_time?.slice(0,5)} {s.title}
+                {daySessions.slice(0, viewOnly ? 4 : 3).map(s => {
+                  const coachName = viewOnly ? coaches?.find(c => String(c.id) === String(s.coach_id)) : null
+                  return (
+                    <div key={s.id} className="cal-pill" onClick={(e) => { e.stopPropagation(); setSelected(s.id) }}
+                      style={{ fontSize:10, fontWeight:500, padding:'2px 5px', borderRadius:4, marginBottom:2, cursor:'pointer', background:(SESSION_COLORS[s.session_type]||'#0085C7')+'20', color:SESSION_COLORS[s.session_type]||'#0085C7', overflow:'hidden', whiteSpace:'nowrap', textOverflow:'ellipsis' }}>
+                      {s.start_time?.slice(0,5)} {s.title}
+                      {coachName && <span style={{ opacity:.75 }}> · {ar && coachName.name_ar ? coachName.name_ar : coachName.name}</span>}
+                    </div>
+                  )
+                })}
+                {daySessions.length > (viewOnly ? 4 : 3) && (
+                  <div onClick={(e) => { e.stopPropagation(); setDayDetail({ dateStr, sessions: daySessions }) }}
+                    style={{ fontSize:10, color:'#0085C7', fontWeight:600, cursor:'pointer' }}>
+                    +{daySessions.length-(viewOnly ? 4 : 3)} {L('more','أخرى')}
                   </div>
-                ))}
-                {daySessions.length > 3 && <div style={{ fontSize:10, color:'var(--text3)' }}>+{daySessions.length-3}</div>}
+                )}
               </div>
             )
           })}
@@ -641,6 +652,39 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
               </div>
             )
           })}
+        </div>
+      )}
+
+      {dayDetail && (
+        <div className="modal-overlay" onClick={() => setDayDetail(null)}>
+          <div className="modal-box" onClick={e=>e.stopPropagation()} style={{ width:480 }}>
+            <div className="modal-header">
+              <div className="modal-title">{formatDateWithDay(dayDetail.dateStr, ar)}</div>
+              <button className="modal-close" onClick={() => setDayDetail(null)}><i className="ti ti-x"/></button>
+            </div>
+            <div className="modal-body">
+              {dayDetail.sessions.map(s => {
+                const coach = coaches?.find(c => String(c.id) === String(s.coach_id))
+                const color = SESSION_COLORS[s.session_type] || '#0085C7'
+                return (
+                  <div key={s.id} onClick={() => { setSelected(s.id); setDayDetail(null) }}
+                    style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 0', borderBottom:'1px solid var(--border)', cursor:'pointer' }}
+                    onMouseEnter={e => e.currentTarget.style.background='var(--surface2)'}
+                    onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+                    <div style={{ width:4, height:36, borderRadius:2, background:color, flexShrink:0 }} />
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ fontSize:13, fontWeight:600 }}>{s.title}</div>
+                      <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>
+                        {s.start_time?.slice(0,5)||'—'} · {s.location||'—'}
+                        {coach && <> · {L('Coach','المدرب')}: {ar && coach.name_ar ? coach.name_ar : coach.name}</>}
+                      </div>
+                    </div>
+                    <i className="ti ti-arrow-right" style={{ color:'var(--text3)', flexShrink:0 }} />
+                  </div>
+                )
+              })}
+            </div>
+          </div>
         </div>
       )}
     </div>
