@@ -28,18 +28,21 @@ import { useLang } from './lib/LangContext.jsx'
 const NAV_ADMIN = (tx) => [
   { section: tx('nav.overview','Overview'),      items: [{ id:'dashboard', icon:'ti-layout-dashboard', label:tx('nav.dashboard','Dashboard') }, { id:'notifications', icon:'ti-bell', label:tx('nav.notifications','Notifications') }, { id:'profile', icon:'ti-user-circle', label:tx('nav.profile','My Profile') }] },
   { section: tx('nav.people','People'),          items: [{ id:'athletes', icon:'ti-run', label:tx('nav.athletes','Athletes') }, { id:'coaches', icon:'ti-user-star', label:tx('nav.coaches','Coaches') }, { id:'employees', icon:'ti-users', label:tx('nav.employees','Employees') }, { id:'referees', icon:'ti-award', label:tx('nav.referees','Referees') }] },
-  { section: tx('nav.competitions','Competitions'), items: [{ id:'schedule', icon:'ti-calendar', label:tx('nav.schedule','Schedule') }, { id:'attendance', icon:'ti-clipboard-check', label:tx('nav.attendance','Attendance') }, { id:'sports', icon:'ti-ball-football', label:tx('nav.sports','Sports') }, { id:'events', icon:'ti-calendar-event', label:tx('nav.events','Events') }, { id:'results', icon:'ti-medal', label:tx('nav.results','Results') }] },
+  { section: tx('nav.training','Training'),      items: [{ id:'schedule', icon:'ti-calendar', label:tx('nav.schedule','Schedule') }, { id:'attendance', icon:'ti-clipboard-check', label:tx('nav.attendance','Attendance') }] },
+  { section: tx('nav.competitions','Competitions'), items: [{ id:'sports', icon:'ti-ball-football', label:tx('nav.sports','Sports') }, { id:'events', icon:'ti-calendar-event', label:tx('nav.events','Events') }, { id:'results', icon:'ti-medal', label:tx('nav.results','Results') }] },
   { section: tx('nav.admin','Admin'),            items: [{ id:'users', icon:'ti-users-group', label:tx('nav.users','User Management') }, { id:'settings', icon:'ti-settings', label:tx('nav.settings','Settings') }] },
 ]
 const NAV_COACH = (tx) => [
   { section: tx('nav.overview','Overview'),      items: [{ id:'dashboard', icon:'ti-layout-dashboard', label:tx('nav.dashboard','Dashboard') }, { id:'notifications', icon:'ti-bell', label:tx('nav.notifications','Notifications') }, { id:'profile', icon:'ti-user-circle', label:tx('nav.profile','My Profile') }] },
   { section: tx('nav.people','People'),          items: [{ id:'athletes', icon:'ti-run', label:tx('nav.athletes','Athletes') }] },
-  { section: tx('nav.competitions','Competitions'), items: [{ id:'schedule', icon:'ti-calendar', label:tx('nav.schedule','Schedule') }, { id:'attendance', icon:'ti-clipboard-check', label:tx('nav.attendance','Attendance') }, { id:'events', icon:'ti-calendar-event', label:tx('nav.events','Events') }, { id:'results', icon:'ti-medal', label:tx('nav.results','Results') }] },
+  { section: tx('nav.training','Training'),      items: [{ id:'schedule', icon:'ti-calendar', label:tx('nav.schedule','Schedule') }, { id:'attendance', icon:'ti-clipboard-check', label:tx('nav.attendance','Attendance') }] },
+  { section: tx('nav.competitions','Competitions'), items: [{ id:'events', icon:'ti-calendar-event', label:tx('nav.events','Events') }, { id:'results', icon:'ti-medal', label:tx('nav.results','Results') }] },
   { section: tx('nav.account','Account'),         items: [{ id:'settings', icon:'ti-settings', label:tx('nav.settings','Settings') }] },
 ]
 const NAV_ATHLETE = (tx) => [
   { section: tx('nav.overview','Overview'),      items: [{ id:'athlete-dashboard', icon:'ti-layout-dashboard', label:tx('nav.dashboard','Dashboard') }, { id:'notifications', icon:'ti-bell', label:tx('nav.notifications','Notifications') }, { id:'profile', icon:'ti-user-circle', label:tx('nav.profile','My Profile') }] },
-  { section: tx('nav.mycompetitions','My Competitions'), items: [{ id:'athlete-events', icon:'ti-calendar-event', label:tx('nav.events','Events') }, { id:'athlete-results', icon:'ti-medal', label:tx('nav.results','Results') }, { id:'schedule', icon:'ti-calendar', label:tx('nav.schedule','Schedule') }] },
+  { section: tx('nav.training','Training'),      items: [{ id:'schedule', icon:'ti-calendar', label:tx('nav.schedule','Schedule') }] },
+  { section: tx('nav.mycompetitions','My Competitions'), items: [{ id:'athlete-events', icon:'ti-calendar-event', label:tx('nav.events','Events') }, { id:'athlete-results', icon:'ti-medal', label:tx('nav.results','Results') }] },
   { section: tx('nav.account','Account'),         items: [{ id:'settings', icon:'ti-settings', label:tx('nav.settings','Settings') }] },
 ]
 
