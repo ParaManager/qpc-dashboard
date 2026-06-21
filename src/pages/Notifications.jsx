@@ -71,7 +71,7 @@ export default function Notifications({ profile, onNav }) {
     } else if (n.type === 'timetable_created') {
       onNav('schedule', {})
     } else if (n.type === 'access_request') {
-      onNav('users', {})
+      onNav('users', n.data?.applicant_id ? { userId: n.data.applicant_id } : {})
     } else if (n.type === 'account_approved' || n.type === 'account_rejected') {
       onNav('dashboard', {})
     }

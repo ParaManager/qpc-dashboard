@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
 import { toast } from '../components/Toast'
@@ -8,18 +8,30 @@ const ROLE_COLORS  = { admin:'#EE334E', coach:'#0085C7', athlete:'#009F6B', gues
 const STATUS_COLORS = { active:'#009F6B', pending:'#f59e0b', rejected:'#EE334E' }
 
 
-export default function UserManagement({ profile }) {
+export default function UserManagement({ profile, initUserId }) {
   const { lang } = useLang()
   const ar = lang === 'ar'
   const L = (en, a) => ar ? a : en
 
   const [users, setUsers]       = useState([])
   const [loading, setLoading]   = useState(true)
-  const [filter, setFilter]     = useState('pending') // pending | active | all
+  const [filter, setFilter]     = useState(initUserId ? 'all' : 'pending') // pending | active | all
+  const [highlightId, setHighlightId] = useState(initUserId || null)
+  const highlightRef = useRef(null)
   const [rejReason, setRejReason] = useState({})
   const [confirmDelete, setConfirmDelete] = useState(null)
 
   useEffect(() => { loadUsers() }, [])
+
+  // Scroll to and briefly highlight the specific request the admin came here for
+  useEffect(() => {
+    if (!highlightId || loading) return
+    const t = setTimeout(() => {
+      highlightRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 50)
+    const clear = setTimeout(() => setHighlightId(null), 3000)
+    return () => { clearTimeout(t); clearTimeout(clear) }
+  }, [highlightId, loading])
 
   async function loadUsers() {
     setLoading(true)
@@ -163,7 +175,8 @@ export default function UserManagement({ profile }) {
                             : null
 
           return (
-            <div key={u.id} style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14, padding:18, marginBottom:12, boxShadow:'var(--shadow)' }}>
+            <div key={u.id} ref={u.id === highlightId ? highlightRef : null}
+              style={{ background:'var(--surface)', border: u.id === highlightId ? '2px solid #0085C7' : '1px solid var(--border)', borderRadius:14, padding:18, marginBottom:12, boxShadow: u.id === highlightId ? '0 0 0 4px #0085C720' : 'var(--shadow)', transition:'border .3s, box-shadow .3s' }}>
               <div style={{ display:'flex', gap:14, alignItems:'flex-start', flexWrap:'wrap' }}>
                 <Avatar name={u.full_name || u.email || '?'} id={u.id} size={44} fs={14} />
                 <div style={{ flex:1, minWidth:200 }}>
