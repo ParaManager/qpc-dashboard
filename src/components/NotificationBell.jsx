@@ -156,12 +156,14 @@ export default function NotificationBell({ isAdmin, userId }) {
                     window.dispatchEvent(new CustomEvent('navigate', { detail: { page:'schedule' } }))
                   } else if (n.type==='access_request') {
                     window.dispatchEvent(new CustomEvent('navigate', { detail: { page:'users' } }))
+                  } else if (n.type==='account_approved' || n.type==='account_rejected') {
+                    window.dispatchEvent(new CustomEvent('navigate', { detail: { page:'dashboard' } }))
                   }
                 }}
                 style={{ padding:'12px 16px', borderBottom:'1px solid var(--border)', display:'flex', gap:10, alignItems:'flex-start', background:'#0085C705', cursor:'pointer', transition:'background .15s' }}
                 onMouseEnter={e => e.currentTarget.style.background='var(--surface2)'}
                 onMouseLeave={e => e.currentTarget.style.background='#0085C705'}>
-                <div style={{ width:8, height:8, borderRadius:'50%', background: n.type==='excuse_request'?'#f59e0b':n.type==='session_added'?'#009F6B':n.type==='needs_attendance'?'#f59e0b':n.type==='timetable_created'?'#8b5cf6':'#0085C7', flexShrink:0, marginTop:5 }} />
+                <div style={{ width:8, height:8, borderRadius:'50%', background: n.type==='excuse_request'?'#f59e0b':n.type==='session_added'?'#009F6B':n.type==='needs_attendance'?'#f59e0b':n.type==='timetable_created'?'#8b5cf6':n.type==='account_rejected'?'#EE334E':n.type==='account_approved'?'#009F6B':'#0085C7', flexShrink:0, marginTop:5 }} />
                 <div style={{ flex:1 }}>
                   <div style={{ fontSize:13, fontWeight:500 }}>{n.title}</div>
                   <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>{n.body}</div>

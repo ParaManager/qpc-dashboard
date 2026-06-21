@@ -8,6 +8,8 @@ const TYPE_META = {
   timetable_created:{ color:'#8b5cf6', icon:'ti-calendar-repeat' },
   request_approved: { color:'#009F6B', icon:'ti-circle-check' },
   request_rejected: { color:'#EE334E', icon:'ti-circle-x' },
+  account_approved: { color:'#009F6B', icon:'ti-user-check' },
+  account_rejected: { color:'#EE334E', icon:'ti-user-x' },
   access_request:   { color:'#0085C7', icon:'ti-user-plus' },
 }
 
