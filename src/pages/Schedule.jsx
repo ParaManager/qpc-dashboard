@@ -29,6 +29,11 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
   const [curDate, setCurDate]         = useState(new Date())
   const [selected, setSelected]       = useState(initSessionId || null)   // selected session
   const [dayDetail, setDayDetail]     = useState(null)  // { dateStr, sessions } when viewing all sessions for a busy day
+  // Admin-only: which coach's calendar to view. null = "All coaches" (combined view).
+  // Defaults to whatever coachId App.jsx passed in (always null for admin today,
+  // but this keeps the door open if that ever changes).
+  const [adminCoachFilter, setAdminCoachFilter] = useState(coachId)
+  const effectiveCoachId = viewOnly ? adminCoachFilter : coachId
   const [showForm, setShowForm]       = useState(false)
   const [editData, setEditData]       = useState(null)
   const [requestModal, setRequestModal] = useState(null)  // session to request for
@@ -43,14 +48,15 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
   const year  = curDate.getFullYear()
   const month = curDate.getMonth()
 
-  useEffect(() => { loadSessions(); loadRequests() }, [coachId, year, month, athleteId])
+  useEffect(() => { loadSessions(); loadRequests() }, [effectiveCoachId, year, month, athleteId])
 
   // Materialize upcoming sessions from active timetables. Safe to call repeatedly —
   // it skips any (timetable_day, date) pair that already has a generated session.
+  // Skipped entirely in viewOnly mode (admin) — generation is a coach-only write action.
   useEffect(() => {
-    if (!coachId || readOnly) return
+    if (!coachId || readOnly || viewOnly) return
     generateUpcomingSessions(coachId).then(() => loadSessions())
-  }, [coachId, readOnly])
+  }, [coachId, readOnly, viewOnly])
 
   useEffect(() => {
     if (!selected) { setSessionAttendance([]); return }
@@ -77,7 +83,7 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
 
   async function loadRequests() {
     let q = supabase.from('training_session_requests').select('*').order('created_at', { ascending: false })
-    if (coachId)   q = q.eq('coach_id', String(coachId))
+    if (effectiveCoachId) q = q.eq('coach_id', String(effectiveCoachId))
     if (athleteId) q = q.eq('athlete_id', String(athleteId))
     const { data } = await q
     setRequests(data || [])
@@ -88,7 +94,7 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
     const from = `${year}-${String(month+1).padStart(2,'0')}-01`
     const to   = `${year}-${String(month+1).padStart(2,'0')}-${getDaysInMonth(year,month)}`
     let q = supabase.from('training_sessions').select('*, training_session_athletes(athlete_id)').gte('session_date', from).lte('session_date', to).order('session_date').order('start_time')
-    if (coachId) q = q.eq('coach_id', coachId)
+    if (effectiveCoachId) q = q.eq('coach_id', effectiveCoachId)
     const { data, error } = await q
     if (!error) setSessions(data || [])
     setLoading(false)
@@ -545,9 +551,26 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
       <div className="page-header">
         <div>
           <div className="page-title">{L('Schedule','الجدول الزمني')}</div>
-          <div className="page-sub">{monthNames[month]} {year}</div>
+          <div className="page-sub">
+            {monthNames[month]} {year}
+            {viewOnly && (
+              adminCoachFilter
+                ? ` · ${(() => { const c = coaches?.find(c => String(c.id) === String(adminCoachFilter)); return c ? (ar && c.name_ar ? c.name_ar : c.name) : '' })()}`
+                : ` · ${L('All coaches','جميع المدربين')}`
+            )}
+          </div>
         </div>
-        <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+        <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
+          {viewOnly && (
+            <select className="filter" value={adminCoachFilter || ''} onChange={e => setAdminCoachFilter(e.target.value || null)}>
+              <option value="">{L('All coaches','جميع المدربين')}</option>
+              {[...(coaches||[])].sort((a,b) => (a.name||'').localeCompare(b.name||'')).map(c => (
+                <option key={c.id} value={c.id}>
+                  {ar && c.name_ar ? c.name_ar : c.name}{c.sport ? ` — ${c.sport}` : ''}
+                </option>
+              ))}
+            </select>
+          )}
           {!readOnly && !viewOnly && (
             <>
               <button className="action-btn" onClick={() => setShowCreateTimetable(true)}>
@@ -604,7 +627,7 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
                 onMouseLeave={e => { e.currentTarget.style.background = isTod ? 'var(--surface2)' : 'var(--surface)' }}>
                 <div className="cal-daynum" style={{ fontSize:12, fontWeight: isTod?700:500, color: isTod?'#0085C7':'var(--text)', marginBottom:4, width:24, height:24, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', background: isTod?'#0085C7':'transparent', color: isTod?'#fff':'var(--text)' }}>{d}</div>
                 {daySessions.slice(0, viewOnly ? 4 : 3).map(s => {
-                  const coachName = viewOnly ? coaches?.find(c => String(c.id) === String(s.coach_id)) : null
+                  const coachName = (viewOnly && !adminCoachFilter) ? coaches?.find(c => String(c.id) === String(s.coach_id)) : null
                   return (
                     <div key={s.id} className="cal-pill" onClick={(e) => { e.stopPropagation(); setSelected(s.id) }}
                       style={{ fontSize:10, fontWeight:500, padding:'2px 5px', borderRadius:4, marginBottom:2, cursor:'pointer', background:(SESSION_COLORS[s.session_type]||'#0085C7')+'20', color:SESSION_COLORS[s.session_type]||'#0085C7', overflow:'hidden', whiteSpace:'nowrap', textOverflow:'ellipsis' }}>
