@@ -354,6 +354,13 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
             <button className="action-btn action-btn-edit" onClick={() => setForm('edit')}><i className="ti ti-pencil" /> {tx('actions.edit','Edit')}</button>
             <button className="action-btn action-btn-delete" onClick={() => setConfirm(true)}><i className="ti ti-trash" /> {tx('actions.delete','Delete')}</button>
           </>}
+          <button className="action-btn"
+            style={{ borderColor:'#0085C7', color:'#0085C7' }}
+            onMouseEnter={e => e.currentTarget.style.background='#e8f3fb'}
+            onMouseLeave={e => e.currentTarget.style.background=''}
+            onClick={() => onNav('schedule', { coachFilter: c.id })}>
+            <i className="ti ti-calendar" /> {tx('actions.viewSchedule', lang==='ar' ? 'عرض الجدول' : 'View Schedule')}
+          </button>
           <button className="action-btn action-btn-edit"
             style={{ borderColor:'#009F6B', color:'#009F6B' }}
             onMouseEnter={e => e.currentTarget.style.background='#e6f4ee'}

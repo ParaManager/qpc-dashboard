@@ -18,7 +18,7 @@ function getFirstDay(year, month) {
   return new Date(year, month, 1).getDay()
 }
 
-export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly, viewOnly, athleteId, athletes, coaches, initSessionId }) {
+export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly, viewOnly, athleteId, athletes, coaches, initSessionId, initCoachFilter }) {
   const { lang } = useLang()
   const ar = lang === 'ar'
   const [sessions, setSessions]       = useState([])
@@ -32,7 +32,7 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
   // Admin-only: which coach's calendar to view. null = "All coaches" (combined view).
   // Defaults to whatever coachId App.jsx passed in (always null for admin today,
   // but this keeps the door open if that ever changes).
-  const [adminCoachFilter, setAdminCoachFilter] = useState(coachId)
+  const [adminCoachFilter, setAdminCoachFilter] = useState(initCoachFilter || coachId)
   const effectiveCoachId = viewOnly ? adminCoachFilter : coachId
   const [showForm, setShowForm]       = useState(false)
   const [editData, setEditData]       = useState(null)
