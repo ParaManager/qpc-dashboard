@@ -47,6 +47,10 @@ export default function UserManagement({ profile }) {
       data: {},
       read: false,
     })
+    // Resolve the access_request notification(s) every admin received for this applicant
+    const { data: pendingNotifs } = await supabase.from('notifications').select('id, data').eq('type', 'access_request')
+    const toResolve = (pendingNotifs || []).filter(n => n.data?.applicant_id === user.id).map(n => n.id)
+    if (toResolve.length > 0) await supabase.from('notifications').delete().in('id', toResolve)
     toast(L(`${user.full_name || user.email} approved`, `تمت الموافقة على ${user.full_name || ''}`))
     loadUsers()
   }
@@ -67,6 +71,10 @@ export default function UserManagement({ profile }) {
       data: {},
       read: false,
     })
+    // Resolve the access_request notification(s) every admin received for this applicant
+    const { data: pendingNotifs } = await supabase.from('notifications').select('id, data').eq('type', 'access_request')
+    const toResolve = (pendingNotifs || []).filter(n => n.data?.applicant_id === user.id).map(n => n.id)
+    if (toResolve.length > 0) await supabase.from('notifications').delete().in('id', toResolve)
     toast(L('Request rejected', 'تم رفض الطلب'))
     loadUsers()
   }

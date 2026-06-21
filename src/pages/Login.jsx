@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { notifyAdminNewRequest } from '../lib/emails'
 import { useLang } from '../lib/LangContext.jsx'
 import { qpcLogo as QPC_LOGO } from '../lib/logos'
 
@@ -114,11 +113,21 @@ export default function Login({ onRequestSent }) {
       })
     }
 
-    // (admin notification handled via User Management page)
-
-    // Show sent screen immediately, then sign out
-    // Notify admin
-    notifyAdminNewRequest({ fullName: form.fullName, email: form.qid, accountType: form.accountType })
+    // Notify every admin in-app that a new access request is waiting for review
+    const { data: admins } = await supabase.from('profiles').select('id').eq('role', 'admin')
+    if (admins?.length > 0) {
+      const typeLabel = { coach: ar ? 'مدرب' : 'Coach', athlete: ar ? 'رياضي' : 'Athlete', guest: ar ? 'مشاهد' : 'Guest' }[form.accountType] || form.accountType
+      await supabase.from('notifications').insert(
+        admins.map(a => ({
+          user_id: a.id,
+          type: 'access_request',
+          title: ar ? 'طلب وصول جديد' : 'New access request',
+          body: ar ? `${form.fullName} (${typeLabel}) يطلب الوصول` : `${form.fullName} (${typeLabel}) is requesting access`,
+          data: { applicant_id: data.user.id },
+          read: false,
+        }))
+      )
+    }
     setLoading(false)
     if (onRequestSent) onRequestSent()
     await supabase.auth.signOut()

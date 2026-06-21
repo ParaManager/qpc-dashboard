@@ -1,5 +1,6 @@
 import { Avatar, MedalDisplay, statusClass, statusDot, DashRow, SPORT_META, SPORTS, initials } from '../lib/helpers'
 import { useLang } from '../lib/LangContext.jsx'
+import DashboardBanners from '../components/DashboardBanners'
 
 export default function Dashboard({ athletes, coaches, events, results, onNav, profile }) {
   const { tx, lang } = useLang()
@@ -33,6 +34,8 @@ export default function Dashboard({ athletes, coaches, events, results, onNav, p
           </div>
         </div>
       </div>
+
+      <DashboardBanners profile={profile} onNav={onNav} />
 
       <div className="page-header">
         <div>
