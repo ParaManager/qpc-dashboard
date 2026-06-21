@@ -115,6 +115,22 @@ export default function App() {
 
   useEffect(() => { if (user) fetchAll() }, [user, fetchAll])
 
+  // Keep the sidebar section containing the current page expanded, even if the
+  // person navigated there some other way (e.g. clicking a notification) rather
+  // than through the sidebar itself — otherwise the active item could be hidden
+  // inside a collapsed section with no visible indication of where they are.
+  // Computed inline from profile?.role (not the isAdmin/activeNav variables,
+  // which are defined after this component's early returns) so this hook runs
+  // unconditionally on every render, same as every other hook here.
+  useEffect(() => {
+    const r = profile?.role || 'guest'
+    const nav = r === 'coach' ? NAV_COACH(tx) : r === 'admin' ? NAV_ADMIN(tx) : r === 'athlete' ? NAV_ATHLETE(tx) : NAV_GUEST(tx)
+    const owningSection = nav.find(({ items }) => items.some(it => it.id === page))?.section
+    if (owningSection) {
+      setCollapsedSections(prev => prev[owningSection] ? { ...prev, [owningSection]: false } : prev)
+    }
+  }, [page, profile?.role])
+
   // Reset to correct default page whenever the logged-in user changes
   useEffect(() => {
     if (!profile) return
@@ -192,16 +208,6 @@ export default function App() {
   const isCoach   = role === 'coach'
   const activeNav = isCoach ? NAV_COACH(tx) : isAdmin ? NAV_ADMIN(tx) : isAthlete ? NAV_ATHLETE(tx) : NAV_GUEST(tx)
 
-  // Keep the sidebar section containing the current page expanded, even if the
-  // person navigated there some other way (e.g. clicking a notification) rather
-  // than through the sidebar itself — otherwise the active item could be hidden
-  // inside a collapsed section with no visible indication of where they are.
-  useEffect(() => {
-    const owningSection = activeNav.find(({ items }) => items.some(it => it.id === page))?.section
-    if (owningSection) {
-      setCollapsedSections(prev => prev[owningSection] ? { ...prev, [owningSection]: false } : prev)
-    }
-  }, [page])
   const myCoachId  = profile?.coach_id || null
   const myAthleteId = profile?.athlete_id || null
   const myAthlete   = isAthlete ? athletes.find(a => String(a.id) === String(myAthleteId)) : null
