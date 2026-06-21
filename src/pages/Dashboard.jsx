@@ -1,8 +1,9 @@
-import { Avatar, MedalDisplay, statusClass, statusDot, DashRow, SPORT_META, SPORTS } from '../lib/helpers'
+import { Avatar, MedalDisplay, statusClass, statusDot, DashRow, SPORT_META, SPORTS, initials } from '../lib/helpers'
 import { useLang } from '../lib/LangContext.jsx'
 
 export default function Dashboard({ athletes, coaches, events, results, onNav, profile }) {
   const { tx, lang } = useLang()
+  const ar = lang === 'ar'
   const active   = athletes.filter(a => a.status === 'Active').length
   const upcoming = events.filter(e => e.status === 'Upcoming' || e.status === 'Registration Open').length
   const gold     = athletes.reduce((s, a) => s + (a.medals_gold   || 0), 0)
@@ -16,6 +17,37 @@ export default function Dashboard({ athletes, coaches, events, results, onNav, p
 
   return (
     <div>
+      <div style={{ display:'flex', alignItems:'center', gap:16, marginBottom:24, padding:'20px 24px', background:'linear-gradient(135deg, #0a1f14 0%, #0d3320 100%)', borderRadius:16, color:'#fff', flexWrap:'wrap' }}>
+        <div style={{ width:64, height:64, borderRadius:'50%', background:'#0085C7', display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, fontWeight:700, flexShrink:0, border:'3px solid rgba(255,255,255,.2)' }}>
+          {initials(profile?.full_name || 'Admin')}
+        </div>
+        <div style={{ flex:1, minWidth:160 }}>
+          <div style={{ fontSize:20, fontWeight:700 }}>{profile?.full_name || tx('roles.admin','Admin')}</div>
+          <div style={{ fontSize:13, opacity:.7, marginTop:2 }}>
+            {tx('dashboard.qpc','Qatar Paralympic Committee')}
+          </div>
+          <div style={{ display:'flex', gap:8, marginTop:8, flexWrap:'wrap' }}>
+            <span style={{ padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:600, background:'#0085C730', color:'#5ab8f0', border:'1px solid #0085C750' }}>
+              {profile?.role === 'employee' ? (ar?'موظف':'Employee') : (ar?'مسؤول':'Administrator')}
+            </span>
+          </div>
+        </div>
+        <div style={{ textAlign:'center', flexShrink:0 }}>
+          <div style={{ fontSize:32, fontWeight:700, color:'#4ade80' }}>{athletes.length}</div>
+          <div style={{ fontSize:11, opacity:.6 }}>{tx('nav.athletes','Athletes')}</div>
+        </div>
+        <div style={{ textAlign:'center', flexShrink:0, borderLeft:'1px solid rgba(255,255,255,.15)', paddingLeft:20 }}>
+          <div style={{ fontSize:32, fontWeight:700, color:'#5ab8f0' }}>{coaches.length}</div>
+          <div style={{ fontSize:11, opacity:.6 }}>{tx('nav.coaches','Coaches')}</div>
+        </div>
+        {(gold + silver + bronze) > 0 && (
+          <div style={{ textAlign:'center', flexShrink:0, borderLeft:'1px solid rgba(255,255,255,.15)', paddingLeft:20 }}>
+            <div style={{ fontSize:32, fontWeight:700, color:'#f1c40f' }}>{gold + silver + bronze}</div>
+            <div style={{ fontSize:11, opacity:.6 }}>{ar ? 'إجمالي الميداليات' : 'Total Medals'}</div>
+          </div>
+        )}
+      </div>
+
       <div className="page-header">
         <div>
           <div className="page-title">{tx('pages.dashboard','Dashboard')}</div>
