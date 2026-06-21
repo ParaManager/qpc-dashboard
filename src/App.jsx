@@ -220,7 +220,7 @@ export default function App() {
 
   // Block pending/rejected (admins always pass)
   if (!isAdmin && userStatus === 'pending')  return <PendingScreen />
-  if (!isAdmin && userStatus === 'rejected') return <RejectedScreen />
+  if (!isAdmin && userStatus === 'rejected') return <RejectedScreen profile={profile} />
 
   const roleColor = ROLE_COLORS[role]
   const roleIcon  = ROLE_ICONS[role]
@@ -343,7 +343,7 @@ export default function App() {
           {page==='athletes'  && <Athletes  athletes={myAthletes} coaches={coaches} employees={employees} results={results} documents={documents} events={events} registrations={registrations} onRefresh={fetchAll} onNav={goTo} initAthleteId={navState.athleteId} initStatusFilter={navState.statusFilter} navState={navState} profile={profile} />}
           {page==='coaches'   && isAdmin && <Coaches   coaches={coaches} athletes={athletes} personDocs={personDocs} onRefresh={fetchAll} onNav={goTo} initCoachId={navState.coachId} navState={navState} profile={profile} />}
           {page==='events'    && <Events    events={events} athletes={athletes} results={results} registrations={registrations} onRefresh={fetchAll} onNav={goTo} initEventId={navState.eventId} initStatusFilter={navState.statusFilter} profile={profile} />}
-          {page==='schedule'  && <Schedule  key={`schedule-${refreshToken}`} profile={profile} coachId={isAdmin ? null : myCoachId} myAthletes={myAthletes} athletes={athletes} coaches={coaches} onNav={goTo} readOnly={isAthlete} viewOnly={isAdmin} athleteId={isAthlete ? myAthleteId : null} initSessionId={navState?.sessionId} initCoachFilter={navState?.coachFilter} />}
+          {page==='schedule'  && <Schedule  key={`schedule-${refreshToken}`} profile={profile} coachId={isAdmin ? null : myCoachId} myAthletes={myAthletes} athletes={athletes} coaches={coaches} onNav={goTo} readOnly={isAthlete} viewOnly={isAdmin} athleteId={isAthlete ? myAthleteId : null} initSessionId={navState?.sessionId} />}
           {page==='attendance' && <Attendance key={`attendance-${refreshToken}`} profile={profile} coachId={isAdmin ? null : myCoachId} myAthletes={myAthletes} onNav={goTo} viewOnly={isAdmin} initSessionId={navState.sessionId} />}
           {page==='users'     && isAdmin && <UserManagement profile={profile} />}
           {page==='athlete-dashboard' && <AthleteDashboard athlete={myAthlete} coach={myCoach} results={results} events={events} registrations={registrations} onNav={goTo} profile={profile} />}
@@ -381,7 +381,7 @@ function PendingScreen() {
   )
 }
 
-function RejectedScreen() {
+function RejectedScreen({ profile }) {
   const { lang } = useLang()
   const ar = lang === 'ar'
   const { signOut } = useAuth()
@@ -392,6 +392,11 @@ function RejectedScreen() {
       <div style={{ fontSize:14, color:'var(--text3)', textAlign:'center', maxWidth:300 }}>
         {ar?'لم تتم الموافقة على طلب الوصول. يرجى التواصل مع المسؤول.':'Your access request was not approved. Please contact the administrator.'}
       </div>
+      {profile?.rejection_reason && (
+        <div style={{ fontSize:13, color:'var(--text2)', textAlign:'center', maxWidth:320, background:'var(--surface2)', borderRadius:10, padding:'10px 16px' }}>
+          <strong>{ar?'السبب: ':'Reason: '}</strong>{profile.rejection_reason}
+        </div>
+      )}
       <button onClick={signOut} style={{ marginTop:8, padding:'9px 24px', background:'#EE334E', color:'#fff', border:'none', borderRadius:10, cursor:'pointer', fontSize:14 }}>
         {ar?'تسجيل الخروج':'Sign Out'}
       </button>
