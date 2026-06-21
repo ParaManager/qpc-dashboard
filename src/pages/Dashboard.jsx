@@ -32,20 +32,6 @@ export default function Dashboard({ athletes, coaches, events, results, onNav, p
             </span>
           </div>
         </div>
-        <div style={{ textAlign:'center', flexShrink:0 }}>
-          <div style={{ fontSize:32, fontWeight:700, color:'#4ade80' }}>{athletes.length}</div>
-          <div style={{ fontSize:11, opacity:.6 }}>{tx('nav.athletes','Athletes')}</div>
-        </div>
-        <div style={{ textAlign:'center', flexShrink:0, borderLeft:'1px solid rgba(255,255,255,.15)', paddingLeft:20 }}>
-          <div style={{ fontSize:32, fontWeight:700, color:'#5ab8f0' }}>{coaches.length}</div>
-          <div style={{ fontSize:11, opacity:.6 }}>{tx('nav.coaches','Coaches')}</div>
-        </div>
-        {(gold + silver + bronze) > 0 && (
-          <div style={{ textAlign:'center', flexShrink:0, borderLeft:'1px solid rgba(255,255,255,.15)', paddingLeft:20 }}>
-            <div style={{ fontSize:32, fontWeight:700, color:'#f1c40f' }}>{gold + silver + bronze}</div>
-            <div style={{ fontSize:11, opacity:.6 }}>{ar ? 'إجمالي الميداليات' : 'Total Medals'}</div>
-          </div>
-        )}
       </div>
 
       <div className="page-header">
