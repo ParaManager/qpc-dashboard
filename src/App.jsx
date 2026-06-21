@@ -220,9 +220,7 @@ export default function App() {
   )
 
   const role      = profile?.role || 'guest'
-  // Default to 'pending' (blocked) rather than 'active' when status is unknown —
-  // a missing/broken profile should never silently grant access.
-  const userStatus = profile?.status || 'pending'
+  const userStatus = profile?.status || 'active'
   const isAdmin   = role === 'admin'
   const isAthlete = role === 'athlete'
   const isCoach   = role === 'coach'
@@ -236,6 +234,11 @@ export default function App() {
   const myCoachRecord = isCoach && myCoachId ? coaches.find(c => String(c.id) === String(myCoachId)) || null : null
 
   // Block pending/rejected (admins always pass)
+  // A signed-in auth user with no matching profiles row at all (e.g. their account
+  // was rejected and then deleted, but the underlying auth login still exists) is
+  // a distinct case from pending/rejected — they were never just "waiting", and
+  // calling it either would be misleading. Give it its own explicit message.
+  if (!isAdmin && !profile) return <NoProfileScreen />
   if (!isAdmin && userStatus === 'pending')  return <PendingScreen />
   if (!isAdmin && userStatus === 'rejected') return <RejectedScreen profile={profile} />
 
@@ -390,6 +393,24 @@ function PendingScreen() {
       <div style={{ fontSize:20, fontWeight:700 }}>{ar?'في انتظار الموافقة':'Pending Approval'}</div>
       <div style={{ fontSize:14, color:'var(--text3)', textAlign:'center', maxWidth:300 }}>
         {ar?'حسابك في انتظار موافقة المسؤول. يرجى المحاولة لاحقاً.':'Your account is pending admin approval. Please check back later.'}
+      </div>
+      <button onClick={signOut} style={{ marginTop:8, padding:'9px 24px', background:'#EE334E', color:'#fff', border:'none', borderRadius:10, cursor:'pointer', fontSize:14 }}>
+        {ar?'تسجيل الخروج':'Sign Out'}
+      </button>
+    </div>
+  )
+}
+
+function NoProfileScreen() {
+  const { lang } = useLang()
+  const ar = lang === 'ar'
+  const { signOut } = useAuth()
+  return (
+    <div style={{ minHeight:'100vh', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:12, background:'var(--bg)', direction:ar?'rtl':'ltr' }}>
+      <div style={{ fontSize:48 }}>⚠️</div>
+      <div style={{ fontSize:20, fontWeight:700 }}>{ar?'لا يوجد حساب نشط':'No Active Account Found'}</div>
+      <div style={{ fontSize:14, color:'var(--text3)', textAlign:'center', maxWidth:320 }}>
+        {ar?'لم يتم العثور على حساب مرتبط بهذا الدخول. قد يكون حسابك قد أُزيل. يرجى التواصل مع المسؤول أو تسجيل طلب جديد.':"We couldn't find an account linked to this login — it may have been removed. Please contact the administrator, or sign out and submit a new request."}
       </div>
       <button onClick={signOut} style={{ marginTop:8, padding:'9px 24px', background:'#EE334E', color:'#fff', border:'none', borderRadius:10, cursor:'pointer', fontSize:14 }}>
         {ar?'تسجيل الخروج':'Sign Out'}
