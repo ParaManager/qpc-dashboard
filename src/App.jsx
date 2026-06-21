@@ -193,6 +193,21 @@ export default function App() {
 
   if (!user) return <Login onRequestSent={() => setRequestSent(true)} />
 
+  // Wait for the profile to actually finish loading before reading its role/status —
+  // otherwise a rejected or pending account could briefly (or permanently, if the
+  // profile fetch ever fails) fall through to the 'guest'/'active' fallback below
+  // and bypass the access gate entirely.
+  if (authLoading) return (
+    <div style={{ display:'flex', height:'100vh', alignItems:'center', justifyContent:'center', background:'var(--bg)' }}>
+      <div style={{ textAlign:'center' }}>
+        <div style={{ display:'flex', gap:5, marginBottom:16, justifyContent:'center' }}>
+          {['#EE334E','#0085C7','#009F6B'].map(c => <div key={c} style={{ width:14, height:14, borderRadius:'50%', background:c }} />)}
+        </div>
+        <div style={{ fontSize:14, color:'var(--text2)' }}>Loading QPC Dashboard…</div>
+      </div>
+    </div>
+  )
+
   if (dataLoading) return (
     <div style={{ display:'flex', height:'100vh', alignItems:'center', justifyContent:'center', background:'var(--bg)' }}>
       <div style={{ textAlign:'center' }}>
@@ -205,7 +220,9 @@ export default function App() {
   )
 
   const role      = profile?.role || 'guest'
-  const userStatus = profile?.status || 'active'
+  // Default to 'pending' (blocked) rather than 'active' when status is unknown —
+  // a missing/broken profile should never silently grant access.
+  const userStatus = profile?.status || 'pending'
   const isAdmin   = role === 'admin'
   const isAthlete = role === 'athlete'
   const isCoach   = role === 'coach'
