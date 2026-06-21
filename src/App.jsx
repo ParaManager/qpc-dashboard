@@ -56,6 +56,7 @@ export default function App() {
   const { user, profile, loading: authLoading, signOut } = useAuth()
   const { lang, setLang, tx } = useLang()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [collapsedSections, setCollapsedSections] = useState({})  // { [sectionLabel]: true } when collapsed; sections default to expanded
   const [requestSent, setRequestSent] = useState(false)
   const [page, setPage]               = useState('dashboard')
   const [refreshToken, setRefreshToken] = useState(0)  // bumped on every nav click to force a fresh reload, even when clicking the already-active page
@@ -189,6 +190,18 @@ export default function App() {
   const isAdmin   = role === 'admin'
   const isAthlete = role === 'athlete'
   const isCoach   = role === 'coach'
+  const activeNav = isCoach ? NAV_COACH(tx) : isAdmin ? NAV_ADMIN(tx) : isAthlete ? NAV_ATHLETE(tx) : NAV_GUEST(tx)
+
+  // Keep the sidebar section containing the current page expanded, even if the
+  // person navigated there some other way (e.g. clicking a notification) rather
+  // than through the sidebar itself — otherwise the active item could be hidden
+  // inside a collapsed section with no visible indication of where they are.
+  useEffect(() => {
+    const owningSection = activeNav.find(({ items }) => items.some(it => it.id === page))?.section
+    if (owningSection) {
+      setCollapsedSections(prev => prev[owningSection] ? { ...prev, [owningSection]: false } : prev)
+    }
+  }, [page])
   const myCoachId  = profile?.coach_id || null
   const myAthleteId = profile?.athlete_id || null
   const myAthlete   = isAthlete ? athletes.find(a => String(a.id) === String(myAthleteId)) : null
@@ -233,25 +246,32 @@ export default function App() {
           <div className="sb-sub">{lang==='ar' ? 'لذوي الاحتياجات الخاصة' : 'Committee'} · {role}</div>
         </div>
         <div className="sb-nav">
-          {(isCoach ? NAV_COACH(tx) : isAdmin ? NAV_ADMIN(tx) : isAthlete ? NAV_ATHLETE(tx) : NAV_GUEST(tx)).map(({ section, items }) => (
-            <div key={section}>
-              <div className="nav-section">{section}</div>
-              {items.map(({ id, icon, label }) => (
-                <div key={id} className={`nav-item${page===id?' active':''}`}
-                  onClick={() => {
-                    setNavState({ reset: true })
-                    if ((id === 'schedule' || id === 'attendance') ) setRefreshToken(t => t + 1)
-                    setPage(id)
-                    setSidebarOpen(false)
-                  }}>
-                  <i className={`ti ${icon}`} />
-                  {label}
-                  {id==='events' && upcomingCount>0 && <span className="nav-badge">{upcomingCount}</span>}
-                  {id==='notifications' && notifCount>0 && <span className="nav-badge">{notifCount}</span>}
+          {activeNav.map(({ section, items }) => {
+            const isCollapsed = !!collapsedSections[section]
+            return (
+              <div key={section}>
+                <div className="nav-section" style={{ display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer' }}
+                  onClick={() => setCollapsedSections(prev => ({ ...prev, [section]: !prev[section] }))}>
+                  <span>{section}</span>
+                  <i className={`ti ti-chevron-${isCollapsed ? (lang==='ar' ? 'left' : 'right') : 'down'}`} style={{ fontSize:13, flexShrink:0 }} />
                 </div>
-              ))}
-            </div>
-          ))}
+                {!isCollapsed && items.map(({ id, icon, label }) => (
+                  <div key={id} className={`nav-item${page===id?' active':''}`}
+                    onClick={() => {
+                      setNavState({ reset: true })
+                      if ((id === 'schedule' || id === 'attendance') ) setRefreshToken(t => t + 1)
+                      setPage(id)
+                      setSidebarOpen(false)
+                    }}>
+                    <i className={`ti ${icon}`} />
+                    {label}
+                    {id==='events' && upcomingCount>0 && <span className="nav-badge">{upcomingCount}</span>}
+                    {id==='notifications' && notifCount>0 && <span className="nav-badge">{notifCount}</span>}
+                  </div>
+                ))}
+              </div>
+            )
+          })}
         </div>
         <div style={{ padding:'12px 16px', borderTop:'1px solid rgba(255,255,255,.07)' }}>
           <div
