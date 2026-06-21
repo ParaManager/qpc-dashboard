@@ -67,7 +67,8 @@ export default function DashboardBanners({ profile, onNav, extraBanners = [], ma
   // on the coach dashboard — exclude it here to avoid showing the same thing twice.
   const SESSION_REMINDER_TYPES = ['needs_attendance']
   const excuseRequests = activeNotifs.filter(n => n.type === 'excuse_request')
-  const otherNotifs     = activeNotifs.filter(n => n.type !== 'excuse_request' && !SESSION_REMINDER_TYPES.includes(n.type))
+  const accessRequests = activeNotifs.filter(n => n.type === 'access_request')
+  const otherNotifs     = activeNotifs.filter(n => n.type !== 'excuse_request' && n.type !== 'access_request' && !SESSION_REMINDER_TYPES.includes(n.type))
 
   const banners = [...extraBanners]
 
@@ -82,6 +83,21 @@ export default function DashboardBanners({ profile, onNav, extraBanners = [], ma
       items: excuseRequests.map(n => ({
         label: n.body || n.title,
         onSelect: () => onNav('schedule', n.data?.session_id ? { sessionId: n.data.session_id } : {}),
+      })),
+    })
+  }
+
+  if (accessRequests.length > 0) {
+    banners.push({
+      key: 'accessRequests', color: '#0085C7', icon: 'ti-user-plus',
+      title: accessRequests.length === 1
+        ? L('1 new sign-up request', 'طلب تسجيل جديد')
+        : L(`${accessRequests.length} new sign-up requests`, `${accessRequests.length} طلبات تسجيل جديدة`),
+      sub: accessRequests.slice(0,2).map(n => n.body).join(' · '),
+      actionLabel: L('View','عرض'),
+      items: accessRequests.map(n => ({
+        label: n.body || n.title,
+        onSelect: () => onNav('users', n.data?.applicant_id ? { userId: n.data.applicant_id } : {}),
       })),
     })
   }

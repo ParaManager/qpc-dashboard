@@ -155,7 +155,7 @@ export default function NotificationBell({ isAdmin, userId }) {
                   } else if (n.type==='timetable_created') {
                     window.dispatchEvent(new CustomEvent('navigate', { detail: { page:'schedule' } }))
                   } else if (n.type==='access_request') {
-                    window.dispatchEvent(new CustomEvent('navigate', { detail: { page:'users' } }))
+                    window.dispatchEvent(new CustomEvent('navigate', { detail: { page:'users', userId: n.data?.applicant_id } }))
                   } else if (n.type==='account_approved' || n.type==='account_rejected') {
                     window.dispatchEvent(new CustomEvent('navigate', { detail: { page:'dashboard' } }))
                   }
