@@ -8,6 +8,8 @@ const TYPE_META = {
   timetable_created:  { icon:'ti-calendar-repeat', color:'#8b5cf6' },
   request_approved:   { icon:'ti-circle-check',    color:'#009F6B' },
   request_rejected:   { icon:'ti-circle-x',        color:'#EE334E' },
+  account_approved:   { icon:'ti-user-check',      color:'#009F6B' },
+  account_rejected:   { icon:'ti-user-x',          color:'#EE334E' },
   needs_attendance:   { icon:'ti-clipboard-check', color:'#f59e0b' },
   access_request:     { icon:'ti-user-plus',        color:'#0085C7' },
 }
@@ -70,6 +72,8 @@ export default function Notifications({ profile, onNav }) {
       onNav('schedule', {})
     } else if (n.type === 'access_request') {
       onNav('users', {})
+    } else if (n.type === 'account_approved' || n.type === 'account_rejected') {
+      onNav('dashboard', {})
     }
   }
 

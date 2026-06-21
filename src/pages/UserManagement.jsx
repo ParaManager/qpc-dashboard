@@ -8,36 +8,6 @@ const ROLE_COLORS  = { admin:'#EE334E', coach:'#0085C7', athlete:'#009F6B', gues
 const STATUS_COLORS = { active:'#009F6B', pending:'#f59e0b', rejected:'#EE334E' }
 
 
-function openApprovalEmail(user) {
-  const subject = encodeURIComponent('QPC Dashboard - Access Approved')
-  const body = encodeURIComponent(
-`Hello ${user.full_name || ''},
-
-Your access request to the Qatar Paralympic Committee Dashboard has been approved.
-
-You can now sign in at: https://qpc-dashboard.vercel.app
-
-Account type: ${user.account_type}
-
-Qatar Paralympic Committee`)
-  window.open(`mailto:${user.email || ''}?subject=${subject}&body=${body}`)
-}
-
-function openRejectionEmail(user, reason) {
-  const subject = encodeURIComponent('QPC Dashboard - Access Request Update')
-  const body = encodeURIComponent(
-`Hello ${user.full_name || ''},
-
-Unfortunately your access request to the Qatar Paralympic Committee Dashboard has not been approved at this time.
-${reason ? `
-Reason: ${reason}
-` : ''}
-Please contact the administrator for more information.
-
-Qatar Paralympic Committee`)
-  window.open(`mailto:${user.email || ''}?subject=${subject}&body=${body}`)
-}
-
 export default function UserManagement({ profile }) {
   const { lang } = useLang()
   const ar = lang === 'ar'
@@ -69,18 +39,35 @@ export default function UserManagement({ profile }) {
       approved_at: new Date().toISOString(),
       approved_by: profile?.id,
     }).eq('id', user.id)
+    await supabase.from('notifications').insert({
+      user_id: user.id,
+      type: 'account_approved',
+      title: ar ? 'تم قبول طلب الوصول' : 'Access request approved',
+      body: ar ? 'تم تفعيل حسابك، يمكنك الآن تسجيل الدخول.' : 'Your account has been activated — you can now sign in.',
+      data: {},
+      read: false,
+    })
     toast(L(`${user.full_name || user.email} approved`, `تمت الموافقة على ${user.full_name || ''}`))
-    openApprovalEmail(user)
     loadUsers()
   }
 
   async function reject(user) {
+    const reason = rejReason[user.id] || ''
     await supabase.from('profiles').update({
       status: 'rejected',
-      rejection_reason: rejReason[user.id] || '',
+      rejection_reason: reason,
     }).eq('id', user.id)
+    await supabase.from('notifications').insert({
+      user_id: user.id,
+      type: 'account_rejected',
+      title: ar ? 'تحديث على طلب الوصول' : 'Access request update',
+      body: reason
+        ? (ar ? `لم تتم الموافقة على طلبك. السبب: ${reason}` : `Your request was not approved. Reason: ${reason}`)
+        : (ar ? 'لم تتم الموافقة على طلبك في الوقت الحالي.' : 'Your request was not approved at this time.'),
+      data: {},
+      read: false,
+    })
     toast(L('Request rejected', 'تم رفض الطلب'))
-    openRejectionEmail(user, rejReason[user.id] || '')
     loadUsers()
   }
 
