@@ -1,5 +1,5 @@
 import { useLang } from '../lib/LangContext.jsx'
-import { MedalDisplay, initials, avColor } from '../lib/helpers'
+import { MedalDisplay, initials, avColor, SPORT_NAMES_AR } from '../lib/helpers'
 
 export default function AthleteDashboard({ athlete, coach, results, events, registrations, onNav }) {
   const { lang, tc } = useLang()
@@ -32,7 +32,7 @@ export default function AthleteDashboard({ athlete, coach, results, events, regi
   const bronze = athlete.medals_bronze || 0
   const total  = gold + silver + bronze
 
-  const SPORT_AR = {'Athletics':'ألعاب القوى','Swimming':'السباحة','Powerlifting':'رفع الأثقال','Boccia':'البوتشيا','Goalball':'كرة الهدف','Table Tennis':'تنس الطاولة','Special Olympics':'الأولمبياد الخاص','Shooting':'الرماية','Wheelchair Tennis':'تنس الكراسي المتحركة'}
+  const SPORT_AR = SPORT_NAMES_AR
 
   const Card = ({ title, icon, color='#0085C7', children, onClick }) => (
     <div className="info-card" onClick={onClick} style={{ cursor: onClick?'pointer':'default' }}>

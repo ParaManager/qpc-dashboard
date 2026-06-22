@@ -1,24 +1,21 @@
 import { useState, useEffect } from 'react'
-import { SPORTS, SPORT_META, Avatar, Badge, MedalDisplay, statusDot, initials, DashRow } from '../lib/helpers'
+import { SPORTS, SPORT_META, PARALYMPIC_SPORTS, SPECIAL_OLYMPICS_SPORTS, SPORT_CATEGORIES, SPORT_CATEGORY_NAMES_AR, SPORT_NAMES_AR, Avatar, Badge, MedalDisplay, statusDot, initials, DashRow } from '../lib/helpers'
 import { useLang } from '../lib/LangContext.jsx'
 
 export default function Sports({ athletes, coaches, events, results, onNav, initSport, profile }) {
-  const { tx } = useLang()
+  const { tx, lang } = useLang()
+  const ar = lang === 'ar'
 
-  const SPORT_NAMES = {
-    'Athletics':         tx('sports.athletics','Athletics'),
-    'Swimming':          tx('sports.swimming','Swimming'),
-    'Powerlifting':      tx('sports.powerlifting','Powerlifting'),
-    'Boccia':            tx('sports.boccia','Boccia'),
-    'Goalball':          tx('sports.goalball','Goalball'),
-    'Table Tennis':      tx('sports.tableTennis','Table Tennis'),
-    'Special Olympics':  tx('sports.specialOlympics','Special Olympics'),
-    'Shooting':          tx('sports.shooting','Shooting'),
-    'Wheelchair Tennis': tx('sports.wheelchairTennis','Wheelchair Tennis'),
+  const SPORT_NAMES = ar ? SPORT_NAMES_AR : {}
+
+  // Group every known sport by category, plus the legacy flat 'Special Olympics'
+  // value under its own program — so an athlete whose specific discipline isn't
+  // set yet is still findable under that heading.
+  const sportsByCategorySection = {
+    'Paralympic':       PARALYMPIC_SPORTS,
+    'Special Olympics':  [...SPECIAL_OLYMPICS_SPORTS, 'Special Olympics'],
   }
 
-  // Show all sports
-  const activeSports = SPORTS
   const [selected, setSelected] = useState(initSport || null)
   useEffect(() => { if (initSport) setSelected(initSport) }, [initSport])
 
@@ -98,34 +95,41 @@ export default function Sports({ athletes, coaches, events, results, onNav, init
       <div className="page-header">
         <div><div className="page-title">{tx('pages.sports','Sports')}</div><div className="page-sub">{tx('dashboard.qpc','Qatar Paralympic Committee')}</div></div>
       </div>
-      {activeSports.map(s => {
-        const meta     = SPORT_META[s]
-        const myAths   = athletes.filter(a => a.sport === s)
-        const myEvents = events.filter(e => e.sport === s)
-        const myMedals = results.filter(r => myAths.some(a => a.id === r.athlete_id))
-        return (
-          <div key={s} onClick={() => setSelected(s)}
-            style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14, padding:20, cursor:'pointer', marginBottom:12, transition:'all .15s', boxShadow:'var(--shadow)' }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor=meta.color; e.currentTarget.style.transform='translateY(-1px)' }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor=''; e.currentTarget.style.transform='' }}>
-            <div style={{ display:'flex', alignItems:'center', gap:14 }}>
-              <div style={{ width:52, height:52, borderRadius:14, background:meta.color+'15', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                <i className={`ti ${meta.icon}`} style={{ fontSize:26, color:meta.color }} />
-              </div>
-              <div style={{ flex:1 }}>
-                <div style={{ fontSize:16, fontWeight:600, marginBottom:3 }}>{SPORT_NAMES[s] || s}</div>
-                <div style={{ fontSize:12, color:'var(--text2)' }}>{meta.desc}</div>
-              </div>
-              <div style={{ display:'flex', gap:20, flexShrink:0, textAlign:'center' }}>
-                <div><div style={{ fontSize:20, fontWeight:600, color:meta.color }}>{myAths.length}</div><div style={{ fontSize:11, color:'var(--text3)' }}>{tx('sports.athletes','Athletes')}</div></div>
-                <div><div style={{ fontSize:20, fontWeight:600 }}>{myEvents.length}</div><div style={{ fontSize:11, color:'var(--text3)' }}>{tx('sports.events','Events')}</div></div>
-                <div><div style={{ fontSize:20, fontWeight:600, color:'#f1c40f' }}>{myMedals.length}</div><div style={{ fontSize:11, color:'var(--text3)' }}>{tx('sports.medals','Medals')}</div></div>
-              </div>
-              <i className="ti ti-chevron-right" style={{ color:'#ccc', fontSize:18, marginLeft:8 }} />
-            </div>
+      {SPORT_CATEGORIES.map(category => (
+        <div key={category} style={{ marginBottom:28 }}>
+          <div style={{ fontSize:13, fontWeight:700, color:'var(--text2)', textTransform:'uppercase', letterSpacing:'.04em', marginBottom:12, paddingBottom:8, borderBottom:'1px solid var(--border)' }}>
+            {ar ? (SPORT_CATEGORY_NAMES_AR[category]||category) : category}
           </div>
-        )
-      })}
+          {sportsByCategorySection[category].map(s => {
+            const meta     = SPORT_META[s] || { icon:'ti-ball-football', color:'#0085C7', desc:'' }
+            const myAths   = athletes.filter(a => a.sport === s)
+            const myEvents = events.filter(e => e.sport === s)
+            const myMedals = results.filter(r => myAths.some(a => a.id === r.athlete_id))
+            return (
+              <div key={s} onClick={() => setSelected(s)}
+                style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14, padding:20, cursor:'pointer', marginBottom:12, transition:'all .15s', boxShadow:'var(--shadow)' }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor=meta.color; e.currentTarget.style.transform='translateY(-1px)' }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor=''; e.currentTarget.style.transform='' }}>
+                <div style={{ display:'flex', alignItems:'center', gap:14 }}>
+                  <div style={{ width:52, height:52, borderRadius:14, background:meta.color+'15', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                    <i className={`ti ${meta.icon}`} style={{ fontSize:26, color:meta.color }} />
+                  </div>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:16, fontWeight:600, marginBottom:3 }}>{SPORT_NAMES[s] || s}</div>
+                    <div style={{ fontSize:12, color:'var(--text2)' }}>{meta.desc}</div>
+                  </div>
+                  <div style={{ display:'flex', gap:20, flexShrink:0, textAlign:'center' }}>
+                    <div><div style={{ fontSize:20, fontWeight:600, color:meta.color }}>{myAths.length}</div><div style={{ fontSize:11, color:'var(--text3)' }}>{tx('sports.athletes','Athletes')}</div></div>
+                    <div><div style={{ fontSize:20, fontWeight:600 }}>{myEvents.length}</div><div style={{ fontSize:11, color:'var(--text3)' }}>{tx('sports.events','Events')}</div></div>
+                    <div><div style={{ fontSize:20, fontWeight:600, color:'#f1c40f' }}>{myMedals.length}</div><div style={{ fontSize:11, color:'var(--text3)' }}>{tx('sports.medals','Medals')}</div></div>
+                  </div>
+                  <i className="ti ti-chevron-right" style={{ color:'#ccc', fontSize:18, marginLeft:8 }} />
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      ))}
     </div>
   )
 }

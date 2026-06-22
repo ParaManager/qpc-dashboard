@@ -1,7 +1,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import * as XLSX from 'xlsx'
-import { Avatar, MedalDisplay, Badge, avColor, initials, DashRow } from '../lib/helpers'
+import { Avatar, MedalDisplay, Badge, avColor, initials, DashRow, SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, SPORT_CATEGORY_NAMES_AR, SPORT_NAMES_AR } from '../lib/helpers'
 import FormModal from '../components/FormModal'
 import { ConfirmModal, toast } from '../components/Toast'
 import { supabase } from '../lib/supabase'
@@ -79,7 +79,7 @@ function formatFileSize(bytes) {
 
 function exportExcel(athletes, coaches, documents, visibleCols, allCols, lang) {
   const ar = lang === 'ar'
-  const SPORT_AR = {'Athletics':'ألعاب القوى','Swimming':'السباحة','Powerlifting':'رفع الأثقال','Boccia':'البوتشيا','Goalball':'كرة الهدف','Table Tennis':'تنس الطاولة','Special Olympics':'الأولمبياد الخاص','Shooting':'الرماية','Wheelchair Tennis':'تنس الكراسي المتحركة'}
+  const SPORT_AR = SPORT_NAMES_AR
   const STATUS_AR = {'Active':'نشط','Inactive':'غير نشط','Suspended':'موقوف','Under Medical Review':'تحت المراجعة الطبية','Injured':'مصاب','Retired':'متقاعد'}
   const DIS_MAP = {'visual impairment':'إعاقة بصرية','hearing impairment':'إعاقة سمعية','physical impairment':'إعاقة جسدية','intellectual disability':'إعاقة ذهنية','intellectual impairment':'إعاقة ذهنية','spinal cord injury':'إصابة الحبل الشوكي','cerebral palsy':'شلل دماغي','amputation':'بتر','down syndrome':'متلازمة داون',"down's syndrome":'متلازمة داون','downs syndrome':'متلازمة داون','down':'متلازمة داون','autism spectrum':'التوحد','autism':'التوحد','multiple disabilities':'إعاقات متعددة','limb deficiency':'نقص الأطراف','les autres':'أخرى'}
   const tDis = d => {
@@ -102,6 +102,7 @@ function exportExcel(athletes, coaches, documents, visibleCols, allCols, lang) {
     qss_number:      a => a.qss_number || '',
     id_number:       a => a.id_number || '',
     career_profile:  a => a.career_profile || '',
+    sport_category:  a => a.sport_category ? (ar ? (SPORT_CATEGORY_NAMES_AR[a.sport_category]||a.sport_category) : a.sport_category) : '',
     sport:           a => ar ? (SPORT_AR[a.sport]||a.sport||'') : (a.sport||''),
     classification:  a => a.classification || '',
     disability:      a => tDis(a.disability),
@@ -244,12 +245,7 @@ function AthleteCoachHistory({ athleteId, coaches, employees, lang }) {
 
 export default function Athletes({ athletes, coaches, employees, results, documents, events, registrations, onRefresh, onNav, initAthleteId, initStatusFilter, navState, profile }) {
   const { tx, lang, tc } = useLang()
-  const SPORT_NAMES = lang === 'ar' ? {
-    'Athletics':'ألعاب القوى', 'Swimming':'السباحة', 'Powerlifting':'رفع الأثقال',
-    'Boccia':'البوتشيا', 'Goalball':'كرة الهدف', 'Table Tennis':'تنس الطاولة',
-    'Special Olympics':'الأولمبياد الخاص', 'Shooting':'الرماية',
-    'Wheelchair Tennis':'تنس الكراسي المتحركة',
-  } : {}
+  const SPORT_NAMES = lang === 'ar' ? SPORT_NAMES_AR : {}
   // Case-insensitive disability translation
   const DIS_MAP = {
     'visual impairment':'إعاقة بصرية', 'visual':'إعاقة بصرية',
@@ -280,6 +276,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
 
   const [search, setSearch]         = useState('')
   const [sport, setSport]           = useState('All sports')
+  const [sportCategory, setSportCategory] = useState('All categories')
   const [status, setStatus]         = useState('All statuses')
   const [gender, setGender]         = useState('All genders')
   const [sort, setSort]             = useState('name-asc')
@@ -298,7 +295,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
   const [editMode, setEditMode]     = useState(false)
   const [edits, setEdits]           = useState({})
   const [savingAll, setSavingAll]   = useState(false)
-  const [visibleCols, setVisibleCols] = useState(['name','sport','classification','nationality','coach_id','status','medals','docs'])
+  const [visibleCols, setVisibleCols] = useState(['name','sport_category','sport','classification','nationality','coach_id','status','medals','docs'])
   const [colPickerOpen, setColPickerOpen] = useState(false)
   const [colFilters, setColFilters] = useState({})
   const photoInput = useRef(null)
@@ -315,6 +312,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
       setSelected(null)
       setSearch('')
       setSport('All sports')
+      setSportCategory('All categories')
       setStatus('All statuses')
       setGender('All genders')
       setSort('name-asc')
@@ -342,24 +340,31 @@ export default function Athletes({ athletes, coaches, employees, results, docume
   function resetFilters() {
     setSearch('')
     setSport('All sports')
+    setSportCategory('All categories')
     setStatus('All statuses')
     setGender('All genders')
     setSort('name-asc')
     setColFilters({})
   }
 
-  const hasActiveFilters = search || sport !== 'All sports' || status !== 'All statuses' || gender !== 'All genders' || sort !== 'name-asc' || Object.values(colFilters).some(v => v && v !== 'All')
+  const hasActiveFilters = search || sport !== 'All sports' || sportCategory !== 'All categories' || status !== 'All statuses' || gender !== 'All genders' || sort !== 'name-asc' || Object.values(colFilters).some(v => v && v !== 'All')
 
-  // filter out blank/null sports
-  const sports = ['All sports', ...new Set(athletes.map(a => a.sport).filter(Boolean))]
+  // Show every known sport (Paralympic + Special Olympics), not just ones currently
+  // in use — so a sport with zero athletes today is still findable once someone new
+  // is added under it.
+  const sportsInData = new Set(athletes.map(a => a.sport).filter(Boolean))
+  const sports = ['All sports', ...SPORTS, ...[...sportsInData].filter(s => !SPORTS.includes(s))]
+  const sportCategories = ['All categories', ...SPORT_CATEGORIES]
 
   let list = athletes.filter(a =>
     (sport  === 'All sports'   || a.sport  === sport)  &&
+    (sportCategory === 'All categories' || a.sport_category === sportCategory) &&
     (status === 'All statuses' || a.status === status) &&
     (gender === 'All genders'  || a.gender === gender) &&
     a.name && // exclude blank names
     (a.name.toLowerCase().includes(search.toLowerCase()) || (a.sport||'').toLowerCase().includes(search.toLowerCase())) &&
     // column-level filters
+    (!colFilters.sport_category || colFilters.sport_category === 'All' || a.sport_category === colFilters.sport_category) &&
     (!colFilters.sport        || colFilters.sport === 'All'        || a.sport === colFilters.sport) &&
     (!colFilters.status       || colFilters.status === 'All'       || a.status === colFilters.status) &&
     (!colFilters.gender       || colFilters.gender === 'All'       || a.gender === colFilters.gender) &&
@@ -374,6 +379,8 @@ export default function Athletes({ athletes, coaches, employees, results, docume
     if (sort === 'name-desc')        return b.name.localeCompare(a.name)
     if (sort === 'name_ar-asc')      return (a.name_ar||'').localeCompare(b.name_ar||'')
     if (sort === 'name_ar-desc')     return (b.name_ar||'').localeCompare(a.name_ar||'')
+    if (sort === 'sport_category-asc')  return (a.sport_category||'').localeCompare(b.sport_category||'')
+    if (sort === 'sport_category-desc') return (b.sport_category||'').localeCompare(a.sport_category||'')
     if (sort === 'sport-asc')        return (a.sport||'').localeCompare(b.sport||'')
     if (sort === 'sport-desc')       return (b.sport||'').localeCompare(a.sport||'')
     if (sort === 'status-asc')       return (a.status||'').localeCompare(b.status||'')
@@ -506,7 +513,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
     const isAr = lang === 'ar'
     const dir = isAr ? 'rtl' : 'ltr'
 
-    const SPORT_AR = {'Athletics':'ألعاب القوى','Swimming':'السباحة','Powerlifting':'رفع الأثقال','Boccia':'البوتشيا','Goalball':'كرة الهدف','Table Tennis':'تنس الطاولة','Special Olympics':'الأولمبياد الخاص','Shooting':'الرماية','Wheelchair Tennis':'تنس الكراسي المتحركة'}
+    const SPORT_AR = SPORT_NAMES_AR
     const STATUS_AR = {'Active':'نشط','Inactive':'غير نشط','Suspended':'موقوف','Under Medical Review':'تحت المراجعة الطبية','Injured':'مصاب','Retired':'متقاعد'}
     const DIS_AR = {'Visual Impairment':'إعاقة بصرية','Hearing Impairment':'إعاقة سمعية','Physical Impairment':'إعاقة جسدية','Intellectual Disability':'إعاقة ذهنية','Spinal Cord Injury':'إصابة الحبل الشوكي','Cerebral Palsy':'شلل دماغي','Amputation':'بتر','Down Syndrome':'متلازمة داون','Autism':'التوحد','Multiple Disabilities':'إعاقات متعددة'}
     const COUNTRY_AR = {'Qatar':'قطر','Egypt':'مصر','Algeria':'الجزائر','Morocco':'المغرب','Jordan':'الأردن','Saudi Arabia':'المملكة العربية السعودية','UAE':'الإمارات','Iraq':'العراق','Syria':'سوريا','Yemen':'اليمن','Somalia':'الصومال','Sudan':'السودان','Libya':'ليبيا','Tunisia':'تونس','Pakistan':'باكستان','India':'الهند','Iran':'إيران','Turkey':'تركيا','Azerbaijan':'أذربيجان','Ireland':'أيرلندا','France':'فرنسا','Spain':'إسبانيا','Germany':'ألمانيا','UK':'المملكة المتحدة','USA':'الولايات المتحدة'}
@@ -1147,6 +1154,7 @@ ${myDocs.length > 0 ? `<div class="section">
     { key:'qss_number',      label:tx('athletes.qssNumber','QSS #'),          default:false, editable:false },
     { key:'id_number',       label:tx('athletes.qatarID','Qatar ID'),         default:false, editable:false },
     { key:'career_profile',  label:tx('athletes.careerProfile','Career Profile #'), default:false, editable:false },
+    { key:'sport_category',  label:tx('athletes.sportCategory','Sport Category'), default:true,  editable:true  },
     { key:'sport',           label:tx('athletes.sport','Sport'),              default:true,  editable:true  },
     { key:'classification',  label:tx('athletes.classification','Classification'), default:true, editable:true },
     { key:'disability',      label:tx('athletes.disability','Disability'),    default:false, editable:false },
@@ -1197,6 +1205,7 @@ ${myDocs.length > 0 ? `<div class="section">
       case 'name_ar':          return <span style={{ color:'var(--text2)', direction: lang==='ar'?'ltr':'rtl' }}>{lang==='ar' ? (a.name||'—') : (a.name_ar||'—')}</span>
       case 'qss_number':       return <span style={{ color:'var(--text2)', fontFamily:'monospace', fontSize:12 }}>{a.qss_number || '—'}</span>
       case 'career_profile':   return <span style={{ color:'var(--text2)', fontFamily:'monospace', fontSize:12 }}>{a.career_profile || '—'}</span>
+      case 'sport_category':   return a.sport_category ? <Badge label={lang==='ar' ? (SPORT_CATEGORY_NAMES_AR[a.sport_category]||a.sport_category) : a.sport_category} /> : <span style={{ color:'var(--text3)' }}>—</span>
       case 'sport':            return <span style={{ color:'var(--text2)' }}>{SPORT_NAMES[a.sport] || a.sport || '—'}</span>
       case 'classification':   return a.classification ? <span className="badge badge-blue">{a.classification}</span> : '—'
       case 'disability':      return <span style={{ color:'var(--text2)' }}>{tDis(a.disability) || '—'}</span>
@@ -1241,7 +1250,14 @@ ${myDocs.length > 0 ? `<div class="section">
     switch(key) {
       case 'name':         return <input style={{ ...inlineInput, minWidth:140 }} value={getVal(a,'name')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'name',e.target.value)} />
       case 'name_ar':      return <input style={{ ...inlineInput, direction:'rtl' }} value={getVal(a,'name_ar')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'name_ar',e.target.value)} />
-      case 'sport':        return <select style={inlineSelect} value={getVal(a,'sport')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'sport',e.target.value)}>{['Athletics','Swimming','Powerlifting','Boccia','Goalball','Table Tennis','Special Olympics','Shooting','Wheelchair Tennis'].map(s=><option key={s}>{s}</option>)}</select>
+      case 'sport_category': return <select style={inlineSelect} value={getVal(a,'sport_category')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'sport_category',e.target.value)}>
+          <option value="">{tx('athletes.selectCategory','Select category')}</option>
+          {SPORT_CATEGORIES.map(c => <option key={c} value={c}>{lang==='ar' ? (SPORT_CATEGORY_NAMES_AR[c]||c) : c}</option>)}
+        </select>
+      case 'sport':        return <select style={inlineSelect} value={getVal(a,'sport')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'sport',e.target.value)}>
+          <option value="">{tx('athletes.selectSport','Select sport')}</option>
+          {(SPORTS_BY_CATEGORY[getVal(a,'sport_category')] || SPORTS).map(s=><option key={s} value={s}>{lang==='ar' ? (SPORT_NAMES_AR[s]||s) : s}</option>)}
+        </select>
       case 'classification': return <input style={{ ...inlineInput, width:100 }} value={getVal(a,'classification')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'classification',e.target.value)} />
       case 'disability':   return <input style={inlineInput} value={getVal(a,'disability')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'disability',e.target.value)} />
       case 'nationality':  return <input style={{ ...inlineInput, width:100 }} value={getVal(a,'nationality')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'nationality',e.target.value)} />
@@ -1358,7 +1374,7 @@ ${myDocs.length > 0 ? `<div class="section">
           <thead>
             <tr>
               {ALL_COLS.filter(c => isVisible(c.key)).map(c => {
-                const isSortable = ['name','name_ar','sport','classification','nationality','status','dob','join_date','age_category','disability','coach_id','gender','blood_type'].includes(c.key)
+                const isSortable = ['name','name_ar','sport_category','sport','classification','nationality','status','dob','join_date','age_category','disability','coach_id','gender','blood_type'].includes(c.key)
                 const isAsc  = sort === `${c.key}-asc`
                 const isDesc = sort === `${c.key}-desc`
                 const active = isAsc || isDesc
@@ -1385,7 +1401,8 @@ ${myDocs.length > 0 ? `<div class="section">
               <tr style={{ background:'#f8f9fb' }}>
                 {ALL_COLS.filter(col => isVisible(col.key)).map(col => {
                   const filterOpts = {
-                    sport:          ['All', ...new Set(athletes.map(a => a.sport).filter(Boolean))],
+                    sport_category: ['All', ...SPORT_CATEGORIES],
+                    sport:          sports.filter(s => s !== 'All sports').length ? ['All', ...sports.filter(s => s !== 'All sports')] : ['All'],
                     status:         ['All','Active','Inactive','Suspended','Under Medical Review','Injured','Retired'],
                     gender:         ['All','Male','Female'],
                     nationality:    ['All', ...['Afghanistan', 'Algeria', 'Argentina', 'Armenia', 'Australia', 'Austria', 'Azerbaijan', 'Bahrain', 'Bangladesh', 'Belarus', 'Belgium', 'Brazil', 'Cameroon', 'Canada', 'Chile', 'China', 'Colombia', 'Croatia', 'Czech Republic', 'Denmark', 'Egypt', 'Eritrea', 'Ethiopia', 'Finland', 'France', 'Georgia', 'Germany', 'Ghana', 'Greece', 'Guinea', 'Hungary', 'India', 'Indonesia', 'Iran', 'Iraq', 'Ireland', 'Italy', 'Japan', 'Jordan', 'Kazakhstan', 'Kenya', 'Kuwait', 'Kyrgyzstan', 'Lebanon', 'Libya', 'Malaysia', 'Mali', 'Mauritania', 'Mexico', 'Mongolia', 'Morocco', 'Myanmar', 'Nepal', 'Netherlands', 'New Zealand', 'Nigeria', 'Norway', 'Oman', 'Pakistan', 'Palestine', 'Peru', 'Philippines', 'Poland', 'Portugal', 'Qatar', 'Romania', 'Russia', 'Rwanda', 'Saudi Arabia', 'Scotland', 'Senegal', 'Serbia', 'Singapore', 'Slovakia', 'Somalia', 'South Africa', 'South Korea', 'Spain', 'Sri Lanka', 'Sudan', 'Sweden', 'Syria', 'Tajikistan', 'Tanzania', 'Thailand', 'Tunisia', 'Turkey', 'Turkmenistan', 'UAE', 'Uganda', 'UK', 'Ukraine', 'USA', 'Uzbekistan', 'Venezuela', 'Vietnam', 'Wales', 'Yemen', 'Zambia', 'Zimbabwe']],
@@ -1422,6 +1439,7 @@ ${myDocs.length > 0 ? `<div class="section">
                             nationality: { 'All':allLabel, ...Object.fromEntries(['Afghanistan','Algeria','Argentina','Armenia','Australia','Austria','Azerbaijan','Bahrain','Bangladesh','Belarus','Belgium','Brazil','Cameroon','Canada','Chile','China','Colombia','Croatia','Czech Republic','Denmark','Egypt','Eritrea','Ethiopia','Finland','France','Georgia','Germany','Ghana','Greece','Guinea','Hungary','India','Indonesia','Iran','Iraq','Ireland','Italy','Japan','Jordan','Kazakhstan','Kenya','Kuwait','Kyrgyzstan','Lebanon','Libya','Malaysia','Mali','Mauritania','Mexico','Mongolia','Morocco','Myanmar','Nepal','Netherlands','New Zealand','Nigeria','Norway','Oman','Pakistan','Palestine','Peru','Philippines','Poland','Portugal','Qatar','Romania','Russia','Rwanda','Saudi Arabia','Scotland','Senegal','Serbia','Singapore','Slovakia','Somalia','South Africa','South Korea','Spain','Sri Lanka','Sudan','Sweden','Syria','Tajikistan','Tanzania','Thailand','Tunisia','Turkey','Turkmenistan','UAE','Uganda','UK','Ukraine','USA','Uzbekistan','Venezuela','Vietnam','Wales','Yemen','Zambia','Zimbabwe'].map(n => [n, tc(n)])) },
                             disability:  { 'All':allLabel, ...Object.fromEntries(athletes.map(a=>a.disability).filter(Boolean).map(d=>[d, lang==='ar' ? (tDis(d)||d) : d])) },
                             coach_id:    { 'All':allLabel, ...Object.fromEntries(coaches.map(co => [co.name, lang==='ar' && co.name_ar ? co.name_ar : co.name])) },
+                            sport_category: { 'All':allLabel, ...Object.fromEntries(SPORT_CATEGORIES.map(c => [c, lang==='ar' ? (SPORT_CATEGORY_NAMES_AR[c]||c) : c])) },
                             age_category:{ 'All':allLabel },
                           }
                           return <option key={o} value={o}>{LABELS[col.key]?.[o] || o}</option>

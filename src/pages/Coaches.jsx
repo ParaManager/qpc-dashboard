@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Avatar, MedalDisplay, Badge, initials, avColor, DashRow } from '../lib/helpers'
+import { Avatar, MedalDisplay, Badge, initials, avColor, DashRow, SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, SPORT_CATEGORY_NAMES_AR, SPORT_NAMES_AR } from '../lib/helpers'
 import FormModal from '../components/FormModal'
 import { ConfirmModal, toast } from '../components/Toast'
 import { supabase } from '../lib/supabase'
@@ -16,7 +16,7 @@ function exportCoachPDF(coach, myAthletes, lang) {
     const clean = (v === null || v === undefined || v === 'null' || v === 'undefined' || v === '') ? null : v
     return clean ? `<div class="field"><span class="k">${k}</span><span class="v">${clean}</span></div>` : ''
   }
-  const SPORT_AR = {'Athletics':'ألعاب القوى','Swimming':'السباحة','Powerlifting':'رفع الأثقال','Boccia':'البوتشيا','Goalball':'كرة الهدف','Table Tennis':'تنس الطاولة','Special Olympics':'الأولمبياد الخاص','Shooting':'الرماية','Wheelchair Tennis':'تنس الكراسي المتحركة'}
+  const SPORT_AR = SPORT_NAMES_AR
   const STATUS_AR = {'Active':'نشط','Inactive':'غير نشط','On Leave':'في إجازة','Suspended':'موقوف'}
   const COUNTRY_AR = {'Qatar':'قطر','Egypt':'مصر','Algeria':'الجزائر','Jordan':'الأردن','Tunisia':'تونس','Morocco':'المغرب','Saudi Arabia':'المملكة العربية السعودية','Somalia':'الصومال','Ireland':'أيرلندا','Spain':'إسبانيا','France':'فرنسا','UK':'المملكة المتحدة','USA':'الولايات المتحدة'}
   const totalMedals = myAthletes.reduce((s,a) => s+(a.medals_gold||0)+(a.medals_silver||0)+(a.medals_bronze||0), 0)
@@ -201,6 +201,7 @@ function FormerAthletes({ coachId, athletes, lang, onNav }) {
 export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNav, initCoachId, navState, profile }) {
   const [search, setSearch]     = useState('')
   const [sport, setSport]       = useState('All sports')
+  const [sportCategory, setSportCategory] = useState('All categories')
   const [status, setStatus]     = useState('All statuses')
   const [sort, setSort]         = useState('name-asc')
   const sortBtn = (key, label) => {
@@ -219,12 +220,7 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
 
   const { tx, tc, lang } = useLang()
   const STATUS_AR = {'Active':'نشط','Inactive':'غير نشط','Suspended':'موقوف','Under Medical Review':'تحت المراجعة الطبية','Injured':'مصاب','Retired':'متقاعد','On Leave':'في إجازة'}
-  const SPORT_NAMES = lang==='ar' ? {
-    'Athletics':'ألعاب القوى', 'Swimming':'السباحة', 'Powerlifting':'رفع الأثقال',
-    'Boccia':'البوتشيا', 'Goalball':'كرة الهدف', 'Table Tennis':'تنس الطاولة',
-    'Special Olympics':'الأولمبياد الخاص', 'Shooting':'الرماية',
-    'Wheelchair Tennis':'تنس الكراسي المتحركة',
-  } : {}
+  const SPORT_NAMES = lang==='ar' ? SPORT_NAMES_AR : {}
   useEffect(() => { if (initCoachId) setSelected(initCoachId) }, [initCoachId])
 
   useEffect(() => {
@@ -232,16 +228,22 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
       setSelected(null)
       setSearch('')
       setSport('All sports')
+      setSportCategory('All categories')
       setStatus('All statuses')
       setSort('name-asc')
     }
   }, [navState])
 
-  const sportsRaw  = ['All sports', ...new Set(coaches.map(c => c.sport).filter(Boolean))]
-  const hasFilters = search || sport !== 'All sports' || status !== 'All statuses'
+  // Show every known sport (Paralympic + Special Olympics), not just ones currently
+  // in use — so a sport with zero coaches today is still findable.
+  const coachSportsInData = new Set(coaches.map(c => c.sport).filter(Boolean))
+  const sportsRaw  = ['All sports', ...SPORTS, ...[...coachSportsInData].filter(s => !SPORTS.includes(s))]
+  const categoriesRaw = ['All categories', ...SPORT_CATEGORIES]
+  const hasFilters = search || sport !== 'All sports' || sportCategory !== 'All categories' || status !== 'All statuses'
 
   let list = coaches.filter(c =>
     (sport  === 'All sports'   || c.sport  === sport)  &&
+    (sportCategory === 'All categories' || c.sport_category === sportCategory) &&
     (status === 'All statuses' || c.status === status) &&
     (!search || c.name.toLowerCase().includes(search.toLowerCase()) || (c.sport||'').toLowerCase().includes(search.toLowerCase()))
   )
@@ -267,6 +269,7 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
     const payload = {
       name: formData.name, name_ar: formData.nameAr,
       nationality: formData.nationality, gender: formData.gender,
+      sport_category: formData.sportCategory,
       sport: formData.sport,
       license: formData.license, since: formData.since || null,
       email: formData.email, phone: formData.phone, status: formData.status,
@@ -335,7 +338,7 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
           <FormModal type="coach"
             record={form==='edit' ? {
               id:c.id, name:c.name, nameAr:c.name_ar, nationality:c.nationality,
-              gender:c.gender, sport:c.sport,
+              gender:c.gender, sportCategory:c.sport_category, sport:c.sport,
               license:c.license, since:c.since, email:c.email, phone:c.phone,
               status:c.status, qssNumber:c.qss_number, employeeNumber:c.employee_number,
               passportNumber:c.passport_number, passportExpiry:c.passport_expiry,
@@ -400,7 +403,10 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
 
             <div className="detail-name">{lang==='ar' && c.name_ar ? c.name_ar : c.name}</div>
             <div className="detail-sub">{lang==='ar' && c.name_ar ? c.name : c.name_ar}</div>
-            <div className="detail-sub">{SPORT_NAMES[c.sport]||c.sport} {tx('nav.coaches','Coach')}</div>
+            <div className="detail-sub">
+              {SPORT_NAMES[c.sport]||c.sport} {tx('nav.coaches','Coach')}
+              {c.sport_category && <span style={{ marginLeft:6, fontSize:11, color:'var(--text3)' }}>· {lang==='ar' ? (SPORT_CATEGORY_NAMES_AR[c.sport_category]||c.sport_category) : c.sport_category}</span>}
+            </div>
             <div className="detail-badges"><Badge label={lang==='ar'?(STATUS_AR[c.status]||c.status):c.status} /></div>
             <div className="detail-fields">
               {[
@@ -503,7 +509,7 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
         <div><div className="page-title">{tx('pages.coaches','Coaches')}</div><div className="page-sub">{list.length} {tx('coaches.ofCoaches','of')} {coaches.length} {tx('pages.coaches','coaches')}</div></div>
         <div style={{ display:'flex', gap:8 }}>
           {hasFilters && (
-            <button onClick={() => { setSearch(''); setSport('All sports'); setStatus('All statuses') }}
+            <button onClick={() => { setSearch(''); setSport('All sports'); setSportCategory('All categories'); setStatus('All statuses') }}
               style={{ display:'flex', alignItems:'center', gap:5, padding:'8px 12px', borderRadius:9, border:'1px solid #fca5a5', background:'#fef2f2', color:'#dc2626', fontSize:12, cursor:'pointer', fontFamily:'DM Sans, sans-serif' }}>
               <i className="ti ti-x" style={{ fontSize:13 }} /> {tx('actions.resetFilters','Reset filters')}
             </button>
@@ -515,6 +521,7 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
       </div>
       <div className="filters">
         <div className="search-wrap"><i className="ti ti-search" /><input placeholder={tx("coaches.searchCoaches","Search by name, sport…")} value={search} onChange={e => setSearch(e.target.value)} /></div>
+        <select className="filter" value={sportCategory} onChange={e => setSportCategory(e.target.value)}>{categoriesRaw.map(c => <option key={c} value={c}>{c === 'All categories' ? tx('filters.allCategories','All categories') : (lang==='ar' ? (SPORT_CATEGORY_NAMES_AR[c]||c) : c)}</option>)}</select>
         <select className="filter" value={sport} onChange={e => setSport(e.target.value)}>{sportsRaw.map(s => <option key={s} value={s}>{s === 'All sports' ? tx('filters.allSports','All sports') : (SPORT_NAMES[s]||s)}</option>)}</select>
         <select className="filter" value={status} onChange={e => setStatus(e.target.value)}>{[['All statuses',tx('filters.allStatuses','All statuses')],['Active',tx('status.active','Active')],['On Leave',tx('status.onLeave','On Leave')],['Inactive',tx('status.inactive','Inactive')]].map(([val,lbl]) => <option key={val} value={val}>{lbl}</option>)}</select>
         <select className="filter" value={sort} onChange={e => setSort(e.target.value)}>

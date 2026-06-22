@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
-import { Avatar, MedalDisplay, initials, avColor } from '../lib/helpers'
+import { Avatar, MedalDisplay, initials, avColor, SPORT_NAMES_AR } from '../lib/helpers'
 import AthleteCardButton, { generateAthleteCard } from '../components/AthleteCard'
 import EmployeeCardButton, { generateEmployeeCard } from '../components/EmployeeCard'
 import CareerHistory from '../components/CareerHistory.jsx'
@@ -108,7 +108,7 @@ export default function Profile({ user, profile, athletes, coaches, employees, r
   function exportAthleteProfile(a, myResults, myEvents) {
     const isAr = lang === 'ar'
     const L2 = (en, ar2) => isAr ? ar2 : en
-    const SPORT_AR = {'Athletics':'ألعاب القوى','Swimming':'السباحة','Powerlifting':'رفع الأثقال','Boccia':'البوتشيا','Goalball':'كرة الهدف','Table Tennis':'تنس الطاولة','Special Olympics':'الأولمبياد الخاص','Shooting':'الرماية','Wheelchair Tennis':'تنس الكراسي المتحركة'}
+    const SPORT_AR = SPORT_NAMES_AR
     const STATUS_AR = {'Active':'نشط','Inactive':'غير نشط','Suspended':'موقوف','Under Medical Review':'تحت المراجعة الطبية','Injured':'مصاب','Retired':'متقاعد'}
     const field = (k, v) => v ? `<div class="field"><span class="k">${k}</span><span class="v">${v}</span></div>` : ''
     const html = `<!DOCTYPE html><html dir="${isAr?'rtl':'ltr'}" lang="${isAr?'ar':'en'}"><head><meta charset="UTF-8"/>

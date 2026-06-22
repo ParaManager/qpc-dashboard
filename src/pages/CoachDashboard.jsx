@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useLang } from '../lib/LangContext.jsx'
 import { supabase } from '../lib/supabase'
-import { initials, avColor } from '../lib/helpers'
+import { initials, avColor, SPORT_NAMES_AR } from '../lib/helpers'
 import DashboardBanners from '../components/DashboardBanners'
 import { formatDateWithDay } from './Timetable'
 
@@ -153,7 +153,7 @@ export default function CoachDashboard({ coach, athletes, events, results, onNav
   const totalSilver = myAthletes.reduce((s, a) => s + (a.medals_silver || 0), 0)
   const totalBronze = myAthletes.reduce((s, a) => s + (a.medals_bronze || 0), 0)
 
-  const SPORT_AR = {'Athletics':'ألعاب القوى','Swimming':'السباحة','Powerlifting':'رفع الأثقال','Boccia':'البوتشيا','Goalball':'كرة الهدف','Table Tennis':'تنس الطاولة','Special Olympics':'الأولمبياد الخاص','Shooting':'الرماية','Wheelchair Tennis':'تنس الكراسي المتحركة'}
+  const SPORT_AR = SPORT_NAMES_AR
 
   const Card = ({ title, icon, color='#009F6B', children, onClick }) => (
     <div className="info-card" onClick={onClick} style={{ cursor: onClick?'pointer':'default' }}>
