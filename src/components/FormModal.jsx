@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { SPORTS } from '../lib/helpers'
+import { SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, SPORT_CATEGORY_NAMES_AR, SPORT_NAMES_AR } from '../lib/helpers'
 import { useLang } from '../lib/LangContext.jsx'
 
 const COLORS = { athlete: '#0085C7', coach: '#009F6B', event: '#EE334E', result: '#8b5cf6' }
@@ -75,6 +75,7 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
   const isEdit = !!record
   const { lang } = useLang()
   const ar = lang === 'ar'
+  const [form, setForm] = useState({})
 
   // Country options
   const countryOpts = [
@@ -82,10 +83,18 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
     ...COUNTRIES_EN.map(c => ({ value: c, label: ar ? (COUNTRIES_AR[c]||c) : c }))
   ]
 
-  // Sport options with Arabic labels
-  const sportOpts = SPORTS.map(s => ({
+  // Category options (Paralympic / Special Olympics)
+  const categoryOpts = SPORT_CATEGORIES.map(c => ({
+    value: c,
+    label: ar ? (SPORT_CATEGORY_NAMES_AR[c]||c) : c
+  }))
+
+  // Sport options with Arabic labels — scoped to whichever category is currently
+  // selected in the form, so picking "Special Olympics" only shows its disciplines
+  // (plus the legacy flat value). Falls back to every sport if no category is set yet.
+  const sportOpts = (SPORTS_BY_CATEGORY[form?.sportCategory] || SPORTS).map(s => ({
     value: s,
-    label: ar ? ({'Athletics':'ألعاب القوى','Swimming':'السباحة','Powerlifting':'رفع الأثقال','Boccia':'البوتشيا','Goalball':'كرة الهدف','Table Tennis':'تنس الطاولة','Special Olympics':'الأولمبياد الخاص','Shooting':'الرماية','Wheelchair Tennis':'تنس الكراسي المتحركة'}[s]||s) : s
+    label: ar ? (SPORT_NAMES_AR[s]||s) : s
   }))
 
   // Athlete designation options
@@ -99,14 +108,13 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
     value: s,
     label: ar && s ? ({'Qatari Male':'قطري','Qatari Female':'قطرية','Resident Male':'مقيم','Resident Female':'مقيمة','Professional Male':'محترف','Professional Female':'محترفة','Born in Qatar':'مواليد قطر','Qatari Mother':'أم قطرية'}[s]||s) : s
   }))
-  const [form, setForm] = useState({})
 
   useEffect(() => {
     if (record) { setForm({ ...record }) }
     else {
       const defaults = {
-        athlete: { gender: 'Male', nationality: 'Qatari', sport: SPORTS[0], status: 'Active' },
-        coach:   { sport: SPORTS[0], status: 'Active' },
+        athlete: { gender: 'Male', nationality: 'Qatari', sportCategory: 'Paralympic', sport: SPORTS[0], status: 'Active' },
+        coach:   { sportCategory: 'Paralympic', sport: SPORTS[0], status: 'Active' },
         event:   { sport: SPORTS[0], type: 'National', status: 'Planning', maxParticipants: 30 },
         result:  { medal: 'gold', position: 1 },
       }
@@ -137,6 +145,7 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
     phone:            ar ? 'الهاتف'                          : 'Phone',
     email:            ar ? 'البريد الإلكتروني'               : 'Email',
     joinDate:         ar ? 'تاريخ الانضمام'                  : 'Join date',
+    sportCategory:    ar ? 'فئة الرياضة'                       : 'Sport Category',
     sport:            ar ? 'الرياضة'                         : 'Sport',
     classification:   ar ? 'التصنيف'                         : 'Classification',
     disability:       ar ? 'نوع الإعاقة'                     : 'Disability type',
@@ -246,7 +255,10 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
 
             <Section label={T.sportClass} />
             <Row>
+              <Field label={T.sportCategory} options={categoryOpts} {...f('sportCategory')} />
               <Field label={T.sport} options={sportOpts} {...f('sport')} />
+            </Row>
+            <Row>
               <Field label={T.classification} placeholder={ar?"مثال: T54, S6, BC2":"e.g. T54, S6, BC2"} {...f('classification')} />
             </Row>
             <Row>
@@ -303,6 +315,7 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
 
             <Section label={T.employment} />
             <Row>
+              <Field label={T.sportCategory} options={categoryOpts} {...f('sportCategory')} />
               <Field label={T.sport} options={sportOpts} {...f('sport')} />
             </Row>
             <Row>
