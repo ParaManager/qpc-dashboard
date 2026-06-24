@@ -655,6 +655,10 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
           {filterSessions(sessions.filter(s => s.session_date >= today.toISOString().slice(0,10))).slice(0,5).map(s => {
             const color = SESSION_COLORS[s.session_type]||'#0085C7'
             const sAthletes = myAthletes.filter(a => s.training_session_athletes?.some(sa=>String(sa.athlete_id)===String(a.id)))
+            // Only show the coach's name when admin is viewing all coaches combined —
+            // once a specific coach is selected, every row belongs to them already,
+            // so repeating their name on each line would just be clutter.
+            const sessionCoach = (viewOnly && !adminCoachFilter) ? coaches?.find(c => String(c.id) === String(s.coach_id)) : null
             return (
               <div key={s.id} onClick={() => setSelected(s.id)}
                 style={{ display:'flex', gap:12, padding:'10px 0', borderBottom:'1px solid var(--border)', cursor:'pointer', alignItems:'center' }}>
@@ -668,6 +672,7 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
                   </div>
                   <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>
                     {formatDateWithDay(s.session_date, ar)} {s.start_time?.slice(0,5)} · {s.location||'—'} · {sAthletes.length} {L('athletes','رياضيون')}
+                    {sessionCoach && <> · <span style={{ color:'#0085C7', fontWeight:600 }}>{ar && sessionCoach.name_ar ? sessionCoach.name_ar : sessionCoach.name}</span></>}
                   </div>
                 </div>
                 <span style={{ fontSize:11, padding:'3px 8px', borderRadius:20, background:color+'20', color }}>{L(s.session_type,{'Training':'تدريب','Competition':'منافسة','Medical':'طبي','Meeting':'اجتماع'}[s.session_type]||s.session_type)}</span>
