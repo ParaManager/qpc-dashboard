@@ -65,7 +65,7 @@ export default function Sports({ athletes, coaches, events, results, onNav, init
                 <div className="av" style={{ width:34, height:34, fontSize:11, background:'#009F6B', flexShrink:0 }}>{initials(coach.name)}</div>
                 <div style={{ flex:1 }}>
                   <div style={{ fontSize:13, fontWeight:500 }}>{coach.name}</div>
-                  <div style={{ fontSize:11, color:'var(--text3)' }}>{coach.cert_level} · {coach.nationality}</div>
+                  <div style={{ fontSize:11, color:'var(--text3)' }}>{coach.nationality}</div>
                 </div>
                 <Badge label={coach.status} />
               </DashRow>
