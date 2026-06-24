@@ -1,5 +1,5 @@
 import { useLang } from '../lib/LangContext.jsx'
-import { MedalDisplay, initials, avColor, SPORT_NAMES_AR } from '../lib/helpers'
+import { MedalDisplay, initials, avColor, sportLabel } from '../lib/helpers'
 
 export default function AthleteDashboard({ athlete, coach, results, events, registrations, onNav }) {
   const { lang, tc } = useLang()
@@ -32,8 +32,6 @@ export default function AthleteDashboard({ athlete, coach, results, events, regi
   const bronze = athlete.medals_bronze || 0
   const total  = gold + silver + bronze
 
-  const SPORT_AR = SPORT_NAMES_AR
-
   const Card = ({ title, icon, color='#0085C7', children, onClick }) => (
     <div className="info-card" onClick={onClick} style={{ cursor: onClick?'pointer':'default' }}>
       <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:14 }}>
@@ -55,7 +53,7 @@ export default function AthleteDashboard({ athlete, coach, results, events, regi
         </div>
         <div style={{ flex:1 }}>
           <div style={{ fontSize:20, fontWeight:700 }}>{ar&&athlete.name_ar?athlete.name_ar:athlete.name}</div>
-          <div style={{ fontSize:13, opacity:.7, marginTop:2 }}>{ar?(SPORT_AR[athlete.sport]||athlete.sport):athlete.sport} · {athlete.classification}</div>
+          <div style={{ fontSize:13, opacity:.7, marginTop:2 }}>{athlete.sport ? sportLabel(athlete.sport, athlete.sport_category, ar) : ''} · {athlete.classification}</div>
           <div style={{ display:'flex', gap:8, marginTop:8, flexWrap:'wrap' }}>
             <span style={{ padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:600, background: athlete.status==='Active'?'#009F6B30':'rgba(255,255,255,.1)', color: athlete.status==='Active'?'#4ade80':'rgba(255,255,255,.7)', border:`1px solid ${athlete.status==='Active'?'#009F6B50':'rgba(255,255,255,.2)'}` }}>
               {ar?{'Active':'نشط','Inactive':'غير نشط','Injured':'مصاب','Retired':'متقاعد'}[athlete.status]||athlete.status:athlete.status}
@@ -103,7 +101,7 @@ export default function AthleteDashboard({ athlete, coach, results, events, regi
               </div>
               <div>
                 <div style={{ fontSize:14, fontWeight:600 }}>{ar&&coach.name_ar?coach.name_ar:coach.name}</div>
-                <div style={{ fontSize:12, color:'var(--text3)' }}>{ar?(SPORT_AR[coach.sport]||coach.sport):coach.sport}</div>
+                <div style={{ fontSize:12, color:'var(--text3)' }}>{coach.sport ? sportLabel(coach.sport, coach.sport_category, ar) : ''}</div>
               </div>
             </div>
           ) : <div className="empty" style={{ padding:'8px 0' }}>{L('No coach assigned','لم يتم تعيين مدرب')}</div>}

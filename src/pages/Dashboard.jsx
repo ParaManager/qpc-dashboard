@@ -1,4 +1,4 @@
-import { Avatar, MedalDisplay, statusClass, statusDot, DashRow, SPORT_META, SPORTS, PARALYMPIC_SPORTS, SPORT_NAMES_AR, initials } from '../lib/helpers'
+import { Avatar, MedalDisplay, statusClass, statusDot, DashRow, SPORT_META, SPORTS, PARALYMPIC_SPORTS, sportLabel, initials } from '../lib/helpers'
 import { useLang } from '../lib/LangContext.jsx'
 import DashboardBanners from '../components/DashboardBanners'
 
@@ -96,7 +96,7 @@ export default function Dashboard({ athletes, coaches, events, results, onNav, p
         <div className="sports-grid">
           {PARALYMPIC_SPORTS.filter(s => SPORT_META[s]).map(s => {
             const meta  = SPORT_META[s]
-            const count = athletes.filter(a => a.sport === s).length
+            const count = athletes.filter(a => a.sport === s && (a.sport_category === 'Paralympic' || !a.sport_category)).length
             return (
               <div key={s} className="sport-chip"
                 onClick={() => onNav('sports', { sport: s })}
@@ -104,7 +104,7 @@ export default function Dashboard({ athletes, coaches, events, results, onNav, p
                 onMouseLeave={e => { e.currentTarget.style.borderColor='transparent'; e.currentTarget.style.background='' }}>
                 <div style={{ fontSize:20, marginBottom:4 }}><i className={`ti ${meta.icon}`} style={{ color:meta.color }} /></div>
                 <div className="sport-num" style={{ color:meta.color }}>{count}</div>
-                <div className="sport-name">{lang==='ar' ? (SPORT_NAMES_AR[s]||s) : s}</div>
+                <div className="sport-name">{sportLabel(s, 'Paralympic', lang==='ar')}</div>
               </div>
             )
           })}

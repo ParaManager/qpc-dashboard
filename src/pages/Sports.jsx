@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { SPORTS, SPORT_META, PARALYMPIC_SPORTS, SPECIAL_OLYMPICS_SPORTS, SPORT_CATEGORIES, SPORT_CATEGORY_NAMES_AR, SPORT_NAMES_AR, Avatar, Badge, MedalDisplay, statusDot, initials, DashRow } from '../lib/helpers'
+import { SPORTS, SPORT_META, PARALYMPIC_SPORTS, SPECIAL_OLYMPICS_SPORTS, SPORT_CATEGORIES, SPORT_CATEGORY_NAMES_AR, SPORT_NAMES_AR, sportLabel, Avatar, Badge, MedalDisplay, statusDot, initials, DashRow } from '../lib/helpers'
 import { useLang } from '../lib/LangContext.jsx'
 
 export default function Sports({ athletes, coaches, events, results, onNav, initSport, profile }) {
@@ -16,14 +16,18 @@ export default function Sports({ athletes, coaches, events, results, onNav, init
     'Special Olympics':  [...SPECIAL_OLYMPICS_SPORTS, 'Special Olympics'],
   }
 
-  const [selected, setSelected] = useState(initSport || null)
-  useEffect(() => { if (initSport) setSelected(initSport) }, [initSport])
+  const [selected, setSelected] = useState(initSport ? { sport: initSport, category: 'Paralympic' } : null)
+  useEffect(() => { if (initSport) setSelected({ sport: initSport, category: 'Paralympic' }) }, [initSport])
 
   if (selected) {
-    const meta     = SPORT_META[selected] || { icon:'ti-ball-football', color:'#0085C7', desc:'' }
-    const myAths   = athletes.filter(a => a.sport === selected)
-    const myCoach  = coaches.find(c => c.sport === selected)
-    const myEvents = events.filter(e => e.sport === selected)
+    const { sport: selSport, category: selCategory } = selected
+    const meta     = SPORT_META[selSport] || { icon:'ti-ball-football', color:'#0085C7', desc:'' }
+    // Filter by both sport name and category, since the same sport word (e.g.
+    // "Athletics") can mean either program — without this, viewing "Para Athletics"
+    // would also pull in Special Olympics athletes who happen to share that word.
+    const myAths   = athletes.filter(a => a.sport === selSport && (a.sport_category === selCategory || !a.sport_category))
+    const myCoach  = coaches.find(c => c.sport === selSport && (c.sport_category === selCategory || !c.sport_category))
+    const myEvents = events.filter(e => e.sport === selSport)
     const myMedals = results.filter(r => myAths.some(a => a.id === r.athlete_id))
 
     return (
@@ -34,7 +38,7 @@ export default function Sports({ athletes, coaches, events, results, onNav, init
             <i className={`ti ${meta.icon}`} style={{ fontSize:30, color:meta.color }} />
           </div>
           <div>
-            <div style={{ fontSize:22, fontWeight:600 }}>{SPORT_NAMES[selected] || selected}</div>
+            <div style={{ fontSize:22, fontWeight:600 }}>{sportLabel(selSport, selCategory, ar)}</div>
             <div style={{ fontSize:13, color:'var(--text2)', marginTop:3 }}>{tx('dashboard.qpc','Qatar Paralympic Committee')}</div>
           </div>
         </div>
@@ -102,11 +106,14 @@ export default function Sports({ athletes, coaches, events, results, onNav, init
           </div>
           {sportsByCategorySection[category].map(s => {
             const meta     = SPORT_META[s] || { icon:'ti-ball-football', color:'#0085C7', desc:'' }
-            const myAths   = athletes.filter(a => a.sport === s)
+            // Scope by category too — the same sport word (e.g. "Athletics") can
+            // belong to either program, so without this an athlete would be counted
+            // under both the Paralympic and Special Olympics tiles for that word.
+            const myAths   = athletes.filter(a => a.sport === s && (a.sport_category === category || !a.sport_category))
             const myEvents = events.filter(e => e.sport === s)
             const myMedals = results.filter(r => myAths.some(a => a.id === r.athlete_id))
             return (
-              <div key={s} onClick={() => setSelected(s)}
+              <div key={s} onClick={() => setSelected({ sport: s, category })}
                 style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14, padding:20, cursor:'pointer', marginBottom:12, transition:'all .15s', boxShadow:'var(--shadow)' }}
                 onMouseEnter={e => { e.currentTarget.style.borderColor=meta.color; e.currentTarget.style.transform='translateY(-1px)' }}
                 onMouseLeave={e => { e.currentTarget.style.borderColor=''; e.currentTarget.style.transform='' }}>
@@ -115,7 +122,7 @@ export default function Sports({ athletes, coaches, events, results, onNav, init
                     <i className={`ti ${meta.icon}`} style={{ fontSize:26, color:meta.color }} />
                   </div>
                   <div style={{ flex:1 }}>
-                    <div style={{ fontSize:16, fontWeight:600, marginBottom:3 }}>{SPORT_NAMES[s] || s}</div>
+                    <div style={{ fontSize:16, fontWeight:600, marginBottom:3 }}>{sportLabel(s, category, ar)}</div>
                     <div style={{ fontSize:12, color:'var(--text2)' }}>{meta.desc}</div>
                   </div>
                   <div style={{ display:'flex', gap:20, flexShrink:0, textAlign:'center' }}>

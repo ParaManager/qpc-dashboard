@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
-import { Avatar, MedalDisplay, initials, avColor, SPORT_NAMES_AR } from '../lib/helpers'
+import { Avatar, MedalDisplay, initials, avColor, sportLabel } from '../lib/helpers'
 import AthleteCardButton, { generateAthleteCard } from '../components/AthleteCard'
 import EmployeeCardButton, { generateEmployeeCard } from '../components/EmployeeCard'
 import CareerHistory from '../components/CareerHistory.jsx'
@@ -108,7 +108,6 @@ export default function Profile({ user, profile, athletes, coaches, employees, r
   function exportAthleteProfile(a, myResults, myEvents) {
     const isAr = lang === 'ar'
     const L2 = (en, ar2) => isAr ? ar2 : en
-    const SPORT_AR = SPORT_NAMES_AR
     const STATUS_AR = {'Active':'نشط','Inactive':'غير نشط','Suspended':'موقوف','Under Medical Review':'تحت المراجعة الطبية','Injured':'مصاب','Retired':'متقاعد'}
     const field = (k, v) => v ? `<div class="field"><span class="k">${k}</span><span class="v">${v}</span></div>` : ''
     const html = `<!DOCTYPE html><html dir="${isAr?'rtl':'ltr'}" lang="${isAr?'ar':'en'}"><head><meta charset="UTF-8"/>
@@ -128,7 +127,7 @@ export default function Profile({ user, profile, athletes, coaches, employees, r
   <div class="profile-info">
     <h2>${isAr&&a.name_ar?a.name_ar:a.name}</h2>
     <div class="badges">
-      <span class="badge badge-blue">${isAr?(SPORT_AR[a.sport]||a.sport||''):a.sport||''}</span>
+      <span class="badge badge-blue">${a.sport ? sportLabel(a.sport, a.sport_category, isAr) : ''}</span>
       ${a.classification?`<span class="badge badge-blue">${a.classification}</span>`:''}
       <span class="badge badge-${a.status==='Active'?'green':'gray'}">${isAr?(STATUS_AR[a.status]||a.status||''):(a.status||'')}</span>
     </div>
@@ -138,7 +137,7 @@ export default function Profile({ user, profile, athletes, coaches, employees, r
 ${field(L2('Date of birth','تاريخ الميلاد'),a.dob)}${field(L2('Gender','الجنس'),a.gender)}${field(L2('Nationality','الجنسية'),a.nationality)}${field(L2('Phone','الهاتف'),a.phone)}${field(L2('Email','البريد الإلكتروني'),a.email)}
 </div></div>
 <div class="section"><div class="section-title">${L2('Sport & Classification','الرياضة والتصنيف')}</div><div class="grid-2">
-${field(L2('Sport','الرياضة'),isAr?(SPORT_AR[a.sport]||a.sport):a.sport)}${field(L2('Classification','التصنيف'),a.classification)}${field(L2('Disability type','نوع الإعاقة'),a.disability)}
+${field(L2('Sport','الرياضة'),a.sport ? sportLabel(a.sport, a.sport_category, isAr) : '')}${field(L2('Classification','التصنيف'),a.classification)}${field(L2('Disability type','نوع الإعاقة'),a.disability)}
 </div></div>
 <div class="section"><div class="section-title">${L2('Medals','الميداليات')}</div><div class="medal-row">
 <div class="medal-item"><div class="medal-num" style="color:#f1c40f">${a.medals_gold||0}</div><div style="font-size:11px;color:#9aa3b2">${L2('Gold','ذهب')}</div></div>

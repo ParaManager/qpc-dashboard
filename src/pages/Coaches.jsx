@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Avatar, MedalDisplay, Badge, initials, avColor, DashRow, SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, SPORT_CATEGORY_NAMES_AR, SPORT_NAMES_AR } from '../lib/helpers'
+import { Avatar, MedalDisplay, Badge, initials, avColor, DashRow, SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, SPORT_CATEGORY_NAMES_AR, SPORT_NAMES_AR, sportLabel } from '../lib/helpers'
 import FormModal from '../components/FormModal'
 import { ConfirmModal, toast } from '../components/Toast'
 import { supabase } from '../lib/supabase'
@@ -16,7 +16,6 @@ function exportCoachPDF(coach, myAthletes, lang) {
     const clean = (v === null || v === undefined || v === 'null' || v === 'undefined' || v === '') ? null : v
     return clean ? `<div class="field"><span class="k">${k}</span><span class="v">${clean}</span></div>` : ''
   }
-  const SPORT_AR = SPORT_NAMES_AR
   const STATUS_AR = {'Active':'نشط','Inactive':'غير نشط','On Leave':'في إجازة','Suspended':'موقوف'}
   const COUNTRY_AR = {'Qatar':'قطر','Egypt':'مصر','Algeria':'الجزائر','Jordan':'الأردن','Tunisia':'تونس','Morocco':'المغرب','Saudi Arabia':'المملكة العربية السعودية','Somalia':'الصومال','Ireland':'أيرلندا','Spain':'إسبانيا','France':'فرنسا','UK':'المملكة المتحدة','USA':'الولايات المتحدة'}
   const totalMedals = myAthletes.reduce((s,a) => s+(a.medals_gold||0)+(a.medals_silver||0)+(a.medals_bronze||0), 0)
@@ -76,7 +75,7 @@ function exportCoachPDF(coach, myAthletes, lang) {
     <h2>${isAr && coach.name_ar ? coach.name_ar : coach.name}</h2>
     <p>${isAr && coach.name_ar ? coach.name : (coach.name_ar||'')}</p>
     <p style="margin-top:6px;color:#009F6B;font-weight:600">
-      ${isAr ? (SPORT_AR[coach.sport]||coach.sport||'') : (coach.sport||'')} ${L('Coach','مدرب')} · ${isAr ? (STATUS_AR[coach.status]||coach.status||'') : (coach.status||'')}
+      ${coach.sport ? sportLabel(coach.sport, coach.sport_category, isAr) : ''} ${L('Coach','مدرب')} · ${isAr ? (STATUS_AR[coach.status]||coach.status||'') : (coach.status||'')}
     </p>
   </div>
 </div>
@@ -86,7 +85,7 @@ function exportCoachPDF(coach, myAthletes, lang) {
   <div class="grid-2">
     ${field(L('Employee #','رقم الموظف'), coach.employee_number)}
     ${field(L('QSS #','رقم QSS'), coach.qss_number)}
-    ${field(L('Sport','الرياضة'), isAr ? (SPORT_AR[coach.sport]||coach.sport) : coach.sport)}
+    ${field(L('Sport','الرياضة'), coach.sport ? sportLabel(coach.sport, coach.sport_category, isAr) : '')}
     ${field(L('Nationality','الجنسية'), isAr ? (COUNTRY_AR[coach.nationality]||coach.nationality) : coach.nationality)}
     ${field(L('Gender','الجنس'), coach.gender ? (isAr ? (coach.gender==='Male'?'ذكر':'أنثى') : coach.gender) : null)}
     ${field(L('With QPC since','مع QPC منذ'), coach.since)}
@@ -126,7 +125,7 @@ ${myAthletes.length > 0 ? `<div class="section">
   </div>
   ${myAthletes.map(a=>`<div class="ath-row">
     <span style="flex:2">${isAr && a.name_ar ? a.name_ar : a.name}</span>
-    <span style="flex:1;color:#5a6272">${isAr?(SPORT_AR[a.sport]||a.sport||''):(a.sport||'')}</span>
+    <span style="flex:1;color:#5a6272">${a.sport ? sportLabel(a.sport, a.sport_category, isAr) : ''}</span>
     <span style="flex:1;color:#5a6272">${a.classification||'—'}</span>
     <span style="flex:1;color:#5a6272">${isAr?(STATUS_AR[a.status]||a.status||''):(a.status||'')}</span>
     <span style="flex:1">🥇${a.medals_gold||0} 🥈${a.medals_silver||0} 🥉${a.medals_bronze||0}</span>
@@ -404,7 +403,7 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
             <div className="detail-name">{lang==='ar' && c.name_ar ? c.name_ar : c.name}</div>
             <div className="detail-sub">{lang==='ar' && c.name_ar ? c.name : c.name_ar}</div>
             <div className="detail-sub">
-              {SPORT_NAMES[c.sport]||c.sport} {tx('nav.coaches','Coach')}
+              {c.sport ? sportLabel(c.sport, c.sport_category, lang==='ar') : ''} {tx('nav.coaches','Coach')}
               {c.sport_category && <span style={{ marginLeft:6, fontSize:11, color:'var(--text3)' }}>· {lang==='ar' ? (SPORT_CATEGORY_NAMES_AR[c.sport_category]||c.sport_category) : c.sport_category}</span>}
             </div>
             <div className="detail-badges"><Badge label={lang==='ar'?(STATUS_AR[c.status]||c.status):c.status} /></div>
@@ -461,7 +460,7 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
                       }
                       <div style={{ flex:1 }}>
                         <div style={{ fontSize:13, fontWeight:500 }}>{lang==='ar' && a.name_ar ? a.name_ar : a.name}</div>
-                        <div style={{ fontSize:11, color:'#9aa3b2' }}>{SPORT_NAMES[a.sport]||a.sport} · {a.classification}</div>
+                        <div style={{ fontSize:11, color:'#9aa3b2' }}>{a.sport ? sportLabel(a.sport, a.sport_category, lang==='ar') : ''} · {a.classification}</div>
                       </div>
                       <MedalDisplay gold={a.medals_gold} silver={a.medals_silver} bronze={a.medals_bronze} />
                       <Badge label={lang==='ar' ? (STATUS_AR[a.status]||a.status) : a.status} />
@@ -555,7 +554,7 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
               </div>
               <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
                 {[
-                  [tx('form.sport','Sport'), SPORT_NAMES[c.sport]||c.sport],
+                  [tx('form.sport','Sport'), c.sport ? sportLabel(c.sport, c.sport_category, lang==='ar') : ''],
                       [tx('coaches.employeeNum','Employee #'), c.employee_number],
                   [tx('coaches.athletes','Athletes'), count],
                 ].map(([k,v]) => (

@@ -1,7 +1,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import * as XLSX from 'xlsx'
-import { Avatar, MedalDisplay, Badge, avColor, initials, DashRow, SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, SPORT_CATEGORY_NAMES_AR, SPORT_NAMES_AR } from '../lib/helpers'
+import { Avatar, MedalDisplay, Badge, avColor, initials, DashRow, SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, SPORT_CATEGORY_NAMES_AR, SPORT_NAMES_AR, sportLabel } from '../lib/helpers'
 import FormModal from '../components/FormModal'
 import { ConfirmModal, toast } from '../components/Toast'
 import { supabase } from '../lib/supabase'
@@ -79,7 +79,6 @@ function formatFileSize(bytes) {
 
 function exportExcel(athletes, coaches, documents, visibleCols, allCols, lang) {
   const ar = lang === 'ar'
-  const SPORT_AR = SPORT_NAMES_AR
   const STATUS_AR = {'Active':'نشط','Inactive':'غير نشط','Suspended':'موقوف','Under Medical Review':'تحت المراجعة الطبية','Injured':'مصاب','Retired':'متقاعد'}
   const DIS_MAP = {'visual impairment':'إعاقة بصرية','hearing impairment':'إعاقة سمعية','physical impairment':'إعاقة جسدية','intellectual disability':'إعاقة ذهنية','intellectual impairment':'إعاقة ذهنية','spinal cord injury':'إصابة الحبل الشوكي','cerebral palsy':'شلل دماغي','amputation':'بتر','down syndrome':'متلازمة داون',"down's syndrome":'متلازمة داون','downs syndrome':'متلازمة داون','down':'متلازمة داون','autism spectrum':'التوحد','autism':'التوحد','multiple disabilities':'إعاقات متعددة','limb deficiency':'نقص الأطراف','les autres':'أخرى'}
   const tDis = d => {
@@ -103,7 +102,7 @@ function exportExcel(athletes, coaches, documents, visibleCols, allCols, lang) {
     id_number:       a => a.id_number || '',
     career_profile:  a => a.career_profile || '',
     sport_category:  a => a.sport_category ? (ar ? (SPORT_CATEGORY_NAMES_AR[a.sport_category]||a.sport_category) : a.sport_category) : '',
-    sport:           a => ar ? (SPORT_AR[a.sport]||a.sport||'') : (a.sport||''),
+    sport:           a => a.sport ? sportLabel(a.sport, a.sport_category, ar) : '',
     classification:  a => a.classification || '',
     disability:      a => tDis(a.disability),
     nationality:     a => tc(a.nationality),
@@ -513,7 +512,6 @@ export default function Athletes({ athletes, coaches, employees, results, docume
     const isAr = lang === 'ar'
     const dir = isAr ? 'rtl' : 'ltr'
 
-    const SPORT_AR = SPORT_NAMES_AR
     const STATUS_AR = {'Active':'نشط','Inactive':'غير نشط','Suspended':'موقوف','Under Medical Review':'تحت المراجعة الطبية','Injured':'مصاب','Retired':'متقاعد'}
     const DIS_AR = {'Visual Impairment':'إعاقة بصرية','Hearing Impairment':'إعاقة سمعية','Physical Impairment':'إعاقة جسدية','Intellectual Disability':'إعاقة ذهنية','Spinal Cord Injury':'إصابة الحبل الشوكي','Cerebral Palsy':'شلل دماغي','Amputation':'بتر','Down Syndrome':'متلازمة داون','Autism':'التوحد','Multiple Disabilities':'إعاقات متعددة'}
     const COUNTRY_AR = {'Qatar':'قطر','Egypt':'مصر','Algeria':'الجزائر','Morocco':'المغرب','Jordan':'الأردن','Saudi Arabia':'المملكة العربية السعودية','UAE':'الإمارات','Iraq':'العراق','Syria':'سوريا','Yemen':'اليمن','Somalia':'الصومال','Sudan':'السودان','Libya':'ليبيا','Tunisia':'تونس','Pakistan':'باكستان','India':'الهند','Iran':'إيران','Turkey':'تركيا','Azerbaijan':'أذربيجان','Ireland':'أيرلندا','France':'فرنسا','Spain':'إسبانيا','Germany':'ألمانيا','UK':'المملكة المتحدة','USA':'الولايات المتحدة'}
@@ -587,7 +585,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
     <h2>${isAr && a.name_ar ? a.name_ar : a.name}</h2>
     <p class="sub">${isAr && a.name_ar ? a.name : (a.name_ar || '')}</p>
     <div class="badges">
-      ${a.sport ? `<span class="badge badge-blue">${isAr ? (SPORT_AR[a.sport]||a.sport) : a.sport}</span>` : `<span class="badge badge-gray">${L('No Sport Assigned','لم يتم تحديد الرياضة')}</span>`}
+      ${a.sport ? `<span class="badge badge-blue">${sportLabel(a.sport, a.sport_category, isAr)}</span>` : `<span class="badge badge-gray">${L('No Sport Assigned','لم يتم تحديد الرياضة')}</span>`}
       ${a.classification ? `<span class="badge badge-blue">${a.classification}</span>` : ''}
       <span class="badge badge-${a.status==='Active'?'green':'gray'}">${isAr ? (STATUS_AR[a.status]||a.status||L('Unknown','غير محدد')) : (a.status||'Unknown')}</span>
     </div>
@@ -616,7 +614,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
 <div class="section">
   <div class="section-title">${L('Sport & Classification','الرياضة والتصنيف')}</div>
   <div class="grid-2">
-    ${field(L('Sport','الرياضة'), isAr ? (SPORT_AR[a.sport]||a.sport) : a.sport)}
+    ${field(L('Sport','الرياضة'), a.sport ? sportLabel(a.sport, a.sport_category, isAr) : '')}
     ${field(L('Classification','التصنيف'), a.classification)}
     ${field(L('Disability type','نوع الإعاقة'), isAr ? (DIS_AR[a.disability]||a.disability) : a.disability)}
     ${field(L('Head coach','المدرب الرئيسي'), coach ? (isAr && coach.name_ar ? coach.name_ar : coach.name) : L('Unassigned','غير معين'))}
@@ -803,7 +801,7 @@ ${myDocs.length > 0 ? `<div class="section">
               {(lang==='ar' && a.name_ar ? a.name : a.name_ar) && <div className="detail-sub">{lang==='ar' && a.name_ar ? a.name : a.name_ar}</div>}
               <div className="detail-badges">
                 <Badge label={{'Active':lang==='ar'?'نشط':'Active','Inactive':lang==='ar'?'غير نشط':'Inactive','Suspended':lang==='ar'?'موقوف':'Suspended','Under Medical Review':lang==='ar'?'تحت المراجعة الطبية':'Under Medical Review','Injured':lang==='ar'?'مصاب':'Injured','Retired':lang==='ar'?'متقاعد':'Retired'}[a.status]||a.status} />
-                <span className="badge badge-blue">{SPORT_NAMES[a.sport]||a.sport}</span>
+                <span className="badge badge-blue">{a.sport ? sportLabel(a.sport, a.sport_category, lang==='ar') : ''}</span>
               </div>
 
               {/* AGE & YEARS ACTIVE */}
@@ -855,7 +853,7 @@ ${myDocs.length > 0 ? `<div class="section">
             {/* SPORT */}
             <div className="info-card">
               <div className="info-title">{lang==='ar'?'الرياضة والتصنيف':'Sport & classification'}</div>
-              {[[tx('form.sport','Sport'),SPORT_NAMES[a.sport]||a.sport],[tx('form.classification','Classification'),a.classification],[tx('form.disability','Disability type'), tDis(a.disability)],[tx('form.club','Club'),a.club],[lang==='ar'?'الوظيفة':'Designation', {'Player':'لاعب','Female Player':'لاعبة','Coach':'مدرب','Female Coach':'مدربة','Referee':'حكم','Admin Staff':'جهاز إداري','Technical Staff':'جهاز في','Medical Staff':'جهاز طبي'}[a.designation]||a.designation],[tx('form.residencyStatus','Residency status'),a.residency_status]].map(([k,v]) => (
+              {[[tx('form.sport','Sport'),a.sport ? sportLabel(a.sport, a.sport_category, lang==='ar') : ''],[tx('form.classification','Classification'),a.classification],[tx('form.disability','Disability type'), tDis(a.disability)],[tx('form.club','Club'),a.club],[lang==='ar'?'الوظيفة':'Designation', {'Player':'لاعب','Female Player':'لاعبة','Coach':'مدرب','Female Coach':'مدربة','Referee':'حكم','Admin Staff':'جهاز إداري','Technical Staff':'جهاز في','Medical Staff':'جهاز طبي'}[a.designation]||a.designation],[tx('form.residencyStatus','Residency status'),a.residency_status]].map(([k,v]) => (
                 <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv">{v||'—'}</span></div>
               ))}
             </div>
@@ -1206,7 +1204,7 @@ ${myDocs.length > 0 ? `<div class="section">
       case 'qss_number':       return <span style={{ color:'var(--text2)', fontFamily:'monospace', fontSize:12 }}>{a.qss_number || '—'}</span>
       case 'career_profile':   return <span style={{ color:'var(--text2)', fontFamily:'monospace', fontSize:12 }}>{a.career_profile || '—'}</span>
       case 'sport_category':   return a.sport_category ? <Badge label={lang==='ar' ? (SPORT_CATEGORY_NAMES_AR[a.sport_category]||a.sport_category) : a.sport_category} /> : <span style={{ color:'var(--text3)' }}>—</span>
-      case 'sport':            return <span style={{ color:'var(--text2)' }}>{SPORT_NAMES[a.sport] || a.sport || '—'}</span>
+      case 'sport':            return <span style={{ color:'var(--text2)' }}>{a.sport ? sportLabel(a.sport, a.sport_category, lang==='ar') : '—'}</span>
       case 'classification':   return a.classification ? <span className="badge badge-blue">{a.classification}</span> : '—'
       case 'disability':      return <span style={{ color:'var(--text2)' }}>{tDis(a.disability) || '—'}</span>
       case 'nationality':      return <span style={{ color:'var(--text2)' }}>{tc(a.nationality) || '—'}</span>
@@ -1256,7 +1254,7 @@ ${myDocs.length > 0 ? `<div class="section">
         </select>
       case 'sport':        return <select style={inlineSelect} value={getVal(a,'sport')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'sport',e.target.value)}>
           <option value="">{tx('athletes.selectSport','Select sport')}</option>
-          {(SPORTS_BY_CATEGORY[getVal(a,'sport_category')] || SPORTS).map(s=><option key={s} value={s}>{lang==='ar' ? (SPORT_NAMES_AR[s]||s) : s}</option>)}
+          {(SPORTS_BY_CATEGORY[getVal(a,'sport_category')] || SPORTS).map(s=><option key={s} value={s}>{sportLabel(s, getVal(a,'sport_category'), lang==='ar')}</option>)}
         </select>
       case 'classification': return <input style={{ ...inlineInput, width:100 }} value={getVal(a,'classification')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'classification',e.target.value)} />
       case 'disability':   return <input style={inlineInput} value={getVal(a,'disability')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'disability',e.target.value)} />

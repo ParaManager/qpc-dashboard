@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useLang } from '../lib/LangContext.jsx'
 import { supabase } from '../lib/supabase'
-import { initials, avColor, SPORT_NAMES_AR } from '../lib/helpers'
+import { initials, avColor, sportLabel } from '../lib/helpers'
 import DashboardBanners from '../components/DashboardBanners'
 import { formatDateWithDay } from './Timetable'
 
@@ -153,8 +153,6 @@ export default function CoachDashboard({ coach, athletes, events, results, onNav
   const totalSilver = myAthletes.reduce((s, a) => s + (a.medals_silver || 0), 0)
   const totalBronze = myAthletes.reduce((s, a) => s + (a.medals_bronze || 0), 0)
 
-  const SPORT_AR = SPORT_NAMES_AR
-
   const Card = ({ title, icon, color='#009F6B', children, onClick }) => (
     <div className="info-card" onClick={onClick} style={{ cursor: onClick?'pointer':'default' }}>
       <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:14 }}>
@@ -180,7 +178,7 @@ export default function CoachDashboard({ coach, athletes, events, results, onNav
         <div style={{ flex:1 }}>
           <div style={{ fontSize:20, fontWeight:700 }}>{ar&&coach.name_ar ? coach.name_ar : coach.name}</div>
           <div style={{ fontSize:13, opacity:.7, marginTop:2 }}>
-            {ar ? (SPORT_AR[coach.sport]||coach.sport) : coach.sport}
+            {coach.sport ? sportLabel(coach.sport, coach.sport_category, ar) : ''}
             {coach.nationality ? ` · ${tc ? tc(coach.nationality) : coach.nationality}` : ''}
           </div>
           <div style={{ display:'flex', gap:8, marginTop:8, flexWrap:'wrap' }}>
@@ -308,7 +306,7 @@ export default function CoachDashboard({ coach, athletes, events, results, onNav
                 </div>
                 <div style={{ flex:1, minWidth:0 }}>
                   <div style={{ fontSize:13, fontWeight:500, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{ar&&a.name_ar ? a.name_ar : a.name}</div>
-                  <div style={{ fontSize:11, color:'var(--text3)' }}>{ar ? (SPORT_AR[a.sport]||a.sport) : a.sport} · {a.classification}</div>
+                  <div style={{ fontSize:11, color:'var(--text3)' }}>{a.sport ? sportLabel(a.sport, a.sport_category, ar) : ''} · {a.classification}</div>
                 </div>
                 <span style={{ fontSize:11, fontWeight:600, padding:'2px 8px', borderRadius:10,
                   background: a.status==='Active'?'#009F6B20':'#9aa3b220',
