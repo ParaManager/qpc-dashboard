@@ -35,7 +35,12 @@ export default function Sports({ athletes, coaches, events, results, onNav, init
     const myAths   = athletes.filter(a => a.sport === selSport && (a.sport_category === selCategory || !a.sport_category))
     const myCoaches = coaches.filter(c => c.sport === selSport && (c.sport_category === selCategory || !c.sport_category))
     const myEvents = events.filter(e => e.sport === selSport)
-    const myMedals = results.filter(r => myAths.some(a => a.id === r.athlete_id))
+    // Medal counts live directly on each athlete (medals_gold/silver/bronze), not in
+    // the results table — summing those gives the real breakdown for this sport.
+    const goldCount   = myAths.reduce((t,a) => t + (a.medals_gold   || 0), 0)
+    const silverCount = myAths.reduce((t,a) => t + (a.medals_silver || 0), 0)
+    const bronzeCount = myAths.reduce((t,a) => t + (a.medals_bronze || 0), 0)
+    const totalMedals = goldCount + silverCount + bronzeCount
 
     return (
       <div>
@@ -50,12 +55,27 @@ export default function Sports({ athletes, coaches, events, results, onNav, init
           </div>
         </div>
         <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:10, marginBottom:18 }}>
-          {[[tx('sports.athletes','Athletes'),myAths.length,meta.color],[tx('sports.events','Events'),myEvents.length,'#555'],[tx('sports.medals','Total Medals'),myMedals.length,'#f1c40f'],[tx('sports.coaches','Coaches'),myCoaches.length,'#009F6B']].map(([l,v,c]) => (
+          {[[tx('sports.athletes','Athletes'),myAths.length,meta.color],[tx('sports.events','Events'),myEvents.length,'#555']].map(([l,v,c]) => (
             <div key={l} style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:12, padding:14, textAlign:'center', boxShadow:'var(--shadow)' }}>
               <div style={{ fontSize:24, fontWeight:600, color:c }}>{v}</div>
               <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>{l}</div>
             </div>
           ))}
+          <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:12, padding:14, textAlign:'center', boxShadow:'var(--shadow)' }}>
+            <div style={{ fontSize:24, fontWeight:600, color:'#f1c40f' }}>{totalMedals}</div>
+            <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>{tx('sports.medals','Total Medals')}</div>
+            {totalMedals > 0 && (
+              <div style={{ fontSize:11, marginTop:4, display:'flex', justifyContent:'center', gap:8 }}>
+                {goldCount   > 0 && <span>🥇{goldCount}</span>}
+                {silverCount > 0 && <span>🥈{silverCount}</span>}
+                {bronzeCount > 0 && <span>🥉{bronzeCount}</span>}
+              </div>
+            )}
+          </div>
+          <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:12, padding:14, textAlign:'center', boxShadow:'var(--shadow)' }}>
+            <div style={{ fontSize:24, fontWeight:600, color:'#009F6B' }}>{myCoaches.length}</div>
+            <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>{tx('sports.coaches','Coaches')}</div>
+          </div>
         </div>
         {myCoaches.length > 0 && (
           <div className="info-card" style={{ marginBottom:12 }}>
@@ -139,7 +159,9 @@ export default function Sports({ athletes, coaches, events, results, onNav, init
         // under both the Paralympic and Special Olympics tiles for that word.
         const myAths   = athletes.filter(a => a.sport === s && (a.sport_category === activeTab || !a.sport_category))
         const myEvents = events.filter(e => e.sport === s)
-        const myMedals = results.filter(r => myAths.some(a => a.id === r.athlete_id))
+        // Medal counts live directly on each athlete (medals_gold/silver/bronze), not
+        // in the results table — summing those gives the real total for this sport.
+        const myMedalsTotal = myAths.reduce((t,a) => t + (a.medals_gold||0) + (a.medals_silver||0) + (a.medals_bronze||0), 0)
         return (
           <div key={s} onClick={() => setSelected({ sport: s, category: activeTab })}
             style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14, padding:20, cursor:'pointer', marginBottom:12, transition:'all .15s', boxShadow:'var(--shadow)' }}
@@ -156,7 +178,7 @@ export default function Sports({ athletes, coaches, events, results, onNav, init
               <div style={{ display:'flex', gap:20, flexShrink:0, textAlign:'center' }}>
                 <div><div style={{ fontSize:20, fontWeight:600, color:meta.color }}>{myAths.length}</div><div style={{ fontSize:11, color:'var(--text3)' }}>{tx('sports.athletes','Athletes')}</div></div>
                 <div><div style={{ fontSize:20, fontWeight:600 }}>{myEvents.length}</div><div style={{ fontSize:11, color:'var(--text3)' }}>{tx('sports.events','Events')}</div></div>
-                <div><div style={{ fontSize:20, fontWeight:600, color:'#f1c40f' }}>{myMedals.length}</div><div style={{ fontSize:11, color:'var(--text3)' }}>{tx('sports.medals','Medals')}</div></div>
+                <div><div style={{ fontSize:20, fontWeight:600, color:'#f1c40f' }}>{myMedalsTotal}</div><div style={{ fontSize:11, color:'var(--text3)' }}>{tx('sports.medals','Medals')}</div></div>
               </div>
               <i className="ti ti-chevron-right" style={{ color:'#ccc', fontSize:18, marginLeft:8 }} />
             </div>
