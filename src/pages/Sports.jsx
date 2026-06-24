@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { SPORTS, SPORT_META, PARALYMPIC_SPORTS, SPECIAL_OLYMPICS_SPORTS, SPORT_CATEGORIES, SPORT_CATEGORY_NAMES_AR, SPORT_NAMES_AR, sportLabel, Avatar, Badge, MedalDisplay, statusDot, initials, DashRow } from '../lib/helpers'
 import { useLang } from '../lib/LangContext.jsx'
 
-export default function Sports({ athletes, coaches, events, results, onNav, initSport, profile }) {
+export default function Sports({ athletes, coaches, events, results, onNav, initSport, initCategory, profile }) {
   const { tx, lang } = useLang()
   const ar = lang === 'ar'
 
@@ -16,9 +16,15 @@ export default function Sports({ athletes, coaches, events, results, onNav, init
     'Special Olympics':  [...SPECIAL_OLYMPICS_SPORTS, 'Special Olympics'],
   }
 
-  const [selected, setSelected] = useState(initSport ? { sport: initSport, category: 'Paralympic' } : null)
-  useEffect(() => { if (initSport) { setSelected({ sport: initSport, category: 'Paralympic' }); setActiveTab('Paralympic') } }, [initSport])
-  const [activeTab, setActiveTab] = useState('Paralympic')
+  const [activeTab, setActiveTab] = useState(initCategory || 'Paralympic')
+  const [selected, setSelected] = useState(initSport ? { sport: initSport, category: initCategory || 'Paralympic' } : null)
+  useEffect(() => {
+    if (initSport) {
+      const cat = initCategory || 'Paralympic'
+      setSelected({ sport: initSport, category: cat })
+      setActiveTab(cat)
+    }
+  }, [initSport, initCategory])
 
   if (selected) {
     const { sport: selSport, category: selCategory } = selected

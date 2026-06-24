@@ -1,4 +1,4 @@
-import { Avatar, MedalDisplay, statusClass, statusDot, DashRow, SPORT_META, SPORTS, PARALYMPIC_SPORTS, sportLabel, initials } from '../lib/helpers'
+import { Avatar, MedalDisplay, statusClass, statusDot, DashRow, SPORT_META, SPORTS, PARALYMPIC_SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, sportLabel, initials } from '../lib/helpers'
 import { useLang } from '../lib/LangContext.jsx'
 import DashboardBanners from '../components/DashboardBanners'
 
@@ -93,21 +93,46 @@ export default function Dashboard({ athletes, coaches, events, results, onNav, p
           <i className="ti ti-ball-football" /> {tx('dashboard.sportsBreakdown','Sports breakdown')}
           <span style={{ fontSize:10, fontWeight:400, color:'var(--text3)', textTransform:'none', letterSpacing:0, marginLeft:4 }}>— {tx('dashboard.clickToExplore','click to explore')}</span>
         </div>
-        <div className="sports-grid">
-          {PARALYMPIC_SPORTS.filter(s => SPORT_META[s]).map(s => {
-            const meta  = SPORT_META[s]
-            const count = athletes.filter(a => a.sport === s && (a.sport_category === 'Paralympic' || !a.sport_category)).length
-            return (
-              <div key={s} className="sport-chip"
-                onClick={() => onNav('sports', { sport: s })}
-                onMouseEnter={e => { e.currentTarget.style.borderColor=meta.color; e.currentTarget.style.background=meta.color+'12' }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor='transparent'; e.currentTarget.style.background='' }}>
-                <div style={{ fontSize:20, marginBottom:4 }}><i className={`ti ${meta.icon}`} style={{ color:meta.color }} /></div>
-                <div className="sport-num" style={{ color:meta.color }}>{count}</div>
-                <div className="sport-name">{sportLabel(s, 'Paralympic', lang==='ar')}</div>
-              </div>
-            )
-          })}
+        {(() => {
+          // Count every sport across both categories (not just Paralympic), then show
+          // whichever ones actually have athletes — busiest first. This scales correctly
+          // no matter how long the master sport list grows, since sports nobody's in yet
+          // simply don't take up space on the dashboard; "View all sports" covers those.
+          const allEntries = SPORT_CATEGORIES.flatMap(category =>
+            (SPORTS_BY_CATEGORY[category] || []).map(s => ({
+              sport: s,
+              category,
+              count: athletes.filter(a => a.sport === s && (a.sport_category === category || !a.sport_category)).length,
+            }))
+          )
+          const topSports = allEntries.filter(e => e.count > 0).sort((a,b) => b.count - a.count).slice(0, 8)
+
+          if (topSports.length === 0) {
+            return <div className="empty" style={{ padding:16 }}>{tx('dashboard.noSportsYet','No athletes assigned to a sport yet')}</div>
+          }
+
+          return (
+            <div className="sports-grid">
+              {topSports.map(({ sport: s, category, count }) => {
+                const meta = SPORT_META[s] || { icon:'ti-ball-football', color:'#0085C7' }
+                return (
+                  <div key={`${category}-${s}`} className="sport-chip"
+                    onClick={() => onNav('sports', { sport: s, category })}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor=meta.color; e.currentTarget.style.background=meta.color+'12' }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor='transparent'; e.currentTarget.style.background='' }}>
+                    <div style={{ fontSize:20, marginBottom:4 }}><i className={`ti ${meta.icon}`} style={{ color:meta.color }} /></div>
+                    <div className="sport-num" style={{ color:meta.color }}>{count}</div>
+                    <div className="sport-name">{sportLabel(s, category, lang==='ar')}</div>
+                  </div>
+                )
+              })}
+            </div>
+          )
+        })()}
+        <div style={{ textAlign:'center', marginTop:14 }}>
+          <span onClick={() => onNav('sports')} style={{ fontSize:12, fontWeight:600, color:'#0085C7', cursor:'pointer' }}>
+            {tx('dashboard.viewAllSports','View all sports')} →
+          </span>
         </div>
       </div>
     </div>
