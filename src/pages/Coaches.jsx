@@ -233,9 +233,14 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
   }, [navState])
 
   // Show every known sport (Paralympic + Special Olympics), not just ones currently
-  // in use — so a sport with zero coaches today is still findable.
+  // in use — so a sport with zero coaches today is still findable. Scoped to the
+  // active category filter when one is selected, so picking "Special Olympics"
+  // doesn't still show Paralympic-only sports like Goalball or Wheelchair Basketball.
   const coachSportsInData = new Set(coaches.map(c => c.sport).filter(Boolean))
-  const sportsRaw  = ['All sports', ...SPORTS, ...[...coachSportsInData].filter(s => !SPORTS.includes(s))]
+  const fullSportsList = [...SPORTS, ...[...coachSportsInData].filter(s => !SPORTS.includes(s))]
+  const sportsRaw = sportCategory !== 'All categories'
+    ? ['All sports', ...new Set(SPORTS_BY_CATEGORY[sportCategory] || fullSportsList)]
+    : ['All sports', ...fullSportsList]
   const categoriesRaw = ['All categories', ...SPORT_CATEGORIES]
   const hasFilters = search || sport !== 'All sports' || sportCategory !== 'All categories' || status !== 'All statuses'
 
@@ -519,7 +524,7 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
       </div>
       <div className="filters">
         <div className="search-wrap"><i className="ti ti-search" /><input placeholder={tx("coaches.searchCoaches","Search by name, sport…")} value={search} onChange={e => setSearch(e.target.value)} /></div>
-        <select className="filter" value={sportCategory} onChange={e => setSportCategory(e.target.value)}>{categoriesRaw.map(c => <option key={c} value={c}>{c === 'All categories' ? tx('filters.allCategories','All categories') : (lang==='ar' ? (SPORT_CATEGORY_NAMES_AR[c]||c) : c)}</option>)}</select>
+        <select className="filter" value={sportCategory} onChange={e => { setSportCategory(e.target.value); setSport('All sports') }}>{categoriesRaw.map(c => <option key={c} value={c}>{c === 'All categories' ? tx('filters.allCategories','All categories') : (lang==='ar' ? (SPORT_CATEGORY_NAMES_AR[c]||c) : c)}</option>)}</select>
         <select className="filter" value={sport} onChange={e => setSport(e.target.value)}>{sportsRaw.map(s => <option key={s} value={s}>{s === 'All sports' ? tx('filters.allSports','All sports') : sportLabel(s, sportCategory === 'All categories' ? null : sportCategory, lang==='ar')}</option>)}</select>
         <select className="filter" value={status} onChange={e => setStatus(e.target.value)}>{[['All statuses',tx('filters.allStatuses','All statuses')],['Active',tx('status.active','Active')],['On Leave',tx('status.onLeave','On Leave')],['Inactive',tx('status.inactive','Inactive')]].map(([val,lbl]) => <option key={val} value={val}>{lbl}</option>)}</select>
         <select className="filter" value={sort} onChange={e => setSort(e.target.value)}>

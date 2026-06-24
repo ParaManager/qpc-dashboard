@@ -1397,9 +1397,13 @@ ${myDocs.length > 0 ? `<div class="section">
             {!editMode && (
               <tr style={{ background:'#f8f9fb' }}>
                 {ALL_COLS.filter(col => isVisible(col.key)).map(col => {
+                  const activeCategory = colFilters.sport_category && colFilters.sport_category !== 'All' ? colFilters.sport_category : null
+                  const sportsForFilter = activeCategory
+                    ? (SPORTS_BY_CATEGORY[activeCategory] || sports.filter(s => s !== 'All sports'))
+                    : sports.filter(s => s !== 'All sports')
                   const filterOpts = {
                     sport_category: ['All', ...SPORT_CATEGORIES],
-                    sport:          sports.filter(s => s !== 'All sports').length ? ['All', ...sports.filter(s => s !== 'All sports')] : ['All'],
+                    sport:          sportsForFilter.length ? ['All', ...new Set(sportsForFilter)] : ['All'],
                     status:         ['All','Active','Inactive','Suspended','Under Medical Review','Injured','Retired'],
                     gender:         ['All','Male','Female'],
                     nationality:    ['All', ...['Afghanistan', 'Algeria', 'Argentina', 'Armenia', 'Australia', 'Austria', 'Azerbaijan', 'Bahrain', 'Bangladesh', 'Belarus', 'Belgium', 'Brazil', 'Cameroon', 'Canada', 'Chile', 'China', 'Colombia', 'Croatia', 'Czech Republic', 'Denmark', 'Egypt', 'Eritrea', 'Ethiopia', 'Finland', 'France', 'Georgia', 'Germany', 'Ghana', 'Greece', 'Guinea', 'Hungary', 'India', 'Indonesia', 'Iran', 'Iraq', 'Ireland', 'Italy', 'Japan', 'Jordan', 'Kazakhstan', 'Kenya', 'Kuwait', 'Kyrgyzstan', 'Lebanon', 'Libya', 'Malaysia', 'Mali', 'Mauritania', 'Mexico', 'Mongolia', 'Morocco', 'Myanmar', 'Nepal', 'Netherlands', 'New Zealand', 'Nigeria', 'Norway', 'Oman', 'Pakistan', 'Palestine', 'Peru', 'Philippines', 'Poland', 'Portugal', 'Qatar', 'Romania', 'Russia', 'Rwanda', 'Saudi Arabia', 'Scotland', 'Senegal', 'Serbia', 'Singapore', 'Slovakia', 'Somalia', 'South Africa', 'South Korea', 'Spain', 'Sri Lanka', 'Sudan', 'Sweden', 'Syria', 'Tajikistan', 'Tanzania', 'Thailand', 'Tunisia', 'Turkey', 'Turkmenistan', 'UAE', 'Uganda', 'UK', 'Ukraine', 'USA', 'Uzbekistan', 'Venezuela', 'Vietnam', 'Wales', 'Yemen', 'Zambia', 'Zimbabwe']],
@@ -1422,6 +1426,11 @@ ${myDocs.length > 0 ? `<div class="section">
                           const val = e.target.value
                           if (col.key === 'coach_id') {
                             setColFilters(f => ({ ...f, coachName: val }))
+                          } else if (col.key === 'sport_category') {
+                            // Changing category can invalidate the current sport
+                            // selection (e.g. "Goalball" doesn't exist under Special
+                            // Olympics), so clear it rather than leave a stale filter.
+                            setColFilters(f => ({ ...f, sport_category: val, sport: 'All' }))
                           } else {
                             setColFilters(f => ({ ...f, [col.key]: val }))
                           }
