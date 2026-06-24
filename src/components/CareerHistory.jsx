@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
 import { toast } from './Toast'
-import { SPORTS } from '../lib/helpers'
+import { SPORTS, SPORT_NAMES_AR } from '../lib/helpers'
 
-const SPORT_AR = {'Athletics':'ألعاب القوى','Swimming':'السباحة','Powerlifting':'رفع الأثقال','Boccia':'البوتشيا','Goalball':'كرة الهدف','Table Tennis':'تنس الطاولة','Special Olympics':'الأولمبياد الخاص','Shooting':'الرماية','Wheelchair Tennis':'تنس الكراسي المتحركة'}
+const SPORT_AR = SPORT_NAMES_AR
 
 export default function CareerHistory({ personId, personType, personName, readOnly }) {
   const { lang } = useLang()

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, SPORT_CATEGORY_NAMES_AR, SPORT_NAMES_AR } from '../lib/helpers'
+import { SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, SPORT_CATEGORY_NAMES_AR, sportLabel } from '../lib/helpers'
 import { useLang } from '../lib/LangContext.jsx'
 
 const COLORS = { athlete: '#0085C7', coach: '#009F6B', event: '#EE334E', result: '#8b5cf6' }
@@ -94,7 +94,7 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
   // (plus the legacy flat value). Falls back to every sport if no category is set yet.
   const sportOpts = (SPORTS_BY_CATEGORY[form?.sportCategory] || SPORTS).map(s => ({
     value: s,
-    label: ar ? (SPORT_NAMES_AR[s]||s) : s
+    label: sportLabel(s, form?.sportCategory, ar)
   }))
 
   // Athlete designation options
