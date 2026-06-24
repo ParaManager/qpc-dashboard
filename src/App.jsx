@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from './lib/supabase'
 import { useAuth, canEdit } from './lib/useAuth'
+import { getCurrentSeason } from './lib/helpers'
 import { ToastContainer } from './components/Toast'
 import Login     from './pages/Login'
 import Dashboard from './pages/Dashboard'
@@ -340,7 +341,7 @@ export default function App() {
               <i className="ti ti-menu-2" />
             </button>
           <div className="tb-breadcrumb">
-            <span>{lang==='ar'?'QPC':'QPC'}</span> · <span>{tx(`pages.${page}`, page.charAt(0).toUpperCase()+page.slice(1))}</span><span className="hide-mobile"> · {tx('nav.season','Season')} 2026</span>
+            <span>{lang==='ar'?'QPC':'QPC'}</span> · <span>{tx(`pages.${page}`, page.charAt(0).toUpperCase()+page.slice(1))}</span><span className="hide-mobile"> · {tx('nav.season','Season')} {getCurrentSeason()}</span>
           </div></div>
           <div className="tb-actions">
             <div className="role-badge-text" style={{ display:'flex', alignItems:'center', padding:'4px 10px', background:roleColor+'15', border:`1px solid ${roleColor}40`, borderRadius:20, fontSize:11, color:roleColor, fontWeight:600, flexShrink:0, whiteSpace:'nowrap' }}>
