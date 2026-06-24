@@ -1,4 +1,4 @@
-import { Avatar, MedalDisplay, statusClass, statusDot, DashRow, SPORT_META, SPORTS, PARALYMPIC_SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, sportLabel, initials } from '../lib/helpers'
+import { Avatar, MedalDisplay, statusClass, statusDot, DashRow, SPORT_META, SPORTS, PARALYMPIC_SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, sportLabel, initials, getCurrentSeason } from '../lib/helpers'
 import { useLang } from '../lib/LangContext.jsx'
 import DashboardBanners from '../components/DashboardBanners'
 
@@ -40,7 +40,7 @@ export default function Dashboard({ athletes, coaches, events, results, onNav, p
       <div className="page-header">
         <div>
           <div className="page-title">{tx('pages.dashboard','Dashboard')}</div>
-          <div className="page-sub">{tx('dashboard.qpc','Qatar Paralympic Committee')} · {tx('nav.season','Season')} 2026</div>
+          <div className="page-sub">{tx('dashboard.qpc','Qatar Paralympic Committee')} · {tx('nav.season','Season')} {getCurrentSeason()}</div>
         </div>
       </div>
 
