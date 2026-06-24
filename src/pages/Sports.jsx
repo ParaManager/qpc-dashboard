@@ -33,7 +33,7 @@ export default function Sports({ athletes, coaches, events, results, onNav, init
     // "Athletics") can mean either program — without this, viewing "Para Athletics"
     // would also pull in Special Olympics athletes who happen to share that word.
     const myAths   = athletes.filter(a => a.sport === selSport && (a.sport_category === selCategory || !a.sport_category))
-    const myCoach  = coaches.find(c => c.sport === selSport && (c.sport_category === selCategory || !c.sport_category))
+    const myCoaches = coaches.filter(c => c.sport === selSport && (c.sport_category === selCategory || !c.sport_category))
     const myEvents = events.filter(e => e.sport === selSport)
     const myMedals = results.filter(r => myAths.some(a => a.id === r.athlete_id))
 
@@ -50,24 +50,26 @@ export default function Sports({ athletes, coaches, events, results, onNav, init
           </div>
         </div>
         <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:10, marginBottom:18 }}>
-          {[[tx('sports.athletes','Athletes'),myAths.length,meta.color],[tx('sports.events','Events'),myEvents.length,'#555'],[tx('sports.medals','Total Medals'),myMedals.length,'#f1c40f'],[tx('sports.headCoach','Coach'),myCoach?'✓':'—','#009F6B']].map(([l,v,c]) => (
+          {[[tx('sports.athletes','Athletes'),myAths.length,meta.color],[tx('sports.events','Events'),myEvents.length,'#555'],[tx('sports.medals','Total Medals'),myMedals.length,'#f1c40f'],[tx('sports.coaches','Coaches'),myCoaches.length,'#009F6B']].map(([l,v,c]) => (
             <div key={l} style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:12, padding:14, textAlign:'center', boxShadow:'var(--shadow)' }}>
               <div style={{ fontSize:24, fontWeight:600, color:c }}>{v}</div>
               <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>{l}</div>
             </div>
           ))}
         </div>
-        {myCoach && (
+        {myCoaches.length > 0 && (
           <div className="info-card" style={{ marginBottom:12 }}>
-            <div className="info-title">{tx('sports.headCoach','Head coach')} <span style={{ fontSize:10, fontWeight:400, textTransform:'none', letterSpacing:0 }}>— {tx('athletes.clickToView','click to view')}</span></div>
-            <DashRow onClick={() => onNav('coaches', { coachId: myCoach.id })}>
-              <div className="av" style={{ width:34, height:34, fontSize:11, background:'#009F6B', flexShrink:0 }}>{initials(myCoach.name)}</div>
-              <div style={{ flex:1 }}>
-                <div style={{ fontSize:13, fontWeight:500 }}>{myCoach.name}</div>
-                <div style={{ fontSize:11, color:'var(--text3)' }}>{myCoach.cert_level} · {myCoach.nationality}</div>
-              </div>
-              <Badge label={myCoach.status} />
-            </DashRow>
+            <div className="info-title">{tx('sports.coaches','Coaches')} ({myCoaches.length}) <span style={{ fontSize:10, fontWeight:400, textTransform:'none', letterSpacing:0 }}>— {tx('athletes.clickToView','click to view')}</span></div>
+            {myCoaches.map(coach => (
+              <DashRow key={coach.id} onClick={() => onNav('coaches', { coachId: coach.id })}>
+                <div className="av" style={{ width:34, height:34, fontSize:11, background:'#009F6B', flexShrink:0 }}>{initials(coach.name)}</div>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontSize:13, fontWeight:500 }}>{coach.name}</div>
+                  <div style={{ fontSize:11, color:'var(--text3)' }}>{coach.cert_level} · {coach.nationality}</div>
+                </div>
+                <Badge label={coach.status} />
+              </DashRow>
+            ))}
           </div>
         )}
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
