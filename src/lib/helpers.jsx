@@ -165,3 +165,14 @@ export function DashRow({ children, onClick }) {
     </div>
   )
 }
+
+// The sporting season runs September–August. Before September, we're still in the
+// season that started last calendar year; from September onward, a new season has
+// begun. E.g. June 2026 → "2025-2026"; September 2026 → "2026-2027".
+export function getCurrentSeason() {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = now.getMonth() // 0-indexed: August = 7, September = 8
+  const startYear = month >= 8 ? year : year - 1
+  return `${startYear}-${startYear + 1}`
+}
