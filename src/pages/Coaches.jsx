@@ -219,7 +219,6 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
 
   const { tx, tc, lang } = useLang()
   const STATUS_AR = {'Active':'نشط','Inactive':'غير نشط','Suspended':'موقوف','Under Medical Review':'تحت المراجعة الطبية','Injured':'مصاب','Retired':'متقاعد','On Leave':'في إجازة'}
-  const SPORT_NAMES = lang==='ar' ? SPORT_NAMES_AR : {}
   useEffect(() => { if (initCoachId) setSelected(initCoachId) }, [initCoachId])
 
   useEffect(() => {
@@ -521,7 +520,7 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
       <div className="filters">
         <div className="search-wrap"><i className="ti ti-search" /><input placeholder={tx("coaches.searchCoaches","Search by name, sport…")} value={search} onChange={e => setSearch(e.target.value)} /></div>
         <select className="filter" value={sportCategory} onChange={e => setSportCategory(e.target.value)}>{categoriesRaw.map(c => <option key={c} value={c}>{c === 'All categories' ? tx('filters.allCategories','All categories') : (lang==='ar' ? (SPORT_CATEGORY_NAMES_AR[c]||c) : c)}</option>)}</select>
-        <select className="filter" value={sport} onChange={e => setSport(e.target.value)}>{sportsRaw.map(s => <option key={s} value={s}>{s === 'All sports' ? tx('filters.allSports','All sports') : (SPORT_NAMES[s]||s)}</option>)}</select>
+        <select className="filter" value={sport} onChange={e => setSport(e.target.value)}>{sportsRaw.map(s => <option key={s} value={s}>{s === 'All sports' ? tx('filters.allSports','All sports') : sportLabel(s, sportCategory === 'All categories' ? null : sportCategory, lang==='ar')}</option>)}</select>
         <select className="filter" value={status} onChange={e => setStatus(e.target.value)}>{[['All statuses',tx('filters.allStatuses','All statuses')],['Active',tx('status.active','Active')],['On Leave',tx('status.onLeave','On Leave')],['Inactive',tx('status.inactive','Inactive')]].map(([val,lbl]) => <option key={val} value={val}>{lbl}</option>)}</select>
         <select className="filter" value={sort} onChange={e => setSort(e.target.value)}>
           <option value="name-asc">{tx('filters.nameAZ','Name A→Z')}</option>

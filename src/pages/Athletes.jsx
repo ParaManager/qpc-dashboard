@@ -244,7 +244,6 @@ function AthleteCoachHistory({ athleteId, coaches, employees, lang }) {
 
 export default function Athletes({ athletes, coaches, employees, results, documents, events, registrations, onRefresh, onNav, initAthleteId, initStatusFilter, navState, profile }) {
   const { tx, lang, tc } = useLang()
-  const SPORT_NAMES = lang === 'ar' ? SPORT_NAMES_AR : {}
   // Case-insensitive disability translation
   const DIS_MAP = {
     'visual impairment':'إعاقة بصرية', 'visual':'إعاقة بصرية',
@@ -1431,7 +1430,7 @@ ${myDocs.length > 0 ? `<div class="section">
                         {opts.map(o => {
                           const allLabel = lang==='ar' ? 'الكل' : 'All'
                           const LABELS = {
-                            sport:       { 'All':allLabel, ...Object.fromEntries(Object.entries(SPORT_NAMES)) },
+                            sport:       { 'All':allLabel, ...Object.fromEntries(filterOpts.sport.filter(s=>s!=='All').map(s => [s, sportLabel(s, colFilters.sport_category, lang==='ar')])) },
                             status:      { 'All':allLabel, 'Active':tx('status.active','Active'), 'Inactive':tx('status.inactive','Inactive'), 'Suspended':tx('status.suspended','Suspended'), 'Under Medical Review':tx('status.underMedicalReview','Under Medical Review'), 'Injured':tx('status.injured','Injured'), 'Retired':tx('status.retired','Retired') },
                             gender:      { 'All':allLabel, 'Male':tx('form.male','Male'), 'Female':tx('form.female','Female') },
                             nationality: { 'All':allLabel, ...Object.fromEntries(['Afghanistan','Algeria','Argentina','Armenia','Australia','Austria','Azerbaijan','Bahrain','Bangladesh','Belarus','Belgium','Brazil','Cameroon','Canada','Chile','China','Colombia','Croatia','Czech Republic','Denmark','Egypt','Eritrea','Ethiopia','Finland','France','Georgia','Germany','Ghana','Greece','Guinea','Hungary','India','Indonesia','Iran','Iraq','Ireland','Italy','Japan','Jordan','Kazakhstan','Kenya','Kuwait','Kyrgyzstan','Lebanon','Libya','Malaysia','Mali','Mauritania','Mexico','Mongolia','Morocco','Myanmar','Nepal','Netherlands','New Zealand','Nigeria','Norway','Oman','Pakistan','Palestine','Peru','Philippines','Poland','Portugal','Qatar','Romania','Russia','Rwanda','Saudi Arabia','Scotland','Senegal','Serbia','Singapore','Slovakia','Somalia','South Africa','South Korea','Spain','Sri Lanka','Sudan','Sweden','Syria','Tajikistan','Tanzania','Thailand','Tunisia','Turkey','Turkmenistan','UAE','Uganda','UK','Ukraine','USA','Uzbekistan','Venezuela','Vietnam','Wales','Yemen','Zambia','Zimbabwe'].map(n => [n, tc(n)])) },
