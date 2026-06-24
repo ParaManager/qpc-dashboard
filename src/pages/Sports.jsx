@@ -17,7 +17,8 @@ export default function Sports({ athletes, coaches, events, results, onNav, init
   }
 
   const [selected, setSelected] = useState(initSport ? { sport: initSport, category: 'Paralympic' } : null)
-  useEffect(() => { if (initSport) setSelected({ sport: initSport, category: 'Paralympic' }) }, [initSport])
+  useEffect(() => { if (initSport) { setSelected({ sport: initSport, category: 'Paralympic' }); setActiveTab('Paralympic') } }, [initSport])
+  const [activeTab, setActiveTab] = useState('Paralympic')
 
   if (selected) {
     const { sport: selSport, category: selCategory } = selected
@@ -99,44 +100,61 @@ export default function Sports({ athletes, coaches, events, results, onNav, init
       <div className="page-header">
         <div><div className="page-title">{tx('pages.sports','Sports')}</div><div className="page-sub">{tx('dashboard.qpc','Qatar Paralympic Committee')}</div></div>
       </div>
-      {SPORT_CATEGORIES.map(category => (
-        <div key={category} style={{ marginBottom:28 }}>
-          <div style={{ fontSize:13, fontWeight:700, color:'var(--text2)', textTransform:'uppercase', letterSpacing:'.04em', marginBottom:12, paddingBottom:8, borderBottom:'1px solid var(--border)' }}>
-            {ar ? (SPORT_CATEGORY_NAMES_AR[category]||category) : category}
-          </div>
-          {sportsByCategorySection[category].map(s => {
-            const meta     = SPORT_META[s] || { icon:'ti-ball-football', color:'#0085C7', desc:'' }
-            // Scope by category too — the same sport word (e.g. "Athletics") can
-            // belong to either program, so without this an athlete would be counted
-            // under both the Paralympic and Special Olympics tiles for that word.
-            const myAths   = athletes.filter(a => a.sport === s && (a.sport_category === category || !a.sport_category))
-            const myEvents = events.filter(e => e.sport === s)
-            const myMedals = results.filter(r => myAths.some(a => a.id === r.athlete_id))
-            return (
-              <div key={s} onClick={() => setSelected({ sport: s, category })}
-                style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14, padding:20, cursor:'pointer', marginBottom:12, transition:'all .15s', boxShadow:'var(--shadow)' }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor=meta.color; e.currentTarget.style.transform='translateY(-1px)' }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor=''; e.currentTarget.style.transform='' }}>
-                <div style={{ display:'flex', alignItems:'center', gap:14 }}>
-                  <div style={{ width:52, height:52, borderRadius:14, background:meta.color+'15', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                    <i className={`ti ${meta.icon}`} style={{ fontSize:26, color:meta.color }} />
-                  </div>
-                  <div style={{ flex:1 }}>
-                    <div style={{ fontSize:16, fontWeight:600, marginBottom:3 }}>{sportLabel(s, category, ar)}</div>
-                    <div style={{ fontSize:12, color:'var(--text2)' }}>{meta.desc}</div>
-                  </div>
-                  <div style={{ display:'flex', gap:20, flexShrink:0, textAlign:'center' }}>
-                    <div><div style={{ fontSize:20, fontWeight:600, color:meta.color }}>{myAths.length}</div><div style={{ fontSize:11, color:'var(--text3)' }}>{tx('sports.athletes','Athletes')}</div></div>
-                    <div><div style={{ fontSize:20, fontWeight:600 }}>{myEvents.length}</div><div style={{ fontSize:11, color:'var(--text3)' }}>{tx('sports.events','Events')}</div></div>
-                    <div><div style={{ fontSize:20, fontWeight:600, color:'#f1c40f' }}>{myMedals.length}</div><div style={{ fontSize:11, color:'var(--text3)' }}>{tx('sports.medals','Medals')}</div></div>
-                  </div>
-                  <i className="ti ti-chevron-right" style={{ color:'#ccc', fontSize:18, marginLeft:8 }} />
-                </div>
+
+      {/* Big, prominent tabs — switching jumps straight to that category with zero
+          scrolling, which matters once each list grows to dozens of sports. */}
+      <div style={{ display:'flex', gap:10, marginBottom:24, borderBottom:'2px solid var(--border)', flexWrap:'wrap' }}>
+        {SPORT_CATEGORIES.map(category => {
+          const isActive = activeTab === category
+          const count = sportsByCategorySection[category].length
+          return (
+            <button key={category} onClick={() => setActiveTab(category)}
+              style={{
+                background:'none', border:'none', cursor:'pointer',
+                padding:'14px 22px 16px', fontSize:17, fontWeight:700,
+                color: isActive ? 'var(--text)' : 'var(--text3)',
+                borderBottom: isActive ? '3px solid #0085C7' : '3px solid transparent',
+                marginBottom:-2, transition:'color .15s',
+                display:'flex', alignItems:'center', gap:8,
+              }}>
+              {ar ? (SPORT_CATEGORY_NAMES_AR[category]||category) : category}
+              <span style={{ fontSize:12, fontWeight:600, padding:'2px 9px', borderRadius:20, background: isActive ? '#0085C720' : 'var(--surface2)', color: isActive ? '#0085C7' : 'var(--text3)' }}>{count}</span>
+            </button>
+          )
+        })}
+      </div>
+
+      {sportsByCategorySection[activeTab].map(s => {
+        const meta     = SPORT_META[s] || { icon:'ti-ball-football', color:'#0085C7', desc:'' }
+        // Scope by category too — the same sport word (e.g. "Athletics") can
+        // belong to either program, so without this an athlete would be counted
+        // under both the Paralympic and Special Olympics tiles for that word.
+        const myAths   = athletes.filter(a => a.sport === s && (a.sport_category === activeTab || !a.sport_category))
+        const myEvents = events.filter(e => e.sport === s)
+        const myMedals = results.filter(r => myAths.some(a => a.id === r.athlete_id))
+        return (
+          <div key={s} onClick={() => setSelected({ sport: s, category: activeTab })}
+            style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14, padding:20, cursor:'pointer', marginBottom:12, transition:'all .15s', boxShadow:'var(--shadow)' }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor=meta.color; e.currentTarget.style.transform='translateY(-1px)' }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor=''; e.currentTarget.style.transform='' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:14 }}>
+              <div style={{ width:52, height:52, borderRadius:14, background:meta.color+'15', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                <i className={`ti ${meta.icon}`} style={{ fontSize:26, color:meta.color }} />
               </div>
-            )
-          })}
-        </div>
-      ))}
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:16, fontWeight:600, marginBottom:3 }}>{sportLabel(s, activeTab, ar)}</div>
+                <div style={{ fontSize:12, color:'var(--text2)' }}>{meta.desc}</div>
+              </div>
+              <div style={{ display:'flex', gap:20, flexShrink:0, textAlign:'center' }}>
+                <div><div style={{ fontSize:20, fontWeight:600, color:meta.color }}>{myAths.length}</div><div style={{ fontSize:11, color:'var(--text3)' }}>{tx('sports.athletes','Athletes')}</div></div>
+                <div><div style={{ fontSize:20, fontWeight:600 }}>{myEvents.length}</div><div style={{ fontSize:11, color:'var(--text3)' }}>{tx('sports.events','Events')}</div></div>
+                <div><div style={{ fontSize:20, fontWeight:600, color:'#f1c40f' }}>{myMedals.length}</div><div style={{ fontSize:11, color:'var(--text3)' }}>{tx('sports.medals','Medals')}</div></div>
+              </div>
+              <i className="ti ti-chevron-right" style={{ color:'#ccc', fontSize:18, marginLeft:8 }} />
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }
