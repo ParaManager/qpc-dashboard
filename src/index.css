@@ -274,6 +274,9 @@ body { overscroll-behavior: none; }
   justify-content: center;
 }
 
+.refresh-btn:hover:not(:disabled) { background: var(--surface2); border-color: #0085C7; }
+.refresh-btn:disabled { opacity: 0.6; }
+
 /* ── Sidebar overlay on mobile ── */
 .sb-overlay {
   display: none;
