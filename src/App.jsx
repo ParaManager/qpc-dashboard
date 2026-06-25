@@ -60,6 +60,7 @@ export default function App() {
   const { user, profile, loading: authLoading, signOut } = useAuth()
   const { lang, setLang, tx } = useLang()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const [collapsedSections, setCollapsedSections] = useState({})  // { [sectionLabel]: true } when collapsed; sections default to expanded
   const [requestSent, setRequestSent] = useState(false)
   const [page, setPage]               = useState('dashboard')
@@ -118,6 +119,22 @@ export default function App() {
   }, [])
 
   useEffect(() => { if (user) fetchAll() }, [user, fetchAll])
+
+  // Manual refresh for mobile/tablet, where pull-to-refresh isn't available in a
+  // home-screen-installed web app and the only other option is force-quitting and
+  // reopening. Keeps the spinner visible briefly even on a fast connection so the
+  // tap registers as having done something, rather than flashing too quickly to notice.
+  async function handleRefresh() {
+    if (isRefreshing) return
+    setIsRefreshing(true)
+    const start = Date.now()
+    try {
+      await fetchAll()
+    } finally {
+      const elapsed = Date.now() - start
+      setTimeout(() => setIsRefreshing(false), Math.max(0, 500 - elapsed))
+    }
+  }
 
   // Keep the sidebar section containing the current page expanded, even if the
   // person navigated there some other way (e.g. clicking a notification) rather
@@ -344,6 +361,14 @@ export default function App() {
             <span>{lang==='ar'?'QPC':'QPC'}</span> · <span>{tx(`pages.${page}`, page.charAt(0).toUpperCase()+page.slice(1))}</span><span className="hide-mobile"> · {tx('nav.season','Season')} {getCurrentSeason()}</span>
           </div></div>
           <div className="tb-actions">
+            <button
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className="refresh-btn"
+              title={lang==='ar' ? 'تحديث' : 'Refresh'}
+              style={{ display:'flex', alignItems:'center', justifyContent:'center', width:34, height:34, borderRadius:8, border:'1px solid var(--border)', background:'var(--surface)', cursor: isRefreshing ? 'default' : 'pointer', flexShrink:0 }}>
+              <i className="ti ti-refresh" style={{ fontSize:16, color:'var(--text2)', display:'inline-block', animation: isRefreshing ? 'spin 0.6s linear infinite' : 'none' }} />
+            </button>
             <div className="role-badge-text" style={{ display:'flex', alignItems:'center', padding:'4px 10px', background:roleColor+'15', border:`1px solid ${roleColor}40`, borderRadius:20, fontSize:11, color:roleColor, fontWeight:600, flexShrink:0, whiteSpace:'nowrap' }}>
               {role.charAt(0).toUpperCase()+role.slice(1)}
             </div>
