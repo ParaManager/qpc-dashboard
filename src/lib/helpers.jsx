@@ -305,6 +305,52 @@ export const SPORT_META = {
 export const avColor  = id => AV_COLORS[id % AV_COLORS.length]
 export const initials = n  => n.split(' ').map(w => w[0]).slice(0,2).join('').toUpperCase()
 
+// Maps a status label (athlete/coach/event/session status) to a badge CSS class
+// suffix (badge-green, badge-red, etc. — see index.css for the actual colors).
+// Recovered mapping: matches the local copies several pages kept of this same
+// logic (e.g. Athletes.jsx's own status-color map), so this stays consistent
+// with how statuses have always been colored across the app.
+export function statusClass(status) {
+  return {
+    'Active':              'badge-green',
+    'Inactive':            'badge-gray',
+    'Suspended':           'badge-red',
+    'Under Medical Review':'badge-amber',
+    'Injured':             'badge-amber',
+    'Retired':             'badge-gray',
+    'On Leave':            'badge-amber',
+    'Pending':             'badge-amber',
+    'Rejected':            'badge-red',
+    'Upcoming':            'badge-blue',
+    'Registration Open':   'badge-green',
+    'Planning':            'badge-amber',
+    'Completed':           'badge-gray',
+    'Cancelled':           'badge-red',
+  }[status] || 'badge-gray'
+}
+
+// Maps a status label to an actual color value (not a class name) — used directly
+// as a CSS background/color, e.g. for progress bars and small status dots where a
+// full badge class isn't appropriate.
+export function statusDot(status) {
+  return {
+    'Active':              '#009F6B',
+    'Inactive':            '#9aa3b2',
+    'Suspended':           '#EE334E',
+    'Under Medical Review':'#f59e0b',
+    'Injured':             '#f59e0b',
+    'Retired':             '#9aa3b2',
+    'On Leave':            '#f59e0b',
+    'Pending':             '#f59e0b',
+    'Rejected':            '#EE334E',
+    'Upcoming':            '#0085C7',
+    'Registration Open':   '#009F6B',
+    'Planning':            '#f59e0b',
+    'Completed':           '#9aa3b2',
+    'Cancelled':           '#EE334E',
+  }[status] || '#9aa3b2'
+}
+
 export function MedalDisplay({ gold, silver, bronze }) {
   if (!gold && !silver && !bronze) return <span style={{ color: '#aaa', fontSize: 12 }}>—</span>
   return (
