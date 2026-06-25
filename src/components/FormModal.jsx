@@ -113,8 +113,8 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
     if (record) { setForm({ ...record }) }
     else {
       const defaults = {
-        athlete: { gender: 'Male', nationality: 'Qatari', sportCategory: 'Paralympic', sport: SPORTS[0], status: 'Active' },
-        coach:   { sportCategory: 'Paralympic', sport: SPORTS[0], status: 'Active' },
+        athlete: { gender: 'Male', nationality: 'Qatari', sportCategory: 'Summer Paralympic', sport: SPORTS[0], status: 'Active' },
+        coach:   { sportCategory: 'Summer Paralympic', sport: SPORTS[0], status: 'Active' },
         event:   { sport: SPORTS[0], type: 'National', status: 'Planning', maxParticipants: 30 },
         result:  { medal: 'gold', position: 1 },
       }
