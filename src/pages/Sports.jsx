@@ -15,6 +15,7 @@ export default function Sports({ athletes, coaches, events, results, onNav, init
 
   const [activeTab, setActiveTab] = useState(initCategory || 'Summer Paralympic')
   const [selected, setSelected] = useState(initSport ? { sport: initSport, category: initCategory || 'Summer Paralympic' } : null)
+  const [search, setSearch] = useState('')
   // Which Unified Sports sub-groups are expanded — starts with all of them open so
   // the tab doesn't look empty on first visit, but each can be collapsed individually.
   const [expandedGroups, setExpandedGroups] = useState(() =>
@@ -131,6 +132,55 @@ export default function Sports({ athletes, coaches, events, results, onNav, init
         <div><div className="page-title">{tx('pages.sports','Sports')}</div><div className="page-sub">{tx('dashboard.qpc','Qatar Paralympic Committee')}</div></div>
       </div>
 
+      {/* Search spans every category — typing a sport name jumps straight to it
+          even if it's not in the currently active tab, and auto-expands the right
+          Unified Sports group if that's where the match lives. */}
+      <div style={{ position:'relative', marginBottom:18 }}>
+        <i className="ti ti-search" style={{ position:'absolute', left:14, top:'50%', transform:'translateY(-50%)', color:'var(--text3)', fontSize:16 }} />
+        <input
+          type="text"
+          value={search}
+          onChange={e => {
+            const val = e.target.value
+            setSearch(val)
+            if (!val.trim()) return
+            const q = val.trim().toLowerCase()
+            const matches = (s, category) =>
+              sportLabel(s, category, false).toLowerCase().includes(q) ||
+              sportLabel(s, category, true).includes(val.trim())
+
+            // Only jump to a different tab if the one currently open has nothing
+            // for this search — staying put while typing feels much less jumpy
+            // than relocating on every keystroke.
+            const currentHasMatch = (sportsByCategorySection[activeTab] || []).some(s => matches(s, activeTab))
+            if (currentHasMatch) {
+              if (activeTab === 'Unified Sports') {
+                const group = Object.entries(UNIFIED_SPORTS_GROUPS).find(([,sports]) => sports.some(s => matches(s, activeTab)))
+                if (group) setExpandedGroups(prev => ({ ...prev, [group[0]]: true }))
+              }
+              return
+            }
+            for (const category of SPORT_CATEGORIES) {
+              const match = (sportsByCategorySection[category] || []).find(s => matches(s, category))
+              if (match) {
+                setActiveTab(category)
+                if (category === 'Unified Sports') {
+                  const group = Object.entries(UNIFIED_SPORTS_GROUPS).find(([,sports]) => sports.includes(match))
+                  if (group) setExpandedGroups(prev => ({ ...prev, [group[0]]: true }))
+                }
+                break
+              }
+            }
+          }}
+          placeholder={tx('sports.searchPlaceholder','Search sports…')}
+          style={{ width:'100%', padding:'12px 14px 12px 38px', borderRadius:12, border:'1px solid var(--border)', background:'var(--surface)', fontSize:14, color:'var(--text)' }}
+        />
+        {search && (
+          <i className="ti ti-x" onClick={() => setSearch('')}
+            style={{ position:'absolute', right:14, top:'50%', transform:'translateY(-50%)', color:'var(--text3)', fontSize:16, cursor:'pointer' }} />
+        )}
+      </div>
+
       {/* Big, prominent tabs — switching jumps straight to that category with zero
           scrolling, which matters once each list grows to dozens of sports. */}
       <div style={{ display:'flex', gap:10, marginBottom:24, borderBottom:'2px solid var(--border)', flexWrap:'wrap' }}>
@@ -189,15 +239,32 @@ export default function Sports({ athletes, coaches, events, results, onNav, init
           )
         }
 
+        // A sport "matches" the active search term if its label (in either language)
+        // contains the typed text — used to narrow the visible list as you type.
+        const q = search.trim().toLowerCase()
+        const matchesSearch = (s) => !q ||
+          sportLabel(s, activeTab, false).toLowerCase().includes(q) ||
+          sportLabel(s, activeTab, true).includes(search.trim())
+
         if (activeTab !== 'Unified Sports') {
-          return sportsByCategorySection[activeTab].map(s => renderTile(s))
+          const filtered = sportsByCategorySection[activeTab].filter(matchesSearch)
+          if (q && filtered.length === 0) {
+            return <div className="empty" style={{ padding:16 }}>{tx('sports.noMatches','No sports match your search')}</div>
+          }
+          return filtered.map(s => renderTile(s))
         }
 
         // Unified Sports: render each sub-group as its own collapsible section,
         // since the full list (26 disciplines across 4 groups) is too long to
         // show flat without becoming hard to scan.
-        return Object.entries(UNIFIED_SPORTS_GROUPS).map(([groupName, groupSports]) => {
-          const isExpanded = !!expandedGroups[groupName]
+        const groupsWithMatches = Object.entries(UNIFIED_SPORTS_GROUPS)
+          .map(([groupName, groupSports]) => [groupName, groupSports.filter(matchesSearch)])
+          .filter(([, groupSports]) => groupSports.length > 0)
+        if (q && groupsWithMatches.length === 0) {
+          return <div className="empty" style={{ padding:16 }}>{tx('sports.noMatches','No sports match your search')}</div>
+        }
+        return groupsWithMatches.map(([groupName, groupSports]) => {
+          const isExpanded = q ? true : !!expandedGroups[groupName]
           return (
             <div key={groupName} style={{ marginBottom:20 }}>
               <div onClick={() => setExpandedGroups(prev => ({ ...prev, [groupName]: !prev[groupName] }))}
