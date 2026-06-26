@@ -64,6 +64,7 @@ export default function Resources({ profile, onRefresh }) {
   const [form, setForm] = useState({ title: '', titleAr: '', description: '', descriptionAr: '', category: 'General', visibleTo: ['admin','coach','athlete','employee'] })
   const fileInput = useRef(null)
   const [pendingFile, setPendingFile] = useState(null)
+  const [dragOver, setDragOver] = useState(false)
 
   async function load() {
     setLoading(true)
@@ -89,7 +90,23 @@ export default function Resources({ profile, onRefresh }) {
   function resetForm() {
     setForm({ title: '', titleAr: '', description: '', descriptionAr: '', category: 'General', visibleTo: ['admin','coach','athlete','employee'] })
     setPendingFile(null)
+    setDragOver(false)
     if (fileInput.current) fileInput.current.value = ''
+  }
+
+  const ALLOWED_EXT = ['pdf','doc','docx','xls','xlsx','ppt','pptx','jpg','jpeg','png','zip']
+  function pickFile(file) {
+    if (!file) return
+    const ext = file.name.split('.').pop().toLowerCase()
+    if (!ALLOWED_EXT.includes(ext)) {
+      toast(ar ? 'نوع الملف غير مدعوم' : 'That file type isn\u2019t supported', 'error')
+      return
+    }
+    if (file.size > 25 * 1024 * 1024) {
+      toast(ar ? 'يجب أن يكون الملف أقل من 25 ميجابايت' : 'File must be under 25MB', 'error')
+      return
+    }
+    setPendingFile(file)
   }
 
   async function handleSubmit() {
@@ -173,20 +190,70 @@ export default function Resources({ profile, onRefresh }) {
 
       {showUpload && (
         <div className="modal-overlay" onClick={() => { setShowUpload(false); resetForm() }}>
-          <div className="modal-box modal-sm" onClick={e => e.stopPropagation()}>
+          <div className="modal-box" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <div className="modal-title">{ar ? 'إضافة ملف' : 'Add Resource'}</div>
               <button className="modal-close" onClick={() => { setShowUpload(false); resetForm() }}><i className="ti ti-x" /></button>
             </div>
             <div className="modal-body">
+
+              {/* File comes first — it's the actual point of this form, everything
+                  else is metadata describing it. */}
               <div className="form-group">
-                <label>{ar ? 'العنوان' : 'Title'} *</label>
-                <input className="form-input" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder={ar ? 'مثال: نموذج طلب إجازة' : 'e.g. Leave Request Form'} />
+                <label>{ar ? 'الملف' : 'File'} *</label>
+                {!pendingFile ? (
+                  <div
+                    onClick={() => fileInput.current?.click()}
+                    onDragOver={e => { e.preventDefault(); setDragOver(true) }}
+                    onDragLeave={() => setDragOver(false)}
+                    onDrop={e => { e.preventDefault(); setDragOver(false); pickFile(e.dataTransfer.files?.[0]) }}
+                    style={{
+                      border: `2px dashed ${dragOver ? '#0085C7' : 'var(--border2)'}`,
+                      borderRadius: 12, padding: '28px 16px', textAlign: 'center', cursor: 'pointer',
+                      background: dragOver ? '#0085C710' : 'var(--surface2)', transition: 'all .15s',
+                    }}>
+                    <i className="ti ti-cloud-upload" style={{ fontSize: 28, color: dragOver ? '#0085C7' : 'var(--text3)', display: 'block', marginBottom: 8 }} />
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>
+                      {ar ? 'اسحب الملف هنا أو اضغط للاختيار' : 'Drag a file here, or click to browse'}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>
+                      {ar ? 'PDF, Word, Excel, PowerPoint, صور — حتى 25 ميجابايت' : 'PDF, Word, Excel, PowerPoint, images — up to 25MB'}
+                    </div>
+                    <input ref={fileInput} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.zip"
+                      onChange={e => pickFile(e.target.files?.[0])} style={{ display: 'none' }} />
+                  </div>
+                ) : (() => {
+                  const meta = fileMeta(pendingFile.name)
+                  return (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 12, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface2)' }}>
+                      <div style={{ width: 40, height: 40, borderRadius: 9, background: meta.color + '15', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <i className={`ti ${meta.icon}`} style={{ fontSize: 19, color: meta.color }} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pendingFile.name}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text3)' }}>{formatSize(pendingFile.size)}</div>
+                      </div>
+                      <button onClick={() => { setPendingFile(null); if (fileInput.current) fileInput.current.value = '' }}
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, borderRadius: 7, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text2)', cursor: 'pointer', flexShrink: 0 }}
+                        title={ar ? 'إزالة' : 'Remove'}>
+                        <i className="ti ti-x" style={{ fontSize: 13 }} />
+                      </button>
+                    </div>
+                  )
+                })()}
               </div>
-              <div className="form-group">
-                <label>{ar ? 'العنوان (عربي)' : 'Title (Arabic)'}</label>
-                <input className="form-input" value={form.titleAr} onChange={e => setForm(f => ({ ...f, titleAr: e.target.value }))} dir="rtl" />
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label>{ar ? 'العنوان' : 'Title'} *</label>
+                  <input className="form-input" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder={ar ? 'مثال: نموذج طلب إجازة' : 'e.g. Leave Request Form'} />
+                </div>
+                <div className="form-group">
+                  <label>{ar ? 'العنوان (عربي)' : 'Title (Arabic)'}</label>
+                  <input className="form-input" value={form.titleAr} onChange={e => setForm(f => ({ ...f, titleAr: e.target.value }))} dir="rtl" />
+                </div>
               </div>
+
               <div className="form-row">
                 <div className="form-group">
                   <label>{ar ? 'الوصف' : 'Description'}</label>
@@ -200,37 +267,43 @@ export default function Resources({ profile, onRefresh }) {
                   </datalist>
                 </div>
               </div>
-              <div className="form-group">
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
                 <label>{ar ? 'يمكن لمن رؤية هذا الملف' : 'Visible to'}</label>
-                <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
-                  {Object.keys(ROLE_LABELS).map(role => (
-                    <label key={role} style={{ display:'flex', alignItems:'center', gap:6, fontSize:13, cursor:'pointer' }}>
-                      <input
-                        type="checkbox"
-                        checked={form.visibleTo.includes(role)}
-                        onChange={e => setForm(f => ({
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
+                  {Object.keys(ROLE_LABELS).map(role => {
+                    const active = form.visibleTo.includes(role)
+                    return (
+                      <button
+                        key={role}
+                        type="button"
+                        onClick={() => setForm(f => ({
                           ...f,
-                          visibleTo: e.target.checked ? [...f.visibleTo, role] : f.visibleTo.filter(r => r !== role)
+                          visibleTo: f.visibleTo.includes(role) ? f.visibleTo.filter(r => r !== role) : [...f.visibleTo, role]
                         }))}
-                      />
-                      {ROLE_LABELS[role]}
-                    </label>
-                  ))}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 20,
+                          border: `1px solid ${active ? '#0085C7' : 'var(--border)'}`,
+                          background: active ? '#0085C715' : 'var(--surface)',
+                          color: active ? '#0085C7' : 'var(--text2)',
+                          fontSize: 12.5, fontWeight: 600, cursor: 'pointer', transition: 'all .12s',
+                        }}>
+                        {active && <i className="ti ti-check" style={{ fontSize: 13 }} />}
+                        {ROLE_LABELS[role]}
+                      </button>
+                    )
+                  })}
                 </div>
-              </div>
-              <div className="form-group">
-                <label>{ar ? 'الملف' : 'File'} *</label>
-                <input ref={fileInput} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.zip"
-                  onChange={e => setPendingFile(e.target.files?.[0] || null)} />
-                <div style={{ fontSize:11, color:'var(--text3)', marginTop:4 }}>{ar ? 'الحد الأقصى 25 ميجابايت' : 'Max 25MB'}</div>
               </div>
             </div>
             <div className="modal-footer">
               <button className="btn-cancel" onClick={() => { setShowUpload(false); resetForm() }}>{tx('actions.cancel','Cancel')}</button>
-              <button className="btn btn-blue" onClick={handleSubmit} disabled={uploading}>
-                {uploading ? (ar ? 'جارٍ الرفع...' : 'Uploading...') : (ar ? 'رفع' : 'Upload')}
+              <button className="btn btn-blue" onClick={handleSubmit} disabled={uploading} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                {uploading && <i className="ti ti-loader-2" style={{ animation: 'spin 0.6s linear infinite' }} />}
+                {uploading ? (ar ? 'جارٍ الرفع...' : 'Uploading…') : (ar ? 'رفع' : 'Upload')}
               </button>
             </div>
+
           </div>
         </div>
       )}
@@ -257,11 +330,25 @@ export default function Resources({ profile, onRefresh }) {
       {loading && <div className="empty" style={{ padding:24 }}>{ar ? 'جارٍ التحميل...' : 'Loading…'}</div>}
 
       {!loading && visible.length === 0 && (
-        <div className="empty" style={{ padding:32, textAlign:'center' }}>
-          <i className="ti ti-folder" style={{ fontSize:32, color:'var(--text3)', marginBottom:8, display:'block' }} />
-          {resources.length === 0
-            ? (ar ? 'لا توجد ملفات بعد' : 'No resources yet')
-            : (ar ? 'لا توجد ملفات مطابقة' : 'No resources match your search')}
+        <div className="empty" style={{ padding:'40px 24px', textAlign:'center' }}>
+          <div style={{ width:56, height:56, borderRadius:14, background:'var(--surface2)', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 14px' }}>
+            <i className="ti ti-folder" style={{ fontSize:26, color:'var(--text3)' }} />
+          </div>
+          <div style={{ fontSize:14, fontWeight:600, color:'var(--text)', marginBottom:4 }}>
+            {resources.length === 0
+              ? (ar ? 'لا توجد ملفات بعد' : 'No resources yet')
+              : (ar ? 'لا توجد ملفات مطابقة' : 'No resources match your search')}
+          </div>
+          <div style={{ fontSize:12.5, color:'var(--text3)' }}>
+            {resources.length === 0
+              ? (isAdmin ? (ar ? 'أضف أول ملف ليظهر هنا.' : 'Add the first resource and it\u2019ll show up here.') : (ar ? 'سيقوم المسؤول بإضافة الملفات هنا.' : 'Files added by an admin will appear here.'))
+              : (ar ? 'جرّب كلمة بحث أخرى أو فئة مختلفة.' : 'Try a different search term or category.')}
+          </div>
+          {resources.length === 0 && isAdmin && (
+            <button className="btn btn-blue" onClick={() => setShowUpload(true)} style={{ marginTop:16 }}>
+              <i className="ti ti-upload" /> {ar ? 'إضافة ملف' : 'Add Resource'}
+            </button>
+          )}
         </div>
       )}
 
@@ -270,7 +357,9 @@ export default function Resources({ profile, onRefresh }) {
           {visible.map(r => {
             const meta = fileMeta(r.file_name)
             return (
-              <div key={r.id} className="info-card" style={{ display:'flex', alignItems:'center', gap:14, padding:16 }}>
+              <div key={r.id} className="info-card" style={{ display:'flex', alignItems:'center', gap:14, padding:16, transition:'border-color .15s, box-shadow .15s' }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border2)' }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = '' }}>
                 <div style={{ width:44, height:44, borderRadius:10, background:meta.color+'15', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
                   <i className={`ti ${meta.icon}`} style={{ fontSize:22, color:meta.color }} />
                 </div>
