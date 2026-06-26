@@ -122,12 +122,30 @@ export default function App() {
   useEffect(() => { if (user) fetchAll() }, [user, fetchAll])
 
   // Manual refresh for mobile/tablet, where pull-to-refresh isn't available in a
-  // home-screen-installed web app and the only other option is force-quitting and
-  // reopening. Keeps the spinner visible briefly even on a fast connection so the
-  // tap registers as having done something, rather than flashing too quickly to notice.
+  // Manual refresh for mobile/tablet. Two different problems live under one button:
+  // (1) stale DATA — fixed by re-fetching from Supabase, same as any reload would do.
+  // (2) stale CODE — when this app is added to the home screen, iOS/Android run it
+  // in a standalone webview that does NOT re-check for a new JS bundle the way a
+  // normal browser tab does; only a true hard navigation forces that. A plain
+  // window.location.reload() is not reliable for this in standalone mode, so we
+  // navigate to a cache-busted URL instead, which forces a genuine fresh request.
+  function isStandalone() {
+    return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true
+  }
+
   async function handleRefresh() {
     if (isRefreshing) return
     setIsRefreshing(true)
+
+    if (isStandalone()) {
+      // Force a real reload from the server, bypassing whatever cached version
+      // the standalone webview was still holding onto.
+      const url = new URL(window.location.href)
+      url.searchParams.set('_refresh', Date.now().toString())
+      window.location.href = url.toString()
+      return
+    }
+
     const start = Date.now()
     try {
       await fetchAll()
