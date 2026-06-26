@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { SPORTS, SPORT_META, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, UNIFIED_SPORTS_GROUPS, SPORT_CATEGORY_NAMES_AR, SPORT_NAMES_AR, sportLabel, Avatar, Badge, MedalDisplay, statusDot, initials, DashRow } from '../lib/helpers'
+import { SPORTS, SPORT_META, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, UNIFIED_SPORTS_GROUPS, SPORT_CATEGORY_NAMES_AR, SPORT_NAMES_AR, SPORT_DESC_AR, UNIFIED_GROUP_NAMES_AR, sportLabel, Avatar, Badge, MedalDisplay, statusDot, initials, DashRow } from '../lib/helpers'
 import { useLang } from '../lib/LangContext.jsx'
 
 export default function Sports({ athletes, coaches, events, results, onNav, initSport, initCategory, profile }) {
@@ -226,7 +226,7 @@ export default function Sports({ athletes, coaches, events, results, onNav, init
                 </div>
                 <div style={{ flex:1 }}>
                   <div style={{ fontSize:16, fontWeight:600, marginBottom:3 }}>{sportLabel(s, activeTab, ar)}</div>
-                  <div style={{ fontSize:12, color:'var(--text2)' }}>{meta.desc}</div>
+                  <div style={{ fontSize:12, color:'var(--text2)' }}>{ar ? (SPORT_DESC_AR[s]||meta.desc) : meta.desc}</div>
                 </div>
                 <div style={{ display:'flex', gap:20, flexShrink:0, textAlign:'center' }}>
                   <div><div style={{ fontSize:20, fontWeight:600, color:meta.color }}>{myAths.length}</div><div style={{ fontSize:11, color:'var(--text3)' }}>{tx('sports.athletes','Athletes')}</div></div>
@@ -270,7 +270,7 @@ export default function Sports({ athletes, coaches, events, results, onNav, init
               <div onClick={() => setExpandedGroups(prev => ({ ...prev, [groupName]: !prev[groupName] }))}
                 style={{ display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer', padding:'10px 4px', borderBottom:'1px solid var(--border)', marginBottom: isExpanded ? 12 : 0 }}>
                 <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                  <span style={{ fontSize:14, fontWeight:700 }}>{groupName}</span>
+                  <span style={{ fontSize:14, fontWeight:700 }}>{ar ? (UNIFIED_GROUP_NAMES_AR[groupName]||groupName) : groupName}</span>
                   <span style={{ fontSize:11, fontWeight:600, padding:'2px 8px', borderRadius:20, background:'var(--surface2)', color:'var(--text3)' }}>{groupSports.length}</span>
                 </div>
                 <i className={`ti ti-chevron-${isExpanded ? 'up' : 'down'}`} style={{ fontSize:16, color:'var(--text3)' }} />
