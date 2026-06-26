@@ -56,12 +56,11 @@ export default function Resources({ profile, onRefresh }) {
   const [resources, setResources]   = useState([])
   const [loading, setLoading]       = useState(true)
   const [search, setSearch]         = useState('')
-  const [categoryFilter, setCategoryFilter] = useState('All')
   const [showUpload, setShowUpload] = useState(false)
   const [confirmDel, setConfirmDel] = useState(null)
   const [uploading, setUploading]   = useState(false)
 
-  const [form, setForm] = useState({ title: '', titleAr: '', description: '', descriptionAr: '', category: 'General', visibleTo: ['admin','coach','athlete','employee'] })
+  const [form, setForm] = useState({ title: '', titleAr: '', description: '', descriptionAr: '', visibleTo: ['admin','coach','athlete','employee'] })
   const fileInput = useRef(null)
   const [pendingFile, setPendingFile] = useState(null)
   const [dragOver, setDragOver] = useState(false)
@@ -76,19 +75,15 @@ export default function Resources({ profile, onRefresh }) {
 
   useEffect(() => { load() }, [])
 
-  const categories = ['All', ...new Set(resources.map(r => r.category).filter(Boolean))]
-
-  const visible = resources.filter(r => {
-    const matchesSearch = !search ||
-      r.title.toLowerCase().includes(search.toLowerCase()) ||
-      (r.title_ar||'').includes(search) ||
-      (r.description||'').toLowerCase().includes(search.toLowerCase())
-    const matchesCategory = categoryFilter === 'All' || r.category === categoryFilter
-    return matchesSearch && matchesCategory
-  })
+  const visible = resources.filter(r =>
+    !search ||
+    r.title.toLowerCase().includes(search.toLowerCase()) ||
+    (r.title_ar||'').includes(search) ||
+    (r.description||'').toLowerCase().includes(search.toLowerCase())
+  )
 
   function resetForm() {
-    setForm({ title: '', titleAr: '', description: '', descriptionAr: '', category: 'General', visibleTo: ['admin','coach','athlete','employee'] })
+    setForm({ title: '', titleAr: '', description: '', descriptionAr: '', visibleTo: ['admin','coach','athlete','employee'] })
     setPendingFile(null)
     setDragOver(false)
     if (fileInput.current) fileInput.current.value = ''
@@ -127,7 +122,6 @@ export default function Resources({ profile, onRefresh }) {
         title_ar: form.titleAr.trim() || null,
         description: form.description.trim() || null,
         description_ar: form.descriptionAr.trim() || null,
-        category: form.category.trim() || 'General',
         resource_type: 'file',
         file_url: urlData.publicUrl,
         file_name: pendingFile.name,
@@ -260,11 +254,8 @@ export default function Resources({ profile, onRefresh }) {
                   <input className="form-input" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
                 </div>
                 <div className="form-group">
-                  <label>{ar ? 'الفئة' : 'Category'}</label>
-                  <input className="form-input" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))} placeholder={ar ? 'مثال: الموارد البشرية' : 'e.g. HR'} list="category-suggestions" />
-                  <datalist id="category-suggestions">
-                    {categories.filter(c => c !== 'All').map(c => <option key={c} value={c} />)}
-                  </datalist>
+                  <label>{ar ? 'الوصف (عربي)' : 'Description (Arabic)'}</label>
+                  <input className="form-input" value={form.descriptionAr} onChange={e => setForm(f => ({ ...f, descriptionAr: e.target.value }))} dir="rtl" />
                 </div>
               </div>
 
@@ -322,9 +313,6 @@ export default function Resources({ profile, onRefresh }) {
 
       <div className="filters">
         <div className="search-wrap"><i className="ti ti-search" /><input placeholder={ar ? 'بحث في الملفات...' : 'Search resources…'} value={search} onChange={e => setSearch(e.target.value)} /></div>
-        <select className="filter" value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}>
-          {categories.map(c => <option key={c} value={c}>{c === 'All' ? (ar ? 'جميع الفئات' : 'All categories') : c}</option>)}
-        </select>
       </div>
 
       {loading && <div className="empty" style={{ padding:24 }}>{ar ? 'جارٍ التحميل...' : 'Loading…'}</div>}
@@ -342,7 +330,7 @@ export default function Resources({ profile, onRefresh }) {
           <div style={{ fontSize:12.5, color:'var(--text3)' }}>
             {resources.length === 0
               ? (isAdmin ? (ar ? 'أضف أول ملف ليظهر هنا.' : 'Add the first resource and it\u2019ll show up here.') : (ar ? 'سيقوم المسؤول بإضافة الملفات هنا.' : 'Files added by an admin will appear here.'))
-              : (ar ? 'جرّب كلمة بحث أخرى أو فئة مختلفة.' : 'Try a different search term or category.')}
+              : (ar ? 'جرّب كلمة بحث أخرى.' : 'Try a different search term.')}
           </div>
           {resources.length === 0 && isAdmin && (
             <button className="btn btn-blue" onClick={() => setShowUpload(true)} style={{ marginTop:16 }}>
@@ -369,7 +357,6 @@ export default function Resources({ profile, onRefresh }) {
                     <div style={{ fontSize:12, color:'var(--text2)', marginTop:2 }}>{ar && r.description_ar ? r.description_ar : r.description}</div>
                   )}
                   <div style={{ fontSize:11, color:'var(--text3)', marginTop:4, display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
-                    <span className="badge badge-gray">{r.category}</span>
                     <span>{r.file_name}</span>
                     {r.file_size && <span>· {formatSize(r.file_size)}</span>}
                   </div>
