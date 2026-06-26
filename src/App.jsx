@@ -19,6 +19,7 @@ import AthleteDashboard  from './pages/AthleteDashboard'
 import CoachDashboard    from './pages/CoachDashboard'
 import Notifications     from './pages/Notifications'
 import Resources         from './pages/Resources'
+import Tasks              from './pages/Tasks'
 import AthleteEvents     from './pages/AthleteEvents'
 import AthleteResults    from './pages/AthleteResults'
 import Attendance  from './pages/Attendance'
@@ -28,7 +29,7 @@ import NotificationBell from './components/NotificationBell.jsx'
 import { useLang } from './lib/LangContext.jsx'
 
 const NAV_ADMIN = (tx) => [
-  { section: tx('nav.overview','Overview'),      items: [{ id:'dashboard', icon:'ti-layout-dashboard', label:tx('nav.dashboard','Dashboard') }, { id:'notifications', icon:'ti-bell', label:tx('nav.notifications','Notifications') }, { id:'resources', icon:'ti-folder', label:tx('nav.resources','Resources') }, { id:'profile', icon:'ti-user-circle', label:tx('nav.profile','My Profile') }] },
+  { section: tx('nav.overview','Overview'),      items: [{ id:'dashboard', icon:'ti-layout-dashboard', label:tx('nav.dashboard','Dashboard') }, { id:'notifications', icon:'ti-bell', label:tx('nav.notifications','Notifications') }, { id:'resources', icon:'ti-folder', label:tx('nav.resources','Resources') }, { id:'tasks', icon:'ti-checklist', label:tx('nav.tasks','Tasks') }, { id:'profile', icon:'ti-user-circle', label:tx('nav.profile','My Profile') }] },
   { section: tx('nav.people','People'),          items: [{ id:'athletes', icon:'ti-run', label:tx('nav.athletes','Athletes') }, { id:'coaches', icon:'ti-user-star', label:tx('nav.coaches','Coaches') }, { id:'employees', icon:'ti-users', label:tx('nav.employees','Employees') }, { id:'referees', icon:'ti-award', label:tx('nav.referees','Referees') }] },
   { section: tx('nav.training','Training'),      items: [{ id:'schedule', icon:'ti-calendar', label:tx('nav.schedule','Schedule') }, { id:'attendance', icon:'ti-clipboard-check', label:tx('nav.attendance','Attendance') }] },
   { section: tx('nav.competitions','Competitions'), items: [{ id:'sports', icon:'ti-ball-football', label:tx('nav.sports','Sports') }, { id:'events', icon:'ti-calendar-event', label:tx('nav.events','Events') }, { id:'results', icon:'ti-medal', label:tx('nav.results','Results') }] },
@@ -418,6 +419,7 @@ export default function App() {
           {page==='profile'   && <Profile user={user} profile={profile} athletes={athletes} coaches={coaches} employees={employees} results={results} onNav={goTo} documents={documents} personDocs={personDocs} onRefresh={fetchAll} />}
           {page==='notifications' && <Notifications profile={profile} onNav={goTo} />}
           {page==='resources'     && <Resources profile={profile} onRefresh={fetchAll} />}
+          {page==='tasks'         && isAdmin && <Tasks profile={profile} onNav={goTo} />}
           {page==='referees'  && <Referees referees={referees} onRefresh={fetchAll} profile={profile} />}
           {page==='results'   && <Results   results={results} athletes={athletes} onRefresh={fetchAll} onNav={goTo} profile={profile} />}
           {page==='sports'    && <Sports    athletes={athletes} coaches={coaches} events={events} results={results} onNav={goTo} initSport={navState.sport} initCategory={navState.category} profile={profile} />}
