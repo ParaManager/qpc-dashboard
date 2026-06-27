@@ -289,7 +289,18 @@ export default function Athletes({ athletes, coaches, employees, results, docume
   const [editMode, setEditMode]     = useState(false)
   const [edits, setEdits]           = useState({})
   const [savingAll, setSavingAll]   = useState(false)
-  const [visibleCols, setVisibleCols] = useState(['name','sport_category','sport','classification','nationality','coach_id','status','medals','docs'])
+  // Coaches only ever see their own athletes here (already filtered before this
+  // page even receives them), so the Sport and Coach columns are pure repetition
+  // of things they already know — default them out for coaches, but keep them
+  // available for admin, who's looking across everyone. Shared between the
+  // initial state below and the column picker's "Default" reset button, so the
+  // two can't drift apart.
+  const COACH_DEFAULT_COLS = ['name','classification','nationality','status','medals','docs']
+  const [visibleCols, setVisibleCols] = useState(
+    profile?.role === 'coach'
+      ? COACH_DEFAULT_COLS
+      : ['name','sport_category','sport','classification','nationality','coach_id','status','medals','docs']
+  )
   const [colPickerOpen, setColPickerOpen] = useState(false)
   const [colFilters, setColFilters] = useState({})
   const photoInput = useRef(null)
@@ -1263,7 +1274,11 @@ ${myDocs.length > 0 ? `<div class="section">
                   ))}
                   <div style={{ padding:'8px 12px 0', borderTop:'1px solid var(--border)', marginTop:4, display:'flex', gap:6, flexWrap:'wrap' }}>
                     <button onClick={() => setVisibleCols(ALL_COLS.map(c=>c.key))} style={{ flex:1, padding:'5px', fontSize:11, background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:7, cursor:'pointer', color:'var(--text2)' }}>{tx('filters.all','All')}</button>
-                    <button onClick={() => setVisibleCols(ALL_COLS.filter(c=>c.default).map(c=>c.key))} style={{ flex:1, padding:'5px', fontSize:11, background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:7, cursor:'pointer', color:'var(--text2)' }}>{tx('filters.default','Default')}</button>
+                    <button onClick={() => setVisibleCols(
+                      profile?.role === 'coach'
+                        ? COACH_DEFAULT_COLS
+                        : ALL_COLS.filter(c=>c.default).map(c=>c.key)
+                    )} style={{ flex:1, padding:'5px', fontSize:11, background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:7, cursor:'pointer', color:'var(--text2)' }}>{tx('filters.default','Default')}</button>
                     <button onClick={() => setVisibleCols(['name'])} style={{ flex:1, padding:'5px', fontSize:11, background:'#fef2f2', border:'1px solid #fca5a5', borderRadius:7, cursor:'pointer', color:'#dc2626' }}>{tx('filters.none','None')}</button>
                   </div>
                 </div>
