@@ -43,8 +43,6 @@ export default function Sports({ athletes, coaches, events, results, onNav, init
     const goldCount   = myAths.reduce((t,a) => t + (a.medals_gold   || 0), 0)
     const silverCount = myAths.reduce((t,a) => t + (a.medals_silver || 0), 0)
     const bronzeCount = myAths.reduce((t,a) => t + (a.medals_bronze || 0), 0)
-    const totalMedals = goldCount + silverCount + bronzeCount
-
     return (
       <div>
         <button className="back-btn" onClick={() => setSelected(null)}><i className="ti ti-arrow-left" /> {tx('sports.backToSports','Back to sports')}</button>
@@ -57,28 +55,20 @@ export default function Sports({ athletes, coaches, events, results, onNav, init
             <div style={{ fontSize:13, color:'var(--text2)', marginTop:3 }}>{tx('dashboard.qpc','Qatar Paralympic Committee')}</div>
           </div>
         </div>
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:10, marginBottom:18 }}>
-          {[[tx('sports.athletes','Athletes'),myAths.length,meta.color],[tx('sports.events','Events'),myEvents.length,'#555']].map(([l,v,c]) => (
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(90px, 1fr))', gap:10, marginBottom:18 }}>
+          {[
+            [tx('sports.athletes','Athletes'), myAths.length, meta.color],
+            [tx('sports.events','Events'), myEvents.length, '#555'],
+            [tx('sports.coaches','Coaches'), myCoaches.length, '#009F6B'],
+            [ar ? 'ذهب' : 'Gold', goldCount, '#d4af37'],
+            [ar ? 'فضة' : 'Silver', silverCount, '#9aa3b2'],
+            [ar ? 'برونز' : 'Bronze', bronzeCount, '#b5703a'],
+          ].map(([l,v,c]) => (
             <div key={l} style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:12, padding:14, textAlign:'center', boxShadow:'var(--shadow)' }}>
               <div style={{ fontSize:24, fontWeight:600, color:c }}>{v}</div>
               <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>{l}</div>
             </div>
           ))}
-          <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:12, padding:14, textAlign:'center', boxShadow:'var(--shadow)' }}>
-            <div style={{ fontSize:24, fontWeight:600, color:'#f1c40f' }}>{totalMedals}</div>
-            <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>{tx('sports.medals','Total Medals')}</div>
-            {totalMedals > 0 && (
-              <div style={{ fontSize:11, marginTop:4, display:'flex', justifyContent:'center', gap:8 }}>
-                {goldCount   > 0 && <span>🥇{goldCount}</span>}
-                {silverCount > 0 && <span>🥈{silverCount}</span>}
-                {bronzeCount > 0 && <span>🥉{bronzeCount}</span>}
-              </div>
-            )}
-          </div>
-          <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:12, padding:14, textAlign:'center', boxShadow:'var(--shadow)' }}>
-            <div style={{ fontSize:24, fontWeight:600, color:'#009F6B' }}>{myCoaches.length}</div>
-            <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>{tx('sports.coaches','Coaches')}</div>
-          </div>
         </div>
         {myCoaches.length > 0 && (
           <div className="info-card" style={{ marginBottom:12 }}>
