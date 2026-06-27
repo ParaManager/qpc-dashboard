@@ -257,12 +257,12 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
             athleteId={athleteId}
             ar={ar}
             onClose={() => setRequestModal(null)}
-            onSave={async (type, reason) => {
+            onSave={async (type, reason, excuseCategory) => {
               const { data: newReq, error: reqErr } = await supabase.from('training_session_requests').insert({
                 session_id: requestModal.id,
                 athlete_id: String(athleteId),
                 coach_id: String(requestModal.coach_id || coachId || ''),
-                type, reason, status: 'pending'
+                type, reason, excuse_category: excuseCategory, status: 'pending'
               }).select().single()
               if (reqErr) { toast(reqErr.message, 'error'); return }
               // Find coach's profile ID to send notification
@@ -327,6 +327,9 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
               <div style={{ padding:'8px 14px', borderRadius:8, fontSize:13, background: myRequest.status==='pending'?'#f59e0b15':myRequest.status==='approved'?'#009F6B15':'#EE334E15', color: myRequest.status==='pending'?'#f59e0b':myRequest.status==='approved'?'#009F6B':'#EE334E', border:`1px solid ${myRequest.status==='pending'?'#f59e0b40':myRequest.status==='approved'?'#009F6B40':'#EE334E40'}` }}>
                 <i className={`ti ${myRequest.status==='pending'?'ti-clock':myRequest.status==='approved'?'ti-check':'ti-x'}`} style={{ marginRight:6 }} />
                 {myRequest.type==='excuse'?(ar?'طلب عذر':'Excuse request'):(ar?'طلب إعادة جدولة':'Reschedule request')}
+                {myRequest.excuse_category && (ar
+                  ? ` (${{'Excused':'شخصي / التزام','Transport Problem':'مشكلة نقل','Medical Issue':'مشكلة صحية'}[myRequest.excuse_category]})`
+                  : ` (${{'Excused':'Personal/commitment','Transport Problem':'Transport problem','Medical Issue':'Medical issue'}[myRequest.excuse_category]})`)}
                 {' — '}{ar?{'pending':'قيد الانتظار','approved':'موافق عليه','rejected':'مرفوض'}[myRequest.status]:myRequest.status}
               </div>
             ) : (
@@ -429,6 +432,11 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
                         <div style={{ fontSize:13, fontWeight:500 }}>{ar&&ath?.name_ar?ath.name_ar:ath?.name||req.athlete_id}</div>
                         <div style={{ fontSize:11, color:'var(--text3)' }}>
                           {req.type==='excuse'?(ar?'عذر':'Excuse'):(ar?'إعادة جدولة':'Reschedule')}
+                          {req.excuse_category && (
+                            <span style={{ marginLeft:5, fontWeight:600, color: {'Excused':'#8b5cf6','Transport Problem':'#e67e22','Medical Issue':'#d35400'}[req.excuse_category] }}>
+                              · {ar ? {'Excused':'شخصي / التزام','Transport Problem':'مشكلة نقل','Medical Issue':'مشكلة صحية'}[req.excuse_category] : {'Excused':'Personal/commitment','Transport Problem':'Transport problem','Medical Issue':'Medical issue'}[req.excuse_category]}
+                            </span>
+                          )}
                           {req.reason && ` — "${req.reason}"`}
                         </div>
                       </div>
@@ -443,9 +451,11 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
                         <button onClick={async () => {
                           await supabase.from('training_session_requests').update({ status:'approved' }).eq('id', req.id)
                           // If this was an excuse request, automatically mark the athlete's
-                          // attendance for that session as Excused — no need for the coach
+                          // attendance for that session using the exact reason they picked
+                          // (Excused/Transport Problem/Medical Issue) — no need for the coach
                           // to separately remember to do it when taking attendance.
                           if (req.type === 'excuse') {
+                            const attStatus = req.excuse_category || 'Excused'
                             const { data: existingAtt } = await supabase
                               .from('attendance')
                               .select('id')
@@ -453,9 +463,9 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
                               .eq('athlete_id', String(req.athlete_id))
                               .maybeSingle()
                             if (existingAtt) {
-                              await supabase.from('attendance').update({ status: 'Excused' }).eq('id', existingAtt.id)
+                              await supabase.from('attendance').update({ status: attStatus }).eq('id', existingAtt.id)
                             } else {
-                              await supabase.from('attendance').insert({ session_id: req.session_id, athlete_id: String(req.athlete_id), status: 'Excused' })
+                              await supabase.from('attendance').insert({ session_id: req.session_id, athlete_id: String(req.athlete_id), status: attStatus })
                             }
                           }
                           const { data: athProfile } = await supabase.from('profiles').select('id,athlete_id').then(r => r)
@@ -536,12 +546,12 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
           athleteId={athleteId}
           ar={ar}
           onClose={() => setRequestModal(null)}
-          onSave={async (type, reason) => {
+          onSave={async (type, reason, excuseCategory) => {
             const { data: newReq2 } = await supabase.from('training_session_requests').insert({
               session_id: requestModal.id,
               athlete_id: String(athleteId),
               coach_id: String(requestModal.coach_id || coachId || ''),
-              type, reason,
+              type, reason, excuse_category: excuseCategory,
               status: 'pending'
             }).select().single()
             const targetId = String(requestModal.coach_id || coachId || '')
@@ -818,8 +828,17 @@ function SessionForm({ data, athletes, coachId, ar, onSave, onClose }) {
 
 function RequestModal({ session, athleteId, ar, onSave, onClose }) {
   const [type, setType]     = useState('excuse')
+  const [category, setCategory] = useState('Excused')
   const [reason, setReason] = useState('')
   const L = (en, a) => ar ? a : en
+
+  // Same three reasons used on the attendance side, so a coach approving this
+  // request sees exactly why — not just a generic "excused" with no context.
+  const CATEGORIES = [
+    ['Excused',            L('Personal/commitment', 'شخصي / التزام'),    '#8b5cf6', 'ti-note'],
+    ['Transport Problem',  L('Transport problem', 'مشكلة نقل'),          '#e67e22', 'ti-bus'],
+    ['Medical Issue',      L('Medical issue', 'مشكلة صحية'),             '#d35400', 'ti-medical-cross'],
+  ]
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -844,16 +863,32 @@ function RequestModal({ session, athleteId, ar, onSave, onClose }) {
               ))}
             </div>
           </div>
+          {type === 'excuse' && (
+            <div className="form-group">
+              <label className="form-label">{L('Reason for absence', 'سبب الغياب')}</label>
+              <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+                {CATEGORIES.map(([val, lbl, color, icon]) => (
+                  <button key={val} onClick={() => setCategory(val)}
+                    style={{ flex:'1 1 100px', display:'flex', flexDirection:'column', alignItems:'center', gap:4, padding:'10px 6px', borderRadius:10,
+                      border: `1.5px solid ${category===val ? color : 'var(--border)'}`,
+                      background: category===val ? color+'15' : 'var(--surface)', cursor:'pointer' }}>
+                    <i className={`ti ${icon}`} style={{ fontSize:18, color: category===val ? color : 'var(--text3)' }} />
+                    <span style={{ fontSize:11, fontWeight:600, color: category===val ? color : 'var(--text2)', textAlign:'center' }}>{lbl}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="form-group">
-            <label className="form-label">{L('Reason', 'السبب')}</label>
+            <label className="form-label">{type === 'excuse' ? L('Additional details (optional)', 'تفاصيل إضافية (اختياري)') : L('Reason', 'السبب')}</label>
             <textarea className="form-input" rows={3} value={reason} onChange={e => setReason(e.target.value)}
-              placeholder={L('Explain why you cannot attend…', 'اشرح سبب عدم قدرتك على الحضور…')}
+              placeholder={type === 'excuse' ? L('Anything else the coach should know…', 'أي شيء آخر يجب أن يعرفه المدرب…') : L('Explain why you cannot attend…', 'اشرح سبب عدم قدرتك على الحضور…')}
               style={{ resize:'vertical' }} />
           </div>
         </div>
         <div className="modal-footer">
           <button className="btn-cancel" onClick={onClose}>{L('Cancel', 'إلغاء')}</button>
-          <button className="btn" style={{ background:'#EE334E' }} onClick={() => onSave(type, reason)}>
+          <button className="btn" style={{ background:'#EE334E' }} onClick={() => onSave(type, reason, type === 'excuse' ? category : null)}>
             <i className="ti ti-send" /> {L('Send request', 'إرسال الطلب')}
           </button>
         </div>
