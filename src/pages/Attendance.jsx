@@ -5,10 +5,10 @@ import { Avatar } from '../lib/helpers'
 import { toast } from '../components/Toast'
 import { toLocalDateStr, exportAttendanceXlsx } from './Timetable'
 
-const STATUS_OPTS   = ['Present','Absent','Late','Excused']
-const STATUS_AR     = { Present:'حاضر', Absent:'غائب', Late:'متأخر', Excused:'معذور' }
-const STATUS_COLORS = { Present:'#009F6B', Absent:'#EE334E', Late:'#f59e0b', Excused:'#8b5cf6' }
-const STATUS_ICONS  = { Present:'ti-circle-check', Absent:'ti-circle-x', Late:'ti-clock', Excused:'ti-note' }
+const STATUS_OPTS   = ['Present','Absent','Excused','Transport Problem','Medical Issue']
+const STATUS_AR     = { Present:'حاضر', Absent:'غائب', Excused:'معذور', 'Transport Problem':'مشكلة نقل', 'Medical Issue':'مشكلة صحية' }
+const STATUS_COLORS = { Present:'#009F6B', Absent:'#EE334E', Excused:'#8b5cf6', 'Transport Problem':'#e67e22', 'Medical Issue':'#d35400' }
+const STATUS_ICONS  = { Present:'ti-circle-check', Absent:'ti-circle-x', Excused:'ti-note', 'Transport Problem':'ti-bus', 'Medical Issue':'ti-medical-cross' }
 
 export default function Attendance({ profile, coachId, myAthletes, initSessionId, onNav, viewOnly }) {
   const { lang } = useLang()
@@ -88,8 +88,9 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
         total:   recs.length,
         present: recs.filter(r=>r.status==='Present').length,
         absent:  recs.filter(r=>r.status==='Absent').length,
-        late:    recs.filter(r=>r.status==='Late').length,
         excused: recs.filter(r=>r.status==='Excused').length,
+        transport: recs.filter(r=>r.status==='Transport Problem').length,
+        medical:   recs.filter(r=>r.status==='Medical Issue').length,
       }
     })
     setStats(statsMap)
@@ -246,7 +247,7 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
               {session.session_date} · {session.start_time?.slice(0,5)||'—'} · {session.location||'—'}
             </div>
             <div style={{ display:'flex', gap:16, marginTop:12, flexWrap:'wrap' }}>
-              {[['Present','حاضر',present,'#009F6B'],['Absent','غائب',absent,'#EE334E'],['Late','متأخر',sessionAthletes.filter(a=>attendance[a.id]==='Late').length,'#f59e0b'],['Excused','معذور',sessionAthletes.filter(a=>attendance[a.id]==='Excused').length,'#8b5cf6']].map(([en,a,val,col])=>(
+              {[['Present','حاضر',present,'#009F6B'],['Absent','غائب',absent,'#EE334E'],['Excused','معذور',sessionAthletes.filter(a=>attendance[a.id]==='Excused').length,'#8b5cf6'],['Transport Problem','مشكلة نقل',sessionAthletes.filter(a=>attendance[a.id]==='Transport Problem').length,'#e67e22'],['Medical Issue','مشكلة صحية',sessionAthletes.filter(a=>attendance[a.id]==='Medical Issue').length,'#d35400']].map(([en,a,val,col])=>(
                 <div key={en} style={{ textAlign:'center' }}>
                   <div style={{ fontSize:20, fontWeight:700, color:col }}>{val}</div>
                   <div style={{ fontSize:10, color:'var(--text3)' }}>{ar?a:en}</div>
@@ -390,14 +391,15 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
                 <th style={{ padding:'10px 12px', textAlign: ar?'right':'left', fontWeight:600, fontSize:12, color:'var(--text3)' }}>{L('Athlete','الرياضي')}</th>
                 <th style={{ padding:'10px 12px', textAlign:'center', color:'#009F6B', fontSize:12 }}>{L('Present','حاضر')}</th>
                 <th style={{ padding:'10px 12px', textAlign:'center', color:'#EE334E', fontSize:12 }}>{L('Absent','غائب')}</th>
-                <th style={{ padding:'10px 12px', textAlign:'center', color:'#f59e0b', fontSize:12 }}>{L('Late','متأخر')}</th>
                 <th style={{ padding:'10px 12px', textAlign:'center', color:'#8b5cf6', fontSize:12 }}>{L('Excused','معذور')}</th>
+                <th style={{ padding:'10px 12px', textAlign:'center', color:'#e67e22', fontSize:12 }}>{L('Transport','نقل')}</th>
+                <th style={{ padding:'10px 12px', textAlign:'center', color:'#d35400', fontSize:12 }}>{L('Medical','صحي')}</th>
                 <th style={{ padding:'10px 12px', textAlign:'center', fontSize:12 }}>{L('Rate','المعدل')}</th>
               </tr>
             </thead>
             <tbody>
               {filteredAthletes.map(a => {
-                const s = stats[a.id] || { total:0, present:0, absent:0, late:0, excused:0 }
+                const s = stats[a.id] || { total:0, present:0, absent:0, excused:0, transport:0, medical:0 }
                 const rate = s.total ? Math.round((s.present / s.total) * 100) : 0
                 return (
                   <tr key={a.id} onClick={() => setAthleteDetail(a)}
@@ -412,8 +414,9 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
                     </td>
                     <td style={{ textAlign:'center', fontWeight:600, color:'#009F6B' }}>{s.present}</td>
                     <td style={{ textAlign:'center', fontWeight:600, color:'#EE334E' }}>{s.absent}</td>
-                    <td style={{ textAlign:'center', fontWeight:600, color:'#f59e0b' }}>{s.late}</td>
                     <td style={{ textAlign:'center', fontWeight:600, color:'#8b5cf6' }}>{s.excused}</td>
+                    <td style={{ textAlign:'center', fontWeight:600, color:'#e67e22' }}>{s.transport}</td>
+                    <td style={{ textAlign:'center', fontWeight:600, color:'#d35400' }}>{s.medical}</td>
                     <td style={{ textAlign:'center' }}>
                       <div style={{ display:'flex', alignItems:'center', gap:6, justifyContent:'center' }}>
                         <div style={{ width:50, height:6, background:'var(--surface2)', borderRadius:3, overflow:'hidden' }}>
@@ -468,8 +471,9 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
         const counts = {
           present: relevant.filter(r => r.status === 'Present').length,
           absent:  relevant.filter(r => r.status === 'Absent').length,
-          late:    relevant.filter(r => r.status === 'Late').length,
           excused: relevant.filter(r => r.status === 'Excused').length,
+          transport: relevant.filter(r => r.status === 'Transport Problem').length,
+          medical:   relevant.filter(r => r.status === 'Medical Issue').length,
         }
         const total = relevant.length
         const rate  = total ? Math.round((counts.present / total) * 100) : 0
@@ -502,7 +506,7 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
               </div>
 
               <div style={{ display:'flex', gap:16, marginBottom:16, justifyContent:'space-around' }}>
-                {[['Present','حاضر',counts.present,'#009F6B'],['Absent','غائب',counts.absent,'#EE334E'],['Late','متأخر',counts.late,'#f59e0b'],['Excused','معذور',counts.excused,'#8b5cf6']].map(([en,arLbl,val,col])=>(
+                {[['Present','حاضر',counts.present,'#009F6B'],['Absent','غائب',counts.absent,'#EE334E'],['Excused','معذور',counts.excused,'#8b5cf6'],['Transport Problem','مشكلة نقل',counts.transport,'#e67e22'],['Medical Issue','مشكلة صحية',counts.medical,'#d35400']].map(([en,arLbl,val,col])=>(
                   <div key={en} style={{ textAlign:'center' }}>
                     <div style={{ fontSize:20, fontWeight:700, color:col }}>{val}</div>
                     <div style={{ fontSize:10, color:'var(--text3)' }}>{ar?arLbl:en}</div>

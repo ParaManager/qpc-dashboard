@@ -30,7 +30,7 @@ export function formatDateWithDay(dateStr, ar) {
   return `${dayName}, ${dateStr}`
 }
 
-const STATUS_AR_EXPORT = { Present:'حاضر', Absent:'غائب', Late:'متأخر', Excused:'معذور' }
+const STATUS_AR_EXPORT = { Present:'حاضر', Absent:'غائب', Excused:'معذور', 'Transport Problem':'مشكلة نقل', 'Medical Issue':'مشكلة صحية' }
 
 /**
  * Builds a clean, readable attendance .xlsx export — proper column widths, sorted
@@ -52,7 +52,7 @@ export function exportAttendanceXlsx({ rows, ar, filenamePrefix }) {
     ? ['التاريخ', 'اليوم', 'الجلسة', 'الرياضي', 'الحالة', 'ملاحظات']
     : ['Date', 'Day', 'Session', 'Athlete', 'Status', 'Notes']
 
-  const counts = { Present:0, Absent:0, Late:0, Excused:0 }
+  const counts = { Present:0, Absent:0, Excused:0, 'Transport Problem':0, 'Medical Issue':0 }
   sorted.forEach(r => { if (counts[r.status] !== undefined) counts[r.status]++ })
   const total = sorted.length
   const rate = total ? Math.round((counts.Present / total) * 100) : 0
@@ -72,8 +72,9 @@ export function exportAttendanceXlsx({ rows, ar, filenamePrefix }) {
     [summaryLabel],
     [ar ? 'حاضر' : 'Present', counts.Present],
     [ar ? 'غائب' : 'Absent', counts.Absent],
-    [ar ? 'متأخر' : 'Late', counts.Late],
     [ar ? 'معذور' : 'Excused', counts.Excused],
+    [ar ? 'مشكلة نقل' : 'Transport Problem', counts['Transport Problem']],
+    [ar ? 'مشكلة صحية' : 'Medical Issue', counts['Medical Issue']],
     [ar ? 'الإجمالي' : 'Total records', total],
     [ar ? 'معدل الحضور' : 'Attendance rate', `${rate}%`],
   ]

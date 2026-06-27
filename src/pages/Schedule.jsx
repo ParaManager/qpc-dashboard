@@ -7,7 +7,7 @@ import { CreateTimetableForm, EditTimetableForm, EditScopeModal, DayTimeForm, ge
 
 const SESSION_TYPES = ['Training','Competition','Medical','Meeting']
 const SESSION_COLORS = { Training:'#0085C7', Competition:'#EE334E', Medical:'#009F6B', Meeting:'#8b5cf6' }
-const STATUS_OPTS = ['Present','Absent','Late','Excused']
+const STATUS_OPTS = ['Present','Absent','Excused','Transport Problem','Medical Issue']
 const STATUS_COLORS = { Present:'#009F6B', Absent:'#EE334E', Late:'#f59e0b', Excused:'#8b5cf6' }
 const STATUS_AR = { Present:'حاضر', Absent:'غائب', Late:'متأخر', Excused:'معذور' }
 
@@ -357,15 +357,16 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
           {sessionAttendance.length > 0 && (() => {
             const present = sessionAttendance.filter(r => r.status === 'Present').length
             const absent  = sessionAttendance.filter(r => r.status === 'Absent').length
-            const late    = sessionAttendance.filter(r => r.status === 'Late').length
             const excused = sessionAttendance.filter(r => r.status === 'Excused').length
+            const transport = sessionAttendance.filter(r => r.status === 'Transport Problem').length
+            const medical   = sessionAttendance.filter(r => r.status === 'Medical Issue').length
             const total   = sessionAttendance.length
             const rate    = total ? Math.round((present / total) * 100) : 0
             return (
               <div className="info-card">
                 <div className="info-title">{L('Attendance summary','ملخص الحضور')}</div>
-                <div style={{ display:'flex', gap:16, marginBottom:12 }}>
-                  {[['Present','حاضر',present,'#009F6B'],['Absent','غائب',absent,'#EE334E'],['Late','متأخر',late,'#f59e0b'],['Excused','معذور',excused,'#8b5cf6']].map(([en,arLbl,val,col])=>(
+                <div style={{ display:'flex', gap:16, marginBottom:12, flexWrap:'wrap' }}>
+                  {[['Present','حاضر',present,'#009F6B'],['Absent','غائب',absent,'#EE334E'],['Excused','معذور',excused,'#8b5cf6'],['Transport Problem','مشكلة نقل',transport,'#e67e22'],['Medical Issue','مشكلة صحية',medical,'#d35400']].map(([en,arLbl,val,col])=>(
                     <div key={en} style={{ textAlign:'center' }}>
                       <div style={{ fontSize:20, fontWeight:700, color:col }}>{val}</div>
                       <div style={{ fontSize:10, color:'var(--text3)' }}>{ar?arLbl:en}</div>
