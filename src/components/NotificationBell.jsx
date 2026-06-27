@@ -33,7 +33,7 @@ export default function NotificationBell({ isAdmin, userId }) {
 
     if (userId) {
       const subN = supabase.channel(`notifs-${userId}`)
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` }, () => loadNotifications())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` }, () => loadNotifications())
         .subscribe()
       channels.push(subN)
     }
@@ -76,7 +76,7 @@ export default function NotificationBell({ isAdmin, userId }) {
     }
   }
 
-  const totalCount = notifications.length
+  const totalCount = notifications.filter(n => !n.read).length
 
   return (
     <div ref={ref} style={{ position:'relative' }}>
