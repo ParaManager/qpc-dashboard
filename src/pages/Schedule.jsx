@@ -460,6 +460,10 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
                           const { data: athProfile } = await supabase.from('profiles').select('id,athlete_id').then(r => r)
                           const ap = (athProfile||[]).find(p => String(p.athlete_id) === String(req.athlete_id))
                           if (ap) await supabase.from('notifications').insert({ user_id: String(ap.id), type:'request_approved', title: ar?'تم قبول طلبك':'Request approved', body: ar?'تم قبول طلب العذر/إعادة الجدولة':'Your request was approved', data: { session_id: req.session_id }, read: false })
+                          // The original "new excuse/reschedule request" notification has now
+                          // been acted on — remove it from the coach's list rather than leaving
+                          // a stale action item sitting there forever.
+                          await supabase.from('notifications').delete().filter('data->>request_id', 'eq', req.id)
                           loadRequests()
                           toast(L('Request approved','تم قبول الطلب'))
                         }} style={{ padding:'5px 14px', background:'#009F6B', color:'#fff', border:'none', borderRadius:7, fontSize:12, cursor:'pointer' }}>
@@ -470,6 +474,9 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
                           const { data: athProfile } = await supabase.from('profiles').select('id,athlete_id').then(r => r)
                           const ap = (athProfile||[]).find(p => String(p.athlete_id) === String(req.athlete_id))
                           if (ap) await supabase.from('notifications').insert({ user_id: String(ap.id), type:'request_rejected', title: ar?'تم رفض طلبك':'Request rejected', body: ar?'تم رفض طلب العذر/إعادة الجدولة':'Your request was rejected', data: { session_id: req.session_id }, read: false })
+                          // Same cleanup as approve — this request has been decided, the
+                          // original pending-action notification no longer needs to exist.
+                          await supabase.from('notifications').delete().filter('data->>request_id', 'eq', req.id)
                           loadRequests()
                           toast(L('Request rejected','تم رفض الطلب'))
                         }} style={{ padding:'5px 14px', background:'#EE334E', color:'#fff', border:'none', borderRadius:7, fontSize:12, cursor:'pointer' }}>

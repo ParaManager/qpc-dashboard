@@ -113,6 +113,13 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
     }
     toast(L('Attendance saved','تم حفظ الحضور'))
     setSaving(false)
+    // The reminder that prompted this has now been acted on — clear it rather
+    // than leaving a stale "needs attendance" item for a session that's done.
+    if (profile?.id) {
+      await supabase.from('notifications').delete()
+        .eq('user_id', profile.id).eq('type', 'needs_attendance')
+        .filter('data->>session_id', 'eq', selSession)
+    }
     loadStats()
   }
 
