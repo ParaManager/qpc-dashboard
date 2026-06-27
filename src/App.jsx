@@ -86,6 +86,7 @@ export default function App() {
       supabase.from('notifications')
         .select('id', { count: 'exact', head: true })
         .eq('user_id', String(profile.id))
+        .eq('read', false)
         .then(({ count }) => setNotifCount(count || 0))
     }
     refreshCount()
