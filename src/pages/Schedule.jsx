@@ -143,6 +143,13 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
 
   async function deleteSession(id) {
     await supabase.from('training_sessions').delete().eq('id', id)
+    // attendance/training_session_athletes/training_session_requests all cascade-
+    // delete automatically via real foreign keys, but notifications store
+    // session_id inside a JSON `data` column rather than a typed FK column, so
+    // Postgres can't cascade those on its own — clean them up explicitly here,
+    // for every notification type that might reference a session (needs_attendance,
+    // session_added, excuse_request, etc.), not just one specific type.
+    await supabase.from('notifications').delete().filter('data->>session_id', 'eq', id)
     toast(ar?'تم الحذف':'Deleted')
     setSelected(null); loadSessions()
   }
