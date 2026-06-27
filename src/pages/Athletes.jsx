@@ -118,11 +118,7 @@ function exportExcel(athletes, coaches, documents, visibleCols, allCols, lang) {
     passport_number: a => a.passport_number || '',
     passport_expiry: a => a.passport_expiry || '',
     id_expiry:       a => a.id_expiry || '',
-    blood_type:      a => a.blood_type || '',
-    emergency_contact_name:  a => a.emergency_contact_name || '',
-    emergency_contact_phone: a => a.emergency_contact_phone || '',
     medals:          a => ar ? `ذهب:${a.medals_gold||0} فضة:${a.medals_silver||0} برونز:${a.medals_bronze||0}` : `Gold:${a.medals_gold||0} Silver:${a.medals_silver||0} Bronze:${a.medals_bronze||0}`,
-    docs:            a => documents.filter(d => d.athlete_id === a.id).length,
   }
 
   const visibleDefs = allCols.filter(c => visibleCols.includes(c.key))
@@ -415,12 +411,6 @@ export default function Athletes({ athletes, coaches, employees, results, docume
       passport_expiry: formData.passportExpiry || null,
       id_number: formData.idNumber || null,
       id_expiry: formData.idExpiry || null,
-      emergency_contact_name: formData.emergencyName || null,
-      emergency_contact_relation: formData.emergencyRelation || null,
-      emergency_contact_phone: formData.emergencyPhone || null,
-      blood_type: formData.bloodType || null,
-      allergies: formData.allergies || null,
-      medical_conditions: formData.medicalConditions || null,
     }
     if (!payload.name) { toast('Name is required', 'error'); return }
     const { error } = isEdit
@@ -714,11 +704,6 @@ ${myDocs.length > 0 ? `<div class="section">
               residencyStatus:a.residency_status, qssNumber:a.qss_number,
               passportNumber:a.passport_number, passportExpiry:a.passport_expiry,
               idNumber:a.id_number, idExpiry:a.id_expiry,
-              emergencyName:a.emergency_contact_name,
-              emergencyRelation:a.emergency_contact_relation,
-              emergencyPhone:a.emergency_contact_phone,
-              bloodType:a.blood_type, allergies:a.allergies,
-              medicalConditions:a.medical_conditions,
             } : null}
             coaches={coaches} onSave={handleSave} onClose={() => setForm(null)} />
         )}
@@ -899,33 +884,6 @@ ${myDocs.length > 0 ? `<div class="section">
                     ))}
                   </>
                 )}
-              </div>
-            )}
-
-            {/* EMERGENCY CONTACT */}
-            {(a.emergency_contact_name || a.emergency_contact_phone) && (
-              <div className="info-card">
-                <div className="info-title">{tx('profile.emergencyContact','Emergency contact')}</div>
-                {[
-                  [lang==='ar'?'الاسم':'Name', a.emergency_contact_name],
-                  [lang==='ar'?'صلة القرابة':'Relationship', a.emergency_contact_relation],
-                  [tx('form.contactPhone','Phone'), a.emergency_contact_phone],
-                ].map(([k,v]) => v ? (
-                  <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv">{v}</span></div>
-                ) : null)}
-              </div>
-            )}
-
-            {/* MEDICAL INFO */}
-            {(a.blood_type || a.allergies || a.medical_conditions) && (
-              <div className="info-card">
-                <div className="info-title" style={{ display:'flex', alignItems:'center', gap:6 }}>
-                  <i className="ti ti-heart-rate-monitor" style={{ fontSize:13, color:'#EE334E' }} />
-                  </div>
-                {[
-                ].map(([k,v]) => v ? (
-                  <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv">{v}</span></div>
-                ) : null)}
               </div>
             )}
 
@@ -1168,11 +1126,7 @@ ${myDocs.length > 0 ? `<div class="section">
     { key:'passport_number', label:tx('athletes.passportNo','Passport No'),   default:false, editable:false },
     { key:'passport_expiry', label:tx('athletes.passportExpiry','Passport Expiry'), default:false, editable:false },
     { key:'id_expiry',       label:tx('athletes.idExpiry','ID Expiry'),       default:false, editable:false },
-    { key:'blood_type',      label:tx('athletes.bloodType','Blood Type'),     default:false, editable:false },
-    { key:'emergency_contact_name',  label:tx('athletes.emergencyContact','Emergency Contact'), default:false, editable:false },
-    { key:'emergency_contact_phone', label:tx('athletes.emergencyPhone','Emergency Phone'),     default:false, editable:false },
     { key:'medals',          label:tx('athletes.medals','Medals'),            default:true,  editable:false },
-    { key:'docs',            label:tx('athletes.documents','Documents'),      default:false,  editable:false, hidden:true },
   ]
 
   function toggleCol(key) {
@@ -1187,7 +1141,6 @@ ${myDocs.length > 0 ? `<div class="section">
 
   // Render a cell value in view mode
   function renderCell(a, key) {
-    const docCount = (documents || []).filter(d => d.athlete_id === a.id).length
     const expired = v => v && new Date(v) < new Date()
     switch(key) {
       case 'name': return (
@@ -1233,11 +1186,7 @@ ${myDocs.length > 0 ? `<div class="section">
       case 'passport_expiry':  return <span style={{ color: expired(a.passport_expiry) ? '#dc2626' : 'var(--text2)' }}>{a.passport_expiry || '—'}{expired(a.passport_expiry) && <span style={{ marginLeft:4, fontSize:10, color:'#dc2626' }}>⚠</span>}</span>
       case 'id_number':        return <span style={{ color:'var(--text2)', fontFamily:'monospace', fontSize:12 }}>{a.id_number || '—'}</span>
       case 'id_expiry':        return <span style={{ color: expired(a.id_expiry) ? '#dc2626' : 'var(--text2)' }}>{a.id_expiry || '—'}{expired(a.id_expiry) && <span style={{ marginLeft:4, fontSize:10, color:'#dc2626' }}>⚠</span>}</span>
-      case 'blood_type':       return <span style={{ color:'var(--text2)' }}>{a.blood_type || '—'}</span>
-      case 'emergency_contact_name':  return <span style={{ color:'var(--text2)' }}>{a.emergency_contact_name || '—'}</span>
-      case 'emergency_contact_phone': return <span style={{ color:'var(--text2)' }}>{a.emergency_contact_phone || '—'}</span>
       case 'medals':           return <MedalDisplay gold={a.medals_gold} silver={a.medals_silver} bronze={a.medals_bronze} />
-      case 'docs':             return docCount > 0 ? <span style={{ display:'flex', alignItems:'center', gap:4, fontSize:12, color:'#0085C7', fontWeight:500 }}><i className="ti ti-files" style={{ fontSize:14 }} />{docCount}</span> : <span style={{ fontSize:12, color:'var(--text3)' }}>—</span>
       default: return '—'
     }
   }
@@ -1271,14 +1220,10 @@ ${myDocs.length > 0 ? `<div class="section">
       case 'passport_expiry': return <input style={inlineInput} type="date" value={getVal(a,'passport_expiry')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'passport_expiry',e.target.value)} />
       case 'id_number':    return <input style={inlineInput} value={getVal(a,'id_number')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'id_number',e.target.value)} />
       case 'id_expiry':    return <input style={inlineInput} type="date" value={getVal(a,'id_expiry')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'id_expiry',e.target.value)} />
-      case 'blood_type':   return <select style={inlineSelect} value={getVal(a,'blood_type')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'blood_type',e.target.value)}>{['','A+','A-','B+','B-','AB+','AB-','O+','O-','Unknown'].map(s=><option key={s} value={s}>{s||'—'}</option>)}</select>
       case 'qss_number':   return <input style={inlineInput} value={getVal(a,'qss_number')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'qss_number',e.target.value)} />
       case 'career_profile': return <input style={inlineInput} value={getVal(a,'career_profile')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'career_profile',e.target.value)} />
-      case 'emergency_contact_name':  return <input style={inlineInput} value={getVal(a,'emergency_contact_name')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'emergency_contact_name',e.target.value)} />
-      case 'emergency_contact_phone': return <input style={inlineInput} value={getVal(a,'emergency_contact_phone')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'emergency_contact_phone',e.target.value)} />
       // read-only in edit mode
       case 'medals': return renderCell(a, key)
-      case 'docs':   return renderCell(a, key)
       default:       return renderCell(a, key)
     }
   }
@@ -1371,7 +1316,7 @@ ${myDocs.length > 0 ? `<div class="section">
           <thead>
             <tr>
               {ALL_COLS.filter(c => isVisible(c.key)).map(c => {
-                const isSortable = ['name','name_ar','sport_category','sport','classification','nationality','status','dob','join_date','age_category','disability','coach_id','gender','blood_type'].includes(c.key)
+                const isSortable = ['name','name_ar','sport_category','sport','classification','nationality','status','dob','join_date','age_category','disability','coach_id','gender'].includes(c.key)
                 const isAsc  = sort === `${c.key}-asc`
                 const isDesc = sort === `${c.key}-desc`
                 const active = isAsc || isDesc
