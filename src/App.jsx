@@ -134,9 +134,12 @@ export default function App() {
   // (1) stale DATA — fixed by re-fetching from Supabase, same as any reload would do.
   // (2) stale CODE — when this app is added to the home screen, iOS/Android run it
   // in a standalone webview that does NOT re-check for a new JS bundle the way a
-  // normal browser tab does; only a true hard navigation forces that. A plain
-  // window.location.reload() is not reliable for this in standalone mode, so we
-  // navigate to a cache-busted URL instead, which forces a genuine fresh request.
+  // normal browser tab does — AND this app has its own service worker doing
+  // network-first-with-cache-fallback caching (see public/sw.js), which can keep
+  // serving an old cached bundle even after a normal reload. A real fix needs to
+  // clear that cache and unregister the worker before reloading, not just change
+  // the URL — a cache-busted query string alone doesn't make the service worker
+  // treat the request any differently.
   function isStandalone() {
     return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true
   }
@@ -146,8 +149,23 @@ export default function App() {
     setIsRefreshing(true)
 
     if (isStandalone()) {
-      // Force a real reload from the server, bypassing whatever cached version
-      // the standalone webview was still holding onto.
+      try {
+        if ('serviceWorker' in navigator) {
+          const registrations = await navigator.serviceWorker.getRegistrations()
+          await Promise.all(registrations.map(r => r.unregister()))
+        }
+        if ('caches' in window) {
+          const keys = await caches.keys()
+          await Promise.all(keys.map(k => caches.delete(k)))
+        }
+      } catch (e) {
+        // Even if clearing fails for some reason, still attempt the reload below
+        // rather than leaving the person stuck with no way forward.
+        console.error('Failed to clear service worker/cache:', e)
+      }
+      // Force a real reload from the server — by this point there's no service
+      // worker left to intercept the request, and no cache left for it to serve
+      // from even if there were.
       const url = new URL(window.location.href)
       url.searchParams.set('_refresh', Date.now().toString())
       window.location.href = url.toString()
