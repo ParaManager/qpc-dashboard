@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
 import { qpcLogo as QPC_LOGO } from '../lib/logos'
 
-export default function Login({ onRequestSent }) {
+export default function Login({ onRequestSent, onSigningUpChange }) {
   const { lang, setLang } = useLang()
   const ar = lang === 'ar'
   const L = (en, a) => ar ? a : en
@@ -79,7 +79,10 @@ export default function Login({ onRequestSent }) {
       }
     }
 
-    // Sign up
+    // Sign up. From this point on, the auth session exists before the profile
+    // row does — flag that to the parent so it shows a loading state instead
+    // of momentarily treating this brand new account as broken.
+    onSigningUpChange?.(true)
     const { data, error } = await supabase.auth.signUp({
       email: qidToEmail(form.qid),
       password: form.password,
@@ -93,9 +96,10 @@ export default function Login({ onRequestSent }) {
       } else {
         setError(error.message)
       }
+      onSigningUpChange?.(false)
       setLoading(false); return
     }
-    if (!data?.user) { setError(L('Signup failed. Please try again.','فشل التسجيل. حاول مجدداً.')); setLoading(false); return }
+    if (!data?.user) { onSigningUpChange?.(false); setError(L('Signup failed. Please try again.','فشل التسجيل. حاول مجدداً.')); setLoading(false); return }
 
     // Only create profile if one doesn't already exist
     const { data: existing } = await supabase.from('profiles').select('id,status').eq('id', data.user.id).maybeSingle()
@@ -131,6 +135,7 @@ export default function Login({ onRequestSent }) {
     setLoading(false)
     if (onRequestSent) onRequestSent()
     await supabase.auth.signOut()
+    onSigningUpChange?.(false)
   }
 
   // ── SENT / PENDING / REJECTED SCREENS ──
