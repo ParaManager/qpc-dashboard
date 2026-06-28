@@ -6,6 +6,9 @@ import {
   getNotificationPermission,
   sendNotification,
   saveNotificationPreference,
+  hasActivePushSubscription,
+  disablePushNotifications,
+  isPushSupported,
 } from '../lib/notifications'
 
 export default function NotificationBell({ isAdmin, userId }) {
@@ -16,6 +19,7 @@ export default function NotificationBell({ isAdmin, userId }) {
   const [open, setOpen]               = useState(false)
   const [notifications, setNotifs]    = useState([])
   const [permission, setPermission]   = useState(getNotificationPermission())
+  const [hasSubscription, setHasSubscription] = useState(false)
   const ref                           = useRef(null)
 
   // Close on outside click
@@ -40,6 +44,14 @@ export default function NotificationBell({ isAdmin, userId }) {
 
     return () => channels.forEach(c => supabase.removeChannel(c))
   }, [userId])
+
+  // OS-level permission alone doesn't mean push is actually wired up on this
+  // device — someone could have granted permission under the old, non-functional
+  // version of this feature with no real subscription behind it. Check the
+  // genuine subscription state so the button reflects reality.
+  useEffect(() => {
+    hasActivePushSubscription().then(setHasSubscription)
+  }, [])
 
   async function loadNotifications() {
     if (!userId) return
@@ -68,11 +80,12 @@ export default function NotificationBell({ isAdmin, userId }) {
   }
 
   async function enableNotifications() {
-    const granted = await requestNotificationPermission()
+    const granted = await requestNotificationPermission(userId)
     setPermission(granted ? 'granted' : 'denied')
     if (granted) {
+      setHasSubscription(true)
       saveNotificationPreference(true)
-      sendNotification(L('Notifications Enabled', 'تم تفعيل الإشعارات'), L('You will be notified of new updates.', 'ستتلقى إشعارات عند وصول تحديثات جديدة.'))
+      sendNotification(L('Notifications Enabled', 'تم تفعيل الإشعارات'), L('You will be notified of new updates, even when the app is closed.', 'ستتلقى إشعارات عند وصول تحديثات جديدة، حتى عند إغلاق التطبيق.'))
     }
   }
 
@@ -105,9 +118,18 @@ export default function NotificationBell({ isAdmin, userId }) {
                   {L('Clear all', 'مسح الكل')}
                 </button>
               )}
-              {permission !== 'granted' && (
-                <button onClick={enableNotifications} style={{ fontSize:11, background:'#0085C720', color:'#0085C7', border:'none', borderRadius:6, padding:'4px 8px', cursor:'pointer' }}>
-                  <i className="ti ti-bell-ringing" /> {L('Enable', 'تفعيل')}
+              {!hasSubscription ? (
+                isPushSupported() ? (
+                  <button onClick={enableNotifications} style={{ fontSize:11, background:'#0085C720', color:'#0085C7', border:'none', borderRadius:6, padding:'4px 8px', cursor:'pointer' }}>
+                    <i className="ti ti-bell-ringing" /> {L('Enable', 'تفعيل')}
+                  </button>
+                ) : null
+              ) : (
+                <button
+                  onClick={async () => { await disablePushNotifications(); setHasSubscription(false); saveNotificationPreference(false) }}
+                  title={L('Click to turn off notifications on this device', 'انقر لإيقاف الإشعارات على هذا الجهاز')}
+                  style={{ fontSize:11, background:'#009F6B15', color:'#009F6B', border:'none', borderRadius:6, padding:'4px 8px', cursor:'pointer', display:'flex', alignItems:'center', gap:4 }}>
+                  <i className="ti ti-bell-check" /> {L('On', 'مفعّل')}
                 </button>
               )}
             </div>
