@@ -65,6 +65,12 @@ export default function App() {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [collapsedSections, setCollapsedSections] = useState({})  // { [sectionLabel]: true } when collapsed; sections default to expanded
   const [requestSent, setRequestSent] = useState(false)
+  // True for the brief window between a new sign-up creating its auth session
+  // and its profiles row actually finishing its insert. Without this, a logged-in
+  // user with no profile yet (purely a timing gap, not a real broken account)
+  // would briefly render NoProfileScreen — which is meant for genuinely missing
+  // profiles, not this normal in-progress moment.
+  const [signingUp, setSigningUp] = useState(false)
   const [page, setPage]               = useState('dashboard')
   const [refreshToken, setRefreshToken] = useState(0)  // bumped on every nav click to force a fresh reload, even when clicking the already-active page
   const [athletes, setAthletes]           = useState([])
@@ -230,7 +236,7 @@ export default function App() {
     </div>
   )
 
-  if (!user) return <Login onRequestSent={() => setRequestSent(true)} />
+  if (!user) return <Login onRequestSent={() => setRequestSent(true)} onSigningUpChange={setSigningUp} />
 
   // Wait for the profile to actually finish loading before reading its role/status —
   // otherwise a rejected or pending account could briefly (or permanently, if the
@@ -277,6 +283,16 @@ export default function App() {
   // was rejected and then deleted, but the underlying auth login still exists) is
   // a distinct case from pending/rejected — they were never just "waiting", and
   // calling it either would be misleading. Give it its own explicit message.
+  if (!isAdmin && !profile && signingUp) return (
+    <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'var(--bg)' }}>
+      <div style={{ textAlign:'center' }}>
+        <div style={{ display:'flex', gap:5, marginBottom:16, justifyContent:'center' }}>
+          {['#EE334E','#0085C7','#009F6B'].map(c => <div key={c} style={{ width:14, height:14, borderRadius:'50%', background:c }} />)}
+        </div>
+        <div style={{ fontSize:14, color:'var(--text2)' }}>Setting up your account…</div>
+      </div>
+    </div>
+  )
   if (!isAdmin && !profile) return <NoProfileScreen />
   if (!isAdmin && userStatus === 'pending')  return <PendingScreen />
   if (!isAdmin && userStatus === 'rejected') return <RejectedScreen profile={profile} />
