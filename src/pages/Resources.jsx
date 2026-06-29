@@ -21,6 +21,7 @@ const TYPE_ICON = {
   zip:  { icon: 'ti-file-zip',       color: '#9aa3b2' },
 }
 const DEFAULT_TYPE = { icon: 'ti-file', color: '#9aa3b2' }
+const LINK_TYPE = { icon: 'ti-link', color: '#0085C7' }
 
 function fileMeta(name) {
   const ext = (name || '').split('.').pop().toLowerCase()
@@ -60,7 +61,7 @@ export default function Resources({ profile, onRefresh }) {
   const [confirmDel, setConfirmDel] = useState(null)
   const [uploading, setUploading]   = useState(false)
 
-  const [form, setForm] = useState({ title: '', titleAr: '', description: '', descriptionAr: '', visibleTo: ['admin','coach','athlete','employee'] })
+  const [form, setForm] = useState({ resourceType: 'file', title: '', titleAr: '', description: '', descriptionAr: '', linkUrl: '', isPrivate: false, visibleTo: ['admin','coach','athlete','employee'] })
   const fileInput = useRef(null)
   const [pendingFile, setPendingFile] = useState(null)
   const [dragOver, setDragOver] = useState(false)
@@ -83,7 +84,7 @@ export default function Resources({ profile, onRefresh }) {
   )
 
   function resetForm() {
-    setForm({ title: '', titleAr: '', description: '', descriptionAr: '', visibleTo: ['admin','coach','athlete','employee'] })
+    setForm({ resourceType: 'file', title: '', titleAr: '', description: '', descriptionAr: '', linkUrl: '', isPrivate: false, visibleTo: ['admin','coach','athlete','employee'] })
     setPendingFile(null)
     setDragOver(false)
     if (fileInput.current) fileInput.current.value = ''
@@ -104,8 +105,58 @@ export default function Resources({ profile, onRefresh }) {
     setPendingFile(file)
   }
 
+  function normalizeUrl(url) {
+    const trimmed = url.trim()
+    if (!trimmed) return ''
+    // People often paste a URL without the protocol — assume https rather
+    // than rejecting it, since that's almost always what's meant.
+    if (!/^https?:\/\//i.test(trimmed)) return `https://${trimmed}`
+    return trimmed
+  }
+
   async function handleSubmit() {
     if (!form.title.trim()) { toast(ar ? 'العنوان مطلوب' : 'Title is required', 'error'); return }
+
+    if (form.resourceType === 'link') {
+      const url = normalizeUrl(form.linkUrl)
+      if (!url) { toast(ar ? 'يرجى إدخال رابط' : 'Please enter a link', 'error'); return }
+      try {
+        new URL(url) // throws if genuinely malformed, regardless of the https:// fallback above
+      } catch {
+        toast(ar ? 'الرابط غير صالح' : 'That link doesn\u2019t look valid', 'error')
+        return
+      }
+
+      setUploading(true)
+      try {
+        const { error: dbErr } = await supabase.from('resources').insert({
+          title: form.title.trim(),
+          title_ar: form.titleAr.trim() || null,
+          description: form.description.trim() || null,
+          description_ar: form.descriptionAr.trim() || null,
+          resource_type: 'link',
+          file_url: url,
+          file_name: null,
+          file_size: null,
+          file_type: null,
+          is_private: form.isPrivate,
+          visible_to: form.isPrivate ? [] : form.visibleTo,
+          uploaded_by: profile?.id || null,
+        })
+        if (dbErr) throw dbErr
+
+        toast(ar ? 'تمت إضافة الرابط بنجاح' : 'Link added')
+        setShowUpload(false)
+        resetForm()
+        await load()
+      } catch (err) {
+        toast(err.message || (ar ? 'فشلت الإضافة' : 'Failed to add link'), 'error')
+      } finally {
+        setUploading(false)
+      }
+      return
+    }
+
     if (!pendingFile) { toast(ar ? 'يرجى اختيار ملف' : 'Please choose a file', 'error'); return }
     if (pendingFile.size > 25 * 1024 * 1024) { toast(ar ? 'يجب أن يكون الملف أقل من 25 ميجابايت' : 'File must be under 25MB', 'error'); return }
 
@@ -127,7 +178,8 @@ export default function Resources({ profile, onRefresh }) {
         file_name: pendingFile.name,
         file_size: pendingFile.size,
         file_type: ext,
-        visible_to: form.visibleTo,
+        is_private: form.isPrivate,
+        visible_to: form.isPrivate ? [] : form.visibleTo,
         uploaded_by: profile?.id || null,
       })
       if (dbErr) throw dbErr
@@ -147,12 +199,15 @@ export default function Resources({ profile, onRefresh }) {
     try {
       // Storage path is the part of the public URL after the bucket name — best
       // effort cleanup, the DB row is what actually controls visibility either way.
-      const marker = '/resources/'
-      const idx = resource.file_url?.indexOf(marker)
-      if (idx !== -1 && idx !== undefined) {
-        const path = resource.file_url.slice(idx + marker.length)
-        const { error: storageErr } = await supabase.storage.from('resources').remove([path])
-        if (storageErr) console.warn('Storage delete error:', storageErr.message)
+      // Links never had a storage file to begin with, so skip this entirely for them.
+      if (resource.resource_type !== 'link') {
+        const marker = '/resources/'
+        const idx = resource.file_url?.indexOf(marker)
+        if (idx !== -1 && idx !== undefined) {
+          const path = resource.file_url.slice(idx + marker.length)
+          const { error: storageErr } = await supabase.storage.from('resources').remove([path])
+          if (storageErr) console.warn('Storage delete error:', storageErr.message)
+        }
       }
       const { error } = await supabase.from('resources').delete().eq('id', resource.id)
       if (error) throw error
@@ -186,56 +241,91 @@ export default function Resources({ profile, onRefresh }) {
         <div className="modal-overlay" onClick={() => { setShowUpload(false); resetForm() }}>
           <div className="modal-box" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <div className="modal-title">{ar ? 'إضافة ملف' : 'Add Resource'}</div>
+              <div className="modal-title">{ar ? 'إضافة مورد' : 'Add Resource'}</div>
               <button className="modal-close" onClick={() => { setShowUpload(false); resetForm() }}><i className="ti ti-x" /></button>
             </div>
             <div className="modal-body">
 
-              {/* File comes first — it's the actual point of this form, everything
-                  else is metadata describing it. */}
+              {/* Type comes first — it decides whether the rest of the form
+                  asks for a file or a URL, so the person picks this before
+                  anything else is even relevant. */}
               <div className="form-group">
-                <label>{ar ? 'الملف' : 'File'} *</label>
-                {!pendingFile ? (
-                  <div
-                    onClick={() => fileInput.current?.click()}
-                    onDragOver={e => { e.preventDefault(); setDragOver(true) }}
-                    onDragLeave={() => setDragOver(false)}
-                    onDrop={e => { e.preventDefault(); setDragOver(false); pickFile(e.dataTransfer.files?.[0]) }}
-                    style={{
-                      border: `2px dashed ${dragOver ? '#0085C7' : 'var(--border2)'}`,
-                      borderRadius: 12, padding: '28px 16px', textAlign: 'center', cursor: 'pointer',
-                      background: dragOver ? '#0085C710' : 'var(--surface2)', transition: 'all .15s',
-                    }}>
-                    <i className="ti ti-cloud-upload" style={{ fontSize: 28, color: dragOver ? '#0085C7' : 'var(--text3)', display: 'block', marginBottom: 8 }} />
-                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>
-                      {ar ? 'اسحب الملف هنا أو اضغط للاختيار' : 'Drag a file here, or click to browse'}
-                    </div>
-                    <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>
-                      {ar ? 'PDF, Word, Excel, PowerPoint, صور — حتى 25 ميجابايت' : 'PDF, Word, Excel, PowerPoint, images — up to 25MB'}
-                    </div>
-                    <input ref={fileInput} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.zip"
-                      onChange={e => pickFile(e.target.files?.[0])} style={{ display: 'none' }} />
-                  </div>
-                ) : (() => {
-                  const meta = fileMeta(pendingFile.name)
-                  return (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 12, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface2)' }}>
-                      <div style={{ width: 40, height: 40, borderRadius: 9, background: meta.color + '15', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <i className={`ti ${meta.icon}`} style={{ fontSize: 19, color: meta.color }} />
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pendingFile.name}</div>
-                        <div style={{ fontSize: 11, color: 'var(--text3)' }}>{formatSize(pendingFile.size)}</div>
-                      </div>
-                      <button onClick={() => { setPendingFile(null); if (fileInput.current) fileInput.current.value = '' }}
-                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, borderRadius: 7, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text2)', cursor: 'pointer', flexShrink: 0 }}
-                        title={ar ? 'إزالة' : 'Remove'}>
-                        <i className="ti ti-x" style={{ fontSize: 13 }} />
+                <label>{ar ? 'النوع' : 'Type'}</label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {[['file', ar ? 'ملف' : 'File', 'ti-file'], ['link', ar ? 'رابط' : 'Link', 'ti-link']].map(([val, lbl, icon]) => {
+                    const active = form.resourceType === val
+                    return (
+                      <button key={val} type="button"
+                        onClick={() => setForm(f => ({ ...f, resourceType: val }))}
+                        style={{
+                          flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                          padding: '9px', borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                          border: `1px solid ${active ? '#0085C7' : 'var(--border)'}`,
+                          background: active ? '#0085C715' : 'var(--surface)',
+                          color: active ? '#0085C7' : 'var(--text2)',
+                        }}>
+                        <i className={`ti ${icon}`} style={{ fontSize: 15 }} />
+                        {lbl}
                       </button>
-                    </div>
-                  )
-                })()}
+                    )
+                  })}
+                </div>
               </div>
+
+              {form.resourceType === 'link' ? (
+                <div className="form-group">
+                  <label>{ar ? 'الرابط' : 'Link'} *</label>
+                  <input className="form-input" value={form.linkUrl} onChange={e => setForm(f => ({ ...f, linkUrl: e.target.value }))}
+                    placeholder={ar ? 'مثال: https://example.com' : 'e.g. https://example.com'} dir="ltr" style={{ textAlign: ar ? 'right' : 'left' }} />
+                  <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>
+                    {ar ? 'يفتح في نافذة جديدة عند الضغط عليه.' : 'Opens in a new tab when clicked.'}
+                  </div>
+                </div>
+              ) : (
+                <div className="form-group">
+                  <label>{ar ? 'الملف' : 'File'} *</label>
+                  {!pendingFile ? (
+                    <div
+                      onClick={() => fileInput.current?.click()}
+                      onDragOver={e => { e.preventDefault(); setDragOver(true) }}
+                      onDragLeave={() => setDragOver(false)}
+                      onDrop={e => { e.preventDefault(); setDragOver(false); pickFile(e.dataTransfer.files?.[0]) }}
+                      style={{
+                        border: `2px dashed ${dragOver ? '#0085C7' : 'var(--border2)'}`,
+                        borderRadius: 12, padding: '28px 16px', textAlign: 'center', cursor: 'pointer',
+                        background: dragOver ? '#0085C710' : 'var(--surface2)', transition: 'all .15s',
+                      }}>
+                      <i className="ti ti-cloud-upload" style={{ fontSize: 28, color: dragOver ? '#0085C7' : 'var(--text3)', display: 'block', marginBottom: 8 }} />
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>
+                        {ar ? 'اسحب الملف هنا أو اضغط للاختيار' : 'Drag a file here, or click to browse'}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>
+                        {ar ? 'PDF, Word, Excel, PowerPoint, صور — حتى 25 ميجابايت' : 'PDF, Word, Excel, PowerPoint, images — up to 25MB'}
+                      </div>
+                      <input ref={fileInput} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.zip"
+                        onChange={e => pickFile(e.target.files?.[0])} style={{ display: 'none' }} />
+                    </div>
+                  ) : (() => {
+                    const meta = fileMeta(pendingFile.name)
+                    return (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 12, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface2)' }}>
+                        <div style={{ width: 40, height: 40, borderRadius: 9, background: meta.color + '15', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <i className={`ti ${meta.icon}`} style={{ fontSize: 19, color: meta.color }} />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pendingFile.name}</div>
+                          <div style={{ fontSize: 11, color: 'var(--text3)' }}>{formatSize(pendingFile.size)}</div>
+                        </div>
+                        <button onClick={() => { setPendingFile(null); if (fileInput.current) fileInput.current.value = '' }}
+                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, borderRadius: 7, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text2)', cursor: 'pointer', flexShrink: 0 }}
+                          title={ar ? 'إزالة' : 'Remove'}>
+                          <i className="ti ti-x" style={{ fontSize: 13 }} />
+                        </button>
+                      </div>
+                    )
+                  })()}
+                </div>
+              )}
 
               <div className="form-row">
                 <div className="form-group">
@@ -263,11 +353,12 @@ export default function Resources({ profile, onRefresh }) {
                 <label>{ar ? 'يمكن لمن رؤية هذا الملف' : 'Visible to'}</label>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
                   {Object.keys(ROLE_LABELS).map(role => {
-                    const active = form.visibleTo.includes(role)
+                    const active = !form.isPrivate && form.visibleTo.includes(role)
                     return (
                       <button
                         key={role}
                         type="button"
+                        disabled={form.isPrivate}
                         onClick={() => setForm(f => ({
                           ...f,
                           visibleTo: f.visibleTo.includes(role) ? f.visibleTo.filter(r => r !== role) : [...f.visibleTo, role]
@@ -277,14 +368,39 @@ export default function Resources({ profile, onRefresh }) {
                           border: `1px solid ${active ? '#0085C7' : 'var(--border)'}`,
                           background: active ? '#0085C715' : 'var(--surface)',
                           color: active ? '#0085C7' : 'var(--text2)',
-                          fontSize: 12.5, fontWeight: 600, cursor: 'pointer', transition: 'all .12s',
+                          fontSize: 12.5, fontWeight: 600, cursor: form.isPrivate ? 'default' : 'pointer', transition: 'all .12s',
+                          opacity: form.isPrivate ? 0.45 : 1,
                         }}>
                         {active && <i className="ti ti-check" style={{ fontSize: 13 }} />}
                         {ROLE_LABELS[role]}
                       </button>
                     )
                   })}
+                  {/* "Only Me" is a fundamentally different kind of visibility — not a
+                      role at all, just the person who created it. Picking it clears
+                      and disables the role pills above, since "only me" plus "also
+                      visible to coaches" would be a contradiction. Some admin tools/
+                      links genuinely aren't meant for other admins to see either, so
+                      this is enforced at the database level too, not just hidden here. */}
+                  <button
+                    type="button"
+                    onClick={() => setForm(f => ({ ...f, isPrivate: !f.isPrivate }))}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 20,
+                      border: `1px solid ${form.isPrivate ? '#EE334E' : 'var(--border)'}`,
+                      background: form.isPrivate ? '#EE334E15' : 'var(--surface)',
+                      color: form.isPrivate ? '#EE334E' : 'var(--text2)',
+                      fontSize: 12.5, fontWeight: 600, cursor: 'pointer', transition: 'all .12s',
+                    }}>
+                    {form.isPrivate ? <i className="ti ti-check" style={{ fontSize: 13 }} /> : <i className="ti ti-lock" style={{ fontSize: 13 }} />}
+                    {ar ? 'فقط أنا' : 'Only Me'}
+                  </button>
                 </div>
+                {form.isPrivate && (
+                  <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 6 }}>
+                    {ar ? 'لن يتمكن أي شخص آخر من رؤية هذا، بما في ذلك المسؤولون الآخرون.' : 'No one else will be able to see this, including other admins.'}
+                  </div>
+                )}
               </div>
             </div>
             <div className="modal-footer">
@@ -306,7 +422,7 @@ export default function Resources({ profile, onRefresh }) {
         </div>
         {isAdmin && (
           <button className="btn btn-blue" onClick={() => setShowUpload(true)}>
-            <i className="ti ti-upload" /> {ar ? 'إضافة ملف' : 'Add Resource'}
+            <i className="ti ti-upload" /> {ar ? 'إضافة مورد' : 'Add Resource'}
           </button>
         )}
       </div>
@@ -334,7 +450,7 @@ export default function Resources({ profile, onRefresh }) {
           </div>
           {resources.length === 0 && isAdmin && (
             <button className="btn btn-blue" onClick={() => setShowUpload(true)} style={{ marginTop:16 }}>
-              <i className="ti ti-upload" /> {ar ? 'إضافة ملف' : 'Add Resource'}
+              <i className="ti ti-upload" /> {ar ? 'إضافة مورد' : 'Add Resource'}
             </button>
           )}
         </div>
@@ -343,7 +459,8 @@ export default function Resources({ profile, onRefresh }) {
       {!loading && visible.length > 0 && (
         <div style={{ display:'grid', gap:12 }}>
           {visible.map(r => {
-            const meta = fileMeta(r.file_name)
+            const isLink = r.resource_type === 'link'
+            const meta = isLink ? LINK_TYPE : fileMeta(r.file_name)
             return (
               <div key={r.id} className="info-card" style={{ display:'flex', alignItems:'center', gap:14, padding:16, transition:'border-color .15s, box-shadow .15s' }}
                 onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border2)' }}
@@ -352,21 +469,32 @@ export default function Resources({ profile, onRefresh }) {
                   <i className={`ti ${meta.icon}`} style={{ fontSize:22, color:meta.color }} />
                 </div>
                 <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontSize:14, fontWeight:600 }}>{ar && r.title_ar ? r.title_ar : r.title}</div>
+                  <div style={{ fontSize:14, fontWeight:600, display:'flex', alignItems:'center', gap:6 }}>
+                    {ar && r.title_ar ? r.title_ar : r.title}
+                    {r.is_private && (
+                      <i className="ti ti-lock" style={{ fontSize:11, color:'var(--text3)' }} title={ar ? 'فقط أنا' : 'Only me'} />
+                    )}
+                  </div>
                   {(r.description || r.description_ar) && (
                     <div style={{ fontSize:12, color:'var(--text2)', marginTop:2 }}>{ar && r.description_ar ? r.description_ar : r.description}</div>
                   )}
                   <div style={{ fontSize:11, color:'var(--text3)', marginTop:4, display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
-                    <span>{r.file_name}</span>
-                    {r.file_size && <span>· {formatSize(r.file_size)}</span>}
+                    {isLink ? (
+                      <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:280 }}>{r.file_url}</span>
+                    ) : (
+                      <>
+                        <span>{r.file_name}</span>
+                        {r.file_size && <span>· {formatSize(r.file_size)}</span>}
+                      </>
+                    )}
                   </div>
                 </div>
                 <div style={{ display:'flex', gap:6, flexShrink:0 }}>
                   <button
-                    onClick={() => downloadResource(r.file_url, r.file_name)}
+                    onClick={() => isLink ? window.open(r.file_url, '_blank', 'noopener,noreferrer') : downloadResource(r.file_url, r.file_name)}
                     style={{ display:'flex', alignItems:'center', justifyContent:'center', width:28, height:28, borderRadius:7, background:'var(--surface)', border:'1px solid var(--border)', color:'var(--text2)', cursor:'pointer', fontSize:14 }}
-                    title={ar ? 'تحميل' : 'Download'}>
-                    <i className="ti ti-download" />
+                    title={isLink ? (ar ? 'فتح' : 'Open') : (ar ? 'تحميل' : 'Download')}>
+                    <i className={`ti ${isLink ? 'ti-external-link' : 'ti-download'}`} />
                   </button>
                   {isAdmin && (
                     <button onClick={() => setConfirmDel(r)}
