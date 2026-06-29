@@ -248,7 +248,7 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
     (sport  === 'All sports'   || c.sport  === sport)  &&
     (sportCategory === 'All categories' || c.sport_category === sportCategory) &&
     (status === 'All statuses' || c.status === status) &&
-    (!search || c.name.toLowerCase().includes(search.toLowerCase()) || (c.sport||'').toLowerCase().includes(search.toLowerCase()))
+    (!search || c.name.toLowerCase().includes(search.toLowerCase()) || (c.name_ar||'').toLowerCase().includes(search.toLowerCase()) || (c.sport||'').toLowerCase().includes(search.toLowerCase()))
   )
   list = [...list].sort((a, b) => {
     const aC = athletes.filter(x => x.coach_id === a.id).length

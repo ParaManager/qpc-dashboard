@@ -367,7 +367,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
     (status === 'All statuses' || a.status === status) &&
     (gender === 'All genders'  || a.gender === gender) &&
     a.name && // exclude blank names
-    (a.name.toLowerCase().includes(search.toLowerCase()) || (a.sport||'').toLowerCase().includes(search.toLowerCase())) &&
+    (a.name.toLowerCase().includes(search.toLowerCase()) || (a.name_ar||'').toLowerCase().includes(search.toLowerCase()) || (a.sport||'').toLowerCase().includes(search.toLowerCase())) &&
     // column-level filters
     (!colFilters.sport_category || colFilters.sport_category === 'All' || a.sport_category === colFilters.sport_category) &&
     (!colFilters.sport        || colFilters.sport === 'All'        || a.sport === colFilters.sport) &&

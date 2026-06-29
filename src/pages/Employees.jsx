@@ -353,7 +353,9 @@ export default function Employees({ employees, personDocs, onRefresh, onNav, nav
 
   let list = employees.filter(e =>
     (!search || e.name.toLowerCase().includes(search.toLowerCase()) ||
-               (e.designation||'').toLowerCase().includes(search.toLowerCase())) &&
+               (e.name_ar||'').toLowerCase().includes(search.toLowerCase()) ||
+               (e.designation||'').toLowerCase().includes(search.toLowerCase()) ||
+               (e.designation_ar||'').toLowerCase().includes(search.toLowerCase())) &&
     (!colFilters.designation || colFilters.designation === 'All' || e.designation === colFilters.designation) &&
     (!colFilters.nationality || colFilters.nationality === 'All' || e.nationality === colFilters.nationality) &&
     (!colFilters.gender      || colFilters.gender === 'All'      || e.gender === colFilters.gender) &&

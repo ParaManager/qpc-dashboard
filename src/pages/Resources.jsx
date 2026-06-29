@@ -76,12 +76,16 @@ export default function Resources({ profile, onRefresh }) {
 
   useEffect(() => { load() }, [])
 
-  const visible = resources.filter(r =>
-    !search ||
-    r.title.toLowerCase().includes(search.toLowerCase()) ||
-    (r.title_ar||'').includes(search) ||
-    (r.description||'').toLowerCase().includes(search.toLowerCase())
-  )
+  const visible = resources.filter(r => {
+    if (!search) return true
+    const q = search.toLowerCase()
+    return (
+      r.title.toLowerCase().includes(q) ||
+      (r.title_ar||'').toLowerCase().includes(q) ||
+      (r.description||'').toLowerCase().includes(q) ||
+      (r.description_ar||'').toLowerCase().includes(q)
+    )
+  })
 
   function resetForm() {
     setForm({ resourceType: 'file', title: '', titleAr: '', description: '', descriptionAr: '', linkUrl: '', isPrivate: false, visibleTo: ['admin','coach','athlete','employee'] })
