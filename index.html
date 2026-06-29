@@ -38,9 +38,31 @@
     <meta name="format-detection" content="telephone=no" />
 
     <title>QPC Dashboard</title>
+
+    <!-- Inline, zero-dependency styling for the very first paint — this has to
+         work before the real stylesheet (bundled by Vite) has even downloaded,
+         which is exactly the gap that caused a black-then-white flash before the
+         app's real background color ever took effect, especially on slower
+         mobile connections. -->
+    <style>
+      html, body { background: #f4f5f7; margin: 0; }
+      #initial-loader {
+        position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+        flex-direction: column; gap: 16px; background: #f4f5f7; z-index: 9999;
+      }
+      #initial-loader .dots { display: flex; gap: 6px; }
+      #initial-loader .dot { width: 14px; height: 14px; border-radius: 50%; animation: initial-pulse 1s ease-in-out infinite; }
+      #initial-loader .dot:nth-child(1) { background: #EE334E; animation-delay: 0s; }
+      #initial-loader .dot:nth-child(2) { background: #0085C7; animation-delay: .15s; }
+      #initial-loader .dot:nth-child(3) { background: #009F6B; animation-delay: .3s; }
+      @keyframes initial-pulse { 0%, 100% { opacity: .3; transform: scale(.85); } 50% { opacity: 1; transform: scale(1); } }
+      /* Hidden once React has mounted and taken over rendering (see main.jsx). */
+      #root:not(:empty) + #initial-loader { display: none; }
+    </style>
   </head>
   <body>
     <div id="root"></div>
+    <div id="initial-loader"><div class="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div>
     <script type="module" src="/src/main.jsx"></script>
 
     <!-- Register service worker -->
