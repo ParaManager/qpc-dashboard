@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from './lib/supabase'
 import { useAuth, canEdit } from './lib/useAuth'
 import { getCurrentSeason } from './lib/helpers'
@@ -71,7 +71,14 @@ export default function App() {
   // would briefly render NoProfileScreen — which is meant for genuinely missing
   // profiles, not this normal in-progress moment.
   const [signingUp, setSigningUp] = useState(false)
-  const [page, setPage]               = useState('dashboard')
+  const [page, setPage]               = useState(() => {
+    // On first load, use whatever page is already in the URL (e.g. coming back
+    // to a tab the browser discarded and silently reloaded, or a real page
+    // refresh) instead of always defaulting to the dashboard. Falls back to
+    // 'dashboard' for a bare '/' or an unrecognized path.
+    const path = window.location.pathname.replace(/^\/+/, '')
+    return path || 'dashboard'
+  })
   const [refreshToken, setRefreshToken] = useState(0)  // bumped on every nav click to force a fresh reload, even when clicking the already-active page
   const [athletes, setAthletes]           = useState([])
   const [coaches, setCoaches]             = useState([])
@@ -196,22 +203,51 @@ export default function App() {
     }
   }, [page, profile?.role])
 
-  // Reset to correct default page whenever the logged-in user changes
+  // Reset to the role's default page on an actual new login — but not on the
+  // very first mount, where profile?.id also "changes" (from undefined to a
+  // real id) purely because an existing session is being restored. Without
+  // this distinction, restoring the page from the URL on reload would always
+  // get immediately overwritten back to the dashboard the moment the profile
+  // finished loading, which defeats the point of reading the URL at all.
+  const previousUserId = useRef(undefined)
   useEffect(() => {
     if (!profile) return
+    const isFirstResolution = previousUserId.current === undefined
+    const isNewLogin = !isFirstResolution && previousUserId.current !== profile.id
+    previousUserId.current = profile.id
+    if (!isNewLogin) return
+
     const role = profile?.role || 'guest'
     if (role === 'athlete') {
-      setPage('athlete-dashboard')
+      goTo('athlete-dashboard')
     } else {
-      setPage('dashboard')
+      goTo('dashboard')
     }
-    setNavState({})
-  }, [profile?.id])  // fires only when the actual user changes (new login)
+  }, [profile?.id])
 
   function goTo(targetPage, state = {}) {
     setPage(targetPage)
     setNavState(state)
+    // Keep the URL in sync so a reload, a tab the browser discarded and
+    // silently reloaded, or the browser's own back/forward buttons all land
+    // back on the right page instead of always resetting to the dashboard.
+    const path = `/${targetPage}`
+    if (window.location.pathname !== path) {
+      window.history.pushState({ page: targetPage }, '', path)
+    }
   }
+
+  // Browser back/forward buttons — now that pages are reflected in the URL,
+  // these should move between them rather than doing nothing or leaving the
+  // address bar out of sync with what's actually shown.
+  useEffect(() => {
+    function handlePopState(e) {
+      const targetPage = e.state?.page || window.location.pathname.replace(/^\/+/, '') || 'dashboard'
+      setPage(targetPage)
+    }
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [])
 
   // Listen for navigation events from NotificationBell
   useEffect(() => {
