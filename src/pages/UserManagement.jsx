@@ -104,17 +104,18 @@ export default function UserManagement({ profile, initUserId }) {
   }
 
   async function deleteAccount(userId) {
-    // Delete from profiles table
-    await supabase.from('profiles').delete().eq('id', userId)
-    // Delete from Supabase Auth via serverless function
-    try {
-      await fetch('/api/delete-user', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId })
-      })
-    } catch (e) {
-      console.warn('Auth delete failed:', e)
+    // Delete the Auth user (and its profile row, as a backstop) via the
+    // delete-user edge function. Previously this called a Vercel API route
+    // that depended on an env var that was never actually set, so it silently
+    // failed every time — leaving the auth account behind even though the UI
+    // said "deleted." That meant the same QID could never register again,
+    // since Supabase Auth still considered it taken. Now the failure is
+    // visible instead of swallowed, so it's never a silent surprise again.
+    const { data, error } = await supabase.functions.invoke('delete-user', { body: { userId } })
+    if (error || data?.error) {
+      toast(L('Failed to fully delete account — please try again or contact support', 'فشل حذف الحساب بالكامل — يرجى المحاولة مرة أخرى أو التواصل مع الدعم'), 'error')
+      console.error('delete-user error:', error || data?.error)
+      return
     }
     toast(L('Account deleted', 'تم حذف الحساب'))
     setConfirmDelete(null)
