@@ -103,9 +103,8 @@ export default function App() {
   }, [profile?.id])
 
   const fetchAll = useCallback(async () => {
-    const [a, c, coa, e, r, reg, docs, emp, pdocs, refs] = await Promise.all([
+    const [a, c, e, r, reg, docs, emp, pdocs, refs] = await Promise.all([
       supabase.from('athletes').select('*').order('name'),
-      supabase.from('coaches').select('*').order('name'),
       supabase.from('coaches').select('*').order('name'),
       supabase.from('events').select('*').order('start_date'),
       supabase.from('results').select('*').order('date', { ascending: false }),
