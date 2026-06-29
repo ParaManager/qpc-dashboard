@@ -55,8 +55,11 @@ export function useAuth() {
     return () => { mounted = false; subscription.unsubscribe() }
   }, [])
 
+  // Supabase's default signOut() ends every session on every device at once.
+  // Scoping to 'local' means signing out on one device (e.g. a laptop) only
+  // ends that session — a phone logged in separately stays logged in.
   async function signOut() {
-    await supabase.auth.signOut()
+    await supabase.auth.signOut({ scope: 'local' })
   }
 
   return { user, profile, loading, signOut }
