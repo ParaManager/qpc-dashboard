@@ -1,6 +1,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import * as XLSX from 'xlsx'
+import { generateStatisticsReport } from '../lib/statisticsReport'
 import { Avatar, MedalDisplay, Badge, avColor, initials, DashRow, SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, SPORT_CATEGORY_NAMES_AR, SPORT_NAMES_AR, sportLabel } from '../lib/helpers'
 import FormModal from '../components/FormModal'
 import { ConfirmModal, toast } from '../components/Toast'
@@ -289,6 +290,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
   const [editMode, setEditMode]     = useState(false)
   const [edits, setEdits]           = useState({})
   const [savingAll, setSavingAll]   = useState(false)
+  const [generatingReport, setGeneratingReport] = useState(false)
   // Coaches only ever see their own athletes here (already filtered before this
   // page even receives them), so the Sport and Coach columns are pure repetition
   // of things they already know — default them out for coaches, but keep them
@@ -1249,6 +1251,24 @@ ${myDocs.length > 0 ? `<div class="section">
           {!editMode && (
             <button className="btn" style={{ background:'#009F6B' }} onClick={() => exportExcel(list, coaches, documents||[], visibleCols, ALL_COLS, lang)}>
               <i className="ti ti-table-export" /> {tx('actions.exportExcel','Export Excel')}
+            </button>
+          )}
+          {!editMode && canEdit(profile) && (
+            <button className="btn" style={{ background:'#0085C7', opacity: generatingReport ? 0.7 : 1 }}
+              disabled={generatingReport}
+              onClick={async () => {
+                setGeneratingReport(true)
+                try {
+                  await generateStatisticsReport({ athletes, employees: employees||[], coaches, lang })
+                } catch (err) {
+                  toast(err.message || (lang==='ar' ? 'فشل إنشاء التقرير' : 'Failed to generate report'), 'error')
+                } finally {
+                  setGeneratingReport(false)
+                }
+              }}>
+              {generatingReport
+                ? <><i className="ti ti-loader-2" style={{ animation:'spin 0.6s linear infinite' }} /> {lang==='ar' ? 'جارٍ الإنشاء...' : 'Generating…'}</>
+                : <><i className="ti ti-file-text" /> {lang==='ar' ? 'إحصاءات وزارة التنمية' : 'Ministry Statistics'}</>}
             </button>
           )}
 
