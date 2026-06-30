@@ -58,6 +58,7 @@ export default function Resources({ profile, onRefresh }) {
   const [loading, setLoading]       = useState(true)
   const [search, setSearch]         = useState('')
   const [showUpload, setShowUpload] = useState(false)
+  const [editingResource, setEditingResource] = useState(null) // null = adding new, otherwise the resource being edited
   const [confirmDel, setConfirmDel] = useState(null)
   const [uploading, setUploading]   = useState(false)
 
@@ -91,7 +92,28 @@ export default function Resources({ profile, onRefresh }) {
     setForm({ resourceType: 'file', title: '', titleAr: '', description: '', descriptionAr: '', linkUrl: '', isPrivate: false, visibleTo: ['admin','coach','athlete','employee'] })
     setPendingFile(null)
     setDragOver(false)
+    setEditingResource(null)
     if (fileInput.current) fileInput.current.value = ''
+  }
+
+  function openEdit(resource) {
+    setForm({
+      resourceType: resource.resource_type,
+      title: resource.title || '',
+      titleAr: resource.title_ar || '',
+      description: resource.description || '',
+      descriptionAr: resource.description_ar || '',
+      linkUrl: resource.resource_type === 'link' ? (resource.file_url || '') : '',
+      isPrivate: resource.is_private,
+      // visible_to is stored empty for private resources, so default back to
+      // everyone if they later uncheck "Only Me" — otherwise the role pills
+      // would all start unchecked with nothing to fall back to.
+      visibleTo: resource.is_private || !resource.visible_to?.length
+        ? ['admin','coach','athlete','employee']
+        : resource.visible_to,
+    })
+    setEditingResource(resource)
+    setShowUpload(true)
   }
 
   const ALLOWED_EXT = ['pdf','doc','docx','xls','xlsx','ppt','pptx','jpg','jpeg','png','zip']
@@ -120,6 +142,16 @@ export default function Resources({ profile, onRefresh }) {
 
   async function handleSubmit() {
     if (!form.title.trim()) { toast(ar ? 'العنوان مطلوب' : 'Title is required', 'error'); return }
+    const isEdit = !!editingResource
+
+    const baseFields = {
+      title: form.title.trim(),
+      title_ar: form.titleAr.trim() || null,
+      description: form.description.trim() || null,
+      description_ar: form.descriptionAr.trim() || null,
+      is_private: form.isPrivate,
+      visible_to: form.isPrivate ? [] : form.visibleTo,
+    }
 
     if (form.resourceType === 'link') {
       const url = normalizeUrl(form.linkUrl)
@@ -133,67 +165,72 @@ export default function Resources({ profile, onRefresh }) {
 
       setUploading(true)
       try {
-        const { error: dbErr } = await supabase.from('resources').insert({
-          title: form.title.trim(),
-          title_ar: form.titleAr.trim() || null,
-          description: form.description.trim() || null,
-          description_ar: form.descriptionAr.trim() || null,
+        const payload = {
+          ...baseFields,
           resource_type: 'link',
           file_url: url,
           file_name: null,
           file_size: null,
           file_type: null,
-          is_private: form.isPrivate,
-          visible_to: form.isPrivate ? [] : form.visibleTo,
-          uploaded_by: profile?.id || null,
-        })
+        }
+        const { error: dbErr } = isEdit
+          ? await supabase.from('resources').update(payload).eq('id', editingResource.id)
+          : await supabase.from('resources').insert({ ...payload, uploaded_by: profile?.id || null })
         if (dbErr) throw dbErr
 
-        toast(ar ? 'تمت إضافة الرابط بنجاح' : 'Link added')
+        toast(isEdit ? (ar ? 'تم حفظ التغييرات' : 'Changes saved') : (ar ? 'تمت إضافة الرابط بنجاح' : 'Link added'))
         setShowUpload(false)
         resetForm()
         await load()
       } catch (err) {
-        toast(err.message || (ar ? 'فشلت الإضافة' : 'Failed to add link'), 'error')
+        toast(err.message || (ar ? 'فشلت العملية' : 'Something went wrong'), 'error')
       } finally {
         setUploading(false)
       }
       return
     }
 
-    if (!pendingFile) { toast(ar ? 'يرجى اختيار ملف' : 'Please choose a file', 'error'); return }
-    if (pendingFile.size > 25 * 1024 * 1024) { toast(ar ? 'يجب أن يكون الملف أقل من 25 ميجابايت' : 'File must be under 25MB', 'error'); return }
+    // Editing a file resource without picking a new file just updates the
+    // metadata — the existing upload stays exactly as it is. A new file was
+    // only required for creating one in the first place.
+    if (!isEdit && !pendingFile) { toast(ar ? 'يرجى اختيار ملف' : 'Please choose a file', 'error'); return }
+    if (pendingFile && pendingFile.size > 25 * 1024 * 1024) { toast(ar ? 'يجب أن يكون الملف أقل من 25 ميجابايت' : 'File must be under 25MB', 'error'); return }
 
     setUploading(true)
     try {
-      const ext  = pendingFile.name.split('.').pop()
-      const path = `${Date.now()}_${pendingFile.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
-      const { error: upErr } = await supabase.storage.from('resources').upload(path, pendingFile)
-      if (upErr) throw upErr
-      const { data: urlData } = supabase.storage.from('resources').getPublicUrl(path)
+      let fileFields = {}
+      if (pendingFile) {
+        const ext  = pendingFile.name.split('.').pop()
+        const path = `${Date.now()}_${pendingFile.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
+        const { error: upErr } = await supabase.storage.from('resources').upload(path, pendingFile)
+        if (upErr) throw upErr
+        const { data: urlData } = supabase.storage.from('resources').getPublicUrl(path)
+        fileFields = { file_url: urlData.publicUrl, file_name: pendingFile.name, file_size: pendingFile.size, file_type: ext }
 
-      const { error: dbErr } = await supabase.from('resources').insert({
-        title: form.title.trim(),
-        title_ar: form.titleAr.trim() || null,
-        description: form.description.trim() || null,
-        description_ar: form.descriptionAr.trim() || null,
-        resource_type: 'file',
-        file_url: urlData.publicUrl,
-        file_name: pendingFile.name,
-        file_size: pendingFile.size,
-        file_type: ext,
-        is_private: form.isPrivate,
-        visible_to: form.isPrivate ? [] : form.visibleTo,
-        uploaded_by: profile?.id || null,
-      })
+        // Replacing the file on an existing resource — clean up the old
+        // upload so it doesn't sit around in storage unused forever.
+        if (isEdit && editingResource.file_url) {
+          const marker = '/resources/'
+          const idx = editingResource.file_url.indexOf(marker)
+          if (idx !== -1) {
+            const oldPath = editingResource.file_url.slice(idx + marker.length)
+            await supabase.storage.from('resources').remove([oldPath]).catch(() => {})
+          }
+        }
+      }
+
+      const payload = { ...baseFields, resource_type: 'file', ...fileFields }
+      const { error: dbErr } = isEdit
+        ? await supabase.from('resources').update(payload).eq('id', editingResource.id)
+        : await supabase.from('resources').insert({ ...payload, uploaded_by: profile?.id || null })
       if (dbErr) throw dbErr
 
-      toast(ar ? 'تم رفع الملف بنجاح' : 'Resource uploaded')
+      toast(isEdit ? (ar ? 'تم حفظ التغييرات' : 'Changes saved') : (ar ? 'تم رفع الملف بنجاح' : 'Resource uploaded'))
       setShowUpload(false)
       resetForm()
       await load()
     } catch (err) {
-      toast(err.message || (ar ? 'فشل الرفع' : 'Upload failed'), 'error')
+      toast(err.message || (isEdit ? (ar ? 'فشل الحفظ' : 'Failed to save changes') : (ar ? 'فشل الرفع' : 'Upload failed')), 'error')
     } finally {
       setUploading(false)
     }
@@ -245,7 +282,7 @@ export default function Resources({ profile, onRefresh }) {
         <div className="modal-overlay" onClick={() => { setShowUpload(false); resetForm() }}>
           <div className="modal-box" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <div className="modal-title">{ar ? 'إضافة مورد' : 'Add Resource'}</div>
+              <div className="modal-title">{editingResource ? (ar ? 'تعديل المورد' : 'Edit Resource') : (ar ? 'إضافة مورد' : 'Add Resource')}</div>
               <button className="modal-close" onClick={() => { setShowUpload(false); resetForm() }}><i className="ti ti-x" /></button>
             </div>
             <div className="modal-body">
@@ -287,8 +324,30 @@ export default function Resources({ profile, onRefresh }) {
                 </div>
               ) : (
                 <div className="form-group">
-                  <label>{ar ? 'الملف' : 'File'} *</label>
-                  {!pendingFile ? (
+                  <label>{ar ? 'الملف' : 'File'} {!editingResource && '*'}</label>
+                  {!pendingFile && editingResource ? (
+                    (() => {
+                      const meta = fileMeta(editingResource.file_name)
+                      return (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 12, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface2)' }}>
+                          <div style={{ width: 40, height: 40, borderRadius: 9, background: meta.color + '15', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <i className={`ti ${meta.icon}`} style={{ fontSize: 19, color: meta.color }} />
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{editingResource.file_name}</div>
+                            <div style={{ fontSize: 11, color: 'var(--text3)' }}>{formatSize(editingResource.file_size)} · {ar ? 'الملف الحالي' : 'Current file'}</div>
+                          </div>
+                          <button onClick={() => fileInput.current?.click()}
+                            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 11px', borderRadius: 7, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text2)', cursor: 'pointer', flexShrink: 0, fontSize: 12, fontWeight: 600 }}>
+                            <i className="ti ti-refresh" style={{ fontSize: 13 }} />
+                            {ar ? 'استبدال' : 'Replace'}
+                          </button>
+                          <input ref={fileInput} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.zip"
+                            onChange={e => pickFile(e.target.files?.[0])} style={{ display: 'none' }} />
+                        </div>
+                      )
+                    })()
+                  ) : !pendingFile ? (
                     <div
                       onClick={() => fileInput.current?.click()}
                       onDragOver={e => { e.preventDefault(); setDragOver(true) }}
@@ -411,7 +470,9 @@ export default function Resources({ profile, onRefresh }) {
               <button className="btn-cancel" onClick={() => { setShowUpload(false); resetForm() }}>{tx('actions.cancel','Cancel')}</button>
               <button className="btn btn-blue" onClick={handleSubmit} disabled={uploading} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                 {uploading && <i className="ti ti-loader-2" style={{ animation: 'spin 0.6s linear infinite' }} />}
-                {uploading ? (ar ? 'جارٍ الرفع...' : 'Uploading…') : (ar ? 'رفع' : 'Upload')}
+                {uploading
+                  ? (editingResource ? (ar ? 'جارٍ الحفظ...' : 'Saving…') : (ar ? 'جارٍ الرفع...' : 'Uploading…'))
+                  : (editingResource ? (ar ? 'حفظ' : 'Save') : (ar ? 'رفع' : 'Upload'))}
               </button>
             </div>
 
@@ -500,6 +561,13 @@ export default function Resources({ profile, onRefresh }) {
                     title={isLink ? (ar ? 'فتح' : 'Open') : (ar ? 'تحميل' : 'Download')}>
                     <i className={`ti ${isLink ? 'ti-external-link' : 'ti-download'}`} />
                   </button>
+                  {isAdmin && (
+                    <button onClick={() => openEdit(r)}
+                      style={{ display:'flex', alignItems:'center', justifyContent:'center', width:28, height:28, borderRadius:7, background:'var(--surface)', border:'1px solid var(--border)', color:'var(--text2)', cursor:'pointer' }}
+                      title={ar ? 'تعديل' : 'Edit'}>
+                      <i className="ti ti-pencil" style={{ fontSize:14 }} />
+                    </button>
+                  )}
                   {isAdmin && (
                     <button onClick={() => setConfirmDel(r)}
                       style={{ display:'flex', alignItems:'center', justifyContent:'center', width:28, height:28, borderRadius:7, background:'#fef2f2', border:'1px solid #fca5a5', color:'#dc2626', cursor:'pointer' }}
