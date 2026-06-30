@@ -10,9 +10,23 @@ const STATUS_META = {
   done:        { en: 'Done',         ar: 'مكتمل',         color: '#009F6B' },
 }
 const PRIORITY_META = {
-  low:    { en: 'Low',    ar: 'منخفضة', color: '#9aa3b2' },
-  normal: { en: 'Normal', ar: 'عادية',  color: '#0085C7' },
-  high:   { en: 'High',   ar: 'عالية',  color: '#EE334E' },
+  critical: { en: 'Critical', ar: 'حرجة',    color: '#EE334E' },
+  high:     { en: 'High',     ar: 'عالية',   color: '#e67e22' },
+  moderate: { en: 'Moderate', ar: 'متوسطة',  color: '#f1c40f' },
+  low:      { en: 'Low',      ar: 'منخفضة',  color: '#009F6B' },
+  minor:    { en: 'Minor',    ar: 'طفيفة',   color: '#0085C7' },
+}
+
+// One badge of color + icon per kind of work, so a glance at the board tells
+// you not just what's urgent but what category it actually belongs to.
+const CATEGORY_META = {
+  administrative: { en: 'Administrative', ar: 'إداري',      color: '#64748b', icon: 'ti-clipboard-list' },
+  competition:    { en: 'Competition',    ar: 'منافسة',     color: '#d4af37', icon: 'ti-medal' },
+  logistics:      { en: 'Logistics',      ar: 'لوجستيات',   color: '#0d9488', icon: 'ti-bus' },
+  technical:      { en: 'Technical',      ar: 'تقني',       color: '#8b5cf6', icon: 'ti-settings' },
+  meeting:        { en: 'Meeting',        ar: 'اجتماع',     color: '#0085C7', icon: 'ti-users-group' },
+  report:         { en: 'Report',         ar: 'تقرير',      color: '#4f46e5', icon: 'ti-file-text' },
+  email:          { en: 'Email',          ar: 'بريد إلكتروني', color: '#e11d8f', icon: 'ti-send' },
 }
 
 function isOverdue(task) {
@@ -38,7 +52,7 @@ export default function Tasks({ profile, onNav }) {
 
   const [editing, setEditing]   = useState(null) // task object being edited, or 'new' for the full new-task modal
   const [confirmDel, setConfirmDel] = useState(null)
-  const [form, setForm] = useState({ title: '', notes: '', priority: 'normal', dueDate: '', status: 'todo' })
+  const [form, setForm] = useState({ title: '', notes: '', priority: 'moderate', category: 'administrative', dueDate: '', status: 'todo' })
 
   async function load() {
     setLoading(true)
@@ -73,7 +87,7 @@ export default function Tasks({ profile, onNav }) {
     const { error } = await supabase.from('tasks').insert({
       title: quickTitle.trim(),
       status: 'todo',
-      priority: 'normal',
+      priority: 'moderate',
       created_by: profile?.id || null,
     })
     setAdding(false)
@@ -87,6 +101,7 @@ export default function Tasks({ profile, onNav }) {
       title: task.title,
       notes: task.notes || '',
       priority: task.priority,
+      category: task.category || 'administrative',
       dueDate: task.due_date || '',
       status: task.status,
     })
@@ -94,7 +109,7 @@ export default function Tasks({ profile, onNav }) {
   }
 
   function openNew() {
-    setForm({ title: '', notes: '', priority: 'normal', dueDate: '', status: 'todo' })
+    setForm({ title: '', notes: '', priority: 'moderate', category: 'administrative', dueDate: '', status: 'todo' })
     setEditing('new')
   }
 
@@ -104,6 +119,7 @@ export default function Tasks({ profile, onNav }) {
       title: form.title.trim(),
       notes: form.notes.trim() || null,
       priority: form.priority,
+      category: form.category || null,
       due_date: form.dueDate || null,
       status: form.status,
       completed_at: form.status === 'done' ? new Date().toISOString() : null,
@@ -177,6 +193,12 @@ export default function Tasks({ profile, onNav }) {
                   <label>{ar ? 'تاريخ الاستحقاق' : 'Due date'}</label>
                   <input className="form-input" type="date" value={form.dueDate} onChange={e => setForm(f => ({ ...f, dueDate: e.target.value }))} />
                 </div>
+              </div>
+              <div className="form-group">
+                <label>{ar ? 'الفئة' : 'Category'}</label>
+                <select className="form-input" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
+                  {Object.keys(CATEGORY_META).map(c => <option key={c} value={c}>{ar ? CATEGORY_META[c].ar : CATEGORY_META[c].en}</option>)}
+                </select>
               </div>
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label>{ar ? 'الحالة' : 'Status'}</label>
@@ -292,12 +314,18 @@ export default function Tasks({ profile, onNav }) {
                             </div>
                           )}
                         </div>
-                        {task.priority === 'high' && (
-                          <i className="ti ti-flag" style={{ fontSize: 13, color: '#EE334E', flexShrink: 0, marginTop: 2 }} title={ar ? 'أولوية عالية' : 'High priority'} />
+                        {task.priority && PRIORITY_META[task.priority] && (
+                          <i className="ti ti-flag" style={{ fontSize: 13, color: PRIORITY_META[task.priority].color, flexShrink: 0, marginTop: 2 }} title={ar ? PRIORITY_META[task.priority].ar : PRIORITY_META[task.priority].en} />
                         )}
                       </div>
 
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+                        {task.category && CATEGORY_META[task.category] && (
+                          <span style={{ fontSize: 10.5, fontWeight: 600, color: CATEGORY_META[task.category].color, background: CATEGORY_META[task.category].color + '15', padding: '2px 7px', borderRadius: 20, display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <i className={`ti ${CATEGORY_META[task.category].icon}`} style={{ fontSize: 11 }} />
+                            {ar ? CATEGORY_META[task.category].ar : CATEGORY_META[task.category].en}
+                          </span>
+                        )}
                         {task.due_date && (
                           <span style={{ fontSize: 11, fontWeight: 600, color: overdue ? '#EE334E' : 'var(--text3)', display: 'flex', alignItems: 'center', gap: 3 }}>
                             <i className="ti ti-calendar" style={{ fontSize: 12 }} />
