@@ -5,10 +5,9 @@ const QPC   = "data:image/png;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0Z
 
 const DESIGNATION_AR = {
   'Coach': 'مدرب', 'Assistant Coach': 'مدرب مساعد', 'Technical Expert': 'خبير تقني',
-  'Physiotherapist': 'معالج فيزيائي', 'Doctor': 'طبيب',
-  'Secretary General': 'الأمين العام', 'Executive Manager': 'مدير تنفيذي',
-  'Administration Secretary': 'سكرتير إداري', 'Secretary Assistant': 'مساعد سكرتير',
-  'Administrative National Team': 'إداري الفريق الوطني',
+  'Physiotherapist': 'معالج فيزيائي', 'Doctor': 'طبيب', 'Secretary General': 'الأمين العام',
+  'Executive Manager': 'مدير تنفيذي', 'Administration Secretary': 'سكرتير إداري',
+  'Secretary Assistant': 'مساعد سكرتير', 'Administrative National Team': 'إداري الفريق الوطني',
   'Administrative Youth Team': 'إداري فريق الشباب',
   'Administrative Center & Development': 'إداري المركز والتطوير',
   'Accountant': 'محاسب', 'Public Relation Officer': 'مسؤول علاقات عامة',
@@ -17,178 +16,392 @@ const DESIGNATION_AR = {
   'Store Keeper': 'أمين مخزن', 'Waiter': 'نادل', 'Worker': 'عامل', 'Driver': 'سائق',
 }
 
+// Special Olympics logo as inline SVG (stylised to match reference)
+const SO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="48" height="48">
+  <circle cx="40" cy="26" r="14" fill="#ee1c25" stroke="#ee1c25" stroke-width="1"/>
+  <circle cx="40" cy="26" r="10" fill="white"/>
+  <!-- stylised rays / figure -->
+  <polygon points="40,12 43,22 40,20 37,22" fill="#ee1c25"/>
+  <polygon points="40,40 43,30 40,32 37,30" fill="#ee1c25"/>
+  <polygon points="26,26 36,23 34,26 36,29" fill="#ee1c25"/>
+  <polygon points="54,26 44,23 46,26 44,29" fill="#ee1c25"/>
+  <text x="40" y="66" text-anchor="middle" font-family="Arial" font-size="9" font-weight="900" fill="#ee1c25" font-style="italic">Special</text>
+  <text x="40" y="76" text-anchor="middle" font-family="Arial" font-size="9" font-weight="900" fill="#ee1c25" font-style="italic">Olympics</text>
+</svg>`
+
 export function generateEmployeeCard(emp) {
-  const desigAr  = DESIGNATION_AR[emp.designation] || emp.designation || ''
+  const desigAr  = emp.designation_ar || DESIGNATION_AR[emp.designation] || emp.designation || ''
+  const staffId  = emp.employee_number ? ('QPC-' + emp.employee_number) : ''
+  const jobId    = emp.job_id || ''
+  const qssNum   = emp.qss_number ? ('QSS-' + emp.qss_number) : ''
+  const phone    = emp.phone   || '+974 44040200'
+  const email    = emp.email   || 'info@qpc.qa'
   const photoSrc = emp.photo_url || ''
 
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<title>Employee Card – ${emp.name || ''}</title>
+<title>ID Card – ${emp.name || ''}</title>
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=Tajawal:wght@400;500;700&display=swap');
   * { box-sizing:border-box; margin:0; padding:0; }
   body {
-    background:#f0f0f0;
-    font-family:Arial,sans-serif;
+    background:#d0d0d0;
     display:flex;
     flex-direction:column;
     align-items:center;
     justify-content:center;
     min-height:100vh;
-    gap:20px;
-    padding:24px 20px;
+    padding:32px 24px;
+    gap:24px;
+    font-family:'Inter',Arial,sans-serif;
   }
-  .card {
-    width:560px;
-    background:#f5f5f5;
-    border-radius:18px;
-    overflow:hidden;
-    display:flex;
-    box-shadow:0 8px 40px rgba(0,0,0,.3);
-  }
-  .stripe {
-    width:10px;
-    flex-shrink:0;
-    background:linear-gradient(180deg,#e91e8c 0%,#c2185b 100%);
-  }
-  .body { flex:1; padding:28px 24px 22px 24px; }
-  .top-row { display:flex; gap:20px; margin-bottom:24px; }
-  .photo-box {
-    width:100px; height:110px; border-radius:8px; overflow:hidden;
-    background:#1a3a6b; flex-shrink:0;
-    display:flex; align-items:center; justify-content:center;
-    border:2px solid #ddd;
-  }
-  .photo-box img { width:100%; height:100%; object-fit:cover; object-position:top center; }
-  .name-block { display:flex; flex-direction:column; justify-content:center; gap:4px; }
-  .en-name { font-size:20px; font-weight:700; color:#111; line-height:1.2; }
-  .ar-name-wrap { position:relative; padding-bottom:10px; margin-bottom:4px; }
-  .ar-name { font-size:15px; font-weight:500; color:#222; direction:rtl; text-align:right; }
-  .red-line {
-    position:absolute; bottom:0; left:0; right:0; height:2px;
-    background:linear-gradient(90deg,#e91e8c,#c2185b); border-radius:2px;
-  }
-  .en-pos { font-size:14px; font-weight:500; color:#333; }
-  .ar-pos { font-size:13px; color:#555; direction:rtl; text-align:right; }
-  .divider { border-top:1px solid #ccc; margin-bottom:16px; }
-  .org-block { margin-bottom:12px; }
-  .org-en { font-size:13px; font-weight:700; color:#111; margin-bottom:3px; }
-  .org-ar { font-size:12px; color:#444; direction:rtl; text-align:right; }
-  .divider2 { border-top:1px solid #ccc; margin-bottom:14px; }
-  .ids-row { display:flex; gap:20px; margin-bottom:12px; align-items:center; }
-  .id-field { display:flex; align-items:center; gap:5px; font-size:12px; color:#222; }
-  .id-badge {
-    display:inline-flex; align-items:center; justify-content:center;
-    width:18px; height:18px; border-radius:4px;
-    background:#7c3aed; color:#fff; font-size:9px; font-weight:700;
-  }
-  .id-label { color:#666; }
-  .contact-row { display:flex; gap:20px; align-items:center; font-size:12px; color:#333; }
-  .sep { color:#ccc; }
-  .logos-col {
-    width:72px; flex-shrink:0; background:#f0f0f0;
-    display:flex; flex-direction:column;
-    align-items:center; justify-content:space-around;
-    padding:16px 8px; border-left:1px solid #e0e0e0;
-  }
-  .logo-box {
-    width:52px; height:52px; border-radius:8px; overflow:hidden;
-    background:#fff; display:flex; align-items:center; justify-content:center;
-    border:1px solid #ddd;
-  }
-  .logo-box img { width:100%; height:100%; object-fit:contain; }
-  .btns { display:flex; gap:12px; margin-top:4px; }
+  .no-print { display:flex; gap:12px; }
   .btn {
-    padding:10px 22px; border-radius:10px; border:none;
-    font-family:Arial,sans-serif; font-size:13px; font-weight:600; cursor:pointer;
+    padding:10px 24px; border:none; border-radius:8px; cursor:pointer;
+    font-family:inherit; font-size:14px; font-weight:600;
   }
+
+  /* ── CARD ── */
+  .card {
+    width:740px;
+    height:460px;
+    background:#fafafa;
+    border-radius:22px;
+    position:relative;
+    overflow:hidden;
+    box-shadow:0 16px 64px rgba(0,0,0,.35);
+    font-family:'Inter',Arial,sans-serif;
+  }
+
+  /* — crimson top-left corner decoration — */
+  .corner-tl {
+    position:absolute; top:0; left:0;
+    width:0; height:0;
+    border-top:180px solid #8b1a2e;
+    border-right:200px solid transparent;
+    z-index:1;
+  }
+  /* geometric grid pattern overlay on corner */
+  .corner-pattern {
+    position:absolute; top:0; left:0;
+    width:190px; height:175px;
+    z-index:2;
+    opacity:0.35;
+    background-image:
+      repeating-linear-gradient(45deg,rgba(255,255,255,.25) 0,rgba(255,255,255,.25) 1px,transparent 0,transparent 50%),
+      repeating-linear-gradient(-45deg,rgba(255,255,255,.25) 0,rgba(255,255,255,.25) 1px,transparent 0,transparent 50%);
+    background-size:12px 12px;
+    clip-path:polygon(0 0, 190px 0, 0 175px);
+  }
+
+  /* — gold swoosh / wave — */
+  .gold-wave {
+    position:absolute;
+    bottom:148px; left:0; right:0;
+    height:10px;
+    z-index:3;
+    pointer-events:none;
+  }
+  /* — crimson bottom area — */
+  .bottom-crimson {
+    position:absolute;
+    bottom:0; left:0; right:0;
+    height:148px;
+    background:#8b1a2e;
+    z-index:2;
+    border-radius:0 0 22px 22px;
+    /* slight upward curve on left side */
+    clip-path:polygon(0 18%, 42% 0%, 100% 0, 100% 100%, 0 100%);
+  }
+  /* — gold arc line on bottom swoosh — */
+  .gold-arc {
+    position:absolute;
+    bottom:115px; left:0; right:0;
+    height:10px;
+    z-index:4;
+  }
+  /* Doha skyline silhouette */
+  .skyline {
+    position:absolute;
+    bottom:38px; right:22px;
+    width:260px; height:70px;
+    z-index:3;
+    opacity:0.22;
+  }
+  /* dots grid — bottom right area */
+  .dots-grid {
+    position:absolute;
+    bottom:56px; right:8px;
+    z-index:5;
+  }
+
+  /* — LOGOS row — */
+  .logos {
+    position:absolute;
+    top:22px; left:200px;
+    display:flex;
+    align-items:center;
+    gap:14px;
+    z-index:6;
+  }
+  .logo-qpc { display:flex; align-items:center; gap:8px; }
+  .logo-qpc img { width:42px; height:50px; object-fit:contain; }
+  .logo-qpc-text { line-height:1.25; }
+  .logo-qpc-text .en { font-size:11px; font-weight:700; color:#7c0a24; }
+  .logo-qpc-text .ar { font-size:10px; color:#7c0a24; font-family:'Tajawal',Arial,sans-serif; direction:rtl; }
+  .v-div { width:1px; height:56px; background:#b8860b; opacity:.9; }
+  .logo-qatar { display:flex; flex-direction:column; align-items:center; gap:4px; }
+  .logo-qatar img { width:38px; height:38px; object-fit:contain; }
+  .logo-so { display:flex; flex-direction:column; align-items:flex-start; }
+
+  /* — PHOTO — */
+  .photo-ring {
+    position:absolute;
+    top:85px; left:34px;
+    width:210px; height:210px;
+    border-radius:50%;
+    border:4px solid #c9a84c;
+    overflow:hidden;
+    background:#c8c8c8;
+    z-index:6;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .photo-ring img { width:100%; height:100%; object-fit:cover; object-position:top center; }
+
+  /* — NAME + POSITION — */
+  .name-block {
+    position:absolute;
+    top:115px; left:268px;
+    z-index:6;
+    max-width:440px;
+  }
+  .en-name { font-size:30px; font-weight:900; color:#111; letter-spacing:-.02em; line-height:1.1; }
+  .ar-name {
+    font-size:19px; color:#222; margin-top:4px; direction:rtl; text-align:right;
+    font-family:'Tajawal',Arial,sans-serif; font-weight:500;
+  }
+  .gold-rule {
+    display:flex; align-items:center; margin:10px 0;
+    gap:0;
+  }
+  .gold-rule-line {
+    height:2px; flex:1;
+    background:linear-gradient(90deg,#b8860b,#f0d060,#b8860b);
+    border-radius:2px;
+  }
+  .gold-rule-dot {
+    width:10px; height:10px; border-radius:50%;
+    background:#c9a84c; flex-shrink:0; margin-left:4px;
+  }
+  .en-pos { font-size:17px; font-weight:700; color:#1a1a1a; margin-top:2px; }
+  .ar-pos {
+    font-size:14px; color:#8b1a2e; direction:rtl; text-align:right; margin-top:3px;
+    font-family:'Tajawal',Arial,sans-serif; font-weight:600;
+  }
+
+  /* — INFO BAR (top of crimson section) — */
+  .info-bar {
+    position:absolute;
+    bottom:84px; left:0; right:0;
+    display:flex; align-items:center;
+    z-index:7;
+    padding:0 28px;
+    gap:4px;
+  }
+  .info-item { display:flex; align-items:center; gap:10px; flex:1; }
+  .info-icon {
+    width:42px; height:42px; border-radius:50%;
+    background:#8b1a2e;
+    border:2px solid #c9a84c;
+    display:flex; align-items:center; justify-content:center;
+    flex-shrink:0;
+  }
+  .info-icon svg { width:20px; height:20px; stroke:#fff; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+  .info-texts { display:flex; flex-direction:column; }
+  .info-label { font-size:11px; color:rgba(255,255,255,.65); }
+  .info-val { font-size:13px; font-weight:700; color:#fff; }
+  .info-sep { width:1px; height:36px; background:rgba(201,168,76,.45); margin:0 8px; }
+
+  /* — FOOTER ROW — */
+  .footer-bar {
+    position:absolute;
+    bottom:16px; left:28px; right:28px;
+    display:flex; align-items:center;
+    z-index:7;
+    gap:22px;
+  }
+  .footer-item { display:flex; align-items:center; gap:8px; }
+  .footer-icon {
+    width:28px; height:28px; border-radius:50%;
+    border:1.5px solid rgba(201,168,76,.75);
+    display:flex; align-items:center; justify-content:center;
+    flex-shrink:0;
+  }
+  .footer-icon svg { width:13px; height:13px; stroke:#c9a84c; fill:none; stroke-width:1.8; stroke-linecap:round; }
+  .footer-text { font-size:13px; color:#fff; font-weight:500; }
+  .footer-sep { width:1px; height:24px; background:rgba(201,168,76,.35); }
+
   @media print {
-    body { background:white; justify-content:flex-start; padding:0; gap:0; }
-    .card { box-shadow:none; border-radius:0; }
-    .btns { display:none !important; }
+    body { background:#fff; padding:0; justify-content:flex-start; }
+    .no-print { display:none !important; }
+    .card { border-radius:16px; box-shadow:0 0 0 1px #ddd; }
+    @page { size:740px 460px; margin:0; }
   }
 </style>
 </head>
 <body>
 
+<div class="no-print">
+  <button class="btn" onclick="window.print()" style="background:#8b1a2e;color:#fff">🖨 Print / Save PDF</button>
+  <button class="btn" onclick="if(window.opener||window.history.length<=1){window.close()}else{history.back()}" style="background:#fff;color:#555;border:1px solid #ddd">← Back</button>
+</div>
+
 <div class="card">
-  <div class="stripe"></div>
-  <div class="body">
-    <div class="top-row">
-      <div class="photo-box">
-        ${photoSrc
-          ? `<img src="${photoSrc}" alt="${emp.name || ''}"/>`
-          : `<svg width="60" height="70" viewBox="0 0 60 70" fill="none">
-               <circle cx="30" cy="24" r="14" fill="#4a7ab5" opacity=".8"/>
-               <ellipse cx="30" cy="62" rx="24" ry="16" fill="#4a7ab5" opacity=".8"/>
-             </svg>`
-        }
-      </div>
-      <div class="name-block">
-        <div class="en-name">${emp.name || 'Full Name'}</div>
-        <div class="ar-name-wrap">
-          <div class="ar-name">${emp.name_ar || 'الاسم الكامل'}</div>
-          <div class="red-line"></div>
-        </div>
-        <div class="en-pos">${emp.designation || 'Position Name'}</div>
-        <div class="ar-pos">${emp.designation_ar || desigAr || 'المسمى الوظيفي'}</div>
-      </div>
-    </div>
 
-    <div class="divider"></div>
+  <!-- Top-left crimson corner -->
+  <div class="corner-tl"></div>
+  <div class="corner-pattern"></div>
 
-    <div class="org-block">
-      <div class="org-en">Qatar Paralympic Committee</div>
-      <div class="org-ar">الاتحاد القطري لرياضة ذوي الاحتياجات الخاصة</div>
-    </div>
-
-    <div class="divider2"></div>
-
-    <div class="ids-row">
-      <div class="id-field">
-        <span class="id-badge">ID</span>
-        <span class="id-label">Staff ID :</span>
-        <span style="font-weight:600">${emp.employee_number || '—'}</span>
-      </div>
-      <div class="id-field">
-        <span class="id-badge">ID</span>
-        <span class="id-label">Job ID :</span>
-        <span style="font-weight:600">${emp.job_id || '—'}</span>
-      </div>
-      <div class="id-field">
-        <span class="id-badge">ID</span>
-        <span class="id-label">QSS ID :</span>
-        <span style="font-weight:600">${emp.qss_number || '—'}</span>
-      </div>
-    </div>
-
-    <div class="contact-row">
-      <span>📞 ${emp.phone || '—'}</span>
-      <span class="sep">|</span>
-      <span>✉️ ${emp.email || '—'}</span>
-    </div>
-  </div>
-
-  <div class="logos-col">
-    <div class="logo-box">
+  <!-- Logos -->
+  <div class="logos">
+    <div class="logo-qpc">
       <img src="${QPC}" alt="QPC"/>
+      <div class="logo-qpc-text">
+        <div class="en">Qatar<br>Paralympic<br>Committee</div>
+        <div class="ar">اللجنة البارالمبية القطرية</div>
+      </div>
     </div>
-    <div class="logo-box">
+    <div class="v-div"></div>
+    <div class="logo-qatar">
       <img src="${QATAR}" alt="Qatar"/>
     </div>
+    <div class="v-div"></div>
+    <div class="logo-so">
+      ${SO_SVG}
+      <div style="font-size:9px;color:#555;margin-top:2px;font-family:'Tajawal',Arial,sans-serif;direction:rtl">الأولمبياد الخاص قطر</div>
+    </div>
   </div>
-</div>
 
-<div class="btns">
-  <button class="btn" onclick="window.print()" style="background:#e91e8c;color:#fff">
-    🖨️ Print Card
-  </button>
-  <button class="btn" onclick="if(window.opener){window.close();}else{history.back();}" style="background:#fff;color:#444;border:1.5px solid #ddd">
-    ✕ Close
-  </button>
-</div>
+  <!-- Photo -->
+  <div class="photo-ring">
+    ${photoSrc
+      ? `<img src="${photoSrc}" alt="${emp.name || ''}"/>`
+      : `<svg viewBox="0 0 100 100" width="100%" height="100%">
+           <circle cx="50" cy="38" r="22" fill="#9aabb8"/>
+           <ellipse cx="50" cy="90" rx="38" ry="28" fill="#9aabb8"/>
+         </svg>`
+    }
+  </div>
 
+  <!-- Name + position -->
+  <div class="name-block">
+    <div class="en-name">${emp.name || 'Full Name'}</div>
+    <div class="ar-name">${emp.name_ar || 'الاسم الكامل'}</div>
+    <div class="gold-rule">
+      <div class="gold-rule-line"></div>
+      <div class="gold-rule-dot"></div>
+    </div>
+    <div class="en-pos">${emp.designation || 'Position Name'}</div>
+    <div class="ar-pos">${desigAr || 'المسمى الوظيفي'}</div>
+  </div>
+
+  <!-- Bottom crimson area -->
+  <div class="bottom-crimson"></div>
+
+  <!-- Gold arc over crimson -->
+  <svg class="gold-arc" viewBox="0 0 740 10" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="gld" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="#8b6914" stop-opacity=".7"/>
+        <stop offset="30%" stop-color="#f0d060"/>
+        <stop offset="60%" stop-color="#c9a84c"/>
+        <stop offset="100%" stop-color="transparent"/>
+      </linearGradient>
+    </defs>
+    <path d="M 0 10 Q 310 0 430 4 T 740 10" stroke="url(#gld)" stroke-width="2.5" fill="none"/>
+  </svg>
+
+  <!-- Doha skyline silhouette -->
+  <svg class="skyline" viewBox="0 0 260 70" xmlns="http://www.w3.org/2000/svg" fill="rgba(255,255,255,1)">
+    <rect x="0" y="50" width="260" height="20"/>
+    <rect x="8" y="35" width="8" height="15"/><rect x="10" y="26" width="4" height="9"/>
+    <rect x="20" y="28" width="10" height="22"/>
+    <rect x="22" y="18" width="6" height="10"/>
+    <rect x="35" y="38" width="8" height="12"/>
+    <rect x="46" y="22" width="12" height="28"/><rect x="49" y="12" width="6" height="10"/>
+    <rect x="62" y="30" width="8" height="20"/>
+    <rect x="74" y="18" width="14" height="32"/><rect x="77" y="8" width="8" height="10"/>
+    <rect x="92" y="34" width="8" height="16"/>
+    <rect x="104" y="24" width="10" height="26"/>
+    <rect x="118" y="14" width="16" height="36"/><rect x="121" y="4" width="10" height="10"/>
+    <rect x="138" y="30" width="10" height="20"/>
+    <rect x="152" y="22" width="12" height="28"/>
+    <rect x="168" y="36" width="8" height="14"/>
+    <rect x="180" y="26" width="10" height="24"/>
+    <rect x="194" y="38" width="8" height="12"/>
+    <rect x="206" y="20" width="14" height="30"/>
+    <rect x="224" y="34" width="10" height="16"/>
+    <rect x="238" y="28" width="12" height="22"/>
+  </svg>
+
+  <!-- Dots grid -->
+  <svg class="dots-grid" width="70" height="60" viewBox="0 0 70 60">
+    ${Array.from({length:4},(_,r)=>Array.from({length:6},(_,c)=>`<circle cx="${c*13+6}" cy="${r*16+8}" r="2.5" fill="#c9a84c" opacity=".55"/>`).join('')).join('')}
+  </svg>
+
+  <!-- Info bar -->
+  <div class="info-bar">
+    <div class="info-item">
+      <div class="info-icon">
+        <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="7" y1="9" x2="17" y2="9"/><line x1="7" y1="13" x2="13" y2="13"/></svg>
+      </div>
+      <div class="info-texts">
+        <span class="info-label">Staff ID</span>
+        <span class="info-val">${staffId || '—'}</span>
+      </div>
+    </div>
+    <div class="info-sep"></div>
+    <div class="info-item">
+      <div class="info-icon">
+        <svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+      </div>
+      <div class="info-texts">
+        <span class="info-label">Job ID</span>
+        <span class="info-val">${jobId || '—'}</span>
+      </div>
+    </div>
+    <div class="info-sep"></div>
+    <div class="info-item">
+      <div class="info-icon">
+        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      </div>
+      <div class="info-texts">
+        <span class="info-label">QSS Number</span>
+        <span class="info-val">${qssNum || '—'}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer row -->
+  <div class="footer-bar">
+    <div class="footer-item">
+      <div class="footer-icon">
+        <svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.39 2 2 0 0 1 3.6 1.22h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 8.91a16 16 0 0 0 5.99 6l.91-.91a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 21.73 17z"/></svg>
+      </div>
+      <span class="footer-text">${phone}</span>
+    </div>
+    <div class="footer-sep"></div>
+    <div class="footer-item">
+      <div class="footer-icon">
+        <svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+      </div>
+      <span class="footer-text">${email}</span>
+    </div>
+  </div>
+
+</div>
 </body>
 </html>`
 
@@ -211,19 +424,18 @@ export default function EmployeeCardButton({ emp }) {
       onClick={handleGenerate}
       className="action-btn"
       style={{
-        borderColor: '#e91e8c',
-        color: '#e91e8c',
+        borderColor: '#8b1a2e',
+        color: '#8b1a2e',
         padding: '5px 12px',
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'center',
         gap: 6,
       }}
-      onMouseEnter={e => { e.currentTarget.style.background = '#fce4f3' }}
+      onMouseEnter={e => { e.currentTarget.style.background = '#f9e5ea' }}
       onMouseLeave={e => { e.currentTarget.style.background = '' }}
     >
       <i className="ti ti-id-badge" style={{ fontSize: 14 }} />
-      <span>{ar ? 'إنشاء البطاقة' : 'Employee Card'}</span>
+      <span>{ar ? 'بطاقة الموظف' : 'ID Card'}</span>
     </button>
   )
 }
