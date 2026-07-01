@@ -52,7 +52,7 @@ export default function Tasks({ profile, onNav }) {
 
   const [editing, setEditing]   = useState(null) // task object being edited, or 'new' for the full new-task modal
   const [confirmDel, setConfirmDel] = useState(null)
-  const [form, setForm] = useState({ title: '', notes: '', priority: 'moderate', category: 'administrative', dueDate: '', status: 'todo' })
+  const [form, setForm] = useState({ title: '', notes: '', priority: 'moderate', category: '', dueDate: '', status: 'todo' })
 
   async function load() {
     setLoading(true)
@@ -101,7 +101,7 @@ export default function Tasks({ profile, onNav }) {
       title: task.title,
       notes: task.notes || '',
       priority: task.priority,
-      category: task.category || 'administrative',
+      category: task.category || '',
       dueDate: task.due_date || '',
       status: task.status,
     })
@@ -109,7 +109,7 @@ export default function Tasks({ profile, onNav }) {
   }
 
   function openNew() {
-    setForm({ title: '', notes: '', priority: 'moderate', category: 'administrative', dueDate: '', status: 'todo' })
+    setForm({ title: '', notes: '', priority: 'moderate', category: '', dueDate: '', status: 'todo' })
     setEditing('new')
   }
 
@@ -197,6 +197,7 @@ export default function Tasks({ profile, onNav }) {
               <div className="form-group">
                 <label>{ar ? 'الفئة' : 'Category'}</label>
                 <select className="form-input" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
+                  <option value="">{ar ? '— بدون فئة —' : '— No category —'}</option>
                   {Object.keys(CATEGORY_META).map(c => <option key={c} value={c}>{ar ? CATEGORY_META[c].ar : CATEGORY_META[c].en}</option>)}
                 </select>
               </div>
@@ -297,7 +298,7 @@ export default function Tasks({ profile, onNav }) {
                   return (
                     <div key={task.id} onClick={() => openEdit(task)}
                       style={{
-                        background: 'var(--surface)', border: `1px solid ${overdue ? '#EE334E50' : 'var(--border)'}`,
+                        background: overdue ? '#FFF5F5' : 'var(--surface)', border: `2px solid ${overdue ? '#EE334E' : 'var(--border)'}`,
                         borderRadius: 12, padding: '12px 14px', cursor: 'pointer', boxShadow: 'var(--shadow)',
                         transition: 'border-color .15s',
                       }}
