@@ -2,6 +2,12 @@ import { Avatar, MedalDisplay, statusClass, statusDot, DashRow, SPORT_META, SPOR
 import { useLang } from '../lib/LangContext.jsx'
 import DashboardBanners from '../components/DashboardBanners'
 
+// Role label shown under the welcome name in the hero banner
+function roleLabel(role, ar) {
+  const map = { admin: ar?'مسؤول':'Administrator', coach: ar?'مدرب':'Coach', employee: ar?'موظف':'Employee', athlete: ar?'رياضي':'Athlete' }
+  return map[role] || role
+}
+
 export default function Dashboard({ athletes, coaches, events, results, onNav, profile }) {
   const { tx, lang } = useLang()
   const ar = lang === 'ar'
@@ -16,48 +22,80 @@ export default function Dashboard({ athletes, coaches, events, results, onNav, p
     .filter(a => (a.medals_gold+a.medals_silver+a.medals_bronze) > 0)
     .slice(0, 5)
 
+  const statCards = [
+    { label: tx('dashboard.totalAthletes','Total Athletes'), val: athletes.length, hint: `${active} ${tx('dashboard.activeThisSeason','active this season')}`, color: '#0085C7', icon: 'ti-users', click: () => onNav('athletes', { statusFilter:'Active' }) },
+    { label: tx('dashboard.activeEvents','Active Events'),  val: upcoming, hint: `${upcoming} ${tx('dashboard.upcoming','upcoming')}`, color: '#EE334E', icon: 'ti-calendar-event', click: () => onNav('events', { statusFilter:'Upcoming' }) },
+    { label: tx('nav.coaches','Coaches'), val: coaches.length, hint: `${[...new Set(coaches.map(c=>c.sport))].length} ${tx('dashboard.sportsCovered','sports covered')}`, color: '#009F6B', icon: 'ti-whistle', click: () => onNav('coaches') },
+    { label: ar ? 'ذهب' : 'Gold',   val: gold,   hint: tx('dashboard.seasonTotal','season total'), color: '#d4af37', icon: 'ti-medal', click: () => onNav('results') },
+    { label: ar ? 'فضة' : 'Silver', val: silver, hint: tx('dashboard.seasonTotal','season total'), color: '#9aa3b2', icon: 'ti-medal', click: () => onNav('results') },
+    { label: ar ? 'برونز' : 'Bronze', val: bronze, hint: tx('dashboard.seasonTotal','season total'), color: '#cd7f32', icon: 'ti-medal', click: () => onNav('results') },
+  ]
+
   return (
     <div>
-      <div style={{ display:'flex', alignItems:'center', gap:16, marginBottom:24, padding:'20px 24px', background:'linear-gradient(135deg, #0a1f14 0%, #0d3320 100%)', borderRadius:16, color:'#fff', flexWrap:'wrap' }}>
-        <div style={{ width:64, height:64, borderRadius:'50%', background:'#0085C7', display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, fontWeight:700, flexShrink:0, border:'3px solid rgba(255,255,255,.2)' }}>
-          {initials(profile?.full_name || 'Admin')}
-        </div>
-        <div style={{ flex:1, minWidth:160 }}>
-          <div style={{ fontSize:20, fontWeight:700 }}>{profile?.full_name || tx('roles.admin','Admin')}</div>
-          <div style={{ fontSize:13, opacity:.7, marginTop:2 }}>
-            {tx('dashboard.qpc','Qatar Paralympic Committee')}
+      {/* ── Hero Banner ── */}
+      <div style={{
+        position: 'relative', borderRadius: 18, overflow: 'hidden', marginBottom: 22,
+        minHeight: 180, display: 'flex', alignItems: 'center',
+        background: 'linear-gradient(135deg, #0f1923 0%, #1a2a3a 60%, #0f2535 100%)',
+      }}>
+        {/* Background sports image — fades in from the right */}
+        <div style={{
+          position: 'absolute', inset: 0,
+          backgroundImage: 'url(https://images.unsplash.com/photo-1551927336-09d52efd1714?w=1200&q=80)',
+          backgroundSize: 'cover', backgroundPosition: 'center top',
+          opacity: 0.18,
+        }} />
+        {/* Gradient overlay so text stays readable */}
+        <div style={{
+          position: 'absolute', inset: 0,
+          background: ar
+            ? 'linear-gradient(to left, transparent 0%, #0f1923 55%)'
+            : 'linear-gradient(to right, #0f1923 40%, transparent 100%)',
+        }} />
+
+        {/* Content */}
+        <div style={{ position: 'relative', zIndex: 1, padding: '28px 32px', flex: 1 }}>
+          <div style={{ fontSize: 13, color: 'rgba(255,255,255,.5)', marginBottom: 8, fontWeight: 500 }}>
+            {tx('dashboard.welcomeBack', 'Welcome back,')}
           </div>
-          <div style={{ display:'flex', gap:8, marginTop:8, flexWrap:'wrap' }}>
-            <span style={{ padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:600, background:'#0085C730', color:'#5ab8f0', border:'1px solid #0085C750' }}>
-              {profile?.role === 'employee' ? (ar?'موظف':'Employee') : (ar?'مسؤول':'Administrator')}
+          <div style={{ fontSize: 26, fontWeight: 700, color: '#fff', letterSpacing: '-.02em', marginBottom: 4 }}>
+            {profile?.full_name || tx('roles.admin','Admin')}
+          </div>
+          <div style={{ fontSize: 13, color: 'rgba(255,255,255,.55)', marginBottom: 16 }}>
+            {roleLabel(profile?.role, ar)}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#EE334E' }} />
+            <span style={{ fontSize: 12, color: '#EE334E', fontWeight: 600 }}>
+              {tx('nav.season','Season')} {getCurrentSeason()}
             </span>
           </div>
+        </div>
+
+        {/* QPC logo top-right */}
+        <div style={{ position: 'absolute', top: 20, right: ar ? 'auto' : 20, left: ar ? 20 : 'auto', display: 'flex', gap: 5 }}>
+          {['#EE334E','#0085C7','#009F6B'].map((c,i) => (
+            <div key={i} style={{ width: 10, height: 10, borderRadius: '50%', background: c, opacity: 0.8 }} />
+          ))}
         </div>
       </div>
 
       <DashboardBanners profile={profile} onNav={onNav} />
 
-      <div className="page-header">
-        <div>
-          <div className="page-title">{tx('pages.dashboard','Dashboard')}</div>
-          <div className="page-sub">{tx('dashboard.qpc','Qatar Paralympic Committee')} · {tx('nav.season','Season')} {getCurrentSeason()}</div>
-        </div>
-      </div>
-
-      <div className="stat-grid">
-        {[
-          { label:tx('dashboard.totalAthletes','Total Athletes'), val:athletes.length, hint:`${active} ${tx('dashboard.activeThisSeason','active this season')}`, color:'#0085C7', click:() => onNav('athletes', { statusFilter:'Active' }) },
-          { label:tx('dashboard.activeEvents','Active Events'),  val:upcoming, hint:`${upcoming} ${tx('dashboard.upcoming','upcoming')}`, color:'#EE334E', click:() => onNav('events', { statusFilter:'Upcoming' }) },
-          { label:tx('nav.coaches','Coaches'), val:coaches.length, hint:`${[...new Set(coaches.map(c=>c.sport))].length} ${tx('dashboard.sportsCovered','sports covered')}`, color:'#009F6B', click:() => onNav('coaches') },
-          { label:lang==='ar'?'🥇 ذهب':'🥇 Gold',   val:gold,   hint:tx('dashboard.seasonTotal','season total'), color:'#f1c40f', click:() => onNav('results') },
-          { label:lang==='ar'?'🥈 فضة':'🥈 Silver', val:silver, hint:tx('dashboard.seasonTotal','season total'), color:'#aaa',    click:() => onNav('results') },
-          { label:lang==='ar'?'🥉 برونز':'🥉 Bronze', val:bronze, hint:tx('dashboard.seasonTotal','season total'), color:'#cd7f32', click:() => onNav('results') },
-        ].map(({ label, val, hint, color, click }) => (
+      {/* ── Stat Cards ── */}
+      <div className="stat-grid" style={{ marginTop: 4 }}>
+        {statCards.map(({ label, val, hint, color, icon, click }) => (
           <div key={label} className="stat-card" onClick={click}>
-            <div className="stat-label"><div className="stat-dot" style={{ background:color }} />{label}</div>
-            <div className="stat-val">{val}</div>
-            <div className="stat-hint">{hint}</div>
-            <i className="ti ti-arrow-right stat-arrow" />
+            <div className="stat-icon" style={{ background: color + '18' }}>
+              <i className={`ti ${icon}`} style={{ color, fontSize: 22 }} />
+            </div>
+            <div className="stat-body">
+              <div className="stat-label">{label}</div>
+              <div className="stat-val" style={{ color }}>{val}</div>
+              <div className="stat-hint">{hint}</div>
+            </div>
+            <i className="ti ti-chevron-right stat-arrow" />
           </div>
         ))}
       </div>
@@ -94,23 +132,14 @@ export default function Dashboard({ athletes, coaches, events, results, onNav, p
           <span style={{ fontSize:10, fontWeight:400, color:'var(--text3)', textTransform:'none', letterSpacing:0, marginLeft:4 }}>— {tx('dashboard.clickToExplore','click to explore')}</span>
         </div>
         {(() => {
-          // Count every sport across both categories (not just Paralympic), then show
-          // whichever ones actually have athletes — busiest first. This scales correctly
-          // no matter how long the master sport list grows, since sports nobody's in yet
-          // simply don't take up space on the dashboard; "View all sports" covers those.
           const allEntries = SPORT_CATEGORIES.flatMap(category =>
             (SPORTS_BY_CATEGORY[category] || []).map(s => ({
-              sport: s,
-              category,
+              sport: s, category,
               count: athletes.filter(a => a.sport === s && (a.sport_category === category || !a.sport_category)).length,
             }))
           )
           const topSports = allEntries.filter(e => e.count > 0).sort((a,b) => b.count - a.count).slice(0, 8)
-
-          if (topSports.length === 0) {
-            return <div className="empty" style={{ padding:16 }}>{tx('dashboard.noSportsYet','No athletes assigned to a sport yet')}</div>
-          }
-
+          if (topSports.length === 0) return <div className="empty" style={{ padding:16 }}>{tx('dashboard.noSportsYet','No athletes assigned to a sport yet')}</div>
           return (
             <div className="sports-grid">
               {topSports.map(({ sport: s, category, count }) => {
