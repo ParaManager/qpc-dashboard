@@ -402,6 +402,11 @@ export default function Athletes({ athletes, coaches, employees, results, docume
     if (sort === 'gender-desc')      return (b.gender||'').localeCompare(a.gender||'')
     if (sort === 'dob-asc')          return new Date(a.dob||0) - new Date(b.dob||0)
     if (sort === 'dob-desc')         return new Date(b.dob||0) - new Date(a.dob||0)
+    if (sort === 'age_category-asc' || sort === 'age_category-desc') {
+      const AGE_ORDER = ['Under 5','5 - 9','10 - 14','15 - 19','20 - 24','25 - 29','30 - 34','35 - 39','40 - 44','45 - 49','50 - 54','55 - 59','60 - 64','65+']
+      const ai = AGE_ORDER.indexOf(a.age_category ?? ''), bi = AGE_ORDER.indexOf(b.age_category ?? '')
+      return sort === 'age_category-asc' ? ai - bi : bi - ai
+    }
     if (sort === 'medals-desc')      return (b.medals_gold+b.medals_silver+b.medals_bronze)-(a.medals_gold+a.medals_silver+a.medals_bronze)
     if (sort === 'gold-desc')        return b.medals_gold - a.medals_gold
     if (sort === 'join_date-asc')    return new Date(a.join_date||0) - new Date(b.join_date||0)
@@ -1389,7 +1394,7 @@ ${myDocs.length > 0 ? `<div class="section">
                     nationality:    ['All', ...['Afghanistan', 'Algeria', 'Argentina', 'Armenia', 'Australia', 'Austria', 'Azerbaijan', 'Bahrain', 'Bangladesh', 'Belarus', 'Belgium', 'Brazil', 'Cameroon', 'Canada', 'Chile', 'China', 'Colombia', 'Croatia', 'Czech Republic', 'Denmark', 'Egypt', 'Eritrea', 'Ethiopia', 'Finland', 'France', 'Georgia', 'Germany', 'Ghana', 'Greece', 'Guinea', 'Hungary', 'India', 'Indonesia', 'Iran', 'Iraq', 'Ireland', 'Italy', 'Japan', 'Jordan', 'Kazakhstan', 'Kenya', 'Kuwait', 'Kyrgyzstan', 'Lebanon', 'Libya', 'Malaysia', 'Mali', 'Mauritania', 'Mexico', 'Mongolia', 'Morocco', 'Myanmar', 'Nepal', 'Netherlands', 'New Zealand', 'Nigeria', 'Norway', 'Oman', 'Pakistan', 'Palestine', 'Peru', 'Philippines', 'Poland', 'Portugal', 'Qatar', 'Romania', 'Russia', 'Rwanda', 'Saudi Arabia', 'Scotland', 'Senegal', 'Serbia', 'Singapore', 'Slovakia', 'Somalia', 'South Africa', 'South Korea', 'Spain', 'Sri Lanka', 'Sudan', 'Sweden', 'Syria', 'Tajikistan', 'Tanzania', 'Thailand', 'Tunisia', 'Turkey', 'Turkmenistan', 'UAE', 'Uganda', 'UK', 'Ukraine', 'USA', 'Uzbekistan', 'Venezuela', 'Vietnam', 'Wales', 'Yemen', 'Zambia', 'Zimbabwe']],
                     coach_id:       ['All', ...coaches.map(co => co.name)],
                     disability:     ['All', ...new Set(athletes.map(a => a.disability).filter(Boolean))],
-                    age_category:   ['All', ...new Set(athletes.map(a => a.age_category).filter(Boolean))],
+                    age_category:   ['All', 'Under 5', '5 - 9', '10 - 14', '15 - 19', '20 - 24', '25 - 29', '30 - 34', '35 - 39', '40 - 44', '45 - 49', '50 - 54', '55 - 59', '60 - 64', '65+'],
                     medical_status: ['All', 'None', 'Screening', 'Medical Certificate'],
                   }
                   const opts = filterOpts[col.key]
