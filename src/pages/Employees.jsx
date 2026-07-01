@@ -182,6 +182,487 @@ ${emp.notes ? `<div class="section-title">${L('Notes','ملاحظات')}</div><p
   setTimeout(() => win.print(), 500)
 }
 
+function exportIDCard(emp) {
+  const name    = emp.name || ''
+  const nameAr  = emp.name_ar || ''
+  const desig   = emp.designation || ''
+  const desigAr = emp.designation_ar || ''
+  const staffId = emp.employee_number ? `QPC-${emp.employee_number}` : ''
+  const jobId   = emp.job_id || ''
+  const qssNum  = emp.qss_number ? `QSS-${emp.qss_number}` : ''
+  const phone   = emp.phone || ''
+  const email   = emp.email || ''
+  const photo   = emp.photo_url || ''
+  const ini     = name.split(' ').slice(0,2).map(w=>w[0]||'').join('').toUpperCase()
+
+  // Approximate the card background, swooshes, and layout in pure HTML/CSS.
+  // Logos are rendered as text/SVG stubs since we don't want to embed full
+  // copyrighted raster files — the actual logos can be swapped in via <img>
+  // once hosted in public/ if needed.
+  const html = `<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/>
+<title>ID Card — ${name}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  @media print {
+    body { margin: 0; }
+    .no-print { display: none !important; }
+    @page { size: 85.6mm 54mm; margin: 0; }
+  }
+  body {
+    font-family: Arial, 'Segoe UI', sans-serif;
+    background: #e0e0e0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 20px;
+  }
+  .no-print {
+    margin-bottom: 16px;
+    display: flex;
+    gap: 10px;
+  }
+  .btn {
+    padding: 10px 22px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-family: Arial;
+    font-weight: 600;
+  }
+  .btn-back { background: #2d3748; color: #fff; }
+  .btn-print { background: #7b1432; color: #fff; }
+
+  /* CARD */
+  .card {
+    width: 856px;
+    height: 540px;
+    background: #f8f6f3;
+    border-radius: 28px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+  }
+
+  /* Top-left crimson decorative corner */
+  .corner-tl {
+    position: absolute;
+    top: 0; left: 0;
+    width: 220px;
+    height: 300px;
+    background: #7b1432;
+    clip-path: ellipse(180px 260px at 0% 0%);
+    z-index: 1;
+  }
+  .corner-tl-inner {
+    position: absolute;
+    top: 0; left: 0;
+    width: 170px;
+    height: 240px;
+    background: #6a1028;
+    clip-path: ellipse(140px 200px at 0% 0%);
+    z-index: 1;
+  }
+
+  /* Gold accent line on corner */
+  .gold-arc {
+    position: absolute;
+    top: 60px; left: -20px;
+    width: 300px;
+    height: 320px;
+    border: 3px solid #c9a84c;
+    border-radius: 50%;
+    z-index: 2;
+    opacity: 0.8;
+  }
+
+  /* Bottom crimson swoosh */
+  .swoosh-bottom {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 170px;
+    background: #7b1432;
+    clip-path: ellipse(110% 170px at 35% 100%);
+    z-index: 1;
+  }
+  .swoosh-bottom-dark {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 140px;
+    background: #6a1028;
+    clip-path: ellipse(110% 140px at 30% 100%);
+    z-index: 2;
+  }
+
+  /* Gold swoosh line */
+  .gold-swoosh {
+    position: absolute;
+    bottom: 138px; left: -20px;
+    width: 120%;
+    height: 8px;
+    background: linear-gradient(to right, #c9a84c, #f0d060, #c9a84c, transparent);
+    transform: rotate(-3deg);
+    z-index: 3;
+  }
+  .gold-dot-end {
+    position: absolute;
+    bottom: 143px;
+    left: 42%;
+    width: 12px; height: 12px;
+    background: #c9a84c;
+    border-radius: 50%;
+    z-index: 4;
+  }
+
+  /* Right-side decorative dots grid */
+  .dots-grid {
+    position: absolute;
+    bottom: 155px; right: 18px;
+    width: 110px; height: 80px;
+    z-index: 3;
+  }
+  .dots-grid span {
+    position: absolute;
+    width: 5px; height: 5px;
+    background: #c9a84c;
+    border-radius: 50%;
+    opacity: 0.55;
+  }
+
+  /* Photo circle */
+  .photo-wrap {
+    position: absolute;
+    top: 88px; left: 38px;
+    width: 200px; height: 200px;
+    border-radius: 50%;
+    border: 4px solid #c9a84c;
+    overflow: hidden;
+    background: #e0e0e0;
+    z-index: 5;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .photo-wrap img { width: 100%; height: 100%; object-fit: cover; }
+  .photo-initials {
+    font-size: 52px; font-weight: 700;
+    color: #7b1432;
+    font-family: Arial;
+  }
+
+  /* LOGOS row */
+  .logos {
+    position: absolute;
+    top: 28px; left: 270px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    z-index: 5;
+  }
+  .logo-qpc {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .logo-qpc-icon {
+    width: 44px; height: 52px;
+  }
+  .logo-qpc-text { line-height: 1.2; }
+  .logo-qpc-text .en { font-size: 12px; font-weight: 700; color: #7b1432; }
+  .logo-qpc-text .ar { font-size: 10px; color: #7b1432; }
+  .divider-v { width: 1px; height: 56px; background: #c9a84c; }
+  .logo-qatar {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+  .logo-qatar-badge {
+    width: 42px; height: 42px;
+    background: #7b1432;
+    clip-path: polygon(50% 0%, 100% 12%, 100% 75%, 50% 100%, 0% 75%, 0% 12%);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; color: #fff; font-weight: 700; text-align: center;
+    line-height: 1.1;
+  }
+  .logo-so {
+    display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
+  }
+  .logo-so-text { font-size: 13px; font-weight: 900; color: #e8232a; font-style: italic; }
+  .logo-so-sub { font-size: 10px; color: #555; }
+  .logo-so-sub-ar { font-size: 9px; color: #555; }
+
+  /* Content area */
+  .content {
+    position: absolute;
+    top: 105px; left: 270px;
+    z-index: 5;
+    max-width: 540px;
+  }
+  .full-name-en {
+    font-size: 36px;
+    font-weight: 900;
+    color: #1a1d23;
+    letter-spacing: -0.01em;
+    line-height: 1.1;
+  }
+  .full-name-ar {
+    font-size: 22px;
+    color: #1a1d23;
+    margin-top: 4px;
+    font-weight: 400;
+    direction: rtl;
+  }
+  .name-divider {
+    width: 280px;
+    height: 1.5px;
+    background: linear-gradient(to right, #c9a84c, #f0d060, #c9a84c);
+    margin: 10px 0;
+    position: relative;
+  }
+  .name-divider::after {
+    content: '';
+    position: absolute;
+    right: -6px; top: -4px;
+    width: 10px; height: 10px;
+    background: #c9a84c;
+    border-radius: 50%;
+  }
+  .position-en {
+    font-size: 20px;
+    font-weight: 700;
+    color: #1a1d23;
+    margin-top: 6px;
+  }
+  .position-ar {
+    font-size: 16px;
+    color: #7b1432;
+    margin-top: 3px;
+    direction: rtl;
+  }
+
+  /* Info bar (Staff ID / Job ID / QSS) */
+  .info-bar {
+    position: absolute;
+    bottom: 155px; left: 0; right: 0;
+    display: flex;
+    align-items: center;
+    z-index: 5;
+    padding: 0 32px;
+  }
+  .info-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+  }
+  .info-icon {
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    background: #7b1432;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .info-icon svg { width: 18px; height: 18px; fill: none; stroke: #fff; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .info-label { font-size: 11px; color: #5a6272; font-weight: 600; }
+  .info-value { font-size: 13px; font-weight: 700; color: #1a1d23; margin-top: 1px; }
+  .info-sep { width: 1px; height: 44px; background: #c9a84c; margin: 0 16px; opacity: 0.6; }
+
+  /* Footer bar (phone / email) */
+  .footer-bar {
+    position: absolute;
+    bottom: 18px; left: 0; right: 0;
+    display: flex;
+    align-items: center;
+    z-index: 6;
+    padding: 0 50px;
+    gap: 40px;
+  }
+  .footer-item {
+    display: flex; align-items: center; gap: 10px;
+  }
+  .footer-icon {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    border: 1.5px solid #c9a84c;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .footer-icon svg { width: 14px; height: 14px; fill: none; stroke: #c9a84c; stroke-width: 1.8; stroke-linecap: round; }
+  .footer-text { font-size: 14px; color: #fff; font-weight: 500; }
+  .footer-sep { width: 1px; height: 30px; background: #c9a84c; opacity: 0.4; }
+
+  /* Skyline watermark on bottom-right */
+  .skyline {
+    position: absolute;
+    bottom: 55px; right: 0;
+    width: 380px; height: 90px;
+    opacity: 0.18;
+    z-index: 4;
+  }
+</style>
+</head><body>
+
+<div class="no-print">
+  <button class="btn btn-back" onclick="if(window.opener||window.history.length<=1){window.close()}else{history.back()}">← Back</button>
+  <button class="btn btn-print" onclick="window.print()">🖨 Print / Save PDF</button>
+</div>
+
+<div class="card">
+
+  <!-- Corner decorations -->
+  <div class="corner-tl"></div>
+  <div class="corner-tl-inner"></div>
+  <div class="gold-arc"></div>
+
+  <!-- Bottom swoosh -->
+  <div class="swoosh-bottom"></div>
+  <div class="swoosh-bottom-dark"></div>
+  <div class="gold-swoosh"></div>
+  <div class="gold-dot-end"></div>
+
+  <!-- Dots grid -->
+  <div class="dots-grid">
+    ${Array.from({length:5},(_,r)=>Array.from({length:6},(_,c)=>`<span style="top:${r*16}px;left:${c*18}px"></span>`).join('')).join('')}
+  </div>
+
+  <!-- Skyline silhouette (simplified SVG watermark) -->
+  <svg class="skyline" viewBox="0 0 380 90" xmlns="http://www.w3.org/2000/svg" fill="#7b1432">
+    <rect x="0" y="60" width="380" height="30"/>
+    <rect x="20" y="40" width="12" height="20"/>
+    <rect x="38" y="30" width="10" height="30"/>
+    <rect x="54" y="45" width="8" height="15"/>
+    <rect x="68" y="25" width="14" height="35"/>
+    <rect x="71" y="15" width="8" height="10"/>
+    <rect x="88" y="35" width="10" height="25"/>
+    <rect x="104" y="20" width="16" height="40"/>
+    <rect x="107" y="8" width="10" height="12"/>
+    <rect x="126" y="38" width="10" height="22"/>
+    <rect x="142" y="28" width="12" height="32"/>
+    <rect x="160" y="42" width="8" height="18"/>
+    <rect x="174" y="18" width="18" height="42"/>
+    <rect x="178" y="5" width="10" height="13"/>
+    <rect x="198" y="32" width="14" height="28"/>
+    <rect x="218" y="44" width="9" height="16"/>
+    <rect x="232" y="22" width="16" height="38"/>
+    <rect x="254" y="38" width="10" height="22"/>
+    <rect x="268" y="28" width="14" height="32"/>
+    <rect x="288" y="50" width="8" height="10"/>
+    <rect x="300" y="35" width="12" height="25"/>
+    <rect x="318" y="44" width="10" height="16"/>
+    <rect x="332" y="30" width="16" height="30"/>
+    <rect x="352" y="48" width="8" height="12"/>
+    <rect x="364" y="38" width="10" height="22"/>
+  </svg>
+
+  <!-- Photo -->
+  <div class="photo-wrap">
+    ${photo ? `<img src="${photo}" alt="${name}"/>` : `<div class="photo-initials">${ini}</div>`}
+  </div>
+
+  <!-- Logos -->
+  <div class="logos">
+    <!-- QPC -->
+    <div class="logo-qpc">
+      <svg class="logo-qpc-icon" viewBox="0 0 44 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M22 2 L40 10 L40 36 L22 50 L4 36 L4 10 Z" fill="#7b1432" stroke="#c9a84c" stroke-width="1.5"/>
+        <text x="22" y="28" text-anchor="middle" fill="white" font-size="7" font-weight="bold" font-family="Arial">QPC</text>
+        <circle cx="22" cy="18" r="7" fill="none" stroke="white" stroke-width="1.2"/>
+        <path d="M19 15 L22 12 L25 15" fill="white"/>
+      </svg>
+      <div class="logo-qpc-text">
+        <div class="en">Qatar<br/>Paralympic<br/>Committee</div>
+        <div class="ar">اللجنة البارالمبية القطرية</div>
+      </div>
+    </div>
+    <div class="divider-v"></div>
+    <!-- Qatar emblem -->
+    <div class="logo-qatar">
+      <div class="logo-qatar-badge">قطر<br/>QATAR</div>
+      <svg width="32" height="14" viewBox="0 0 32 14">
+        <circle cx="4" cy="7" r="4" fill="#0085C7"/>
+        <circle cx="12" cy="7" r="4" fill="#EE334E"/>
+        <circle cx="20" cy="7" r="4" fill="#009F6B"/>
+        <circle cx="28" cy="7" r="4" fill="#f1c40f"/>
+      </svg>
+    </div>
+    <div class="divider-v"></div>
+    <!-- Special Olympics -->
+    <div class="logo-so">
+      <div class="logo-so-text">Special<br/>Olympics</div>
+      <div class="logo-so-sub">Qatar</div>
+      <div class="logo-so-sub-ar">الأولمبياد الخاص قطر</div>
+    </div>
+  </div>
+
+  <!-- Name + Position -->
+  <div class="content">
+    <div class="full-name-en">${name}</div>
+    ${nameAr ? `<div class="full-name-ar">${nameAr}</div>` : ''}
+    <div class="name-divider"></div>
+    <div class="position-en">${desig}</div>
+    ${desigAr ? `<div class="position-ar">${desigAr}</div>` : ''}
+  </div>
+
+  <!-- Info bar -->
+  <div class="info-bar">
+    <div class="info-item">
+      <div class="info-icon">
+        <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="7" y1="9" x2="17" y2="9"/><line x1="7" y1="13" x2="13" y2="13"/><circle cx="17" cy="17" r="3"/></svg>
+      </div>
+      <div>
+        <div class="info-label">Staff ID</div>
+        <div class="info-value">${staffId || '—'}</div>
+      </div>
+    </div>
+    <div class="info-sep"></div>
+    <div class="info-item">
+      <div class="info-icon">
+        <svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>
+      </div>
+      <div>
+        <div class="info-label">Job ID</div>
+        <div class="info-value">${jobId || '—'}</div>
+      </div>
+    </div>
+    <div class="info-sep"></div>
+    <div class="info-item">
+      <div class="info-icon">
+        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="12" y2="17"/></svg>
+      </div>
+      <div>
+        <div class="info-label">QSS Number</div>
+        <div class="info-value">${qssNum || '—'}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer-bar">
+    <div class="footer-item">
+      <div class="footer-icon">
+        <svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.39 2 2 0 0 1 3.6 1.22h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.9a16 16 0 0 0 6 6l.95-.95a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.73 17z"/></svg>
+      </div>
+      <div class="footer-text">${phone || '+974 44040200'}</div>
+    </div>
+    <div class="footer-sep"></div>
+    <div class="footer-item">
+      <div class="footer-icon">
+        <svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+      </div>
+      <div class="footer-text">${email || 'info@qpc.qa'}</div>
+    </div>
+  </div>
+
+</div>
+
+</body></html>`
+
+  const win = window.open('', '_blank')
+  win.document.write(html)
+  win.document.close()
+}
+
 function exportEmployeesExcel(list, lang) {
   const ar = lang === 'ar'
   const STATUS_AR = {'Active':'نشط','Inactive':'غير نشط','On Leave':'في إجازة'}
@@ -264,6 +745,9 @@ function EmpModal({ data, isEdit, onClose, onSave }) {
           <div className="form-row">
             {grp(ar?'رقم الموظف':'Employee number', inp("employee_number", "text", "e.g. 12501"))}
             {grp(ar?'رقم QSS':'QSS number', inp("qss_number", "text", "e.g. 50112"))}
+          </div>
+          <div className="form-row">
+            {grp(ar?'رقم المنصب (Job ID)':'Job ID', inp("job_id", "text", "e.g. QPC-J0001"))}
           </div>
           {grp(ar?'الحالة':'Status', sel("status", statusOpts))}
           <div className="form-section">{ar?'معلومات الاتصال':'Contact'}</div>
@@ -391,7 +875,7 @@ export default function Employees({ employees, personDocs, onRefresh, onNav, nav
       name: formData.name, name_ar: formData.name_ar || null,
       gender: formData.gender || null, nationality: formData.nationality || null,
       designation: formData.designation || null, designation_ar: formData.designation_ar || null,
-      employee_number: formData.employee_number || null, qss_number: formData.qss_number || null,
+      employee_number: formData.employee_number || null, qss_number: formData.qss_number || null, job_id: formData.job_id || null,
       phone: formData.phone || null, email: formData.email || null,
       status: formData.status || 'Active', notes: formData.notes || null,
     }
