@@ -265,6 +265,14 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
               </div>
             </Row>
             <Row>
+              <div className="form-group">
+                <label className="form-label">{ar ? 'الفئة العمرية الرياضية' : 'Sport age category'}</label>
+                <div style={{ fontSize: 12, color: 'var(--text3)', padding: '8px 10px', borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
+                  {ar ? 'تحسب تلقائياً من تاريخ الميلاد والجنس' : 'Auto-computed from date of birth and gender'}
+                </div>
+              </div>
+            </Row>
+            <Row>
               <Field label={T.coach} options={[{ value:'', label: T.unassigned }, ...(coaches||[]).map(c => ({ value: c.id, label: ar && c.name_ar ? c.name_ar : c.name }))]} {...f('coachId')} />
               <Field label={T.status} options={statusOptsAthlete} {...f('status')} />
             </Row>
