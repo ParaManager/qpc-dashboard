@@ -33,9 +33,11 @@ const DISABILITY_ROW = {
 // Standard 5-year bands, computed live from date of birth — nothing here
 // needs a mapping table, just arithmetic.
 const AGE_BANDS = [
-  [0, 4, 9], [5, 9, 10], [10, 14, 11], [15, 19, 12], [20, 24, 13],
+  [0, 4, 9],   // Under 5 — row 9 in the template
+  [5, 9, 10], [10, 14, 11], [15, 19, 12], [20, 24, 13],
   [25, 29, 14], [30, 34, 15], [35, 39, 16], [40, 44, 17], [45, 49, 18],
-  [50, 54, 19], [55, 59, 20], [60, 64, 21], [65, 200, 22],
+  [50, 54, 19], [55, 59, 20], [60, 64, 21],
+  [65, 200, 22], // 65 and above — row 22 in the template
 ]
 
 // ── Sheet 3: employee occupation ────────────────────────────────────────
@@ -77,6 +79,9 @@ function isQatari(nationality) {
 function writeCell(ws, address, value) {
   if (ws[address]) {
     ws[address].v = value
+    ws[address].t = 'n' // force numeric type — stub cells (t:'z') exist in this
+    // template when cellStyles:true is used for reading, and SheetJS serializes
+    // them as empty regardless of .v unless the type is explicitly corrected.
     if (ws[address].w !== undefined) delete ws[address].w // stale cached display string
   } else {
     ws[address] = { t: 'n', v: value }
