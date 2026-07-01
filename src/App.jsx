@@ -418,14 +418,17 @@ export default function App() {
             onMouseLeave={e => e.currentTarget.style.background='transparent'}
             title="Go to My Profile"
           >
-            <div style={{ width:32, height:32, borderRadius:'50%', background:roleColor, display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:600, color:'#fff', flexShrink:0, overflow:'hidden', border:`2px solid ${roleColor}` }}>
-              {userPhoto
-                ? <img src={userPhoto} alt={userName} style={{ width:'100%', height:'100%', objectFit:'cover', objectPosition:'top center' }} />
-                : userName.charAt(0).toUpperCase()
-              }
+            <div style={{ position:'relative', flexShrink:0 }}>
+              <div style={{ width:34, height:34, borderRadius:'50%', background:roleColor, display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:600, color:'#fff', overflow:'hidden', border:`2px solid ${roleColor}40` }}>
+                {userPhoto
+                  ? <img src={userPhoto} alt={userName} style={{ width:'100%', height:'100%', objectFit:'cover', objectPosition:'top center' }} />
+                  : userName.charAt(0).toUpperCase()
+                }
+              </div>
+              <div style={{ position:'absolute', bottom:0, right:0, width:9, height:9, borderRadius:'50%', background:'#22c55e', border:'2px solid #0f1923' }} />
             </div>
             <div style={{ flex:1, minWidth:0 }}>
-              <div style={{ color:'#fff', fontSize:12, fontWeight:500, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{userName}</div>
+              <div style={{ color:'#fff', fontSize:12, fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{userName}</div>
               <div style={{ display:'flex', alignItems:'center', gap:4, marginTop:2 }}>
                 <i className={`ti ${roleIcon}`} style={{ fontSize:10, color:roleColor }} />
                 <span style={{ color:roleColor, fontSize:10, fontWeight:500, textTransform:'capitalize' }}>{role}</span>
