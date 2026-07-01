@@ -33,11 +33,11 @@ const DISABILITY_ROW = {
 // Standard 5-year bands, computed live from date of birth — nothing here
 // needs a mapping table, just arithmetic.
 const AGE_BANDS = [
-  [0, 4, 9],   // Under 5 — row 9 in the template
+  [0, 4, 9],   // Under 5 — row 9
   [5, 9, 10], [10, 14, 11], [15, 19, 12], [20, 24, 13],
   [25, 29, 14], [30, 34, 15], [35, 39, 16], [40, 44, 17], [45, 49, 18],
   [50, 54, 19], [55, 59, 20], [60, 64, 21],
-  [65, 200, 22], // 65 and above — row 22 in the template
+  [65, 200, 22], // 65 and above — row 22
 ]
 
 // ── Sheet 3: employee occupation ────────────────────────────────────────
@@ -79,10 +79,8 @@ function isQatari(nationality) {
 function writeCell(ws, address, value) {
   if (ws[address]) {
     ws[address].v = value
-    ws[address].t = 'n' // force numeric type — stub cells (t:'z') exist in this
-    // template when cellStyles:true is used for reading, and SheetJS serializes
-    // them as empty regardless of .v unless the type is explicitly corrected.
-    if (ws[address].w !== undefined) delete ws[address].w // stale cached display string
+    ws[address].t = 'n' // force numeric — stub cells (t:'z') exist when cellStyles:true
+    if (ws[address].w !== undefined) delete ws[address].w
   } else {
     ws[address] = { t: 'n', v: value }
   }
@@ -143,15 +141,16 @@ export async function generateStatisticsReport({ athletes, employees, coaches, l
     if (!row) continue // no disability recorded, or a type this report doesn't track — excluded, not zeroed
     addCounts(grid1, row, colFor(a))
   }
-  for (const row of Object.values(DISABILITY_ROW)) {
+  // Write ALL data rows in Sheet 1 (rows 9-18), zeroing out any row not in
+  // our mapping. Without this, rows like "Multiple Disability" (row 15) keep
+  // their pre-existing 2024 sample values from the template file since we
+  // never touch them — making it look like we have athletes with disabilities
+  // we never actually recorded.
+  for (let row = 9; row <= 18; row++) {
     for (const col of ['C', 'D', 'F', 'G']) {
       writeCell(ws1, `${col}${row}`, grid1[row]?.[col] || 0)
     }
   }
-  // Row 19 ("Other") is deliberately left untouched — see the comment on
-  // DISABILITY_ROW above — so it's excluded from the summed range here too,
-  // exactly matching the template's own =SUM(C9:C19) which already includes
-  // it (correctly summing as zero/blank either way).
   recalculateTotals(ws1, 9, 19, 20)
 
   // ── Sheet 2: age group ──
