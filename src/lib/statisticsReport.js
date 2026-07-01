@@ -133,12 +133,22 @@ export async function generateStatisticsReport({ athletes, employees, coaches, l
     return male ? 'F' : 'G'
   }
 
+  // Both Sheet 1 (disability) and Sheet 2 (age) must count the exact same set
+  // of athletes, so their totals always match. An athlete who has no recognized
+  // disability type is excluded from Sheet 1 — they must also be excluded from
+  // Sheet 2, otherwise the two sheets show different totals for what is supposed
+  // to be the same population. Athletes with no DOB would be excluded from
+  // Sheet 2 but are currently all 187 have one, so this guard is a safety net.
+  const qualifiedAthletes = athletes.filter(a =>
+    DISABILITY_ROW[a.disability] && a.dob
+  )
+
   // ── Sheet 1: disability type ──
   const ws1 = wb.Sheets['1']
   const grid1 = {}
-  for (const a of athletes) {
+  for (const a of qualifiedAthletes) {
     const row = DISABILITY_ROW[a.disability]
-    if (!row) continue // no disability recorded, or a type this report doesn't track — excluded, not zeroed
+    if (!row) continue
     addCounts(grid1, row, colFor(a))
   }
   // Write ALL data rows in Sheet 1 (rows 9-18), zeroing out any row not in
@@ -156,7 +166,7 @@ export async function generateStatisticsReport({ athletes, employees, coaches, l
   // ── Sheet 2: age group ──
   const ws2 = wb.Sheets['2']
   const grid2 = {}
-  for (const a of athletes) {
+  for (const a of qualifiedAthletes) {
     const age = calculateAge(a.dob)
     if (age === null) continue
     const band = AGE_BANDS.find(([lo, hi]) => age >= lo && age <= hi)
