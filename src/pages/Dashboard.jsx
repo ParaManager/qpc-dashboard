@@ -36,14 +36,14 @@ export default function Dashboard({ athletes, coaches, events, results, onNav, p
       {/* ── Hero Banner ── */}
       <div style={{
         position: 'relative', borderRadius: 18, overflow: 'hidden', marginBottom: 22,
-        minHeight: 180, display: 'flex', alignItems: 'center',
+        minHeight: 260, display: 'flex', alignItems: 'center',
         background: '#1a0a14',
       }}>
         {/* Real QPC banner — athletes + Doha skyline */}
         <div style={{
           position: 'absolute', inset: 0,
           backgroundImage: 'url(/dashboard-banner.jpg)',
-          backgroundSize: 'cover', backgroundPosition: 'center 30%',
+          backgroundSize: 'cover', backgroundPosition: 'center center',
           opacity: 1,
         }} />
         {/* Gradient overlay — heavier on the text side so name/role stays readable */}
@@ -55,7 +55,7 @@ export default function Dashboard({ athletes, coaches, events, results, onNav, p
         }} />
 
         {/* Content */}
-        <div style={{ position: 'relative', zIndex: 1, padding: '28px 32px', flex: 1 }}>
+        <div style={{ position: 'relative', zIndex: 1, padding: '36px 36px', flex: 1 }}>
           <div style={{ fontSize: 13, color: 'rgba(255,255,255,.5)', marginBottom: 8, fontWeight: 500 }}>
             {tx('dashboard.welcomeBack', 'Welcome back,')}
           </div>
