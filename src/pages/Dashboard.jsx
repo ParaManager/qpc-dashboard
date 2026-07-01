@@ -37,21 +37,21 @@ export default function Dashboard({ athletes, coaches, events, results, onNav, p
       <div style={{
         position: 'relative', borderRadius: 18, overflow: 'hidden', marginBottom: 22,
         minHeight: 180, display: 'flex', alignItems: 'center',
-        background: 'linear-gradient(135deg, #0f1923 0%, #1a2a3a 60%, #0f2535 100%)',
+        background: '#1a0a14',
       }}>
-        {/* Background sports image — fades in from the right */}
+        {/* Real QPC banner — athletes + Doha skyline */}
         <div style={{
           position: 'absolute', inset: 0,
-          backgroundImage: 'url(https://images.unsplash.com/photo-1551927336-09d52efd1714?w=1200&q=80)',
-          backgroundSize: 'cover', backgroundPosition: 'center top',
-          opacity: 0.18,
+          backgroundImage: 'url(/dashboard-banner.jpg)',
+          backgroundSize: 'cover', backgroundPosition: 'center 30%',
+          opacity: 1,
         }} />
-        {/* Gradient overlay so text stays readable */}
+        {/* Gradient overlay — heavier on the text side so name/role stays readable */}
         <div style={{
           position: 'absolute', inset: 0,
           background: ar
-            ? 'linear-gradient(to left, transparent 0%, #0f1923 55%)'
-            : 'linear-gradient(to right, #0f1923 40%, transparent 100%)',
+            ? 'linear-gradient(to left, rgba(15,8,20,0.15) 0%, rgba(15,8,20,0.82) 45%, rgba(15,8,20,0.97) 70%)'
+            : 'linear-gradient(to right, rgba(15,8,20,0.97) 0%, rgba(15,8,20,0.82) 35%, rgba(15,8,20,0.15) 65%)',
         }} />
 
         {/* Content */}
@@ -71,13 +71,6 @@ export default function Dashboard({ athletes, coaches, events, results, onNav, p
               {tx('nav.season','Season')} {getCurrentSeason()}
             </span>
           </div>
-        </div>
-
-        {/* QPC logo top-right */}
-        <div style={{ position: 'absolute', top: 20, right: ar ? 'auto' : 20, left: ar ? 20 : 'auto', display: 'flex', gap: 5 }}>
-          {['#EE334E','#0085C7','#009F6B'].map((c,i) => (
-            <div key={i} style={{ width: 10, height: 10, borderRadius: '50%', background: c, opacity: 0.8 }} />
-          ))}
         </div>
       </div>
 
