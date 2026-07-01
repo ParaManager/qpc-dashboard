@@ -36,7 +36,7 @@ export default function Dashboard({ athletes, coaches, events, results, onNav, p
       {/* ── Hero Banner ── */}
       <div style={{
         position: 'relative', borderRadius: 18, overflow: 'hidden', marginBottom: 22,
-        minHeight: 260, display: 'flex', alignItems: 'center',
+        minHeight: 180, display: 'flex', alignItems: 'center',
         background: '#1a0a14',
       }}>
         {/* Real QPC banner — athletes + Doha skyline */}
@@ -46,16 +46,16 @@ export default function Dashboard({ athletes, coaches, events, results, onNav, p
           backgroundSize: 'cover', backgroundPosition: 'center center',
           opacity: 1,
         }} />
-        {/* Gradient overlay — heavier on the text side so name/role stays readable */}
+        {/* Gradient overlay — lighter since the image's crimson left already gives text contrast */}
         <div style={{
           position: 'absolute', inset: 0,
           background: ar
-            ? 'linear-gradient(to left, rgba(15,8,20,0.15) 0%, rgba(15,8,20,0.82) 45%, rgba(15,8,20,0.97) 70%)'
-            : 'linear-gradient(to right, rgba(15,8,20,0.97) 0%, rgba(15,8,20,0.82) 35%, rgba(15,8,20,0.15) 65%)',
+            ? 'linear-gradient(to left, rgba(10,5,15,0.05) 0%, rgba(10,5,15,0.55) 40%, rgba(10,5,15,0.80) 60%)'
+            : 'linear-gradient(to right, rgba(10,5,15,0.80) 0%, rgba(10,5,15,0.55) 40%, rgba(10,5,15,0.05) 65%)',
         }} />
 
         {/* Content */}
-        <div style={{ position: 'relative', zIndex: 1, padding: '36px 36px', flex: 1 }}>
+        <div style={{ position: 'relative', zIndex: 1, padding: '28px 32px', flex: 1 }}>
           <div style={{ fontSize: 13, color: 'rgba(255,255,255,.5)', marginBottom: 8, fontWeight: 500 }}>
             {tx('dashboard.welcomeBack', 'Welcome back,')}
           </div>
