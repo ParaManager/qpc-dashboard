@@ -257,7 +257,12 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
             </Row>
             <Row>
               <Field label={T.disability} placeholder={ar?"مثال: إصابة الحبل الشوكي":"e.g. Spinal Cord Injury"} {...f('disability')} />
-              <Field label={T.ageCategory} placeholder="e.g. رجال (20+)" {...f('ageCategory')} />
+              <div className="form-group">
+                <label className="form-label">{T.ageCategory}</label>
+                <div style={{ fontSize: 12, color: 'var(--text3)', padding: '8px 10px', borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
+                  {ar ? 'تحسب تلقائياً من تاريخ الميلاد' : 'Auto-computed from date of birth'}
+                </div>
+              </div>
             </Row>
             <Row>
               <Field label={T.coach} options={[{ value:'', label: T.unassigned }, ...(coaches||[]).map(c => ({ value: c.id, label: ar && c.name_ar ? c.name_ar : c.name }))]} {...f('coachId')} />
