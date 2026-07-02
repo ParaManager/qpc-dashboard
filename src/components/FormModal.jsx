@@ -278,6 +278,9 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
                 </select>
               </div>
             </Row>
+            <Row>
+              <div className="form-group">
+                <label className="form-label">{T.ageCategory}</label>
                 <div style={{ fontSize: 12, color: 'var(--text3)', padding: '8px 10px', borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
                   {ar ? 'تحسب تلقائياً من تاريخ الميلاد' : 'Auto-computed from date of birth'}
                 </div>
