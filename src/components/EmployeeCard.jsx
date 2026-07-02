@@ -51,25 +51,28 @@ export function generateEmployeeCard(emp) {
 <canvas id="card" width="1536" height="1024"></canvas>
 
 <script>
-// All coordinates calibrated from pixel-measurement of the reference card (1536×1024)
+// Coordinates pixel-measured from reference image (1536×1024)
 const W=1536, H=1024;
-const NAVY='#1a2340', CRIMSON='#7b1425', GOLD='#c9a84c', WHITE='#ffffff', DARK='#1c1c1c', GRAY='#606060';
+const NAVY='#1a2340', CRIMSON='#7b1425', GOLD='#c9a84c', WHITE='#ffffff', DARK='#1c1c1c', GRAY='#5a5a5a';
 
-// Exact positions from reference
-const TX=625;          // left edge of all text & gold line
-const GOLD_LINE_Y=497; // gold separator line Y
-const GOLD_LINE_X2=1074; // gold line right end
-const GOLD_DOT_X=1090;   // gold dot center X
+// Key positions from reference
+const TX=634;           // left edge of all text
+const NAME_Y=357;       // EN name top
+const AR_NAME_Y=438;    // Arabic name top
+const GOLD_Y=503;       // gold separator line Y
+const GOLD_X2=1076;     // gold line right end
+const DOT_X=1092;       // gold dot center
 const DOT_R=18;
-
-const NAME_Y=352;      // EN name baseline area
-const AR_NAME_Y=420;   // Arabic name top
-const POS_EN_Y=530;    // Position EN top
-const POS_AR_Y=634;    // Position AR top
-const ID_CY=768;       // ID icons center Y
-const ID_IR=46;        // ID icon radius
-const FT_Y=921;        // Footer row center Y
-const FT_CR=38;        // Footer circle radius
+const POS_EN_Y=550;     // Position EN top
+const POS_AR_Y=705;     // Position AR top (crimson)
+const PHOTO_CX=288;     // photo circle center X
+const PHOTO_CY=514;     // photo circle center Y
+const PHOTO_R=259;      // photo inner radius
+const GOLD_RING=12;     // gold ring width
+const ID_CY=839;        // ID icon strip center Y
+const ID_IR=46;         // ID icon radius
+const FT_Y=913;         // footer center Y
+const FT_CR=38;         // footer circle radius
 
 function loadImg(src){
   return new Promise((res,rej)=>{
@@ -82,7 +85,7 @@ function loadImg(src){
 
 function fitFont(ctx,text,maxW,maxSize,weight,family){
   let size=maxSize;
-  while(size>20){
+  while(size>18){
     ctx.font=weight+' '+size+'px '+family;
     if(ctx.measureText(text).width<=maxW) break;
     size-=2;
@@ -91,7 +94,8 @@ function fitFont(ctx,text,maxW,maxSize,weight,family){
 }
 
 function clipCircle(ctx,cx,cy,r){
-  ctx.save(); ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.clip();
+  ctx.save();
+  ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.clip();
 }
 
 async function draw(){
@@ -103,150 +107,152 @@ async function draw(){
   ctx.drawImage(bg,0,0,W,H);
 
   // ── 2. LOGOS ───────────────────────────────────────────────────────────────
-  // From reference: QPC logo x=295-451, y=22-76 (logo area top=22)
-  // Logo zone: starts at x≈300, height≈200px
+  // From reference: logos start around x=554 (QPC shield center≈615)
+  // Layout: [QPC shield + text] | [Qatar shield] | [SO icon + text]
   const [qpc,qatar,so]=await Promise.all([
     loadImg('/logo-qpc.png'),
     loadImg('/logo-qatar.png'),
     loadImg('/logo-so.png'),
   ]);
 
-  const LOGO_H=178;
-  const LOGO_TOP=22;
-  const LOGO_START_X=300;
+  const LOGO_H=200;  // height of QPC+Qatar shields (tall)
+  const LOGO_TOP=18;
 
-  // QPC logo
+  // QPC logo — shield only, draw at left
   const qpcW=Math.round(qpc.width*LOGO_H/qpc.height);
-  ctx.drawImage(qpc, LOGO_START_X, LOGO_TOP, qpcW, LOGO_H);
+  const QPC_X=554;
+  ctx.drawImage(qpc, QPC_X, LOGO_TOP, qpcW, LOGO_H);
 
-  // Divider 1 after QPC
-  const d1x=LOGO_START_X+qpcW+40;
-  ctx.strokeStyle=GOLD; ctx.lineWidth=3;
-  ctx.beginPath(); ctx.moveTo(d1x,LOGO_TOP+15); ctx.lineTo(d1x,LOGO_TOP+158); ctx.stroke();
+  // "Qatar Paralympic Committee" text next to QPC logo (matching reference)
+  const QPC_TEXT_X = QPC_X + qpcW + 14;
+  ctx.textAlign='left'; ctx.textBaseline='top';
+  ctx.fillStyle=CRIMSON; ctx.font='bold 32px Arial';
+  ctx.fillText('Qatar', QPC_TEXT_X, LOGO_TOP+30);
+  ctx.fillText('Paralympic', QPC_TEXT_X, LOGO_TOP+68);
+  ctx.fillText('Committee', QPC_TEXT_X, LOGO_TOP+106);
+  ctx.font='22px Arial';
+  ctx.fillText('اللجنة البارالمبية القطرية', QPC_TEXT_X, LOGO_TOP+148);
+
+  // Divider 1
+  const TEXT_RIGHT_1 = QPC_TEXT_X + 180;
+  const D1X = TEXT_RIGHT_1 + 28;
+  ctx.strokeStyle=GOLD; ctx.lineWidth=2.5;
+  ctx.beginPath(); ctx.moveTo(D1X,LOGO_TOP+12); ctx.lineTo(D1X,LOGO_TOP+180); ctx.stroke();
 
   // Qatar logo
-  const qatarW=Math.round(qatar.width*LOGO_H/qatar.height);
-  ctx.drawImage(qatar, d1x+30, LOGO_TOP, qatarW, LOGO_H);
+  const qatarH=180;
+  const qatarW=Math.round(qatar.width*qatarH/qatar.height);
+  const QT_X = D1X + 28;
+  ctx.drawImage(qatar, QT_X, LOGO_TOP+(LOGO_H-qatarH)/2, qatarW, qatarH);
 
-  // Divider 2 after Qatar
-  const d2x=d1x+30+qatarW+40;
-  ctx.beginPath(); ctx.moveTo(d2x,LOGO_TOP+15); ctx.lineTo(d2x,LOGO_TOP+158); ctx.stroke();
+  // Divider 2
+  const D2X = QT_X + qatarW + 28;
+  ctx.beginPath(); ctx.moveTo(D2X,LOGO_TOP+12); ctx.lineTo(D2X,LOGO_TOP+180); ctx.stroke();
 
-  // SO logo — reference shows it smaller height
-  const soH=90;
+  // SO logo — icon + text combo, keep reasonable size
+  const soH=100;
   const soW=Math.round(so.width*soH/so.height);
-  ctx.drawImage(so, d2x+30, LOGO_TOP+(LOGO_H-soH)/2, soW, soH);
+  const SO_X = D2X + 28;
+  ctx.drawImage(so, SO_X, LOGO_TOP+(LOGO_H-soH)/2, soW, soH);
 
-  // ── 3. PHOTO ───────────────────────────────────────────────────────────────
-  // Reference: center=(307,539), radius≈195 (measured from reference pixels)
-  const CX=307, CY=539, R=195;
+  // Arabic text under SO
+  ctx.font='22px Arial'; ctx.fillStyle='#555';
+  ctx.fillText('الأولمبياد الخاص', SO_X, LOGO_TOP+soH+(LOGO_H-soH)/2+8);
+  ctx.fillText('قطر', SO_X+20, LOGO_TOP+soH+(LOGO_H-soH)/2+34);
 
+  // ── 3. PHOTO CIRCLE ────────────────────────────────────────────────────────
   // Gold ring
-  ctx.strokeStyle=GOLD; ctx.lineWidth=14;
-  ctx.beginPath(); ctx.arc(CX,CY,R+14,0,Math.PI*2); ctx.stroke();
+  ctx.strokeStyle=GOLD; ctx.lineWidth=GOLD_RING*2;
+  ctx.beginPath(); ctx.arc(PHOTO_CX,PHOTO_CY,PHOTO_R+GOLD_RING,0,Math.PI*2); ctx.stroke();
 
   if(${JSON.stringify(!!photo)}){
     try{
       const ph=await loadImg(${JSON.stringify(photo)});
       const side=Math.min(ph.width,ph.height);
       const sx=(ph.width-side)/2;
-      const sy=Math.max(0,(ph.height-side)*0.15);
-      clipCircle(ctx,CX,CY,R);
-      ctx.drawImage(ph,sx,sy,side,side,CX-R,CY-R,R*2,R*2);
+      const sy=Math.max(0,(ph.height-side)*0.12);
+      clipCircle(ctx,PHOTO_CX,PHOTO_CY,PHOTO_R);
+      ctx.drawImage(ph,sx,sy,side,side,PHOTO_CX-PHOTO_R,PHOTO_CY-PHOTO_R,PHOTO_R*2,PHOTO_R*2);
       ctx.restore();
-    } catch(e){ drawPlaceholder(ctx,CX,CY,R); }
-  } else { drawPlaceholder(ctx,CX,CY,R); }
+    } catch(e){ drawPlaceholder(ctx,PHOTO_CX,PHOTO_CY,PHOTO_R); }
+  } else { drawPlaceholder(ctx,PHOTO_CX,PHOTO_CY,PHOTO_R); }
 
   // ── 4. NAME BLOCK ──────────────────────────────────────────────────────────
-  // All text starts at TX=625, left-aligned
-  const TEXT_RIGHT=1450; // right boundary (don't overlap the watermark figure)
-  const MAX_W=TEXT_RIGHT-TX;
+  const MAX_W = 1460 - TX;  // right boundary = 1460
 
-  // EN Name — bold, large, left-aligned
-  ctx.textBaseline='top'; ctx.textAlign='left';
+  // EN Name — large bold left-aligned
   const enName=${JSON.stringify(emp.name||'Full Name')};
-  const enSize=fitFont(ctx,enName,MAX_W,90,'900','Arial');
+  const enSize=fitFont(ctx,enName,MAX_W,88,'900','Arial');
   ctx.font='900 '+enSize+'px Arial';
-  ctx.fillStyle=NAVY;
+  ctx.fillStyle=NAVY; ctx.textAlign='left'; ctx.textBaseline='top';
   ctx.fillText(enName, TX, NAME_Y);
 
-  // Arabic Name — LEFT-ALIGNED (same TX), but text direction RTL
-  // Render Arabic left-to-right visually starting at TX
+  // Arabic Name — left-aligned at TX (same column)
   const arName=${JSON.stringify(emp.name_ar||'الاسم الكامل')};
-  const arSize=fitFont(ctx,arName,MAX_W,62,'bold','Arial');
+  const arSize=fitFont(ctx,arName,MAX_W,58,'bold','Arial');
   ctx.font='bold '+arSize+'px Arial';
-  ctx.fillStyle=NAVY;
-  ctx.textAlign='left'; ctx.direction='ltr';
-  // For Arabic we anchor to left and let it flow — since Arabic reshaping
-  // happened server-side, we render as-is
+  ctx.fillStyle=NAVY; ctx.textAlign='left'; ctx.textBaseline='top';
   ctx.fillText(arName, TX, AR_NAME_Y);
 
-  // Gold separator line — from TX to GOLD_LINE_X2, with dot at end
-  ctx.strokeStyle=GOLD; ctx.lineWidth=3;
-  ctx.beginPath(); ctx.moveTo(TX,GOLD_LINE_Y); ctx.lineTo(GOLD_LINE_X2,GOLD_LINE_Y); ctx.stroke();
+  // Gold separator line
+  ctx.strokeStyle=GOLD; ctx.lineWidth=2.5;
+  ctx.beginPath(); ctx.moveTo(TX,GOLD_Y); ctx.lineTo(GOLD_X2,GOLD_Y); ctx.stroke();
   ctx.fillStyle=GOLD;
-  ctx.beginPath(); ctx.arc(GOLD_DOT_X,GOLD_LINE_Y,DOT_R,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(DOT_X,GOLD_Y,DOT_R,0,Math.PI*2); ctx.fill();
 
-  // Position EN — bold, left-aligned
+  // Position EN — bold dark navy
   const posEn=${JSON.stringify(emp.designation||'Position Name')};
-  const posSize=fitFont(ctx,posEn,MAX_W*0.75,60,'700','Arial');
-  ctx.font='700 '+posSize+'px Arial';
-  ctx.fillStyle=NAVY; ctx.textAlign='left';
+  const posSize=fitFont(ctx,posEn,MAX_W*0.72,58,'bold','Arial');
+  ctx.font='bold '+posSize+'px Arial';
+  ctx.fillStyle=NAVY; ctx.textAlign='left'; ctx.textBaseline='top';
   ctx.fillText(posEn, TX, POS_EN_Y);
 
-  // Position AR — crimson, left-aligned
+  // Position AR — crimson left-aligned
   const posAr=${JSON.stringify(desigAr||'المسمى الوظيفي')};
-  const posArSize=fitFont(ctx,posAr,MAX_W*0.75,52,'bold','Arial');
+  const posArSize=fitFont(ctx,posAr,MAX_W*0.72,48,'bold','Arial');
   ctx.font='bold '+posArSize+'px Arial';
-  ctx.fillStyle=CRIMSON; ctx.textAlign='left'; ctx.direction='ltr';
+  ctx.fillStyle=CRIMSON; ctx.textAlign='left'; ctx.textBaseline='top';
   ctx.fillText(posAr, TX, POS_AR_Y);
-  ctx.direction='ltr';
 
   // ── 5. ID STRIP ────────────────────────────────────────────────────────────
-  // Reference: icon centers at x=221, 650, 1193; center Y=768
+  // Icon centers from reference: x=216, 646, 1178; CY=839; radius=46
   const idCols=[
-    {cx:221,  label:'Staff ID',   val:${JSON.stringify(staffId||'—')}},
-    {cx:650,  label:'Job ID',     val:${JSON.stringify(jobId||'—')}},
-    {cx:1193, label:'QSS Number', val:${JSON.stringify(qssNum||'—')}},
+    {cx:216,  label:'Staff ID',   val:${JSON.stringify(staffId||'—')}},
+    {cx:646,  label:'Job ID',     val:${JSON.stringify(jobId||'—')}},
+    {cx:1178, label:'QSS Number', val:${JSON.stringify(qssNum||'—')}},
   ];
 
   idCols.forEach(({cx,label,val})=>{
-    // Crimson circle
     ctx.fillStyle=CRIMSON;
     ctx.beginPath(); ctx.arc(cx,ID_CY,ID_IR,0,Math.PI*2); ctx.fill();
-    // Icon (white)
-    ctx.strokeStyle=WHITE; ctx.lineWidth=3; ctx.lineCap='round'; ctx.lineJoin='round';
+    ctx.strokeStyle=WHITE; ctx.lineWidth=2.5; ctx.lineCap='round'; ctx.lineJoin='round';
     drawIDIcon(ctx,cx,ID_CY,label);
-    // Label
-    ctx.font='30px Arial'; ctx.fillStyle=GRAY;
+    const tx2=cx+ID_IR+16;
+    ctx.font='28px Arial'; ctx.fillStyle=GRAY;
     ctx.textAlign='left'; ctx.textBaseline='top';
-    ctx.fillText(label, cx+ID_IR+16, ID_CY-22);
-    // Value
-    ctx.font='bold 36px Arial'; ctx.fillStyle=DARK;
-    ctx.fillText(val, cx+ID_IR+16, ID_CY+10);
+    ctx.fillText(label, tx2, ID_CY-22);
+    ctx.font='bold 34px Arial'; ctx.fillStyle=DARK;
+    ctx.fillText(val, tx2, ID_CY+10);
   });
 
-  // Vertical dividers between ID items (thin gray)
-  ctx.strokeStyle='rgba(170,170,170,0.8)'; ctx.lineWidth=2;
-  [440, 880].forEach(vx=>{
-    ctx.beginPath(); ctx.moveTo(vx,ID_CY-46); ctx.lineTo(vx,ID_CY+46); ctx.stroke();
+  // Dividers
+  ctx.strokeStyle='rgba(165,165,165,0.7)'; ctx.lineWidth=2;
+  [434, 866].forEach(vx=>{
+    ctx.beginPath(); ctx.moveTo(vx,ID_CY-44); ctx.lineTo(vx,ID_CY+44); ctx.stroke();
   });
 
   // ── 6. FOOTER ──────────────────────────────────────────────────────────────
-  // Reference: circles at x=156, x=544; center Y=921
-  // Phone circle
-  drawFooterCircle(ctx,156,FT_Y,FT_CR,'phone');
-  ctx.font='42px Arial'; ctx.fillStyle=WHITE;
+  // Circles at x=215, 583; Y=913
+  drawFooterCircle(ctx,215,FT_Y,FT_CR,'phone');
+  ctx.font='40px Arial'; ctx.fillStyle=WHITE;
   ctx.textAlign='left'; ctx.textBaseline='middle';
-  ctx.fillText(${JSON.stringify(phone)}, 156+FT_CR+18, FT_Y);
+  ctx.fillText(${JSON.stringify(phone)}, 215+FT_CR+18, FT_Y);
 
-  // Footer divider
   ctx.strokeStyle='rgba(201,168,76,0.4)'; ctx.lineWidth=2;
-  ctx.beginPath(); ctx.moveTo(620,FT_Y-32); ctx.lineTo(620,FT_Y+32); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(680,FT_Y-30); ctx.lineTo(680,FT_Y+30); ctx.stroke();
 
-  // Email circle
-  drawFooterCircle(ctx,544,FT_Y,FT_CR,'email');  // wait — ref shows email at x≈544? let me check
-  ctx.fillText(${JSON.stringify(email)}, 544+FT_CR+18, FT_Y);
+  drawFooterCircle(ctx,583,FT_Y,FT_CR,'email');
+  ctx.fillText(${JSON.stringify(email)}, 583+FT_CR+18, FT_Y);
 
   // ── Done ───────────────────────────────────────────────────────────────────
   document.getElementById('btns').style.opacity='1';
@@ -258,13 +264,12 @@ async function draw(){
   };
 }
 
-function drawPlaceholder(ctx,CX,CY,R){
-  clipCircle(ctx,CX,CY,R);
-  ctx.fillStyle='#c8cacd';
-  ctx.fillRect(CX-R,CY-R,R*2,R*2);
+function drawPlaceholder(ctx,cx,cy,r){
+  clipCircle(ctx,cx,cy,r);
+  ctx.fillStyle='#c8cacd'; ctx.fillRect(cx-r,cy-r,r*2,r*2);
   ctx.fillStyle='#96999e';
-  ctx.beginPath(); ctx.arc(CX,CY-R*0.22,R*0.33,0,Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(CX,CY+R*0.5,R*0.52,R*0.42,0,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(cx,cy-r*0.22,r*0.33,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(cx,cy+r*0.5,r*0.52,r*0.42,0,0,Math.PI*2); ctx.fill();
   ctx.restore();
 }
 
@@ -272,18 +277,18 @@ function drawIDIcon(ctx,cx,cy,label){
   const w=24;
   if(label==='Staff ID'){
     ctx.strokeRect(cx-w,cy-w,w*2,w*2);
-    [[cx-15,cy-10,cx+15,cy-10],[cx-15,cy,cx+8,cy],[cx-15,cy+10,cx+4,cy+10]].forEach(([x1,y1,x2,y2])=>{
+    [[cx-14,cy-9,cx+14,cy-9],[cx-14,cy+1,cx+6,cy+1],[cx-14,cy+10,cx+3,cy+10]].forEach(([x1,y1,x2,y2])=>{
       ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
     });
   } else if(label==='Job ID'){
-    ctx.strokeRect(cx-w,cy-6,w*2,w+6);
-    ctx.beginPath(); ctx.arc(cx,cy-11,11,Math.PI,0); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(cx,cy+2); ctx.lineTo(cx,cy+14); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(cx-11,cy+8); ctx.lineTo(cx+11,cy+8); ctx.stroke();
+    ctx.strokeRect(cx-w,cy-5,w*2,w+5);
+    ctx.beginPath(); ctx.arc(cx,cy-10,11,Math.PI,0); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx,cy+3); ctx.lineTo(cx,cy+14); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx-11,cy+9); ctx.lineTo(cx+11,cy+9); ctx.stroke();
   } else {
     ctx.strokeRect(cx-w+2,cy-w+2,(w-2)*2,(w-2)*2);
     [-10,1,11].forEach(dy=>{
-      ctx.beginPath(); ctx.moveTo(cx-14,cy+dy); ctx.lineTo(cx+14,cy+dy); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx-13,cy+dy); ctx.lineTo(cx+13,cy+dy); ctx.stroke();
     });
   }
 }
@@ -293,23 +298,19 @@ function drawFooterCircle(ctx,cx,cy,r,type){
   ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.stroke();
   ctx.strokeStyle=GOLD; ctx.lineWidth=2.5; ctx.lineCap='round';
   if(type==='phone'){
-    // Phone handset
+    // Phone handset matching reference
     ctx.beginPath();
-    ctx.moveTo(cx-14,cy-16); ctx.lineTo(cx-14,cy-8);
-    ctx.arc(cx,cy,14,Math.PI,0,false);
-    ctx.lineTo(cx+14,cy-16);
+    ctx.moveTo(cx-12,cy+16); ctx.quadraticCurveTo(cx-16,cy+8,cx-14,cy-2);
+    ctx.quadraticCurveTo(cx-12,cy-10,cx-6,cy-14);
     ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(cx-14,cy+8); ctx.lineTo(cx-14,cy+16);
-    ctx.arc(cx,cy,14,Math.PI,Math.PI*2,true);
-    ctx.lineTo(cx+14,cy+8); ctx.stroke();
-    // actual phone shape
     ctx.beginPath();
-    ctx.moveTo(cx-14,cy+16); ctx.lineTo(cx-10,cy+20);
-    ctx.arc(cx-4,cy+17,8,Math.PI*0.6,Math.PI*1.4,false); ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(cx+10,cy-20); ctx.lineTo(cx+14,cy-16);
-    ctx.arc(cx+4,cy-17,8,Math.PI*1.6,Math.PI*0.4,false); ctx.stroke();
+    ctx.moveTo(cx+6,cy+14); ctx.quadraticCurveTo(cx+14,cy+10,cx+15,cy+2);
+    ctx.quadraticCurveTo(cx+16,cy-6,cx+12,cy-16);
+    ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx-12,cy+16); ctx.lineTo(cx-6,cy+22); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx+12,cy-16); ctx.lineTo(cx+18,cy-10); ctx.stroke();
   } else {
+    // Envelope
     ctx.strokeRect(cx-20,cy-13,40,26);
     ctx.beginPath(); ctx.moveTo(cx-20,cy-13); ctx.lineTo(cx,cy+4); ctx.lineTo(cx+20,cy-13); ctx.stroke();
   }
