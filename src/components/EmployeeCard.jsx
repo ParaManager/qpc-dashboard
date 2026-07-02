@@ -15,314 +15,365 @@ const DESIGNATION_AR = {
 
 export function generateEmployeeCard(emp) {
   const desigAr = emp.designation_ar || DESIGNATION_AR[emp.designation] || emp.designation || ''
-  const staffId = emp.employee_number ? 'QPC-' + emp.employee_number : ''
-  const jobId   = emp.job_id || ''
-  const qssNum  = emp.qss_number ? 'QSS-' + emp.qss_number : ''
-  const phone   = emp.phone || '+974 44040200'
-  const email   = emp.email || 'info@qpc.qa'
+  const staffId = emp.employee_number ? 'QPC-' + emp.employee_number : '—'
+  const jobId   = emp.job_id   || '—'
+  const qssNum  = emp.qss_number ? 'QSS-' + emp.qss_number : '—'
+  const phone   = emp.phone    || '+974 44040200'
+  const email   = emp.email    || 'info@qpc.qa'
   const photo   = emp.photo_url || ''
+  const name    = emp.name     || 'Full Name'
+  const nameAr  = emp.name_ar  || 'الاسم الكامل'
+  const posEn   = emp.designation || 'Position Name'
+  const posAr   = desigAr || 'المسمى الوظيفي'
 
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<title>ID Card – ${emp.name || ''}</title>
+<title>ID Card – ${name}</title>
 <style>
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{background:#555;display:flex;flex-direction:column;align-items:center;
-       justify-content:center;min-height:100vh;padding:28px;gap:18px;font-family:Arial,sans-serif}
-  .btns{display:flex;gap:10px}
-  .btn{padding:9px 22px;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600}
-  canvas{border-radius:20px;box-shadow:0 16px 64px rgba(0,0,0,.5);max-width:100%;display:block}
-  @media print{
-    body{background:white;padding:0;justify-content:flex-start}
-    .btns{display:none!important}
-    canvas{box-shadow:none;width:100%}
-    @page{size:landscape;margin:0}
-  }
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #c4bfb8;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 40px 24px;
+  font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+}
+.btns { display: flex; gap: 10px; }
+.btn {
+  padding: 9px 22px; border: none; border-radius: 8px;
+  cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 600;
+}
+/* ── CARD ─────────────────────────────────────────────────── */
+.card {
+  width: 760px;
+  height: 470px;
+  border-radius: 16px;
+  overflow: hidden;
+  position: relative;
+  background: #ffffff;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.9) inset,
+    0 4px 8px rgba(0,0,0,.08),
+    0 16px 40px rgba(0,0,0,.18),
+    0 40px 80px rgba(0,0,0,.12);
+}
+
+/* ── HEADER ────────────────────────────────────────────────── */
+.header {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 128px;
+  background: #7b1325;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 0 48px;
+  z-index: 2;
+}
+.header::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(255,255,255,.03) 0px,
+    rgba(255,255,255,.03) 1px,
+    transparent 1px,
+    transparent 8px
+  );
+}
+.header::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #7a5c00, #f0d060 22%, #c9a84c 50%, #f0d060 78%, #7a5c00);
+}
+.logo-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 1;
+}
+.logo-div {
+  width: 1px;
+  height: 72px;
+  background: linear-gradient(180deg, transparent, rgba(201,168,76,.65), transparent);
+  margin: 0 36px;
+  flex-shrink: 0;
+}
+.logo-wrap img {
+  object-fit: contain;
+  display: block;
+}
+
+/* ── BODY ──────────────────────────────────────────────────── */
+.body {
+  position: absolute;
+  top: 128px; left: 0; right: 0; bottom: 0;
+  display: flex;
+}
+
+/* ── LEFT PANEL ─────────────────────────────────────────────── */
+.left {
+  width: 232px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 26px 18px 22px;
+  border-right: 1px solid #edeae4;
+  background: #fdfcfa;
+}
+.photo-ring {
+  width: 148px;
+  height: 148px;
+  border-radius: 50%;
+  border: 3.5px solid #c9a84c;
+  overflow: hidden;
+  background: #e2e4e6;
+  flex-shrink: 0;
+  box-shadow: 0 2px 12px rgba(0,0,0,.13), 0 0 0 1px rgba(201,168,76,.2);
+}
+.photo-ring img {
+  width: 100%; height: 100%;
+  object-fit: cover; object-position: top center;
+}
+.photo-placeholder {
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+}
+.staff-pill {
+  margin-top: 16px;
+  background: #fdf5e4;
+  border: 1.5px solid #c9a84c;
+  border-radius: 24px;
+  padding: 6px 18px;
+  text-align: center;
+  box-shadow: 0 1px 4px rgba(201,168,76,.15);
+}
+.staff-pill .pill-label {
+  font-size: 8px; font-weight: 700;
+  color: #7a5c00; letter-spacing: .14em;
+}
+.staff-pill .pill-val {
+  font-size: 15px; font-weight: 800;
+  color: #7b1325; letter-spacing: .03em; margin-top: 1px;
+}
+.id-rows { margin-top: 10px; width: 100%; display: flex; flex-direction: column; gap: 5px; }
+.id-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 5px 10px;
+  background: #fff;
+  border: 1px solid #e8e4dc;
+  border-radius: 7px;
+}
+.id-row .id-lbl { font-size: 8px; color: #b0b0b0; letter-spacing: .1em; font-weight: 600; }
+.id-row .id-val { font-size: 11.5px; font-weight: 700; color: #1a2340; }
+
+/* ── RIGHT PANEL ────────────────────────────────────────────── */
+.right {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 30px 30px 0;
+  min-width: 0;
+}
+.eyebrow {
+  font-size: 8px; font-weight: 700;
+  color: #c9a84c; letter-spacing: .22em;
+  margin-bottom: 14px;
+}
+.en-name {
+  font-size: 32px; font-weight: 900;
+  color: #1a2340; line-height: 1;
+  letter-spacing: -.025em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ar-name {
+  font-size: 18px; font-weight: 500;
+  color: #555; margin-top: 6px;
+  direction: rtl; text-align: right;
+}
+.rule {
+  margin: 16px 0;
+  display: flex; align-items: center; gap: 8px;
+}
+.rule-bar {
+  height: 2.5px; width: 48px;
+  background: #c9a84c; border-radius: 2px; flex-shrink: 0;
+}
+.rule-line { height: 1px; flex: 1; background: #edeae4; }
+.pos-en {
+  font-size: 18px; font-weight: 700; color: #7b1325;
+}
+.pos-ar {
+  font-size: 14px; color: #888; margin-top: 4px;
+  direction: rtl; text-align: right; font-weight: 500;
+}
+.contact {
+  border-top: 1px solid #edeae4;
+  padding: 14px 0 18px;
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.contact-row { display: flex; align-items: center; gap: 11px; }
+.contact-icon {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: #7b1325;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.contact-icon svg { width: 14px; height: 14px; stroke: white; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.contact-text { font-size: 13px; color: #333; font-weight: 500; }
+
+/* Bottom gold bar */
+.gold-bar {
+  position: absolute;
+  bottom: 0; left: 0; right: 0; height: 4px;
+  background: linear-gradient(90deg, #7a5c00, #f0d060 20%, #c9a84c 50%, #f0d060 80%, #7a5c00);
+  z-index: 5;
+}
+
+@media print {
+  body { background: white; padding: 0; justify-content: flex-start; }
+  .btns { display: none !important; }
+  .card { box-shadow: none; }
+  @page { size: 760px 470px; margin: 0; }
+}
 </style>
 </head>
 <body>
-<div class="btns" id="btns" style="opacity:0.3">
-  <button class="btn" id="dlBtn" style="background:#7a1325;color:white">⬇ Download PNG</button>
+
+<div class="btns">
+  <button class="btn" id="dlBtn" style="background:#7b1325;color:white">⬇ Download PNG</button>
   <button class="btn" onclick="window.print()" style="background:#2d3748;color:white">🖨 Print</button>
   <button class="btn" onclick="window.close()" style="background:white;color:#555;border:1px solid #ddd">← Back</button>
 </div>
-<canvas id="card" width="1536" height="1024"></canvas>
+
+<div class="card" id="card">
+
+  <!-- HEADER: 3 logos only -->
+  <div class="header">
+    <div class="logo-wrap">
+      <img src="/logo-qpc.png" alt="QPC" style="height:92px" onerror="this.style.display='none'"/>
+    </div>
+    <div class="logo-div"></div>
+    <div class="logo-wrap">
+      <img src="/logo-qatar.png" alt="Qatar" style="height:96px" onerror="this.style.display='none'"/>
+    </div>
+    <div class="logo-div"></div>
+    <div class="logo-wrap">
+      <img src="/logo-so.png" alt="Special Olympics" style="height:56px;filter:brightness(0) invert(1)" onerror="this.style.style='display:none'"/>
+    </div>
+  </div>
+
+  <!-- BODY -->
+  <div class="body">
+
+    <!-- LEFT: photo + IDs -->
+    <div class="left">
+      <div class="photo-ring">
+        ${photo
+          ? `<img src="${photo}" alt="${name}"/>`
+          : `<div class="photo-placeholder">
+               <svg viewBox="0 0 100 115" width="82%" style="padding-top:8%">
+                 <circle cx="50" cy="34" r="25" fill="#b0b5ba"/>
+                 <ellipse cx="50" cy="97" rx="40" ry="28" fill="#b0b5ba"/>
+               </svg>
+             </div>`
+        }
+      </div>
+
+      <div class="staff-pill">
+        <div class="pill-label">STAFF ID</div>
+        <div class="pill-val">${staffId}</div>
+      </div>
+
+      <div class="id-rows">
+        <div class="id-row">
+          <span class="id-lbl">JOB ID</span>
+          <span class="id-val">${jobId}</span>
+        </div>
+        <div class="id-row">
+          <span class="id-lbl">QSS NUMBER</span>
+          <span class="id-val">${qssNum}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: name + position + contact -->
+    <div class="right">
+      <div class="eyebrow">QATAR PARALYMPIC COMMITTEE &nbsp;·&nbsp; بطاقة موظف</div>
+
+      <div class="en-name">${name}</div>
+      <div class="ar-name">${nameAr}</div>
+
+      <div class="rule">
+        <div class="rule-bar"></div>
+        <div class="rule-line"></div>
+      </div>
+
+      <div class="pos-en">${posEn}</div>
+      <div class="pos-ar">${posAr}</div>
+
+      <div class="contact">
+        <div class="contact-row">
+          <div class="contact-icon">
+            <svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2A19.79 19.79 0 0 1 11.63 19 19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-2.93-8.19A2 2 0 0 1 3.56 1.7h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.4a16 16 0 0 0 5.99 6l.91-.91a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+          </div>
+          <span class="contact-text">${phone}</span>
+        </div>
+        <div class="contact-row">
+          <div class="contact-icon">
+            <svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 6 12 13 2 6"/></svg>
+          </div>
+          <span class="contact-text">${email}</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="gold-bar"></div>
+</div>
 
 <script>
-// Coordinates pixel-measured from reference image (1536×1024)
-const W=1536, H=1024;
-const NAVY='#1a2340', CRIMSON='#7b1425', GOLD='#c9a84c', WHITE='#ffffff', DARK='#1c1c1c', GRAY='#5a5a5a';
-
-// Key positions from reference
-const TX=634;           // left edge of all text
-const NAME_Y=357;       // EN name top
-const AR_NAME_Y=438;    // Arabic name top
-const GOLD_Y=503;       // gold separator line Y
-const GOLD_X2=1076;     // gold line right end
-const DOT_X=1092;       // gold dot center
-const DOT_R=18;
-const POS_EN_Y=550;     // Position EN top
-const POS_AR_Y=705;     // Position AR top (crimson)
-const PHOTO_CX=288;     // photo circle center X
-const PHOTO_CY=514;     // photo circle center Y
-const PHOTO_R=259;      // photo inner radius
-const GOLD_RING=12;     // gold ring width
-const ID_CY=839;        // ID icon strip center Y
-const ID_IR=46;         // ID icon radius
-const FT_Y=913;         // footer center Y
-const FT_CR=38;         // footer circle radius
-
-function loadImg(src){
-  return new Promise((res,rej)=>{
-    const i=new Image(); i.crossOrigin='anonymous';
-    i.onload=()=>res(i);
-    i.onerror=()=>rej(new Error('Cannot load: '+src));
-    i.src=src;
-  });
-}
-
-function fitFont(ctx,text,maxW,maxSize,weight,family){
-  let size=maxSize;
-  while(size>18){
-    ctx.font=weight+' '+size+'px '+family;
-    if(ctx.measureText(text).width<=maxW) break;
-    size-=2;
-  }
-  return size;
-}
-
-function clipCircle(ctx,cx,cy,r){
-  ctx.save();
-  ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.clip();
-}
-
-async function draw(){
-  const cv=document.getElementById('card');
-  const ctx=cv.getContext('2d');
-
-  // ── 1. BACKGROUND ──────────────────────────────────────────────────────────
-  const bg=await loadImg('/card-bg.png');
-  ctx.drawImage(bg,0,0,W,H);
-
-  // ── 2. LOGOS ───────────────────────────────────────────────────────────────
-  // From reference: logos start around x=554 (QPC shield center≈615)
-  // Layout: [QPC shield + text] | [Qatar shield] | [SO icon + text]
-  const [qpc,qatar,so]=await Promise.all([
-    loadImg('/logo-qpc.png'),
-    loadImg('/logo-qatar.png'),
-    loadImg('/logo-so.png'),
-  ]);
-
-  const LOGO_H=200;  // height of QPC+Qatar shields (tall)
-  const LOGO_TOP=18;
-
-  // QPC logo — shield only, draw at left
-  const qpcW=Math.round(qpc.width*LOGO_H/qpc.height);
-  const QPC_X=554;
-  ctx.drawImage(qpc, QPC_X, LOGO_TOP, qpcW, LOGO_H);
-
-  // "Qatar Paralympic Committee" text next to QPC logo (matching reference)
-  const QPC_TEXT_X = QPC_X + qpcW + 14;
-  ctx.textAlign='left'; ctx.textBaseline='top';
-  ctx.fillStyle=CRIMSON; ctx.font='bold 32px Arial';
-  ctx.fillText('Qatar', QPC_TEXT_X, LOGO_TOP+30);
-  ctx.fillText('Paralympic', QPC_TEXT_X, LOGO_TOP+68);
-  ctx.fillText('Committee', QPC_TEXT_X, LOGO_TOP+106);
-  ctx.font='22px Arial';
-  ctx.fillText('اللجنة البارالمبية القطرية', QPC_TEXT_X, LOGO_TOP+148);
-
-  // Divider 1
-  const TEXT_RIGHT_1 = QPC_TEXT_X + 180;
-  const D1X = TEXT_RIGHT_1 + 28;
-  ctx.strokeStyle=GOLD; ctx.lineWidth=2.5;
-  ctx.beginPath(); ctx.moveTo(D1X,LOGO_TOP+12); ctx.lineTo(D1X,LOGO_TOP+180); ctx.stroke();
-
-  // Qatar logo
-  const qatarH=180;
-  const qatarW=Math.round(qatar.width*qatarH/qatar.height);
-  const QT_X = D1X + 28;
-  ctx.drawImage(qatar, QT_X, LOGO_TOP+(LOGO_H-qatarH)/2, qatarW, qatarH);
-
-  // Divider 2
-  const D2X = QT_X + qatarW + 28;
-  ctx.beginPath(); ctx.moveTo(D2X,LOGO_TOP+12); ctx.lineTo(D2X,LOGO_TOP+180); ctx.stroke();
-
-  // SO logo — icon + text combo, keep reasonable size
-  const soH=100;
-  const soW=Math.round(so.width*soH/so.height);
-  const SO_X = D2X + 28;
-  ctx.drawImage(so, SO_X, LOGO_TOP+(LOGO_H-soH)/2, soW, soH);
-
-  // Arabic text under SO
-  ctx.font='22px Arial'; ctx.fillStyle='#555';
-  ctx.fillText('الأولمبياد الخاص', SO_X, LOGO_TOP+soH+(LOGO_H-soH)/2+8);
-  ctx.fillText('قطر', SO_X+20, LOGO_TOP+soH+(LOGO_H-soH)/2+34);
-
-  // ── 3. PHOTO CIRCLE ────────────────────────────────────────────────────────
-  // Gold ring
-  ctx.strokeStyle=GOLD; ctx.lineWidth=GOLD_RING*2;
-  ctx.beginPath(); ctx.arc(PHOTO_CX,PHOTO_CY,PHOTO_R+GOLD_RING,0,Math.PI*2); ctx.stroke();
-
-  if(${JSON.stringify(!!photo)}){
-    try{
-      const ph=await loadImg(${JSON.stringify(photo)});
-      const side=Math.min(ph.width,ph.height);
-      const sx=(ph.width-side)/2;
-      const sy=Math.max(0,(ph.height-side)*0.12);
-      clipCircle(ctx,PHOTO_CX,PHOTO_CY,PHOTO_R);
-      ctx.drawImage(ph,sx,sy,side,side,PHOTO_CX-PHOTO_R,PHOTO_CY-PHOTO_R,PHOTO_R*2,PHOTO_R*2);
-      ctx.restore();
-    } catch(e){ drawPlaceholder(ctx,PHOTO_CX,PHOTO_CY,PHOTO_R); }
-  } else { drawPlaceholder(ctx,PHOTO_CX,PHOTO_CY,PHOTO_R); }
-
-  // ── 4. NAME BLOCK ──────────────────────────────────────────────────────────
-  const MAX_W = 1460 - TX;  // right boundary = 1460
-
-  // EN Name — large bold left-aligned
-  const enName=${JSON.stringify(emp.name||'Full Name')};
-  const enSize=fitFont(ctx,enName,MAX_W,88,'900','Arial');
-  ctx.font='900 '+enSize+'px Arial';
-  ctx.fillStyle=NAVY; ctx.textAlign='left'; ctx.textBaseline='top';
-  ctx.fillText(enName, TX, NAME_Y);
-
-  // Arabic Name — left-aligned at TX (same column)
-  const arName=${JSON.stringify(emp.name_ar||'الاسم الكامل')};
-  const arSize=fitFont(ctx,arName,MAX_W,58,'bold','Arial');
-  ctx.font='bold '+arSize+'px Arial';
-  ctx.fillStyle=NAVY; ctx.textAlign='left'; ctx.textBaseline='top';
-  ctx.fillText(arName, TX, AR_NAME_Y);
-
-  // Gold separator line
-  ctx.strokeStyle=GOLD; ctx.lineWidth=2.5;
-  ctx.beginPath(); ctx.moveTo(TX,GOLD_Y); ctx.lineTo(GOLD_X2,GOLD_Y); ctx.stroke();
-  ctx.fillStyle=GOLD;
-  ctx.beginPath(); ctx.arc(DOT_X,GOLD_Y,DOT_R,0,Math.PI*2); ctx.fill();
-
-  // Position EN — bold dark navy
-  const posEn=${JSON.stringify(emp.designation||'Position Name')};
-  const posSize=fitFont(ctx,posEn,MAX_W*0.72,58,'bold','Arial');
-  ctx.font='bold '+posSize+'px Arial';
-  ctx.fillStyle=NAVY; ctx.textAlign='left'; ctx.textBaseline='top';
-  ctx.fillText(posEn, TX, POS_EN_Y);
-
-  // Position AR — crimson left-aligned
-  const posAr=${JSON.stringify(desigAr||'المسمى الوظيفي')};
-  const posArSize=fitFont(ctx,posAr,MAX_W*0.72,48,'bold','Arial');
-  ctx.font='bold '+posArSize+'px Arial';
-  ctx.fillStyle=CRIMSON; ctx.textAlign='left'; ctx.textBaseline='top';
-  ctx.fillText(posAr, TX, POS_AR_Y);
-
-  // ── 5. ID STRIP ────────────────────────────────────────────────────────────
-  // Icon centers from reference: x=216, 646, 1178; CY=839; radius=46
-  const idCols=[
-    {cx:216,  label:'Staff ID',   val:${JSON.stringify(staffId||'—')}},
-    {cx:646,  label:'Job ID',     val:${JSON.stringify(jobId||'—')}},
-    {cx:1178, label:'QSS Number', val:${JSON.stringify(qssNum||'—')}},
-  ];
-
-  idCols.forEach(({cx,label,val})=>{
-    ctx.fillStyle=CRIMSON;
-    ctx.beginPath(); ctx.arc(cx,ID_CY,ID_IR,0,Math.PI*2); ctx.fill();
-    ctx.strokeStyle=WHITE; ctx.lineWidth=2.5; ctx.lineCap='round'; ctx.lineJoin='round';
-    drawIDIcon(ctx,cx,ID_CY,label);
-    const tx2=cx+ID_IR+16;
-    ctx.font='28px Arial'; ctx.fillStyle=GRAY;
-    ctx.textAlign='left'; ctx.textBaseline='top';
-    ctx.fillText(label, tx2, ID_CY-22);
-    ctx.font='bold 34px Arial'; ctx.fillStyle=DARK;
-    ctx.fillText(val, tx2, ID_CY+10);
-  });
-
-  // Dividers
-  ctx.strokeStyle='rgba(165,165,165,0.7)'; ctx.lineWidth=2;
-  [434, 866].forEach(vx=>{
-    ctx.beginPath(); ctx.moveTo(vx,ID_CY-44); ctx.lineTo(vx,ID_CY+44); ctx.stroke();
-  });
-
-  // ── 6. FOOTER ──────────────────────────────────────────────────────────────
-  // Circles at x=215, 583; Y=913
-  drawFooterCircle(ctx,215,FT_Y,FT_CR,'phone');
-  ctx.font='40px Arial'; ctx.fillStyle=WHITE;
-  ctx.textAlign='left'; ctx.textBaseline='middle';
-  ctx.fillText(${JSON.stringify(phone)}, 215+FT_CR+18, FT_Y);
-
-  ctx.strokeStyle='rgba(201,168,76,0.4)'; ctx.lineWidth=2;
-  ctx.beginPath(); ctx.moveTo(680,FT_Y-30); ctx.lineTo(680,FT_Y+30); ctx.stroke();
-
-  drawFooterCircle(ctx,583,FT_Y,FT_CR,'email');
-  ctx.fillText(${JSON.stringify(email)}, 583+FT_CR+18, FT_Y);
-
-  // ── Done ───────────────────────────────────────────────────────────────────
-  document.getElementById('btns').style.opacity='1';
-  document.getElementById('dlBtn').onclick=()=>{
-    const a=document.createElement('a');
-    a.download=${JSON.stringify('ID-Card-'+(emp.name||'employee').replace(/\\s+/g,'-')+'.png')};
-    a.href=cv.toDataURL('image/png');
-    a.click();
+// html2canvas download
+document.getElementById('dlBtn').onclick = async () => {
+  const btn = document.getElementById('dlBtn');
+  btn.textContent = 'Generating…'; btn.disabled = true;
+  const script = document.createElement('script');
+  script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+  script.onload = async () => {
+    try {
+      const canvas = await html2canvas(document.getElementById('card'), {
+        scale: 2, useCORS: true, backgroundColor: '#ffffff',
+        width: 760, height: 470
+      });
+      const a = document.createElement('a');
+      a.download = 'ID-Card-${name.replace(/[^a-zA-Z0-9]/g, '-')}.png';
+      a.href = canvas.toDataURL('image/png');
+      a.click();
+    } catch(e) { alert('Download failed: ' + e.message); }
+    btn.textContent = '⬇ Download PNG'; btn.disabled = false;
   };
-}
-
-function drawPlaceholder(ctx,cx,cy,r){
-  clipCircle(ctx,cx,cy,r);
-  ctx.fillStyle='#c8cacd'; ctx.fillRect(cx-r,cy-r,r*2,r*2);
-  ctx.fillStyle='#96999e';
-  ctx.beginPath(); ctx.arc(cx,cy-r*0.22,r*0.33,0,Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(cx,cy+r*0.5,r*0.52,r*0.42,0,0,Math.PI*2); ctx.fill();
-  ctx.restore();
-}
-
-function drawIDIcon(ctx,cx,cy,label){
-  const w=24;
-  if(label==='Staff ID'){
-    ctx.strokeRect(cx-w,cy-w,w*2,w*2);
-    [[cx-14,cy-9,cx+14,cy-9],[cx-14,cy+1,cx+6,cy+1],[cx-14,cy+10,cx+3,cy+10]].forEach(([x1,y1,x2,y2])=>{
-      ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
-    });
-  } else if(label==='Job ID'){
-    ctx.strokeRect(cx-w,cy-5,w*2,w+5);
-    ctx.beginPath(); ctx.arc(cx,cy-10,11,Math.PI,0); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(cx,cy+3); ctx.lineTo(cx,cy+14); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(cx-11,cy+9); ctx.lineTo(cx+11,cy+9); ctx.stroke();
-  } else {
-    ctx.strokeRect(cx-w+2,cy-w+2,(w-2)*2,(w-2)*2);
-    [-10,1,11].forEach(dy=>{
-      ctx.beginPath(); ctx.moveTo(cx-13,cy+dy); ctx.lineTo(cx+13,cy+dy); ctx.stroke();
-    });
-  }
-}
-
-function drawFooterCircle(ctx,cx,cy,r,type){
-  ctx.strokeStyle=GOLD; ctx.lineWidth=3;
-  ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.stroke();
-  ctx.strokeStyle=GOLD; ctx.lineWidth=2.5; ctx.lineCap='round';
-  if(type==='phone'){
-    // Phone handset matching reference
-    ctx.beginPath();
-    ctx.moveTo(cx-12,cy+16); ctx.quadraticCurveTo(cx-16,cy+8,cx-14,cy-2);
-    ctx.quadraticCurveTo(cx-12,cy-10,cx-6,cy-14);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(cx+6,cy+14); ctx.quadraticCurveTo(cx+14,cy+10,cx+15,cy+2);
-    ctx.quadraticCurveTo(cx+16,cy-6,cx+12,cy-16);
-    ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(cx-12,cy+16); ctx.lineTo(cx-6,cy+22); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(cx+12,cy-16); ctx.lineTo(cx+18,cy-10); ctx.stroke();
-  } else {
-    // Envelope
-    ctx.strokeRect(cx-20,cy-13,40,26);
-    ctx.beginPath(); ctx.moveTo(cx-20,cy-13); ctx.lineTo(cx,cy+4); ctx.lineTo(cx+20,cy-13); ctx.stroke();
-  }
-}
-
-draw().catch(e=>{
-  document.getElementById('btns').style.opacity='1';
-  document.body.insertAdjacentHTML('beforeend',
-    '<div style="color:#f87171;margin-top:20px;font-size:14px;background:#333;padding:12px;border-radius:8px">Error: '+e.message+'</div>');
-});
+  document.head.appendChild(script);
+};
 </script>
-</body></html>`
+</body>
+</html>`
 
   const win = window.open('', '_blank')
   win.document.write(html)
@@ -336,9 +387,9 @@ export default function EmployeeCardButton({ emp }) {
     <button
       onClick={() => generateEmployeeCard(emp)}
       className="action-btn"
-      style={{ borderColor:'#7a1325', color:'#7a1325', padding:'5px 12px', display:'flex', alignItems:'center', gap:6 }}
-      onMouseEnter={e => { e.currentTarget.style.background='#f9e5ea' }}
-      onMouseLeave={e => { e.currentTarget.style.background='' }}
+      style={{ borderColor:'#7b1325', color:'#7b1325', padding:'5px 12px', display:'flex', alignItems:'center', gap:6 }}
+      onMouseEnter={e => { e.currentTarget.style.background = '#f9e5ea' }}
+      onMouseLeave={e => { e.currentTarget.style.background = '' }}
     >
       <i className="ti ti-id-badge" style={{ fontSize:14 }} />
       <span>{ar ? 'بطاقة الموظف' : 'ID Card'}</span>
