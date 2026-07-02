@@ -69,7 +69,7 @@ body {
 .header {
   position: absolute;
   top: 0; left: 0; right: 0;
-  height: 128px;
+  height: 136px;
   background: #7b1325;
   display: flex;
   align-items: center;
@@ -119,7 +119,7 @@ body {
 /* ── BODY ──────────────────────────────────────────────────── */
 .body {
   position: absolute;
-  top: 128px; left: 0; right: 0; bottom: 0;
+  top: 136px; left: 0; right: 0; bottom: 0;
   display: flex;
 }
 
@@ -264,18 +264,24 @@ body {
 
 <div class="card" id="card">
 
-  <!-- HEADER: 3 logos only -->
+  <!-- HEADER: 3 logos on white pill backgrounds so colors show on crimson -->
   <div class="header">
     <div class="logo-wrap">
-      <img src="/logo-qpc.png" alt="QPC" style="height:92px" onerror="this.style.display='none'"/>
+      <div style="background:white;border-radius:12px;padding:8px 14px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.18)">
+        <img src="/logo-qpc.png" alt="QPC" style="height:78px;width:auto;object-fit:contain" onerror="this.style.display='none'"/>
+      </div>
     </div>
     <div class="logo-div"></div>
     <div class="logo-wrap">
-      <img src="/logo-qatar.png" alt="Qatar" style="height:96px" onerror="this.style.display='none'"/>
+      <div style="background:white;border-radius:12px;padding:8px 14px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.18)">
+        <img src="/logo-qatar.png" alt="Qatar" style="height:82px;width:auto;object-fit:contain" onerror="this.style.display='none'"/>
+      </div>
     </div>
     <div class="logo-div"></div>
     <div class="logo-wrap">
-      <img src="/logo-so.png" alt="Special Olympics" style="height:56px;filter:brightness(0) invert(1)" onerror="this.style.style='display:none'"/>
+      <div style="background:white;border-radius:12px;padding:10px 18px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.18)">
+        <img src="/logo-so.png" alt="Special Olympics" style="height:52px;width:auto;object-fit:contain" onerror="this.style.display='none'"/>
+      </div>
     </div>
   </div>
 
