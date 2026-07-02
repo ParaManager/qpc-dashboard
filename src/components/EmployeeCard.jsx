@@ -94,7 +94,7 @@ async function draw(){
   const ctx=cv.getContext('2d');
 
   // 1. Background
-  const bg=await loadImg('/card-bg.jpg');
+  const bg=await loadImg('/card-bg.png');
   ctx.drawImage(bg,0,0,W,H);
 
   // 2. Logos
