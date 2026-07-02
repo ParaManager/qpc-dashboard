@@ -258,7 +258,26 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
             <Row>
               <Field label={T.disability} placeholder={ar?"مثال: إصابة الحبل الشوكي":"e.g. Spinal Cord Injury"} {...f('disability')} />
               <div className="form-group">
-                <label className="form-label">{T.ageCategory}</label>
+                <label className="form-label">{ar ? 'الإعاقة الإحصائية' : 'Statistics Disability'}</label>
+                <select className="form-input" value={formData.statistics_disability||''} onChange={e=>setFormData(p=>({...p,statistics_disability:e.target.value||null}))}>
+                  <option value="">{ar ? '— اختر —' : '— Select —'}</option>
+                  {[
+                    ['Physical Disability',        'الإعاقات الجسدية / الحركية'],
+                    ['Intellectual Disability',    'الإعاقة الذهنية'],
+                    ['Visual Disability',          'الإعاقة البصرية'],
+                    ['Hearing Disability',         'الإعاقة السمعية'],
+                    ['Speech & Language Disorders','اضطرابات النطق واللغة'],
+                    ['Psychosocial Disability',    'الإعاقة النفسية والاجتماعية'],
+                    ['Multiple Disability',        'الإعاقات المتعددة'],
+                    ['Developmental Disability',   'الإعاقات النمائية'],
+                    ['Down Syndrome',              'متلازمة داون'],
+                    ['Autism',                     'اضطراب التوحد'],
+                  ].map(([en, arLabel]) => (
+                    <option key={en} value={en}>{ar ? arLabel : en}</option>
+                  ))}
+                </select>
+              </div>
+            </Row>
                 <div style={{ fontSize: 12, color: 'var(--text3)', padding: '8px 10px', borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
                   {ar ? 'تحسب تلقائياً من تاريخ الميلاد' : 'Auto-computed from date of birth'}
                 </div>
