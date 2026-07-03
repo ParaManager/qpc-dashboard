@@ -15,16 +15,16 @@ const DESIGNATION_AR = {
 
 export function generateEmployeeCard(emp) {
   const desigAr = emp.designation_ar || DESIGNATION_AR[emp.designation] || emp.designation || ''
-  const staffId = emp.employee_number ? 'QPC-' + emp.employee_number : '—'
-  const jobId   = emp.job_id   || '—'
-  const qssNum  = emp.qss_number ? 'QSS-' + emp.qss_number : '—'
-  const phone   = emp.phone    || '+974 44040200'
-  const email   = emp.email    || 'info@qpc.qa'
-  const photo   = emp.photo_url || ''
-  const name    = emp.name     || 'Full Name'
-  const nameAr  = emp.name_ar  || 'الاسم الكامل'
-  const posEn   = emp.designation || 'Position Name'
-  const posAr   = desigAr || 'المسمى الوظيفي'
+  const staffId = emp.employee_number || '—'          // no QPC- prefix
+  const jobId   = emp.job_id          || '—'
+  const qssNum  = emp.qss_number      || '—'          // no QSS- prefix
+  const phone   = emp.phone           || '+974 44040200'
+  const email   = emp.email           || 'info@qpc.qa'
+  const photo   = emp.photo_url       || ''
+  const name    = emp.name            || 'Full Name'
+  const nameAr  = emp.name_ar         || 'الاسم الكامل'
+  const posEn   = emp.designation     || 'Position Name'
+  const posAr   = desigAr             || 'المسمى الوظيفي'
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -35,7 +35,7 @@ export function generateEmployeeCard(emp) {
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
-  background: #c4bfb8;
+  background: #c0bbb4;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -63,143 +63,201 @@ body {
     0 40px 80px rgba(0,0,0,.12);
 }
 
-/* ── HEADER ── */
-.header {
+/* ── DIAGONAL CRIMSON BAND (left) ── */
+.diag-band {
   position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 116px;
-  display: flex;
-  z-index: 3;
+  top: 0; left: 0;
+  width: 220px;
+  height: 100%;
+  background: #7b1325;
+  clip-path: polygon(0 0, 168px 0, 120px 100%, 0 100%);
+  z-index: 1;
 }
-.header-strip {
-  width: 10px;
-  flex-shrink: 0;
-  background: linear-gradient(180deg, #9b1c35 0%, #7b1325 50%, #c9a84c 100%);
-}
-.header-logos {
-  flex: 1;
-  background: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0;
-  padding: 0 36px;
-  position: relative;
-}
-.header-logos::after {
+/* diagonal texture overlay */
+.diag-band::before {
   content: '';
   position: absolute;
-  bottom: 0; left: 0; right: 0;
-  height: 2.5px;
-  background: linear-gradient(90deg, #c9a84c, #f0d060 35%, #c9a84c 65%, rgba(201,168,76,.15));
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(255,255,255,.04) 0px,
+    rgba(255,255,255,.04) 1px,
+    transparent 1px,
+    transparent 10px
+  );
 }
-.header-logos::before {
-  content: '';
+/* gold diagonal accent line */
+.diag-gold {
   position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 1px;
-  background: #edeae4;
+  top: 0; left: 0;
+  width: 220px;
+  height: 100%;
+  clip-path: polygon(170px 0, 178px 0, 130px 100%, 122px 100%);
+  background: linear-gradient(180deg, #f0d060, #c9a84c 50%, #8b6500);
+  z-index: 2;
 }
-.logo-block {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+
+/* ── PHOTO ── */
+.photo-wrap {
+  position: absolute;
+  top: 50px; left: 30px;
+  width: 148px; height: 148px;
+  border-radius: 50%;
+  border: 4px solid #c9a84c;
+  overflow: hidden;
+  background: #c8cacd;
+  z-index: 10;
+  box-shadow: 0 4px 16px rgba(0,0,0,.3), 0 0 0 2px rgba(201,168,76,.25);
 }
-.logo-block img {
-  object-fit: contain;
+.photo-wrap img { width: 100%; height: 100%; object-fit: cover; object-position: top center; }
+
+/* Staff ID pill below photo */
+.staff-pill {
+  position: absolute;
+  top: 214px; left: 30px;
+  width: 148px;
+  text-align: center;
+  z-index: 10;
+}
+.staff-pill .lbl {
+  font-size: 8px; font-weight: 700;
+  color: rgba(255,255,255,.55);
+  letter-spacing: .16em;
+  display: block; margin-bottom: 3px;
+}
+.staff-pill .val {
+  font-size: 18px; font-weight: 800;
+  color: #c9a84c;
+  letter-spacing: .04em;
   display: block;
 }
-.logo-sep {
-  width: 1px;
-  height: 62px;
-  background: linear-gradient(180deg, transparent, rgba(201,168,76,.7), transparent);
-  margin: 0 28px;
-  flex-shrink: 0;
-}
 
-/* ── BODY ── */
-.body {
+/* ID chips below staff pill */
+.id-chips {
   position: absolute;
-  top: 116px; left: 0; right: 0; bottom: 0;
-  display: flex;
+  top: 268px; left: 14px;
+  width: 168px;
+  display: flex; flex-direction: column; gap: 5px;
+  z-index: 10;
 }
-
-/* ── LEFT COLUMN ── */
-.left-strip {
-  width: 10px;
-  flex-shrink: 0;
-  background: linear-gradient(180deg, #c9a84c 0%, #7b1325 6%, #6a0f1e 100%);
-}
-.left-panel {
-  width: 210px;
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 22px 14px 18px;
-  border-right: 1px solid #edeae4;
-  background: #fdfcfa;
-}
-.photo-ring {
-  width: 136px;
-  height: 136px;
-  border-radius: 50%;
-  border: 3.5px solid #c9a84c;
-  overflow: hidden;
-  background: #e2e4e6;
-  flex-shrink: 0;
-  box-shadow: 0 2px 12px rgba(0,0,0,.13), 0 0 0 1px rgba(201,168,76,.2);
-}
-.photo-ring img { width: 100%; height: 100%; object-fit: cover; object-position: top center; }
-.staff-pill {
-  margin-top: 14px;
-  background: #fdf5e4;
-  border: 1.5px solid #c9a84c;
-  border-radius: 24px;
-  padding: 5px 16px;
-  text-align: center;
-  box-shadow: 0 1px 4px rgba(201,168,76,.15);
-}
-.staff-pill .lbl { font-size: 7.5px; font-weight: 700; color: #7a5c00; letter-spacing: .14em; }
-.staff-pill .val { font-size: 14px; font-weight: 800; color: #7b1325; letter-spacing: .03em; margin-top: 1px; }
-.id-rows { margin-top: 9px; width: 100%; display: flex; flex-direction: column; gap: 5px; }
-.id-row {
+.id-chip {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 5px 10px;
-  background: #fff;
-  border: 1px solid #e8e4dc;
-  border-radius: 7px;
+  padding: 4px 10px;
+  background: rgba(255,255,255,.07);
+  border-radius: 6px;
+  /* no border — as requested */
 }
-.id-row .il { font-size: 7.5px; color: #c0bdb6; letter-spacing: .1em; font-weight: 600; }
-.id-row .iv { font-size: 11.5px; font-weight: 700; color: #1a2340; }
+.id-chip .cl { font-size: 8px; color: rgba(255,255,255,.45); font-weight: 600; letter-spacing: .08em; }
+.id-chip .cv { font-size: 11px; font-weight: 700; color: rgba(255,255,255,.9); }
 
-/* ── RIGHT COLUMN ── */
-.right-panel {
+/* ── RIGHT CONTENT PANEL ── */
+.right {
+  position: absolute;
+  top: 0; left: 180px; right: 0; bottom: 0;
+  display: flex; flex-direction: column;
+  z-index: 5;
+}
+
+/* Logos strip top */
+.logos-strip {
+  height: 90px;
+  display: flex; align-items: center;
+  padding: 0 24px;
+  gap: 0;
+  border-bottom: 1px solid #edeae4;
+  position: relative;
+  flex-shrink: 0;
+}
+.logos-strip::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, #c9a84c, #f0d060 40%, #c9a84c 70%, rgba(201,168,76,.1));
+}
+.logo-img { object-fit: contain; display: block; }
+.logo-sep {
+  width: 1px; height: 58px;
+  background: linear-gradient(180deg, transparent, rgba(201,168,76,.65), transparent);
+  margin: 0 22px; flex-shrink: 0;
+}
+
+/* Name + position content */
+.content {
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  padding: 26px 28px 0;
-  min-width: 0;
+  padding: 20px 24px 0;
+  position: relative;
+  overflow: hidden;
 }
-.eyebrow { font-size: 7.5px; font-weight: 700; color: #c9a84c; letter-spacing: .22em; margin-bottom: 13px; }
+/* subtle QPC watermark */
+.content::after {
+  content: 'QPC';
+  position: absolute;
+  right: 16px; top: 10px;
+  font-size: 80px; font-weight: 900;
+  color: #7b1325; opacity: .032;
+  line-height: 1; pointer-events: none;
+  font-family: 'Inter', Arial, sans-serif;
+}
+/* subtle hex pattern top-right */
+.hex-pattern {
+  position: absolute;
+  right: 0; top: 0;
+  width: 140px; height: 180px;
+  opacity: .045;
+  background-image: radial-gradient(circle, #7b1325 1px, transparent 1px);
+  background-size: 14px 14px;
+}
+.eyebrow {
+  font-size: 7.5px; font-weight: 700;
+  color: #c9a84c; letter-spacing: .22em;
+  margin-bottom: 12px; position: relative; z-index: 1;
+}
 .en-name {
-  font-size: 30px; font-weight: 900; color: #1a2340;
-  line-height: 1; letter-spacing: -.025em;
+  font-size: 30px; font-weight: 900;
+  color: #1a2340; line-height: 1; letter-spacing: -.025em;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  position: relative; z-index: 1;
 }
-.ar-name { font-size: 17px; font-weight: 500; color: #555; margin-top: 5px; direction: rtl; text-align: right; }
-.rule { margin: 13px 0; display: flex; align-items: center; gap: 8px; }
+/* Arabic name — same size + weight as English */
+.ar-name {
+  font-size: 30px; font-weight: 900;
+  color: #1a2340; margin-top: 4px;
+  direction: rtl; text-align: right;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  position: relative; z-index: 1;
+  line-height: 1.15;
+}
+.rule {
+  display: flex; align-items: center; gap: 8px;
+  margin: 12px 0; position: relative; z-index: 1;
+}
 .rule-bar { height: 2.5px; width: 44px; background: #c9a84c; border-radius: 2px; flex-shrink: 0; }
 .rule-line { height: 1px; flex: 1; background: #edeae4; }
-.pos-en { font-size: 17px; font-weight: 700; color: #7b1325; }
-.pos-ar { font-size: 13px; color: #aaa; font-weight: 500; margin-top: 3px; direction: rtl; text-align: right; }
+.rule-dot { width: 10px; height: 10px; border-radius: 50%; background: #c9a84c; flex-shrink: 0; }
+/* Position EN */
+.pos-en {
+  font-size: 20px; font-weight: 700;
+  color: #7b1325;
+  position: relative; z-index: 1;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* Arabic position — same size + weight as English */
+.pos-ar {
+  font-size: 20px; font-weight: 700;
+  color: #7b1325; margin-top: 3px;
+  direction: rtl; text-align: right;
+  position: relative; z-index: 1;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* Contact footer */
 .contact {
   border-top: 1px solid #edeae4;
-  padding: 13px 0 16px;
-  margin-top: auto;
-  display: flex; flex-direction: column; gap: 8px;
+  padding: 12px 24px 16px;
+  display: flex; gap: 20px;
+  flex-shrink: 0;
 }
-.contact-row { display: flex; align-items: center; gap: 11px; }
+.contact-row { display: flex; align-items: center; gap: 10px; }
 .contact-icon {
   width: 28px; height: 28px; border-radius: 50%;
   background: #7b1325;
@@ -214,7 +272,7 @@ body {
   position: absolute;
   bottom: 0; left: 0; right: 0; height: 4px;
   background: linear-gradient(90deg, #7b1325, #c9a84c 25%, #f0d060 50%, #c9a84c 75%, #7b1325);
-  z-index: 5;
+  z-index: 20;
 }
 
 @media print {
@@ -235,88 +293,79 @@ body {
 
 <div class="card" id="card">
 
-  <!-- HEADER -->
-  <div class="header">
-    <div class="header-strip"></div>
-    <div class="header-logos">
-      <div class="logo-block" style="width:108px">
-        <img src="/logo-qpc.png" alt="QPC" style="height:84px;width:auto;max-width:100px" onerror="this.style.display='none'"/>
-      </div>
-      <div class="logo-sep"></div>
-      <div class="logo-block" style="width:84px">
-        <img src="/logo-qatar.png" alt="Qatar" style="height:88px;width:auto;max-width:80px" onerror="this.style.display='none'"/>
-      </div>
-      <div class="logo-sep"></div>
-      <div class="logo-block" style="width:160px">
-        <img src="/logo-so.png" alt="Special Olympics" style="height:52px;width:auto;max-width:150px" onerror="this.style.display='none'"/>
-      </div>
+  <!-- Diagonal crimson band -->
+  <div class="diag-band"></div>
+  <div class="diag-gold"></div>
+
+  <!-- Photo -->
+  <div class="photo-wrap">
+    ${photo
+      ? `<img src="${photo}" alt="${name}"/>`
+      : `<svg viewBox="0 0 100 115" width="100%" height="100%" style="padding-top:8%">
+           <circle cx="50" cy="34" r="25" fill="#9aa0a6"/>
+           <ellipse cx="50" cy="97" rx="40" ry="28" fill="#9aa0a6"/>
+         </svg>`
+    }
+  </div>
+
+  <!-- Staff ID -->
+  <div class="staff-pill">
+    <span class="lbl">STAFF ID</span>
+    <span class="val">${staffId}</span>
+  </div>
+
+  <!-- Job ID + QSS chips (no border) -->
+  <div class="id-chips">
+    <div class="id-chip">
+      <span class="cl">JOB ID</span>
+      <span class="cv">${jobId}</span>
+    </div>
+    <div class="id-chip">
+      <span class="cl">QSS</span>
+      <span class="cv">${qssNum}</span>
     </div>
   </div>
 
-  <!-- BODY -->
-  <div class="body">
+  <!-- Right panel -->
+  <div class="right">
 
-    <!-- Left strip + panel -->
-    <div style="display:flex;flex-shrink:0">
-      <div class="left-strip"></div>
-      <div class="left-panel">
-
-        <!-- Photo -->
-        <div class="photo-ring">
-          ${photo
-            ? `<img src="${photo}" alt="${name}"/>`
-            : `<svg viewBox="0 0 100 115" width="100%" height="100%" style="padding-top:8%">
-                 <circle cx="50" cy="34" r="25" fill="#b0b5ba"/>
-                 <ellipse cx="50" cy="97" rx="40" ry="28" fill="#b0b5ba"/>
-               </svg>`
-          }
-        </div>
-
-        <!-- Staff ID pill -->
-        <div class="staff-pill">
-          <div class="lbl">STAFF ID</div>
-          <div class="val">${staffId}</div>
-        </div>
-
-        <!-- Job ID + QSS rows -->
-        <div class="id-rows">
-          <div class="id-row">
-            <span class="il">JOB ID</span>
-            <span class="iv">${jobId}</span>
-          </div>
-          <div class="id-row">
-            <span class="il">QSS NUMBER</span>
-            <span class="iv">${qssNum}</span>
-          </div>
-        </div>
-
-      </div>
+    <!-- Logos -->
+    <div class="logos-strip">
+      <img src="/logo-qpc.png"   alt="QPC"             class="logo-img" style="height:70px;width:auto;max-width:90px"  onerror="this.style.display='none'"/>
+      <div class="logo-sep"></div>
+      <img src="/logo-qatar.png" alt="Qatar"            class="logo-img" style="height:74px;width:auto;max-width:76px"  onerror="this.style.display='none'"/>
+      <div class="logo-sep"></div>
+      <img src="/logo-so.png"    alt="Special Olympics" class="logo-img" style="height:46px;width:auto;max-width:150px" onerror="this.style.display='none'"/>
     </div>
 
-    <!-- Right panel -->
-    <div class="right-panel">
+    <!-- Name + position -->
+    <div class="content">
+      <div class="hex-pattern"></div>
       <div class="eyebrow">QATAR PARALYMPIC COMMITTEE &nbsp;·&nbsp; بطاقة موظف</div>
       <div class="en-name">${name}</div>
       <div class="ar-name">${nameAr}</div>
       <div class="rule">
         <div class="rule-bar"></div>
         <div class="rule-line"></div>
+        <div class="rule-dot"></div>
       </div>
       <div class="pos-en">${posEn}</div>
       <div class="pos-ar">${posAr}</div>
-      <div class="contact">
-        <div class="contact-row">
-          <div class="contact-icon">
-            <svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2A19.79 19.79 0 0 1 11.63 19 19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-2.93-8.19A2 2 0 0 1 3.56 1.7h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.4a16 16 0 0 0 5.99 6l.91-.91a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-          </div>
-          <span class="contact-text">${phone}</span>
+    </div>
+
+    <!-- Contact -->
+    <div class="contact">
+      <div class="contact-row">
+        <div class="contact-icon">
+          <svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2A19.79 19.79 0 0 1 11.63 19 19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-2.93-8.19A2 2 0 0 1 3.56 1.7h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.4a16 16 0 0 0 5.99 6l.91-.91a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
         </div>
-        <div class="contact-row">
-          <div class="contact-icon">
-            <svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 6 12 13 2 6"/></svg>
-          </div>
-          <span class="contact-text">${email}</span>
+        <span class="contact-text">${phone}</span>
+      </div>
+      <div class="contact-row">
+        <div class="contact-icon">
+          <svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 6 12 13 2 6"/></svg>
         </div>
+        <span class="contact-text">${email}</span>
       </div>
     </div>
 
@@ -337,7 +386,7 @@ document.getElementById('dlBtn').onclick = () => {
         scale: 2, useCORS: true, backgroundColor: '#ffffff', width: 760, height: 460
       })
       const a = document.createElement('a')
-      a.download = 'ID-Card-${name.replace(/[^a-zA-Z0-9]/g, '-')}.png'
+      a.download = '${name.replace(/[^a-zA-Z0-9]/g, '-')}-ID-Card.png'
       a.href = canvas.toDataURL('image/png')
       a.click()
     } catch(e) { alert('Download error: ' + e.message) }
