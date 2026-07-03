@@ -71,15 +71,30 @@ export default function Requests({ profile, onNav }) {
   const [reviewStatus, setReviewStatus] = useState('approved')
 
   // ── fetch ──────────────────────────────────────────────────────────────────
+  const [subCounts, setSubCounts] = useState({}) // formId → { total, pending }
+
   const fetchForms = useCallback(async () => {
     setLoading(true)
     const { data } = await supabase.from('request_forms').select('*, request_form_fields(*)').order('created_at', { ascending: false })
     if (data) {
       data.forEach(f => f.request_form_fields?.sort((a,b) => a.sort_order - b.sort_order))
       setForms(data)
+      // fetch submission counts for all forms (admin only)
+      if (isAdmin) {
+        const { data: subs } = await supabase.from('request_submissions').select('form_id, status')
+        if (subs) {
+          const counts = {}
+          subs.forEach(s => {
+            if (!counts[s.form_id]) counts[s.form_id] = { total:0, pending:0 }
+            counts[s.form_id].total++
+            if (s.status === 'pending') counts[s.form_id].pending++
+          })
+          setSubCounts(counts)
+        }
+      }
     }
     setLoading(false)
-  }, [])
+  }, [isAdmin])
 
   const fetchMySubs = useCallback(async () => {
     const { data } = await supabase.from('request_submissions')
@@ -212,9 +227,10 @@ export default function Requests({ profile, onNav }) {
       if (admins?.length) {
         await supabase.from('notifications').insert(admins.map(a => ({
           user_id: a.id,
-          title: `New request: ${selectedForm.title}`,
-          body: `${profile.full_name} submitted a request form.`,
-          type: 'request', link_page: 'requests',
+          title: ar ? `طلب جديد: ${selectedForm.title}` : `New request: ${selectedForm.title}`,
+          body: `${profile.full_name} ${ar ? 'أرسل طلباً جديداً' : 'submitted a new request form.'}`,
+          type: 'request',
+          data: { form_id: selectedForm.id, page: 'requests' },
         })))
       }
       toast(ar ? 'تم إرسال الطلب' : 'Request submitted!', 'success')
@@ -234,8 +250,9 @@ export default function Requests({ profile, onNav }) {
     await supabase.from('notifications').insert({
       user_id: reviewSub.submitted_by,
       title: ar ? `تحديث حالة الطلب` : `Request status updated`,
-      body: `Your request "${reviewSub.request_forms?.title||''}" is now ${meta.label}.`,
-      type: 'request', link_page: 'requests',
+      body: `${ar ? 'طلبك' : 'Your request'} "${reviewSub.request_forms?.title||''}" ${ar ? 'أصبح' : 'is now'} ${ar ? meta.label_ar : meta.label}.`,
+      type: 'request',
+      data: { form_id: reviewSub.form_id, page: 'requests' },
     })
     toast(ar ? 'تم التحديث' : 'Updated', 'success')
     setReviewSub(null)
@@ -392,7 +409,7 @@ export default function Requests({ profile, onNav }) {
             <i className="ti ti-arrow-left" /> {ar?'رجوع':'Back'}
           </button>
           <div className="page-title">{ar?(selectedForm.title_ar||selectedForm.title):selectedForm.title}</div>
-          <div className="page-sub">{formSubs.length} {ar?'طلب':'submission(s)'}</div>
+          <div className="page-sub">{formSubs.length} {ar?'طلب':'submission(s)'}{formSubs.filter(s=>s.status==='pending').length > 0 && <span style={{ color:'#EE334E', fontWeight:600 }}> · {formSubs.filter(s=>s.status==='pending').length} {ar?'قيد الانتظار':'pending'}</span>}</div>
         </div>
         <div style={{ display:'flex', gap:8 }}>
           <button className="action-btn" onClick={() => openEditForm(selectedForm)}><i className="ti ti-edit" /> {ar?'تعديل':'Edit'}</button>
@@ -535,10 +552,16 @@ export default function Requests({ profile, onNav }) {
                         <div style={{ width:36, height:36, borderRadius:10, background:'rgba(0,133,199,.1)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
                           <i className="ti ti-clipboard-text" style={{ fontSize:18, color:'#0085C7' }} />
                         </div>
-                        <div>
+                        <div style={{ flex:1, minWidth:0 }}>
                           <div style={{ fontWeight:700, fontSize:15, color:'var(--text)' }}>{ar?(f.title_ar||f.title):f.title}</div>
                           {!f.is_active && <span style={{ fontSize:10, color:'#999', background:'#f0f0f0', padding:'1px 7px', borderRadius:10 }}>{ar?'معطّل':'Inactive'}</span>}
                         </div>
+                        {/* Pending badge — admin only */}
+                        {isAdmin && subCounts[f.id]?.pending > 0 && (
+                          <div style={{ background:'#EE334E', color:'white', fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:20, flexShrink:0 }}>
+                            {subCounts[f.id].pending} {ar?'جديد':'new'}
+                          </div>
+                        )}
                       </div>
                       {(ar?(f.description_ar||f.description):f.description) && (
                         <div style={{ fontSize:12, color:'var(--text2)', marginBottom:10, lineHeight:1.5 }}>
@@ -604,7 +627,7 @@ export default function Requests({ profile, onNav }) {
                 </div>
               </div>
 
-              {/* Visibility */}
+              {/* Visibility — roles */}
               <div className="form-group">
                 <label className="form-label">{ar?'يظهر لـ':'Visible to'}</label>
                 <div style={{ display:'flex', gap:12, flexWrap:'wrap' }}>
@@ -615,11 +638,21 @@ export default function Requests({ profile, onNav }) {
                       {r}
                     </label>
                   ))}
-                  <label style={{ display:'flex', alignItems:'center', gap:6, cursor:'pointer', fontSize:13 }}>
-                    <input type="checkbox" checked={formData.is_active} onChange={e=>setFormData(p=>({...p,is_active:e.target.checked}))} />
-                    {ar?'نشط':'Active'}
-                  </label>
                 </div>
+              </div>
+
+              {/* Active toggle — separate from roles */}
+              <div className="form-group">
+                <label className="form-label">{ar?'حالة النموذج':'Form Status'}</label>
+                <label style={{ display:'flex', alignItems:'center', gap:8, cursor:'pointer', fontSize:13, width:'fit-content',
+                  background: formData.is_active ? 'rgba(0,159,107,.08)' : 'rgba(180,180,180,.1)',
+                  border: `1px solid ${formData.is_active ? '#009F6B' : '#ccc'}`,
+                  borderRadius:8, padding:'7px 14px', transition:'all .15s' }}>
+                  <input type="checkbox" checked={formData.is_active} onChange={e=>setFormData(p=>({...p,is_active:e.target.checked}))} />
+                  <span style={{ fontWeight:600, color: formData.is_active ? '#009F6B' : '#999' }}>
+                    {formData.is_active ? (ar?'نشط — يظهر للمستخدمين':'Active — visible to users') : (ar?'معطّل — مخفي عن المستخدمين':'Inactive — hidden from users')}
+                  </span>
+                </label>
               </div>
 
               {/* Fields */}
