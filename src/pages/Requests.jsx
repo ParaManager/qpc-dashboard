@@ -29,6 +29,9 @@ const ICON_OPTIONS = [
 const COLOR_OPTIONS = [
   '#EE334E','#0085C7','#009F6B','#c9a84c','#8b5cf6',
   '#f59e0b','#06b6d4','#ec4899','#14b8a6','#f97316',
+  '#ef4444','#3b82f6','#10b981','#a855f7','#0ea5e9',
+  '#d97706','#64748b','#dc2626','#7c3aed','#059669',
+  '#1d4ed8','#be123c','#0d9488','#92400e','#1e293b',
 ]
 
 const STATUS_META = {
@@ -247,7 +250,7 @@ export default function Requests({ profile }) {
     <div>
       <div className="page-header" style={{marginBottom:20}}>
         <div>
-          <button className="action-btn" style={{marginBottom:8,fontSize:12}} onClick={()=>setView('list')}>
+          <button className="action-btn action-btn-edit" onClick={()=>setView('list')}>
             <i className="ti ti-arrow-left"/> {ar?'رجوع':'Back'}
           </button>
           <div className="page-title">{ar?'طلباتي':'My Requests'}</div>
@@ -286,7 +289,7 @@ export default function Requests({ profile }) {
       <div>
         <div className="page-header" style={{marginBottom:20}}>
           <div>
-            <button className="action-btn" style={{marginBottom:8,fontSize:12}} onClick={()=>setView('list')}>
+            <button className="action-btn action-btn-edit" onClick={()=>setView('list')}>
               <i className="ti ti-arrow-left"/> {ar?'رجوع':'Back'}
             </button>
             <div style={{display:'flex',alignItems:'center',gap:12}}>
@@ -331,7 +334,7 @@ export default function Requests({ profile }) {
       <div>
         <div className="page-header" style={{marginBottom:20}}>
           <div>
-            <button className="action-btn" style={{marginBottom:8,fontSize:12}} onClick={()=>setView('list')}>
+            <button className="action-btn action-btn-edit" onClick={()=>setView('list')}>
               <i className="ti ti-arrow-left"/> {ar?'رجوع':'Back'}
             </button>
             <div style={{display:'flex',alignItems:'center',gap:12}}>
@@ -345,8 +348,8 @@ export default function Requests({ profile }) {
             </div>
           </div>
           <div style={{display:'flex',gap:8}}>
-            <button className="action-btn action-btn-edit" onClick={()=>openEditForm(selectedForm)}><i className="ti ti-edit"/> {ar?'تعديل':'Edit'}</button>
-            <button className="action-btn" style={{color:'#EE334E',borderColor:'#EE334E'}} onClick={()=>setConfirmDel(selectedForm)}><i className="ti ti-trash"/></button>
+            <button className="btn" style={{background:'var(--surface)',color:'var(--text)',border:'1px solid var(--border)',fontWeight:500}} onMouseEnter={e=>{e.currentTarget.style.borderColor='var(--blue)';e.currentTarget.style.color='var(--blue)'}} onMouseLeave={e=>{e.currentTarget.style.borderColor='var(--border)';e.currentTarget.style.color='var(--text)'}} onClick={()=>openEditForm(selectedForm)}><i className="ti ti-edit"/> {ar?'تعديل':'Edit'}</button>
+            <button className="btn" style={{background:'rgba(238,51,78,.06)',color:'#EE334E',border:'1px solid rgba(238,51,78,.2)'}} onMouseEnter={e=>{e.currentTarget.style.background='rgba(238,51,78,.12)'}} onMouseLeave={e=>{e.currentTarget.style.background='rgba(238,51,78,.06)'}} onClick={()=>setConfirmDel(selectedForm)}><i className="ti ti-trash"/></button>
           </div>
         </div>
 
@@ -408,7 +411,7 @@ export default function Requests({ profile }) {
       <div>
         <div className="page-header" style={{marginBottom:20}}>
           <div>
-            <button className="action-btn" style={{marginBottom:8,fontSize:12}} onClick={()=>setView('form-detail')}>
+            <button className="action-btn action-btn-edit" onClick={()=>setView('form-detail')}>
               <i className="ti ti-arrow-left"/> {ar?'رجوع':'Back'}
             </button>
             <div style={{display:'flex',alignItems:'center',gap:12}}>
@@ -425,7 +428,7 @@ export default function Requests({ profile }) {
             {statusBadge(selectedSub.status)}
             <button className="btn btn-blue"
               onClick={()=>{setReviewSub(selectedSub);setReviewNote(selectedSub.admin_notes||'');setReviewStatus(selectedSub.status==='pending'?'approved':selectedSub.status)}}>
-              <i className="ti ti-edit"/> {ar?'مراجعة':'Review'}
+              <i className="ti ti-clipboard-check"/> {ar?'مراجعة':'Review'}
             </button>
           </div>
         </div>
@@ -619,22 +622,13 @@ export default function Requests({ profile }) {
                 </div>
                 <div className="form-group">
                   <label className="form-label">{ar?'اللون':'Color'}</label>
-                  <div style={{display:'flex',flexWrap:'wrap',gap:8,padding:'10px',background:'var(--surface2)',borderRadius:9,border:'1px solid var(--border)'}}>
+                  <div style={{display:'flex',flexWrap:'wrap',gap:6,padding:'10px',background:'var(--surface2)',borderRadius:9,border:'1px solid var(--border)',alignContent:'flex-start'}}>
                     {COLOR_OPTIONS.map(clr=>(
                       <button key={clr} onClick={()=>setFormData(p=>({...p,color:clr}))}
-                        style={{width:30,height:30,borderRadius:'50%',background:clr,border:`3px solid ${formData.color===clr?'var(--text)':'transparent'}`,cursor:'pointer',transition:'all .12s',boxShadow:formData.color===clr?`0 0 0 2px ${clr}40`:'none'}}/>
+                        style={{width:30,height:30,borderRadius:'50%',background:clr,border:`3px solid ${formData.color===clr?'var(--text)':'transparent'}`,cursor:'pointer',transition:'all .12s',flexShrink:0,boxShadow:formData.color===clr?`0 0 0 2px ${clr}40`:'none'}}/>
                     ))}
                   </div>
-                  {/* Preview */}
-                  <div style={{marginTop:10,display:'flex',alignItems:'center',gap:10,padding:'10px 14px',background:formData.color+'10',borderRadius:9,border:`1px solid ${formData.color}30`}}>
-                    <div style={{width:36,height:36,borderRadius:10,background:formData.color+'18',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                      <i className={`ti ${formData.icon}`} style={{fontSize:18,color:formData.color}}/>
-                    </div>
-                    <div>
-                      <div style={{fontWeight:600,fontSize:13,color:'var(--text)'}}>{formData.title||'Preview'}</div>
-                      <div style={{fontSize:11,color:formData.color,fontWeight:600}}>●&nbsp;{formData.is_active?(ar?'نشط':'Active'):(ar?'معطّل':'Inactive')}</div>
-                    </div>
-                  </div>
+              </div>
                 </div>
               </div>
 
@@ -669,39 +663,46 @@ export default function Requests({ profile }) {
                 <div style={{fontWeight:700,fontSize:14,marginBottom:12}}>{ar?'الحقول':'Form Fields'}</div>
                 <div style={{display:'flex',flexDirection:'column',gap:10}}>
                   {fields.map((field,idx)=>(
-                    <div key={field.id} style={{background:'var(--surface2)',borderRadius:10,padding:14,border:'1px solid var(--border)'}}>
-                      <div style={{display:'flex',gap:8,marginBottom:10,alignItems:'center'}}>
+                    <div key={field.id} style={{background:'var(--surface)',borderRadius:10,border:'1px solid var(--border)',overflow:'hidden',boxShadow:'0 1px 3px rgba(0,0,0,.04)'}}>
+                      {/* Field header */}
+                      <div style={{display:'flex',gap:8,alignItems:'center',padding:'10px 14px',background:'var(--surface2)',borderBottom:'1px solid var(--border)'}}>
+                        <span style={{fontSize:11,fontWeight:700,color:'var(--text3)',minWidth:20,textAlign:'center'}}>#{idx+1}</span>
                         <div style={{display:'flex',flexDirection:'column',gap:1}}>
-                          <button onClick={()=>moveField(field.id,-1)} disabled={idx===0} style={{background:'none',border:'none',cursor:idx===0?'default':'pointer',color:'var(--text3)',padding:'2px 4px',opacity:idx===0?.3:1}}><i className="ti ti-chevron-up" style={{fontSize:11}}/></button>
-                          <button onClick={()=>moveField(field.id,1)} disabled={idx===fields.length-1} style={{background:'none',border:'none',cursor:idx===fields.length-1?'default':'pointer',color:'var(--text3)',padding:'2px 4px',opacity:idx===fields.length-1?.3:1}}><i className="ti ti-chevron-down" style={{fontSize:11}}/></button>
+                          <button onClick={()=>moveField(field.id,-1)} disabled={idx===0} style={{background:'none',border:'none',cursor:idx===0?'default':'pointer',color:'var(--text3)',padding:'1px 4px',opacity:idx===0?.3:1}}><i className="ti ti-chevron-up" style={{fontSize:11}}/></button>
+                          <button onClick={()=>moveField(field.id,1)} disabled={idx===fields.length-1} style={{background:'none',border:'none',cursor:idx===fields.length-1?'default':'pointer',color:'var(--text3)',padding:'1px 4px',opacity:idx===fields.length-1?.3:1}}><i className="ti ti-chevron-down" style={{fontSize:11}}/></button>
                         </div>
-                        <select className="form-input" style={{width:170,flexShrink:0}} value={field.field_type} onChange={e=>updateField(field.id,'field_type',e.target.value)}>
+                        <select className="form-input" style={{width:168,flexShrink:0,fontSize:12}} value={field.field_type} onChange={e=>updateField(field.id,'field_type',e.target.value)}>
                           {FIELD_TYPES.map(t=><option key={t.value} value={t.value}>{ar?t.label_ar:t.label}</option>)}
                         </select>
-                        <label style={{display:'flex',alignItems:'center',gap:5,fontSize:12,color:'var(--text2)',marginLeft:'auto',cursor:'pointer'}}>
-                          <input type="checkbox" checked={field.is_required} onChange={e=>updateField(field.id,'is_required',e.target.checked)}/> {ar?'مطلوب':'Required'}
+                        <label style={{display:'flex',alignItems:'center',gap:5,fontSize:12,color:'var(--text2)',marginLeft:'auto',cursor:'pointer',userSelect:'none'}}>
+                          <input type="checkbox" checked={field.is_required} onChange={e=>updateField(field.id,'is_required',e.target.checked)}/>
+                          <span style={{color:field.is_required?'var(--red)':'var(--text3)',fontWeight:field.is_required?600:400}}>{ar?'مطلوب *':'Required *'}</span>
                         </label>
-                        <button onClick={()=>removeField(field.id)} style={{background:'none',border:'none',cursor:'pointer',color:'#EE334E',fontSize:16,padding:'2px 4px'}}><i className="ti ti-trash"/></button>
+                        <button onClick={()=>removeField(field.id)} style={{background:'none',border:'none',cursor:'pointer',color:'#EE334E',padding:'4px 6px',borderRadius:6,transition:'background .12s'}} onMouseEnter={e=>e.currentTarget.style.background='rgba(238,51,78,.08)'} onMouseLeave={e=>e.currentTarget.style.background='none'}><i className="ti ti-trash" style={{fontSize:15}}/></button>
                       </div>
+                      {/* Field labels */}
+                      <div style={{padding:'12px 14px'}}>
                       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:['dropdown','radio','checkbox'].includes(field.field_type)?10:0}}>
                         <input className="form-input" placeholder="Label (EN)" value={field.label} onChange={e=>updateField(field.id,'label',e.target.value)}/>
                         <input className="form-input" placeholder="التسمية (AR)" value={field.label_ar||''} onChange={e=>updateField(field.id,'label_ar',e.target.value)} dir="rtl"/>
                       </div>
                       {['dropdown','radio','checkbox'].includes(field.field_type) && (
-                        <div>
-                          <div style={{fontSize:11,color:'var(--text3)',marginBottom:6,fontWeight:600}}>{ar?'الخيارات':'Options'}</div>
+                        <div style={{marginTop:8,padding:'10px 12px',background:'var(--surface2)',borderRadius:8,border:'1px solid var(--border)'}}>
+                          <div style={{fontSize:11,color:'var(--text3)',marginBottom:8,fontWeight:700,letterSpacing:'.04em',textTransform:'uppercase'}}>{ar?'الخيارات':'Options'}</div>
                           {(field.options||[]).map((o,oi)=>(
                             <div key={oi} style={{display:'flex',gap:6,marginBottom:6,alignItems:'center'}}>
-                              <input className="form-input" style={{flex:1}} placeholder={`Option ${oi+1} (EN)`} value={o.label} onChange={e=>updateOption(field.id,oi,'label',e.target.value)}/>
-                              <input className="form-input" style={{flex:1}} placeholder={`الخيار ${oi+1} (AR)`} value={o.label_ar||''} onChange={e=>updateOption(field.id,oi,'label_ar',e.target.value)} dir="rtl"/>
-                              <button onClick={()=>removeOption(field.id,oi)} style={{background:'none',border:'none',cursor:'pointer',color:'#EE334E',padding:'2px 4px'}}><i className="ti ti-x"/></button>
+                              <span style={{fontSize:11,color:'var(--text3)',minWidth:18,textAlign:'center'}}>{oi+1}.</span>
+                              <input className="form-input" style={{flex:1,fontSize:13}} placeholder={`Option ${oi+1} (EN)`} value={o.label} onChange={e=>updateOption(field.id,oi,'label',e.target.value)}/>
+                              <input className="form-input" style={{flex:1,fontSize:13}} placeholder={`الخيار ${oi+1} (AR)`} value={o.label_ar||''} onChange={e=>updateOption(field.id,oi,'label_ar',e.target.value)} dir="rtl"/>
+                              <button onClick={()=>removeOption(field.id,oi)} style={{background:'none',border:'none',cursor:'pointer',color:'#EE334E',padding:'3px 5px',borderRadius:5}} onMouseEnter={e=>e.currentTarget.style.background='rgba(238,51,78,.08)'} onMouseLeave={e=>e.currentTarget.style.background='none'}><i className="ti ti-x" style={{fontSize:13}}/></button>
                             </div>
                           ))}
-                          <button onClick={()=>addOption(field.id)} className="action-btn" style={{fontSize:12,padding:'4px 10px',marginTop:2}}>
+                          <button onClick={()=>addOption(field.id)} className="action-btn" style={{fontSize:12,padding:'4px 10px',marginTop:4}}>
                             <i className="ti ti-plus" style={{fontSize:12}}/> {ar?'إضافة خيار':'Add option'}
                           </button>
                         </div>
                       )}
+                      </div>
                     </div>
                   ))}
                 </div>
