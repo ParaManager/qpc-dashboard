@@ -157,8 +157,8 @@ body {
 /* Logos strip top */
 .logos-strip {
   height: 90px;
-  display: flex; align-items: center;
-  padding: 0 24px 0 44px;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 32px;
   gap: 0;
   border-bottom: 1px solid #edeae4;
   position: relative;
@@ -174,7 +174,7 @@ body {
 .logo-sep {
   width: 1px; height: 58px;
   background: linear-gradient(180deg, transparent, rgba(201,168,76,.65), transparent);
-  margin: 0 22px; flex-shrink: 0;
+  flex-shrink: 0;
 }
 
 /* Name + position content */
