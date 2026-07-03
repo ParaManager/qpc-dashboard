@@ -67,10 +67,10 @@ body {
 .diag-band {
   position: absolute;
   top: 0; left: 0;
-  width: 220px;
+  width: 240px;
   height: 100%;
   background: #7b1325;
-  clip-path: polygon(0 0, 168px 0, 120px 100%, 0 100%);
+  clip-path: polygon(0 0, 185px 0, 140px 100%, 0 100%);
   z-index: 1;
 }
 /* diagonal texture overlay */
@@ -90,9 +90,9 @@ body {
 .diag-gold {
   position: absolute;
   top: 0; left: 0;
-  width: 220px;
+  width: 240px;
   height: 100%;
-  clip-path: polygon(170px 0, 178px 0, 130px 100%, 122px 100%);
+  clip-path: polygon(187px 0, 196px 0, 150px 100%, 142px 100%);
   background: linear-gradient(180deg, #f0d060, #c9a84c 50%, #8b6500);
   z-index: 2;
 }
@@ -100,8 +100,8 @@ body {
 /* ── PHOTO ── */
 .photo-wrap {
   position: absolute;
-  top: 50px; left: 30px;
-  width: 148px; height: 148px;
+  top: 44px; left: 26px;
+  width: 152px; height: 152px;
   border-radius: 50%;
   border: 4px solid #c9a84c;
   overflow: hidden;
@@ -114,8 +114,8 @@ body {
 /* Staff ID pill below photo */
 .staff-pill {
   position: absolute;
-  top: 214px; left: 30px;
-  width: 148px;
+  top: 210px; left: 26px;
+  width: 152px;
   text-align: center;
   z-index: 10;
 }
@@ -135,8 +135,8 @@ body {
 /* ID chips below staff pill */
 .id-chips {
   position: absolute;
-  top: 268px; left: 14px;
-  width: 168px;
+  top: 264px; left: 14px;
+  width: 175px;
   display: flex; flex-direction: column; gap: 5px;
   z-index: 10;
 }
@@ -148,12 +148,12 @@ body {
   /* no border — as requested */
 }
 .id-chip .cl { font-size: 8px; color: rgba(255,255,255,.45); font-weight: 600; letter-spacing: .08em; }
-.id-chip .cv { font-size: 11px; font-weight: 700; color: rgba(255,255,255,.9); }
+.id-chip .cv { font-size: 12px; font-weight: 700; color: #ffffff; }
 
 /* ── RIGHT CONTENT PANEL ── */
 .right {
   position: absolute;
-  top: 0; left: 180px; right: 0; bottom: 0;
+  top: 0; left: 196px; right: 0; bottom: 0;
   display: flex; flex-direction: column;
   z-index: 5;
 }
@@ -192,9 +192,9 @@ body {
 .content::after {
   content: 'QPC';
   position: absolute;
-  right: 16px; top: 10px;
-  font-size: 80px; font-weight: 900;
-  color: #7b1325; opacity: .032;
+  right: 12px; bottom: 60px;
+  font-size: 72px; font-weight: 900;
+  color: #7b1325; opacity: .025;
   line-height: 1; pointer-events: none;
   font-family: 'Inter', Arial, sans-serif;
 }
@@ -213,19 +213,19 @@ body {
   margin-bottom: 12px; position: relative; z-index: 1;
 }
 .en-name {
-  font-size: 30px; font-weight: 900;
+  font-size: 28px; font-weight: 900;
   color: #1a2340; line-height: 1; letter-spacing: -.025em;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  position: relative; z-index: 1;
+  position: relative; z-index: 1; max-width: 100%;
 }
 /* Arabic name — same size + weight as English */
 .ar-name {
-  font-size: 30px; font-weight: 900;
-  color: #1a2340; margin-top: 4px;
+  font-size: 22px; font-weight: 700;
+  color: #1a2340; margin-top: 5px;
   direction: rtl; text-align: right;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   position: relative; z-index: 1;
-  line-height: 1.15;
+  line-height: 1.2; max-width: 100%;
 }
 .rule {
   display: flex; align-items: center; gap: 8px;
@@ -243,9 +243,9 @@ body {
 }
 /* Arabic position — same size + weight as English */
 .pos-ar {
-  font-size: 20px; font-weight: 700;
-  color: #7b1325; margin-top: 3px;
-  direction: rtl; text-align: right;
+  font-size: 18px; font-weight: 700;
+  color: #7b1325; margin-top: 4px;
+  direction: rtl; text-align: left;
   position: relative; z-index: 1;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
