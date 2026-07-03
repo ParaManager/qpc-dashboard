@@ -134,7 +134,7 @@ body {
 
 /* ID chips below staff pill */
 .id-chips {
-  display: flex; gap: 20px;
+  display: flex; gap: 48px;
   padding: 8px 24px;
   border-top: 1px solid #edeae4;
   border-bottom: 1px solid #edeae4;
@@ -218,7 +218,7 @@ body {
 .ar-name {
   font-size: 28px; font-weight: 900;
   color: #1a2340; margin-top: 4px;
-  direction: rtl; text-align: right;
+  direction: rtl; text-align: left;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   position: relative; z-index: 1;
   line-height: 1.1; max-width: 100%;
@@ -232,14 +232,14 @@ body {
 .rule-dot { width: 10px; height: 10px; border-radius: 50%; background: #c9a84c; flex-shrink: 0; }
 /* Position EN */
 .pos-en {
-  font-size: 20px; font-weight: 700;
+  font-size: 24px; font-weight: 700;
   color: #7b1325;
   position: relative; z-index: 1;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 /* Arabic position — same size + weight as English */
 .pos-ar {
-  font-size: 18px; font-weight: 700;
+  font-size: 24px; font-weight: 700;
   color: #7b1325; margin-top: 4px;
   direction: rtl; text-align: left;
   position: relative; z-index: 1;
