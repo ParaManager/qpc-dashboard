@@ -15,9 +15,9 @@ const DESIGNATION_AR = {
 
 export function generateEmployeeCard(emp) {
   const desigAr = emp.designation_ar || DESIGNATION_AR[emp.designation] || emp.designation || ''
-  const staffId = emp.employee_number || '—'          // no QPC- prefix
-  const jobId   = emp.job_id          || '—'
-  const qssNum  = emp.qss_number      || '—'          // no QSS- prefix
+  const staffId = emp.employee_number || '0000'
+  const jobId   = emp.job_id          || '0000'
+  const qssNum  = emp.qss_number      || '0000'
   const phone   = emp.phone           || '+974 44040200'
   const email   = emp.email           || 'info@qpc.qa'
   const photo   = emp.photo_url       || ''
@@ -134,7 +134,7 @@ body {
 
 /* ID chips below staff pill */
 .id-chips {
-  display: flex; gap: 48px;
+  display: flex; gap: 72px;
   padding: 8px 24px;
   border-top: 1px solid #edeae4;
   border-bottom: 1px solid #edeae4;
@@ -143,7 +143,7 @@ body {
 .id-chip {
   display: flex; flex-direction: column; gap: 1px;
 }
-.id-chip .cl { font-size: 8px; color: #aaa; font-weight: 600; letter-spacing: .1em; }
+.id-chip .cl { font-size: 11px; color: #888; font-weight: 700; letter-spacing: .08em; }
 .id-chip .cv { font-size: 13px; font-weight: 700; color: #1a2340; }
 
 /* ── RIGHT CONTENT PANEL ── */
