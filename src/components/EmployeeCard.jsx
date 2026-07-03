@@ -67,10 +67,10 @@ body {
 .diag-band {
   position: absolute;
   top: 0; left: 0;
-  width: 240px;
+  width: 260px;
   height: 100%;
   background: #7b1325;
-  clip-path: polygon(0 0, 185px 0, 140px 100%, 0 100%);
+  clip-path: polygon(0 0, 230px 0, 182px 100%, 0 100%);
   z-index: 1;
 }
 /* diagonal texture overlay */
@@ -90,9 +90,9 @@ body {
 .diag-gold {
   position: absolute;
   top: 0; left: 0;
-  width: 240px;
+  width: 260px;
   height: 100%;
-  clip-path: polygon(187px 0, 196px 0, 150px 100%, 142px 100%);
+  clip-path: polygon(232px 0, 242px 0, 192px 100%, 184px 100%);
   background: linear-gradient(180deg, #f0d060, #c9a84c 50%, #8b6500);
   z-index: 2;
 }
@@ -134,26 +134,22 @@ body {
 
 /* ID chips below staff pill */
 .id-chips {
-  position: absolute;
-  top: 264px; left: 14px;
-  width: 175px;
-  display: flex; flex-direction: column; gap: 5px;
-  z-index: 10;
+  display: flex; gap: 20px;
+  padding: 8px 24px;
+  border-top: 1px solid #edeae4;
+  border-bottom: 1px solid #edeae4;
+  flex-shrink: 0;
 }
 .id-chip {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 4px 10px;
-  background: rgba(255,255,255,.07);
-  border-radius: 6px;
-  /* no border — as requested */
+  display: flex; flex-direction: column; gap: 1px;
 }
-.id-chip .cl { font-size: 8px; color: rgba(255,255,255,.45); font-weight: 600; letter-spacing: .08em; }
-.id-chip .cv { font-size: 12px; font-weight: 700; color: #ffffff; }
+.id-chip .cl { font-size: 8px; color: #aaa; font-weight: 600; letter-spacing: .1em; }
+.id-chip .cv { font-size: 13px; font-weight: 700; color: #1a2340; }
 
 /* ── RIGHT CONTENT PANEL ── */
 .right {
   position: absolute;
-  top: 0; left: 196px; right: 0; bottom: 0;
+  top: 0; left: 244px; right: 0; bottom: 0;
   display: flex; flex-direction: column;
   z-index: 5;
 }
@@ -162,7 +158,7 @@ body {
 .logos-strip {
   height: 90px;
   display: flex; align-items: center;
-  padding: 0 24px;
+  padding: 0 24px 0 44px;
   gap: 0;
   border-bottom: 1px solid #edeae4;
   position: relative;
@@ -220,12 +216,12 @@ body {
 }
 /* Arabic name — same size + weight as English */
 .ar-name {
-  font-size: 22px; font-weight: 700;
-  color: #1a2340; margin-top: 5px;
+  font-size: 28px; font-weight: 900;
+  color: #1a2340; margin-top: 4px;
   direction: rtl; text-align: right;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   position: relative; z-index: 1;
-  line-height: 1.2; max-width: 100%;
+  line-height: 1.1; max-width: 100%;
 }
 .rule {
   display: flex; align-items: center; gap: 8px;
@@ -314,18 +310,6 @@ body {
     <span class="val">${staffId}</span>
   </div>
 
-  <!-- Job ID + QSS chips (no border) -->
-  <div class="id-chips">
-    <div class="id-chip">
-      <span class="cl">JOB ID</span>
-      <span class="cv">${jobId}</span>
-    </div>
-    <div class="id-chip">
-      <span class="cl">QSS</span>
-      <span class="cv">${qssNum}</span>
-    </div>
-  </div>
-
   <!-- Right panel -->
   <div class="right">
 
@@ -351,6 +335,18 @@ body {
       </div>
       <div class="pos-en">${posEn}</div>
       <div class="pos-ar">${posAr}</div>
+    </div>
+
+    <!-- Job ID + QSS — above contact -->
+    <div class="id-chips">
+      <div class="id-chip">
+        <span class="cl">JOB ID</span>
+        <span class="cv">${jobId}</span>
+      </div>
+      <div class="id-chip">
+        <span class="cl">QSS NUMBER</span>
+        <span class="cv">${qssNum}</span>
+      </div>
     </div>
 
     <!-- Contact -->
