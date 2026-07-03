@@ -6,7 +6,7 @@ export const AR = {
     results:'النتائج', signOut:'تسجيل الخروج', adminPortal:'بوابة الإدارة', season:'موسم',
     schedule:'الجدول الزمني', attendance:'الحضور والغياب',
     users:'إدارة المستخدمين', admin:'الإدارة', referees:'الحكام', profile:'ملفي الشخصي', settings:'الإعدادات', account:'الحساب', mycompetitions:'منافساتي',
-    notifications:'الإشعارات', resources:'الموارد', tasks:'المهام', training:'التدريب',
+    notifications:'الإشعارات', resources:'الموارد', tasks:'المهام', training:'التدريب', requests:'الطلبات',
   },
   pages: {
     dashboard:'لوحة التحكم', athletes:'الرياضيون', coaches:'المدربون',
