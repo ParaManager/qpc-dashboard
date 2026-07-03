@@ -12,21 +12,20 @@
 import * as XLSX from 'xlsx'
 
 // ── Sheet 1: disability type ────────────────────────────────────────────
-// Template rows are fixed: only these six map to data we actually collect.
-// Hearing/Speech/Psychosocial/Multiple/Developmental rows stay at the
-// template's existing value (0) since no athlete currently has those types
-// recorded — "Other" (row 19) is left exactly as the template has it
-// (genuinely blank, not zero) since unmatched/missing disability values are
-// excluded from this sheet entirely, not folded into Other, per direct
-// confirmation from the person who owns this report.
+// Now driven by the statistics_disability column (the 10-category ministry
+// classification) instead of the granular disability column. Each category
+// maps exactly to one row in the government template.
 const DISABILITY_ROW = {
-  'Cerebral Palsy': 9,
-  'Physical Impairment': 9,
-  'Intellectual Impairment': 10,
-  'Visual Impairment': 11,
-  'Down Sydrome': 17, // matches the actual stored spelling in the athletes table
-  'Down Syndrome': 17, // tolerate the correct spelling too, in case data gets cleaned up later
-  'Autism': 18,
+  'Physical Disability':        9,
+  'Intellectual Disability':    10,
+  'Visual Disability':          11,
+  'Hearing Disability':         12,
+  'Speech & Language Disorders':13,
+  'Psychosocial Disability':    14,
+  'Multiple Disability':        15,
+  'Developmental Disability':   16,
+  'Down Syndrome':              17,
+  'Autism':                     18,
 }
 
 // ── Sheet 2: age group ──────────────────────────────────────────────────
@@ -140,14 +139,14 @@ export async function generateStatisticsReport({ athletes, employees, coaches, l
   // to be the same population. Athletes with no DOB would be excluded from
   // Sheet 2 but are currently all 187 have one, so this guard is a safety net.
   const qualifiedAthletes = athletes.filter(a =>
-    DISABILITY_ROW[a.disability] && a.dob
+    DISABILITY_ROW[a.statistics_disability] && a.dob
   )
 
   // ── Sheet 1: disability type ──
   const ws1 = wb.Sheets['1']
   const grid1 = {}
   for (const a of qualifiedAthletes) {
-    const row = DISABILITY_ROW[a.disability]
+    const row = DISABILITY_ROW[a.statistics_disability]
     if (!row) continue
     addCounts(grid1, row, colFor(a))
   }
