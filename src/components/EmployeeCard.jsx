@@ -21,7 +21,11 @@ export function generateEmployeeCard(emp) {
   const phone   = emp.phone           || '+974 44040200'
   const email   = emp.email           || 'info@qpc.qa'
   const photo   = emp.photo_url       || ''
-  const name    = emp.name            || 'Full Name'
+  const _fullName = emp.name || 'Full Name'
+  const _nameParts = _fullName.trim().split(/\s+/)
+  const name = _nameParts.length >= 2
+    ? _nameParts[0] + ' ' + _nameParts[_nameParts.length - 1]
+    : _fullName
   const nameAr  = emp.name_ar         || 'الاسم الكامل'
   const posEn   = emp.designation     || 'Position Name'
   const posAr   = desigAr             || 'المسمى الوظيفي'
@@ -157,8 +161,8 @@ body {
 /* Logos strip top */
 .logos-strip {
   height: 90px;
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 0 32px;
+  display: flex; align-items: center;
+  padding: 0 24px 0 44px;
   gap: 0;
   border-bottom: 1px solid #edeae4;
   position: relative;
@@ -174,7 +178,7 @@ body {
 .logo-sep {
   width: 1px; height: 58px;
   background: linear-gradient(180deg, transparent, rgba(201,168,76,.65), transparent);
-  flex-shrink: 0;
+  margin: 0 22px; flex-shrink: 0;
 }
 
 /* Name + position content */
