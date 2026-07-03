@@ -63,6 +63,7 @@ export default function Resources({ profile, onRefresh }) {
   const [uploading, setUploading]   = useState(false)
 
   const [form, setForm] = useState({ resourceType: 'file', title: '', titleAr: '', description: '', descriptionAr: '', linkUrl: '', isPrivate: false, visibleTo: ['admin','coach','athlete','employee'] })
+  const [linkPopup, setLinkPopup] = useState(null) // { url, title }
   const fileInput = useRef(null)
   const [pendingFile, setPendingFile] = useState(null)
   const [dragOver, setDragOver] = useState(false)
@@ -276,6 +277,65 @@ export default function Resources({ profile, onRefresh }) {
           onConfirm={() => handleDelete(confirmDel)}
           onCancel={() => setConfirmDel(null)}
         />
+      )}
+
+      {/* Link browser-choice popup */}
+      {linkPopup && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.45)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center' }}
+          onClick={() => setLinkPopup(null)}>
+          <div style={{ background:'var(--surface)', borderRadius:16, padding:24, width:460, boxShadow:'0 8px 32px rgba(0,0,0,.2)', border:'1px solid var(--border)' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                <i className="ti ti-link" style={{ fontSize:20, color:'#0085C7' }} />
+                <span style={{ fontWeight:700, fontSize:15, color:'var(--text)' }}>{linkPopup.title}</span>
+              </div>
+              <button onClick={() => setLinkPopup(null)} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--text3)', fontSize:18 }}>
+                <i className="ti ti-x" />
+              </button>
+            </div>
+
+            {/* URL display box */}
+            <div style={{ background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:8, padding:'10px 14px', marginBottom:16, wordBreak:'break-all', fontSize:13, color:'var(--text2)', fontFamily:'monospace' }}>
+              {linkPopup.url}
+            </div>
+
+            <p style={{ fontSize:12, color:'var(--text3)', marginBottom:16 }}>
+              {ar
+                ? 'اختر كيف تريد فتح هذا الرابط:'
+                : 'Choose how you want to open this link:'}
+            </p>
+
+            <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+              {/* Open in current browser */}
+              <button
+                onClick={() => { window.open(linkPopup.url, '_blank', 'noopener,noreferrer'); setLinkPopup(null) }}
+                style={{ display:'flex', alignItems:'center', gap:12, padding:'11px 16px', background:'#0085C7', color:'white', border:'none', borderRadius:10, cursor:'pointer', fontSize:14, fontWeight:600 }}>
+                <i className="ti ti-external-link" style={{ fontSize:18 }} />
+                <div style={{ textAlign:'left' }}>
+                  <div>{ar ? 'فتح في هذا المتصفح' : 'Open in this browser'}</div>
+                  <div style={{ fontSize:11, opacity:.8, fontWeight:400 }}>{ar ? 'يفتح في نافذة جديدة' : 'Opens in a new tab'}</div>
+                </div>
+              </button>
+
+              {/* Copy link */}
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(linkPopup.url).then(() => {
+                    toast(ar ? 'تم نسخ الرابط' : 'Link copied!', 'success')
+                    setLinkPopup(null)
+                  })
+                }}
+                style={{ display:'flex', alignItems:'center', gap:12, padding:'11px 16px', background:'var(--surface2)', color:'var(--text)', border:'1px solid var(--border)', borderRadius:10, cursor:'pointer', fontSize:14, fontWeight:600 }}>
+                <i className="ti ti-copy" style={{ fontSize:18, color:'var(--text2)' }} />
+                <div style={{ textAlign:'left' }}>
+                  <div>{ar ? 'نسخ الرابط' : 'Copy link'}</div>
+                  <div style={{ fontSize:11, color:'var(--text3)', fontWeight:400 }}>{ar ? 'الصق في أي متصفح تريد' : 'Paste into any browser you want'}</div>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {showUpload && (
@@ -556,7 +616,7 @@ export default function Resources({ profile, onRefresh }) {
                 </div>
                 <div style={{ display:'flex', gap:6, flexShrink:0 }}>
                   <button
-                    onClick={() => isLink ? window.open(r.file_url, '_blank', 'noopener,noreferrer') : downloadResource(r.file_url, r.file_name)}
+                    onClick={() => isLink ? setLinkPopup({ url: r.file_url, title: ar ? (r.title_ar || r.title) : r.title }) : downloadResource(r.file_url, r.file_name)}
                     style={{ display:'flex', alignItems:'center', justifyContent:'center', width:28, height:28, borderRadius:7, background:'var(--surface)', border:'1px solid var(--border)', color:'var(--text2)', cursor:'pointer', fontSize:14 }}
                     title={isLink ? (ar ? 'فتح' : 'Open') : (ar ? 'تحميل' : 'Download')}>
                     <i className={`ti ${isLink ? 'ti-external-link' : 'ti-download'}`} />
