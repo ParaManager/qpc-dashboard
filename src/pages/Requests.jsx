@@ -250,7 +250,7 @@ export default function Requests({ profile }) {
     <div>
       <div className="page-header" style={{marginBottom:20}}>
         <div>
-          <button className="action-btn" style={{marginBottom:8,fontSize:12}} onClick={()=>setView('list')}>
+          <button className="back-btn" onClick={()=>setView('list')}>
             <i className="ti ti-arrow-left"/> {ar?'رجوع':'Back'}
           </button>
           <div className="page-title">{ar?'طلباتي':'My Requests'}</div>
@@ -289,7 +289,7 @@ export default function Requests({ profile }) {
       <div>
         <div className="page-header" style={{marginBottom:20}}>
           <div>
-            <button className="action-btn" style={{marginBottom:8,fontSize:12}} onClick={()=>setView('list')}>
+            <button className="back-btn" onClick={()=>setView('list')}>
               <i className="ti ti-arrow-left"/> {ar?'رجوع':'Back'}
             </button>
             <div style={{display:'flex',alignItems:'center',gap:12}}>
@@ -334,7 +334,7 @@ export default function Requests({ profile }) {
       <div>
         <div className="page-header" style={{marginBottom:20}}>
           <div>
-            <button className="action-btn" style={{marginBottom:8,fontSize:12}} onClick={()=>setView('list')}>
+            <button className="back-btn" onClick={()=>setView('list')}>
               <i className="ti ti-arrow-left"/> {ar?'رجوع':'Back'}
             </button>
             <div style={{display:'flex',alignItems:'center',gap:12}}>
@@ -348,8 +348,8 @@ export default function Requests({ profile }) {
             </div>
           </div>
           <div style={{display:'flex',gap:8}}>
-            <button className="btn" style={{background:'var(--surface)',color:'var(--text)',border:'1px solid var(--border)',fontWeight:500}} onMouseEnter={e=>{e.currentTarget.style.borderColor='#0085C7';e.currentTarget.style.color='#0085C7'}} onMouseLeave={e=>{e.currentTarget.style.borderColor='var(--border)';e.currentTarget.style.color='var(--text)'}} onClick={()=>openEditForm(selectedForm)}><i className="ti ti-edit"/> {ar?'تعديل':'Edit'}</button>
-            <button className="btn" style={{background:'rgba(238,51,78,.06)',color:'#EE334E',border:'1px solid rgba(238,51,78,.2)'}} onMouseEnter={e=>e.currentTarget.style.background='rgba(238,51,78,.12)'} onMouseLeave={e=>e.currentTarget.style.background='rgba(238,51,78,.06)'} onClick={()=>setConfirmDel(selectedForm)}><i className="ti ti-trash"/></button>
+            <button className="action-btn action-btn-edit" onClick={()=>openEditForm(selectedForm)}><i className="ti ti-edit"/> {ar?'تعديل':'Edit'}</button>
+            <button className="action-btn action-btn-delete" onClick={()=>setConfirmDel(selectedForm)}><i className="ti ti-trash"/></button>
           </div>
         </div>
 
@@ -411,7 +411,7 @@ export default function Requests({ profile }) {
       <div>
         <div className="page-header" style={{marginBottom:20}}>
           <div>
-            <button className="action-btn" style={{marginBottom:8,fontSize:12}} onClick={()=>setView('form-detail')}>
+            <button className="back-btn" onClick={()=>setView('form-detail')}>
               <i className="ti ti-arrow-left"/> {ar?'رجوع':'Back'}
             </button>
             <div style={{display:'flex',alignItems:'center',gap:12}}>
@@ -537,12 +537,7 @@ export default function Requests({ profile }) {
                               {cnt.pending} {ar?'جديد':'new'}
                             </span>
                           )}
-                          {isAdmin && (
-                            <div style={{display:'flex',gap:3}} onClick={e=>e.stopPropagation()}>
-                              <button className="icon-btn" onClick={()=>openEditForm(f)} title="Edit"><i className="ti ti-edit"/></button>
-                              <button className="icon-btn" style={{color:'#EE334E'}} onClick={()=>setConfirmDel(f)} title="Delete"><i className="ti ti-trash"/></button>
-                            </div>
-                          )}
+
                         </div>
                       </div>
                       <div style={{fontWeight:700,fontSize:15,color:'var(--text)',marginBottom:4}}>{ar?(f.title_ar||f.title):f.title}</div>
@@ -680,10 +675,10 @@ export default function Requests({ profile }) {
                           <input type="checkbox" checked={field.is_required} onChange={e=>updateField(field.id,'is_required',e.target.checked)}/>
                           <span style={{color:field.is_required?'#EE334E':'var(--text3)',fontWeight:field.is_required?600:400}}>{ar?'مطلوب *':'Required *'}</span>
                         </label>
-                        <button onClick={()=>removeField(field.id)} style={{background:'none',border:'none',cursor:'pointer',color:'#EE334E',padding:'4px 6px',borderRadius:6}} onMouseEnter={e=>e.currentTarget.style.background='rgba(238,51,78,.08)'} onMouseLeave={e=>e.currentTarget.style.background='none'}><i className="ti ti-trash" style={{fontSize:15}}/></button>
+                        <button onClick={()=>removeField(field.id)} className="action-btn action-btn-delete" style={{padding:'3px 8px',flexShrink:0}}><i className="ti ti-trash" style={{fontSize:13}}/></button>
                       </div>
-                      <div style={{padding:'12px 14px'}}>
-                      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:['dropdown','radio','checkbox'].includes(field.field_type)?10:0}}>
+                      <div style={{padding:'12px 14px',display:'flex',flexDirection:'column',gap:8}}>
+                      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
                         <input className="form-input" placeholder="Label (EN)" value={field.label} onChange={e=>updateField(field.id,'label',e.target.value)}/>
                         <input className="form-input" placeholder="التسمية (AR)" value={field.label_ar||''} onChange={e=>updateField(field.id,'label_ar',e.target.value)} dir="rtl"/>
                       </div>
@@ -707,7 +702,7 @@ export default function Requests({ profile }) {
                     </div>
                   ))}
                 </div>
-                <button onClick={addField} className="action-btn" style={{marginTop:12,width:'100%',justifyContent:'center',padding:'9px'}}>
+                <button onClick={addField} className="btn btn-blue" style={{marginTop:12,width:'100%',justifyContent:'center'}}>
                   <i className="ti ti-plus"/> {ar?'إضافة حقل':'Add Field'}
                 </button>
               </div>
