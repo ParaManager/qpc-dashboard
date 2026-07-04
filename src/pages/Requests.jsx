@@ -620,13 +620,12 @@ export default function Requests({ profile }) {
                 </div>
                 <div className="form-group">
                   <label className="form-label">{ar?'اللون':'Color'}</label>
-                  <div style={{display:'flex',flexWrap:'wrap',gap:6,padding:'10px',background:'var(--surface2)',borderRadius:9,border:'1px solid var(--border)',alignContent:'flex-start'}}>
+                  <div style={{display:'flex',flexWrap:'wrap',gap:6,padding:'10px',background:'var(--surface2)',borderRadius:9,border:'1px solid var(--border)',alignContent:'flex-start',minHeight:200}}>
                     {COLOR_OPTIONS.map(clr=>(
                       <button key={clr} onClick={()=>setFormData(p=>({...p,color:clr}))}
                         style={{width:30,height:30,borderRadius:'50%',background:clr,border:`3px solid ${formData.color===clr?'var(--text)':'transparent'}`,cursor:'pointer',transition:'all .12s',flexShrink:0,boxShadow:formData.color===clr?`0 0 0 2px ${clr}40`:'none'}}/>
                     ))}
                   </div>
-
                 </div>
               </div>
 
@@ -648,12 +647,18 @@ export default function Requests({ profile }) {
               {/* Active toggle */}
               <div className="form-group">
                 <label className="form-label">{ar?'حالة النموذج':'Form Status'}</label>
-                <label style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',width:'fit-content',padding:'8px 14px',borderRadius:8,border:`1px solid ${formData.is_active?'#009F6B':'var(--border)'}`,background:formData.is_active?'rgba(0,159,107,.08)':'transparent',transition:'all .15s'}}>
-                  <input type="checkbox" checked={formData.is_active} onChange={e=>setFormData(p=>({...p,is_active:e.target.checked}))}/>
-                  <span style={{fontWeight:600,fontSize:13,color:formData.is_active?'#009F6B':'var(--text3)'}}>
-                    {formData.is_active?(ar?'نشط — يظهر للمستخدمين':'Active — visible to users'):(ar?'معطّل — مخفي':'Inactive — hidden')}
-                  </span>
-                </label>
+                <div style={{display:'flex',gap:8}}>
+                  <button type="button"
+                    onClick={()=>setFormData(p=>({...p,is_active:true}))}
+                    style={{padding:'6px 18px',borderRadius:20,border:`1.5px solid ${formData.is_active?'#009F6B':'var(--border)'}`,background:formData.is_active?'#009F6B':'transparent',color:formData.is_active?'white':'var(--text2)',fontSize:13,fontWeight:formData.is_active?600:400,cursor:'pointer',transition:'all .15s'}}>
+                    {ar?'نشط':'Active'}
+                  </button>
+                  <button type="button"
+                    onClick={()=>setFormData(p=>({...p,is_active:false}))}
+                    style={{padding:'6px 18px',borderRadius:20,border:`1.5px solid ${!formData.is_active?'#9aa3b2':'var(--border)'}`,background:!formData.is_active?'#9aa3b2':'transparent',color:!formData.is_active?'white':'var(--text2)',fontSize:13,fontWeight:!formData.is_active?600:400,cursor:'pointer',transition:'all .15s'}}>
+                    {ar?'معطّل':'Inactive'}
+                  </button>
+                </div>
               </div>
 
               {/* Fields */}
@@ -693,8 +698,8 @@ export default function Requests({ profile }) {
                               <button onClick={()=>removeOption(field.id,oi)} style={{background:'none',border:'none',cursor:'pointer',color:'#EE334E',padding:'3px 5px',borderRadius:5}} onMouseEnter={e=>e.currentTarget.style.background='rgba(238,51,78,.08)'} onMouseLeave={e=>e.currentTarget.style.background='none'}><i className="ti ti-x" style={{fontSize:13}}/></button>
                             </div>
                           ))}
-                          <button onClick={()=>addOption(field.id)} className="action-btn" style={{fontSize:12,padding:'4px 10px',marginTop:4}}>
-                            <i className="ti ti-plus" style={{fontSize:12}}/> {ar?'إضافة خيار':'Add option'}
+                          <button onClick={()=>addOption(field.id)} className="btn btn-blue" style={{marginTop:6,fontSize:12,padding:'5px 14px'}}>
+                            <i className="ti ti-plus"/> {ar?'إضافة خيار':'Add option'}
                           </button>
                         </div>
                       )}
