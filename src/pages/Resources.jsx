@@ -62,7 +62,8 @@ export default function Resources({ profile, onRefresh }) {
   const [confirmDel, setConfirmDel] = useState(null)
   const [uploading, setUploading]   = useState(false)
 
-  const [form, setForm] = useState({ resourceType: 'file', title: '', titleAr: '', description: '', descriptionAr: '', linkUrl: '', isPrivate: false, visibleTo: ['admin','coach','athlete','employee'] })
+  const [form, setForm] = useState({ resourceType: 'file', title: '', titleAr: '', description: '', descriptionAr: '', linkUrl: '', isPrivate: false, visibleTo: ['admin','coach','athlete','employee'], category: 'General' })
+  const [activeCat, setActiveCat] = useState('All')
   const [linkPopup, setLinkPopup] = useState(null) // { url, title }
   const fileInput = useRef(null)
   const [pendingFile, setPendingFile] = useState(null)
@@ -79,6 +80,7 @@ export default function Resources({ profile, onRefresh }) {
   useEffect(() => { load() }, [])
 
   const visible = resources.filter(r => {
+    if (activeCat !== 'All' && (r.category || 'General') !== activeCat) return false
     if (!search) return true
     const q = search.toLowerCase()
     return (
@@ -90,7 +92,7 @@ export default function Resources({ profile, onRefresh }) {
   })
 
   function resetForm() {
-    setForm({ resourceType: 'file', title: '', titleAr: '', description: '', descriptionAr: '', linkUrl: '', isPrivate: false, visibleTo: ['admin','coach','athlete','employee'] })
+    setForm({ resourceType: 'file', title: '', titleAr: '', description: '', descriptionAr: '', linkUrl: '', isPrivate: false, visibleTo: ['admin','coach','athlete','employee'], category: 'General' })
     setPendingFile(null)
     setDragOver(false)
     setEditingResource(null)
@@ -106,6 +108,7 @@ export default function Resources({ profile, onRefresh }) {
       descriptionAr: resource.description_ar || '',
       linkUrl: resource.resource_type === 'link' ? (resource.file_url || '') : '',
       isPrivate: resource.is_private,
+      category: resource.category || 'General',
       // visible_to is stored empty for private resources, so default back to
       // everyone if they later uncheck "Only Me" — otherwise the role pills
       // would all start unchecked with nothing to fall back to.
@@ -152,6 +155,7 @@ export default function Resources({ profile, onRefresh }) {
       description_ar: form.descriptionAr.trim() || null,
       is_private: form.isPrivate,
       visible_to: form.isPrivate ? [] : form.visibleTo,
+      category: form.category || 'General',
     }
 
     if (form.resourceType === 'link') {
@@ -267,6 +271,9 @@ export default function Resources({ profile, onRefresh }) {
     athlete:  ar ? 'الرياضيون' : 'Athletes',
     employee: ar ? 'الموظفون' : 'Employees',
   }
+
+  const ALL_CATS = ['All', 'General', 'Requests Files', 'Technical Expert Links', 'Template Reports']
+  const CATS_AR = { All:'الكل', General:'عام', 'Requests Files':'ملفات الطلبات', 'Technical Expert Links':'روابط الخبراء الفنيين', 'Template Reports':'نماذج التقارير' }
 
   return (
     <div>
@@ -472,6 +479,23 @@ export default function Resources({ profile, onRefresh }) {
                 </div>
               </div>
 
+              <div className="form-group">
+                <label>{ar ? 'الفئة' : 'Category'}</label>
+                <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginTop:4 }}>
+                  {['General','Requests Files','Technical Expert Links','Template Reports'].map(cat => (
+                    <button key={cat} type="button" onClick={() => setForm(f => ({ ...f, category: cat }))}
+                      style={{ padding:'5px 14px', borderRadius:20, fontSize:12, cursor:'pointer', transition:'all .15s',
+                        fontWeight: form.category===cat ? 600 : 400,
+                        border: `1.5px solid ${form.category===cat ? '#0085C7' : 'var(--border)'}`,
+                        background: form.category===cat ? '#0085C7' : 'transparent',
+                        color: form.category===cat ? 'white' : 'var(--text2)'
+                      }}>
+                      {ar ? {General:'عام','Requests Files':'ملفات الطلبات','Technical Expert Links':'روابط الخبراء','Template Reports':'نماذج التقارير'}[cat] : cat}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label>{ar ? 'يمكن لمن رؤية هذا الملف' : 'Visible to'}</label>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
@@ -643,4 +667,18 @@ export default function Resources({ profile, onRefresh }) {
       )}
     </div>
   )
-}
+}      {/* Category tabs */}
+      <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:16 }}>
+        {ALL_CATS.map(cat => (
+          <button key={cat} onClick={() => setActiveCat(cat)}
+            style={{ padding:'6px 16px', borderRadius:20, fontSize:13, cursor:'pointer', transition:'all .15s', fontWeight: activeCat===cat ? 600 : 400,
+              border: `1.5px solid ${activeCat===cat ? '#0085C7' : 'var(--border)'}`,
+              background: activeCat===cat ? '#0085C7' : 'transparent',
+              color: activeCat===cat ? 'white' : 'var(--text2)'
+            }}>
+            {ar ? CATS_AR[cat] : cat}
+          </button>
+        ))}
+      </div>
+
+
