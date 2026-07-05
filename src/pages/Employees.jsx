@@ -1103,7 +1103,7 @@ export default function Employees({ employees, personDocs, onRefresh, onNav, nav
                 <td style={{ fontSize:13, color:'#5a6272' }}>{emp.gender ? (lang==='ar' ? (emp.gender==='Male'?'ذكر':'أنثى') : emp.gender) : '—'}</td>
                 <td style={{ fontSize:12, color:'#5a6272', fontFamily:'monospace' }}>{emp.employee_number||'—'}</td>
                 <td style={{ fontSize:12, color:'#5a6272', fontFamily:'monospace' }}>{emp.qss_number||'—'}</td>
-                <td><span className={`badge ${emp.status==='Active'?'badge-green':emp.status==='On Leave'?'badge-amber':'badge-gray'}`}>
+                <td><span className={`badge ${emp.status==='Active'?'badge-green':emp.status==='On Leave'?'badge-amber':emp.status==='Inactive'?'badge-gray':'badge-gray'}`}>
               {lang==='ar' ? ({'Active':'نشط','Inactive':'غير نشط','On Leave':'في إجازة'}[emp.status]||emp.status) : (emp.status||'—')}
             </span></td>
                 <td><i className="ti ti-chevron-right" style={{ color:'#ccc', fontSize:16 }} /></td>

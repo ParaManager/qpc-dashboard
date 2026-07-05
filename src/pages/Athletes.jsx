@@ -80,7 +80,7 @@ function formatFileSize(bytes) {
 
 function exportExcel(athletes, coaches, documents, visibleCols, allCols, lang) {
   const ar = lang === 'ar'
-  const STATUS_AR = {'Active':'نشط','Inactive':'غير نشط','Suspended':'موقوف','Under Medical Review':'تحت المراجعة الطبية','Injured':'مصاب','Retired':'متقاعد'}
+  const STATUS_AR = {'Active':'نشط','Inactive':'غير نشط','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي','Injured':'مصاب','Under Medical Review':'تحت المراجعة الطبية','Suspended':'موقوف','Retired':'متقاعد'}
   const DIS_MAP = {'visual impairment':'إعاقة بصرية','hearing impairment':'إعاقة سمعية','physical impairment':'إعاقة جسدية','intellectual disability':'إعاقة ذهنية','intellectual impairment':'إعاقة ذهنية','spinal cord injury':'إصابة الحبل الشوكي','cerebral palsy':'شلل دماغي','amputation':'بتر','down syndrome':'متلازمة داون',"down's syndrome":'متلازمة داون','downs syndrome':'متلازمة داون','down':'متلازمة داون','autism spectrum':'التوحد','autism':'التوحد','multiple disabilities':'إعاقات متعددة','limb deficiency':'نقص الأطراف','les autres':'أخرى'}
   const tDis = d => {
     if (!d || !ar) return d||''
@@ -464,7 +464,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
       gender: formData.gender, nationality: formData.nationality,
       sport: formData.sport, classification: formData.classification,
       disability: formData.disability, statistics_disability: formData.statistics_disability || null, coach_id: formData.coachId || null,
-      status: formData.status, phone: formData.phone, email: formData.email,
+      status: formData.status, status_start: formData.statusStart||null, status_end: formData.statusEnd||null, phone: formData.phone, email: formData.email,
       join_date: formData.joinDate || null,
       passport_number: formData.passportNumber || null,
       passport_expiry: formData.passportExpiry || null,
@@ -560,7 +560,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
     const isAr = lang === 'ar'
     const dir = isAr ? 'rtl' : 'ltr'
 
-    const STATUS_AR = {'Active':'نشط','Inactive':'غير نشط','Suspended':'موقوف','Under Medical Review':'تحت المراجعة الطبية','Injured':'مصاب','Retired':'متقاعد'}
+    const STATUS_AR = {'Active':'نشط','Inactive':'غير نشط','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي','Injured':'مصاب','Under Medical Review':'تحت المراجعة الطبية','Suspended':'موقوف','Retired':'متقاعد'}
     const DIS_AR = {'Visual Impairment':'إعاقة بصرية','Hearing Impairment':'إعاقة سمعية','Physical Impairment':'إعاقة جسدية','Intellectual Disability':'إعاقة ذهنية','Spinal Cord Injury':'إصابة الحبل الشوكي','Cerebral Palsy':'شلل دماغي','Amputation':'بتر','Down Syndrome':'متلازمة داون','Autism':'التوحد','Multiple Disabilities':'إعاقات متعددة'}
     const COUNTRY_AR = {'Qatar':'قطر','Egypt':'مصر','Algeria':'الجزائر','Morocco':'المغرب','Jordan':'الأردن','Saudi Arabia':'المملكة العربية السعودية','UAE':'الإمارات','Iraq':'العراق','Syria':'سوريا','Yemen':'اليمن','Somalia':'الصومال','Sudan':'السودان','Libya':'ليبيا','Tunisia':'تونس','Pakistan':'باكستان','India':'الهند','Iran':'إيران','Turkey':'تركيا','Azerbaijan':'أذربيجان','Ireland':'أيرلندا','France':'فرنسا','Spain':'إسبانيا','Germany':'ألمانيا','UK':'المملكة المتحدة','USA':'الولايات المتحدة'}
     const MEDAL_AR = {'gold':'ذهب','silver':'فضة','bronze':'برونز'}
@@ -635,7 +635,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
     <div class="badges">
       ${a.sport ? `<span class="badge badge-blue">${sportLabel(a.sport, a.sport_category, isAr)}</span>` : `<span class="badge badge-gray">${L('No Sport Assigned','لم يتم تحديد الرياضة')}</span>`}
       ${a.classification ? `<span class="badge badge-blue">${a.classification}</span>` : ''}
-      <span class="badge badge-${a.status==='Active'?'green':'gray'}">${isAr ? (STATUS_AR[a.status]||a.status||L('Unknown','غير محدد')) : (a.status||'Unknown')}</span>
+      <span class="badge badge-${a.status==='Active'?'green':a.status==='Inactive'?'gray':a.status==='Retired'||a.status==='Suspended'?'red':a.status==='Injured'||a.status==='Under Medical Review'?'red':'amber'}">${isAr ? (STATUS_AR[a.status]||a.status||L('Unknown','غير محدد')) : (a.status||'Unknown')}</span>
     </div>
     <p style="margin-top:8px;color:#9aa3b2;font-size:11px">
       ${age ? (isAr ? `${age} ${L('years old','سنة')}` : `Age ${age}`) : ''}
@@ -758,7 +758,7 @@ ${myDocs.length > 0 ? `<div class="section">
               id:a.id, name:a.name, nameAr:a.name_ar, dob:a.dob,
               gender:a.gender, nationality:a.nationality, sport:a.sport,
               classification:a.classification, disability:a.disability,
-              coachId:a.coach_id, status:a.status, phone:a.phone,
+              coachId:a.coach_id, status:a.status, statusStart:a.status_start||'', statusEnd:a.status_end||'', phone:a.phone,
               email:a.email, joinDate:a.join_date,
               club:a.club, designation:a.designation,
               residencyStatus:a.residency_status, qssNumber:a.qss_number,
@@ -844,7 +844,10 @@ ${myDocs.length > 0 ? `<div class="section">
               <div className="detail-name">{lang==='ar' && a.name_ar ? a.name_ar : a.name}</div>
               {(lang==='ar' && a.name_ar ? a.name : a.name_ar) && <div className="detail-sub">{lang==='ar' && a.name_ar ? a.name : a.name_ar}</div>}
               <div className="detail-badges">
-                <Badge label={{'Active':lang==='ar'?'نشط':'Active','Inactive':lang==='ar'?'غير نشط':'Inactive','Suspended':lang==='ar'?'موقوف':'Suspended','Under Medical Review':lang==='ar'?'تحت المراجعة الطبية':'Under Medical Review','Injured':lang==='ar'?'مصاب':'Injured','Retired':lang==='ar'?'متقاعد':'Retired'}[a.status]||a.status} />
+                <Badge label={{'Active':lang==='ar'?'نشط':'Active','On Leave':lang==='ar'?'في إجازة':'On Leave','In Competition':lang==='ar'?'في منافسة':'In Competition','In Training Camp':lang==='ar'?'في معسكر تدريبي':'In Training Camp','Inactive':lang==='ar'?'غير نشط':'Inactive','Injured':lang==='ar'?'مصاب':'Injured','Under Medical Review':lang==='ar'?'تحت المراجعة الطبية':'Under Medical Review','Suspended':lang==='ar'?'موقوف':'Suspended','Retired':lang==='ar'?'متقاعد':'Retired'}[a.status]||a.status} />
+                {(a.status_start || a.status_end) && (
+                  <Badge label={[a.status_start, a.status_end].filter(Boolean).join(' → ')} />
+                )}
                 <span className="badge badge-blue">{a.sport ? sportLabel(a.sport, a.sport_category, lang==='ar') : ''}</span>
               </div>
 
@@ -1282,7 +1285,7 @@ ${myDocs.length > 0 ? `<div class="section">
       case 'age_category': return renderCell(a, key) // read-only: auto-computed from dob by a DB trigger
       case 'sport_age_category': return renderCell(a, key) // read-only: auto-computed from dob + gender
       case 'coach_id':     return <select style={inlineSelect} value={getVal(a,'coach_id')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'coach_id',e.target.value?parseInt(e.target.value):null)}><option value="">Unassigned</option>{coaches.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select>
-      case 'status':       return <select style={inlineSelect} value={getVal(a,'status')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'status',e.target.value)}>{['','Active','Inactive','Suspended','Under Medical Review','Injured','Retired'].map(s=><option key={s} value={s}>{s||'— None —'}</option>)}</select>
+      case 'status':       return <select style={inlineSelect} value={getVal(a,'status')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'status',e.target.value)}>{['','Active','On Leave','In Competition','In Training Camp','Inactive','Injured','Under Medical Review','Suspended','Retired'].map(s=><option key={s} value={s}>{s||'— None —'}</option>)}</select>
       case 'medical_status': return <input style={inlineInput} value={getVal(a,'medical_status')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'medical_status',e.target.value)} />
       case 'phone':        return <input style={inlineInput} value={getVal(a,'phone')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'phone',e.target.value)} />
       case 'email':        return <input style={inlineInput} type="email" value={getVal(a,'email')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'email',e.target.value)} />
@@ -1442,7 +1445,7 @@ ${myDocs.length > 0 ? `<div class="section">
                   const filterOpts = {
                     sport_category: ['All', ...SPORT_CATEGORIES],
                     sport:          sportsForFilter.length ? ['All', ...new Set(sportsForFilter)] : ['All'],
-                    status:         ['All','Active','Inactive','Suspended','Under Medical Review','Injured','Retired'],
+                    status:         ['All','Active','On Leave','In Competition','In Training Camp','Inactive','Injured','Under Medical Review','Suspended','Retired'],
                     gender:         ['All','Male','Female'],
                     nationality:    ['All', ...['Afghanistan', 'Algeria', 'Argentina', 'Armenia', 'Australia', 'Austria', 'Azerbaijan', 'Bahrain', 'Bangladesh', 'Belarus', 'Belgium', 'Brazil', 'Cameroon', 'Canada', 'Chile', 'China', 'Colombia', 'Croatia', 'Czech Republic', 'Denmark', 'Egypt', 'Eritrea', 'Ethiopia', 'Finland', 'France', 'Georgia', 'Germany', 'Ghana', 'Greece', 'Guinea', 'Hungary', 'India', 'Indonesia', 'Iran', 'Iraq', 'Ireland', 'Italy', 'Japan', 'Jordan', 'Kazakhstan', 'Kenya', 'Kuwait', 'Kyrgyzstan', 'Lebanon', 'Libya', 'Malaysia', 'Mali', 'Mauritania', 'Mexico', 'Mongolia', 'Morocco', 'Myanmar', 'Nepal', 'Netherlands', 'New Zealand', 'Nigeria', 'Norway', 'Oman', 'Pakistan', 'Palestine', 'Peru', 'Philippines', 'Poland', 'Portugal', 'Qatar', 'Romania', 'Russia', 'Rwanda', 'Saudi Arabia', 'Scotland', 'Senegal', 'Serbia', 'Singapore', 'Slovakia', 'Somalia', 'South Africa', 'South Korea', 'Spain', 'Sri Lanka', 'Sudan', 'Sweden', 'Syria', 'Tajikistan', 'Tanzania', 'Thailand', 'Tunisia', 'Turkey', 'Turkmenistan', 'UAE', 'Uganda', 'UK', 'Ukraine', 'USA', 'Uzbekistan', 'Venezuela', 'Vietnam', 'Wales', 'Yemen', 'Zambia', 'Zimbabwe']],
                     coach_id:       ['All', ...coaches.map(co => co.name)],
@@ -1480,7 +1483,7 @@ ${myDocs.length > 0 ? `<div class="section">
                           const allLabel = lang==='ar' ? 'الكل' : 'All'
                           const LABELS = {
                             sport:       { 'All':allLabel, ...Object.fromEntries(filterOpts.sport.filter(s=>s!=='All').map(s => [s, sportLabel(s, colFilters.sport_category, lang==='ar')])) },
-                            status:      { 'All':allLabel, 'Active':tx('status.active','Active'), 'Inactive':tx('status.inactive','Inactive'), 'Suspended':tx('status.suspended','Suspended'), 'Under Medical Review':tx('status.underMedicalReview','Under Medical Review'), 'Injured':tx('status.injured','Injured'), 'Retired':tx('status.retired','Retired') },
+                            status:      { 'All':allLabel, 'Active':tx('status.active','Active'), 'On Leave':ar?'في إجازة':'On Leave', 'In Competition':ar?'في منافسة':'In Competition', 'In Training Camp':ar?'في معسكر تدريبي':'In Training Camp', 'Inactive':tx('status.inactive','Inactive'), 'Injured':ar?'مصاب':'Injured', 'Under Medical Review':ar?'تحت المراجعة الطبية':'Under Medical Review', 'Suspended':ar?'موقوف':'Suspended', 'Retired':ar?'متقاعد':'Retired' },
                             gender:      { 'All':allLabel, 'Male':tx('form.male','Male'), 'Female':tx('form.female','Female') },
                             nationality: { 'All':allLabel, ...Object.fromEntries(['Afghanistan','Algeria','Argentina','Armenia','Australia','Austria','Azerbaijan','Bahrain','Bangladesh','Belarus','Belgium','Brazil','Cameroon','Canada','Chile','China','Colombia','Croatia','Czech Republic','Denmark','Egypt','Eritrea','Ethiopia','Finland','France','Georgia','Germany','Ghana','Greece','Guinea','Hungary','India','Indonesia','Iran','Iraq','Ireland','Italy','Japan','Jordan','Kazakhstan','Kenya','Kuwait','Kyrgyzstan','Lebanon','Libya','Malaysia','Mali','Mauritania','Mexico','Mongolia','Morocco','Myanmar','Nepal','Netherlands','New Zealand','Nigeria','Norway','Oman','Pakistan','Palestine','Peru','Philippines','Poland','Portugal','Qatar','Romania','Russia','Rwanda','Saudi Arabia','Scotland','Senegal','Serbia','Singapore','Slovakia','Somalia','South Africa','South Korea','Spain','Sri Lanka','Sudan','Sweden','Syria','Tajikistan','Tanzania','Thailand','Tunisia','Turkey','Turkmenistan','UAE','Uganda','UK','Ukraine','USA','Uzbekistan','Venezuela','Vietnam','Wales','Yemen','Zambia','Zimbabwe'].map(n => [n, tc(n)])) },
                             disability:            { 'All':allLabel, ...Object.fromEntries(athletes.map(a=>a.disability).filter(Boolean).map(d=>[d, lang==='ar' ? (tDis(d)||d) : d])) },

@@ -16,7 +16,7 @@ function exportCoachPDF(coach, myAthletes, lang) {
     const clean = (v === null || v === undefined || v === 'null' || v === 'undefined' || v === '') ? null : v
     return clean ? `<div class="field"><span class="k">${k}</span><span class="v">${clean}</span></div>` : ''
   }
-  const STATUS_AR = {'Active':'نشط','Inactive':'غير نشط','On Leave':'في إجازة','Suspended':'موقوف'}
+  const STATUS_AR = {'Active':'نشط','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي','Inactive':'غير نشط','Suspended':'موقوف'}
   const COUNTRY_AR = {'Qatar':'قطر','Egypt':'مصر','Algeria':'الجزائر','Jordan':'الأردن','Tunisia':'تونس','Morocco':'المغرب','Saudi Arabia':'المملكة العربية السعودية','Somalia':'الصومال','Ireland':'أيرلندا','Spain':'إسبانيا','France':'فرنسا','UK':'المملكة المتحدة','USA':'الولايات المتحدة'}
   const totalMedals = myAthletes.reduce((s,a) => s+(a.medals_gold||0)+(a.medals_silver||0)+(a.medals_bronze||0), 0)
   const expLabel = isAr ? '⚠ منتهية' : '⚠ EXPIRED'
@@ -218,7 +218,7 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
   const photoInput = useRef(null)
 
   const { tx, tc, lang } = useLang()
-  const STATUS_AR = {'Active':'نشط','Inactive':'غير نشط','Suspended':'موقوف','Under Medical Review':'تحت المراجعة الطبية','Injured':'مصاب','Retired':'متقاعد','On Leave':'في إجازة'}
+  const STATUS_AR = {'Active':'نشط','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي','Inactive':'غير نشط','Suspended':'موقوف'}
   useEffect(() => { if (initCoachId) setSelected(initCoachId) }, [initCoachId])
 
   useEffect(() => {
@@ -275,7 +275,7 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
       sport_category: formData.sportCategory,
       sport: formData.sport,
       license: formData.license, since: formData.since || null,
-      email: formData.email, phone: formData.phone, status: formData.status,
+      email: formData.email, phone: formData.phone, status: formData.status, status_start: formData.statusStart||null, status_end: formData.statusEnd||null,
       qss_number: formData.qssNumber, employee_number: formData.employeeNumber,
       passport_number: formData.passportNumber || null,
       passport_expiry: formData.passportExpiry || null,
@@ -343,7 +343,7 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
               id:c.id, name:c.name, nameAr:c.name_ar, nationality:c.nationality,
               gender:c.gender, sportCategory:c.sport_category, sport:c.sport,
               license:c.license, since:c.since, email:c.email, phone:c.phone,
-              status:c.status, qssNumber:c.qss_number, employeeNumber:c.employee_number,
+              status:c.status, statusStart:c.status_start||'', statusEnd:c.status_end||'', qssNumber:c.qss_number, employeeNumber:c.employee_number,
               passportNumber:c.passport_number, passportExpiry:c.passport_expiry,
               idNumber:c.id_number, idExpiry:c.id_expiry,
             } : null}
@@ -410,7 +410,12 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
               {c.sport ? sportLabel(c.sport, c.sport_category, lang==='ar') : ''} {tx('nav.coaches','Coach')}
               {c.sport_category && <span style={{ marginLeft:6, fontSize:11, color:'var(--text3)' }}>· {lang==='ar' ? (SPORT_CATEGORY_NAMES_AR[c.sport_category]||c.sport_category) : c.sport_category}</span>}
             </div>
-            <div className="detail-badges"><Badge label={lang==='ar'?(STATUS_AR[c.status]||c.status):c.status} /></div>
+            <div className="detail-badges">
+              <Badge label={lang==='ar'?(STATUS_AR[c.status]||c.status):c.status} />
+              {(c.status_start || c.status_end) && (
+                <Badge label={[c.status_start, c.status_end].filter(Boolean).join(' → ')} />
+              )}
+            </div>
             <div className="detail-fields">
               {[
                 [lang==='ar'?'رقم الموظف':'Employee #', c.employee_number],
@@ -526,7 +531,7 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
         <div className="search-wrap"><i className="ti ti-search" /><input placeholder={tx("coaches.searchCoaches","Search by name, sport…")} value={search} onChange={e => setSearch(e.target.value)} /></div>
         <select className="filter" value={sportCategory} onChange={e => { setSportCategory(e.target.value); setSport('All sports') }}>{categoriesRaw.map(c => <option key={c} value={c}>{c === 'All categories' ? tx('filters.allCategories','All categories') : (lang==='ar' ? (SPORT_CATEGORY_NAMES_AR[c]||c) : c)}</option>)}</select>
         <select className="filter" value={sport} onChange={e => setSport(e.target.value)}>{sportsRaw.map(s => <option key={s} value={s}>{s === 'All sports' ? tx('filters.allSports','All sports') : sportLabel(s, sportCategory === 'All categories' ? null : sportCategory, lang==='ar')}</option>)}</select>
-        <select className="filter" value={status} onChange={e => setStatus(e.target.value)}>{[['All statuses',tx('filters.allStatuses','All statuses')],['Active',tx('status.active','Active')],['On Leave',tx('status.onLeave','On Leave')],['Inactive',tx('status.inactive','Inactive')]].map(([val,lbl]) => <option key={val} value={val}>{lbl}</option>)}</select>
+        <select className="filter" value={status} onChange={e => setStatus(e.target.value)}>{[['All statuses',tx('filters.allStatuses','All statuses')],['Active',tx('status.active','Active')],['On Leave',ar?'في إجازة':'On Leave'],['In Competition',ar?'في منافسة':'In Competition'],['In Training Camp',ar?'في معسكر تدريبي':'In Training Camp'],['Inactive',tx('status.inactive','Inactive')]].map(([val,lbl]) => <option key={val} value={val}>{lbl}</option>)}</select>
         <select className="filter" value={sort} onChange={e => setSort(e.target.value)}>
           <option value="name-asc">{tx('filters.nameAZ','Name A→Z')}</option>
           <option value="name-desc">{tx('filters.nameZA','Name Z→A')}</option>
