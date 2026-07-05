@@ -402,15 +402,22 @@ export const initials = n  => n.split(' ').map(w => w[0]).slice(0,2).join('').to
 // with how statuses have always been colored across the app.
 export function statusClass(status) {
   return {
-    'Active':              'badge-green',
-    'Inactive':            'badge-gray',
-    'Suspended':           'badge-red',
-    'Under Medical Review':'badge-amber',
-    'Injured':             'badge-amber',
-    'Retired':             'badge-gray',
-    'On Leave':            'badge-amber',
+    // People statuses
+    'Active':              'badge-green',   // green  — good, normal
+    'Inactive':            'badge-gray',    // gray   — neutral/off
+    'On Leave':            'badge-amber',   // amber  — away temporarily
+    'In Competition':      'badge-blue',    // blue   — representing QPC
+    'In Training Camp':    'badge-teal',    // teal   — training/development
+    'Injured':             'badge-orange',  // orange — medical concern
+    'Under Medical Review':'badge-purple',  // purple — under review
+    'Suspended':           'badge-red',     // red    — disciplinary
+    'Retired':             'badge-gray',    // gray   — no longer active
+    // Request/submission statuses
     'Pending':             'badge-amber',
+    'Approved':            'badge-green',
     'Rejected':            'badge-red',
+    'In Review':           'badge-blue',
+    // Event statuses
     'Upcoming':            'badge-blue',
     'Registration Open':   'badge-green',
     'Planning':            'badge-amber',
@@ -426,19 +433,40 @@ export function statusDot(status) {
   return {
     'Active':              '#009F6B',
     'Inactive':            '#9aa3b2',
-    'Suspended':           '#EE334E',
-    'Under Medical Review':'#f59e0b',
-    'Injured':             '#f59e0b',
-    'Retired':             '#9aa3b2',
     'On Leave':            '#f59e0b',
+    'In Competition':      '#0085C7',
+    'In Training Camp':    '#0d9488',
+    'Injured':             '#f97316',
+    'Under Medical Review':'#8b5cf6',
+    'Suspended':           '#EE334E',
+    'Retired':             '#9aa3b2',
     'Pending':             '#f59e0b',
+    'Approved':            '#009F6B',
     'Rejected':            '#EE334E',
+    'In Review':           '#0085C7',
     'Upcoming':            '#0085C7',
     'Registration Open':   '#009F6B',
     'Planning':            '#f59e0b',
     'Completed':           '#9aa3b2',
     'Cancelled':           '#EE334E',
   }[status] || '#9aa3b2'
+}
+
+// Returns the effective status for today, respecting status_start dates.
+// If status_start is in the future, the person is still 'Active' until that date.
+export function effectiveStatus(person) {
+  const DATED = ['On Leave', 'In Competition', 'In Training Camp']
+  if (!DATED.includes(person.status)) return person.status
+  if (!person.status_start) return person.status
+  const today = new Date(); today.setHours(0,0,0,0)
+  const start = new Date(person.status_start); start.setHours(0,0,0,0)
+  if (today < start) return 'Active'  // not yet started — still active
+  // Check if past end date
+  if (person.status_end) {
+    const end = new Date(person.status_end); end.setHours(0,0,0,0)
+    if (today > end) return 'Active'  // returned — revert to active
+  }
+  return person.status
 }
 
 export function MedalDisplay({ gold, silver, bronze }) {
