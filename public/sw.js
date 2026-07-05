@@ -1,4 +1,4 @@
-const CACHE_NAME = 'qpc-dashboard-v2'
+const CACHE_NAME = 'qpc-dashboard-v3'
 
 const STATIC_ASSETS = [
   '/',
