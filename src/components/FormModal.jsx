@@ -200,13 +200,14 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
   ]
   const genderOptsEmpty = [{ value:'', label:'' }, ...genderOpts]
 
-  const statusOptsAthlete = ['','Active','Inactive','Suspended','Under Medical Review','Injured','Retired'].map(s => ({
+  const DATE_STATUSES = ['On Leave','In Competition','In Training Camp']
+  const statusOptsAthlete = ['','Active','On Leave','In Competition','In Training Camp','Inactive','Injured','Under Medical Review','Suspended','Retired'].map(s => ({
     value: s,
-    label: s === '' ? '' : ar ? {'Active':'نشط','Inactive':'غير نشط','Suspended':'موقوف','Under Medical Review':'تحت المراجعة الطبية','Injured':'مصاب','Retired':'متقاعد'}[s]||s : s
+    label: s === '' ? '' : ar ? {'Active':'نشط','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي','Inactive':'غير نشط','Injured':'مصاب','Under Medical Review':'تحت المراجعة الطبية','Suspended':'موقوف','Retired':'متقاعد'}[s]||s : s
   }))
 
-  const statusOptsCoach = ['Active','On Leave','Inactive'].map(s => ({
-    value: s, label: ar ? {'Active':'نشط','On Leave':'في إجازة','Inactive':'غير نشط'}[s]||s : s
+  const statusOptsCoach = ['Active','On Leave','In Competition','In Training Camp','Inactive'].map(s => ({
+    value: s, label: ar ? {'Active':'نشط','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي','Inactive':'غير نشط'}[s]||s : s
   }))
 
   const statusOptsEvent = ['Planning','Registration Open','Upcoming','Completed'].map(s => ({
@@ -297,6 +298,18 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
             <Row>
               <Field label={T.coach} options={[{ value:'', label: T.unassigned }, ...(coaches||[]).map(c => ({ value: c.id, label: ar && c.name_ar ? c.name_ar : c.name }))]} {...f('coachId')} />
               <Field label={T.status} options={statusOptsAthlete} {...f('status')} />
+              {DATE_STATUSES.includes(form.status) && (
+                <div className="form-group">
+                  <label className="form-label">{ar ? 'تاريخ البداية' : 'Start date'}</label>
+                  <input type="date" className="form-input" value={form.statusStart||''} onChange={e=>setForm(p=>({...p,statusStart:e.target.value||null}))} />
+                </div>
+              )}
+              {DATE_STATUSES.includes(form.status) && (
+                <div className="form-group">
+                  <label className="form-label">{ar ? 'تاريخ الرجوع' : 'Return date'}</label>
+                  <input type="date" className="form-input" value={form.statusEnd||''} onChange={e=>setForm(p=>({...p,statusEnd:e.target.value||null}))} />
+                </div>
+              )}
             </Row>
             <Row>
               <Field label={T.medicalStatus} placeholder={ar?"مثال: مكتمل":"e.g. Completed"} {...f('medicalStatus')} />
@@ -354,6 +367,18 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
             <Row>
               <Field label={T.since} type="date" {...f('since')} />
               <Field label={T.status} options={statusOptsCoach} {...f('status')} />
+              {DATE_STATUSES.includes(form.status) && (
+                <div className="form-group">
+                  <label className="form-label">{ar ? 'تاريخ البداية' : 'Start date'}</label>
+                  <input type="date" className="form-input" value={form.statusStart||''} onChange={e=>setForm(p=>({...p,statusStart:e.target.value||null}))} />
+                </div>
+              )}
+              {DATE_STATUSES.includes(form.status) && (
+                <div className="form-group">
+                  <label className="form-label">{ar ? 'تاريخ الرجوع' : 'Return date'}</label>
+                  <input type="date" className="form-input" value={form.statusEnd||''} onChange={e=>setForm(p=>({...p,statusEnd:e.target.value||null}))} />
+                </div>
+              )}
             </Row>
 
             <Section label={T.passportID} />
