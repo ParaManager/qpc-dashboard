@@ -122,37 +122,52 @@ export default function Dashboard({ athletes, coaches, events, results, onNav, p
       {/* ── Away / Out of Office Section (admin only) ── */}
       {(() => {
         const AWAY_STATUSES = ['On Leave', 'In Competition', 'In Training Camp']
-        const STATUS_COLOR  = { 'On Leave':'#f59e0b', 'In Competition':'#0085C7', 'In Training Camp':'#009F6B' }
+        const STATUS_COLOR  = { 'On Leave':'#f59e0b', 'In Competition':'#0085C7', 'In Training Camp':'#0d9488' }
         const STATUS_ICON   = { 'On Leave':'ti-beach', 'In Competition':'ti-trophy', 'In Training Camp':'ti-run' }
         const STATUS_AR     = { 'On Leave':'في إجازة', 'In Competition':'في منافسة', 'In Training Camp':'في معسكر تدريبي' }
 
         const today = new Date(); today.setHours(0,0,0,0)
 
-        const awayAthletes = athletes.filter(a => AWAY_STATUSES.includes(a.status))
-        const awayCoaches  = coaches.filter(c  => AWAY_STATUSES.includes(c.status))
+        // Effective status — respects dates: only show as "away" if today >= status_start
+        function isEffectivelyAway(p) {
+          if (!AWAY_STATUSES.includes(p.status)) return false
+          if (!p.status_start) return true  // no start date = immediate
+          const start = new Date(p.status_start); start.setHours(0,0,0,0)
+          return today >= start
+        }
+
+        const awayAthletes = athletes.filter(isEffectivelyAway)
+        const awayCoaches  = coaches.filter(isEffectivelyAway)
         const allAway = [
           ...awayAthletes.map(a => ({ ...a, _type: ar ? 'رياضي' : 'Athlete' })),
-          ...awayCoaches.map(c  => ({ ...c, _type: ar ? 'مدرب' : 'Coach',   _isCoach: true })),
+          ...awayCoaches.map(c  => ({ ...c, _type: ar ? 'مدرب' : 'Coach', _isCoach: true })),
         ]
 
         if (allAway.length === 0) return null
 
-        function daysRemaining(dateStr) {
+        function daysDiff(dateStr) {
           if (!dateStr) return null
-          const end = new Date(dateStr); end.setHours(0,0,0,0)
-          const diff = Math.round((end - today) / 86400000)
-          return diff
+          const d = new Date(dateStr); d.setHours(0,0,0,0)
+          return Math.round((d - today) / 86400000)
         }
 
-        function daysLabel(days) {
+        function remainingLabel(days) {
           if (days === null) return null
-          if (days < 0)  return ar ? `تجاوز ${Math.abs(days)} يوم` : `${Math.abs(days)}d overdue`
+          if (days < 0)  return ar ? `تأخر ${Math.abs(days)} يوم` : `${Math.abs(days)}d overdue`
           if (days === 0) return ar ? 'يعود اليوم' : 'Returns today'
           if (days === 1) return ar ? 'يعود غداً' : 'Returns tomorrow'
-          return ar ? `${days} أيام متبقية` : `${days}d remaining`
+          return ar ? `${days} أيام متبقية` : `${days}d left`
         }
 
-        function daysColor(days) {
+        function sinceLabel(days) {
+          if (days === null) return null
+          const abs = Math.abs(days)
+          if (abs === 0) return ar ? 'غادر اليوم' : 'Left today'
+          if (abs === 1) return ar ? 'منذ أمس' : 'Since yesterday'
+          return ar ? `منذ ${abs} أيام` : `${abs}d ago`
+        }
+
+        function remainingColor(days) {
           if (days === null) return 'var(--text3)'
           if (days < 0)  return '#EE334E'
           if (days <= 2) return '#f59e0b'
@@ -168,7 +183,6 @@ export default function Dashboard({ athletes, coaches, events, results, onNav, p
               </span>
             </div>
 
-            {/* Group by status */}
             {AWAY_STATUSES.map(status => {
               const group = allAway.filter(p => p.status === status)
               if (group.length === 0) return null
@@ -178,32 +192,34 @@ export default function Dashboard({ athletes, coaches, events, results, onNav, p
               return (
                 <div key={status} style={{ marginBottom:16 }}>
                   <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8 }}>
-                    <div style={{ width:28, height:28, borderRadius:8, background:clr+'15', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                    <div style={{ width:28, height:28, borderRadius:8, background:clr+'18', display:'flex', alignItems:'center', justifyContent:'center' }}>
                       <i className={`ti ${icon}`} style={{ fontSize:14, color:clr }} />
                     </div>
                     <span style={{ fontWeight:600, fontSize:13, color:clr }}>{lbl}</span>
                     <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'1px 8px', borderRadius:20 }}>{group.length}</span>
                   </div>
                   {group.map(p => {
-                    const days    = daysRemaining(p.status_end)
-                    const dLabel  = daysLabel(days)
-                    const dColor  = daysColor(days)
-                    const name    = ar && p.name_ar ? p.name_ar : p.name
+                    const daysLeft  = daysDiff(p.status_end)
+                    const daysGone  = p.status_start ? -daysDiff(p.status_start) : null
+                    const remLabel  = remainingLabel(daysLeft)
+                    const sncLabel  = sinceLabel(daysGone)
+                    const remColor  = remainingColor(daysLeft)
+                    const name      = ar && p.name_ar ? p.name_ar : p.name
                     return (
                       <DashRow key={p.id}
                         onClick={() => p._isCoach ? onNav('coaches', { coachId: p.id }) : onNav('athletes', { athleteId: p.id })}>
                         <Avatar name={p.name} id={p.id} size={30} fs={10} />
                         <div style={{ flex:1, minWidth:0 }}>
                           <div style={{ fontSize:13, fontWeight:600, color:'var(--text)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{name}</div>
-                          <div style={{ fontSize:11, color:'var(--text3)', marginTop:1 }}>
-                            {p._type}
-                            {p.status_start && <span> · {ar ? 'من' : 'from'} {p.status_start}</span>}
-                            {p.status_end   && <span> → {p.status_end}</span>}
+                          <div style={{ fontSize:11, color:'var(--text3)', marginTop:1, display:'flex', gap:6, flexWrap:'wrap' }}>
+                            <span>{p._type}</span>
+                            {sncLabel && <span style={{ color:'var(--text3)' }}>· {sncLabel}</span>}
+                            {p.status_end && <span>→ {p.status_end}</span>}
                           </div>
                         </div>
-                        {dLabel && (
-                          <span style={{ fontSize:11, fontWeight:600, color:dColor, background:dColor+'15', padding:'2px 8px', borderRadius:20, flexShrink:0 }}>
-                            {dLabel}
+                        {remLabel && (
+                          <span style={{ fontSize:11, fontWeight:600, color:remColor, background:remColor+'18', padding:'2px 8px', borderRadius:20, flexShrink:0, whiteSpace:'nowrap' }}>
+                            {remLabel}
                           </span>
                         )}
                       </DashRow>
@@ -215,7 +231,6 @@ export default function Dashboard({ athletes, coaches, events, results, onNav, p
           </div>
         )
       })()}
-
 
       <div className="card">
         <div className="card-title">

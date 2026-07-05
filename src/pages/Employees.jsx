@@ -771,7 +771,9 @@ function EmpModal({ data, isEdit, onClose, onSave }) {
   )
 }
 
-export default function Employees({ employees, personDocs, onRefresh, onNav, navState, profile }) {
+const COACH_DESIGNATIONS = ['Coach', 'Assistant Coach', 'Technical Expert', 'Physiotherapist', 'Doctor']
+
+export default function Employees({ employees, coaches, personDocs, onRefresh, onNav, navState, profile }) {
   const { tx, tc, lang } = useLang()
   const [search, setSearch]         = useState('')
   const [sort, setSort]             = useState('name-asc')
@@ -1082,7 +1084,13 @@ export default function Employees({ employees, personDocs, onRefresh, onNav, nav
           </thead>
           <tbody>
             {list.map(emp => (
-              <tr key={emp.id} onClick={() => setSelected(emp.id)} style={{ cursor:'pointer' }}>
+              <tr key={emp.id} onClick={() => {
+              if (COACH_DESIGNATIONS.includes(emp.designation)) {
+                const coach = coaches?.find(c => c.employee_id === emp.id || c.name === emp.name)
+                if (coach) { onNav('coaches', { coachId: coach.id }); return }
+              }
+              setSelected(emp.id)
+            }} style={{ cursor:'pointer' }}>
                 <td>
                   <div style={{ display:'flex', alignItems:'center', gap:10 }}>
                     {emp.photo_url
