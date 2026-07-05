@@ -609,7 +609,7 @@ export default function Requests({ profile }) {
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
                 <div className="form-group">
                   <label className="form-label">{ar?'الأيقونة':'Icon'}</label>
-                  <div style={{display:'flex',flexWrap:'wrap',gap:6,padding:'10px',background:'var(--surface2)',borderRadius:9,border:'1px solid var(--border)'}}>
+                  <div style={{display:'flex',flexWrap:'wrap',gap:6,padding:'10px',background:'var(--surface2)',borderRadius:9,border:'1px solid var(--border)',minHeight:200,alignContent:'flex-start'}}>
                     {ICON_OPTIONS.map(ico=>(
                       <button key={ico} onClick={()=>setFormData(p=>({...p,icon:ico}))}
                         style={{width:34,height:34,borderRadius:8,border:`2px solid ${formData.icon===ico?formData.color:'transparent'}`,background:formData.icon===ico?formData.color+'15':'transparent',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',transition:'all .12s'}}>
@@ -632,14 +632,13 @@ export default function Requests({ profile }) {
               {/* Visible to */}
               <div className="form-group">
                 <label className="form-label">{ar?'يظهر لـ':'Visible to'}</label>
-                <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+                <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
                   {ROLES.map(r=>(
-                    <label key={r} style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',fontSize:13,padding:'5px 12px',borderRadius:8,border:`1px solid ${formData.visible_to.includes(r)?ROLE_COLORS[r]:'var(--border)'}`,background:formData.visible_to.includes(r)?ROLE_COLORS[r]+'10':'transparent',transition:'all .12s'}}>
-                      <input type="checkbox" style={{display:'none'}} checked={formData.visible_to.includes(r)}
-                        onChange={e=>setFormData(p=>({...p,visible_to:e.target.checked?[...p.visible_to,r]:p.visible_to.filter(x=>x!==r)}))}/>
-                      <i className="ti ti-check" style={{fontSize:12,color:ROLE_COLORS[r],opacity:formData.visible_to.includes(r)?1:0,transition:'opacity .12s'}}/>
-                      <span style={{color:formData.visible_to.includes(r)?ROLE_COLORS[r]:'var(--text2)',fontWeight:formData.visible_to.includes(r)?600:400}}>{r}</span>
-                    </label>
+                    <button key={r} type="button"
+                      onClick={()=>setFormData(p=>({...p,visible_to:p.visible_to.includes(r)?p.visible_to.filter(x=>x!==r):[...p.visible_to,r]}))}
+                      style={{padding:'5px 16px',borderRadius:20,border:`1.5px solid ${formData.visible_to.includes(r)?'#0085C7':'var(--border)'}`,background:formData.visible_to.includes(r)?'#0085C7':'transparent',color:formData.visible_to.includes(r)?'white':'var(--text2)',fontSize:13,fontWeight:formData.visible_to.includes(r)?600:400,cursor:'pointer',transition:'all .15s'}}>
+                      {r}
+                    </button>
                   ))}
                 </div>
               </div>
