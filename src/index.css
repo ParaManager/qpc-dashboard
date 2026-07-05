@@ -129,6 +129,8 @@ tbody tr:hover { background: var(--surface2); }
 .badge-amber { background: #fef3e2; color: #8a5a00; }
 .badge-gray { background: #f0f1f3; color: #555e70; }
 .badge-purple { background: #f0ebff; color: #5b21b6; }
+.badge-teal   { background: #e0f7f5; color: #0d6e63; }
+.badge-orange { background: #fff0e6; color: #9a3d00; }
 
 /* AVATAR */
 .av { border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; color: #fff; flex-shrink: 0; }
