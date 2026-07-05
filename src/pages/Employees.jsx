@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { initials } from '../lib/helpers'
+import { initials , effectiveStatus} from '../lib/helpers'
 import { ConfirmModal, toast } from '../components/Toast'
 import { supabase } from '../lib/supabase'
 import { canEdit } from '../lib/useAuth'
@@ -1111,9 +1111,13 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
                 <td style={{ fontSize:13, color:'#5a6272' }}>{emp.gender ? (lang==='ar' ? (emp.gender==='Male'?'ذكر':'أنثى') : emp.gender) : '—'}</td>
                 <td style={{ fontSize:12, color:'#5a6272', fontFamily:'monospace' }}>{emp.employee_number||'—'}</td>
                 <td style={{ fontSize:12, color:'#5a6272', fontFamily:'monospace' }}>{emp.qss_number||'—'}</td>
-                <td><span className={`badge ${emp.status==='Active'?'badge-green':emp.status==='On Leave'?'badge-amber':emp.status==='Inactive'?'badge-gray':'badge-gray'}`}>
-              {lang==='ar' ? ({'Active':'نشط','Inactive':'غير نشط','On Leave':'في إجازة'}[emp.status]||emp.status) : (emp.status||'—')}
-            </span></td>
+                <td>{(() => {
+                  const coachRec = COACH_DESIGNATIONS.includes(emp.designation) ? coaches?.find(c => c.employee_id === emp.id || c.name === emp.name) : null
+                  const src = coachRec || emp
+                  const ds = effectiveStatus(src)
+                  const dl = lang==='ar' ? ({'Active':'نشط','Inactive':'غير نشط','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي'}[ds]||ds) : (ds||'—')
+                  return <span className={`badge ${statusClass(ds)}`}>{dl}</span>
+                })()}</td>
                 <td><i className="ti ti-chevron-right" style={{ color:'#ccc', fontSize:16 }} /></td>
               </tr>
             ))}

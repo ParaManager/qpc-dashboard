@@ -213,15 +213,21 @@ export default function Dashboard({ athletes, coaches, events, results, onNav, p
                           <div style={{ fontSize:13, fontWeight:600, color:'var(--text)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{name}</div>
                           <div style={{ fontSize:11, color:'var(--text3)', marginTop:1, display:'flex', gap:6, flexWrap:'wrap' }}>
                             <span>{p._type}</span>
-                            {sncLabel && <span style={{ color:'var(--text3)' }}>· {sncLabel}</span>}
-                            {p.status_end && <span>→ {p.status_end}</span>}
+                            {p.status_start && <span>· {p.status_start}{p.status_end ? ` → ${p.status_end}` : ''}</span>}
                           </div>
                         </div>
-                        {remLabel && (
-                          <span style={{ fontSize:11, fontWeight:600, color:remColor, background:remColor+'18', padding:'2px 8px', borderRadius:20, flexShrink:0, whiteSpace:'nowrap' }}>
-                            {remLabel}
-                          </span>
-                        )}
+                        <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:3, flexShrink:0 }}>
+                          {remLabel && (
+                            <span style={{ fontSize:11, fontWeight:600, color:remColor, background:remColor+'18', padding:'2px 8px', borderRadius:20, whiteSpace:'nowrap' }}>
+                              {remLabel}
+                            </span>
+                          )}
+                          {sncLabel && (
+                            <span style={{ fontSize:10, color:'var(--text3)', whiteSpace:'nowrap' }}>
+                              {sncLabel}
+                            </span>
+                          )}
+                        </div>
                       </DashRow>
                     )
                   })}
