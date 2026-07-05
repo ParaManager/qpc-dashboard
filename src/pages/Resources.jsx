@@ -584,6 +584,20 @@ export default function Resources({ profile, onRefresh }) {
 
       {loading && <div className="empty" style={{ padding:24 }}>{ar ? 'جارٍ التحميل...' : 'Loading…'}</div>}
 
+      {/* Category tabs */}
+      <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:16 }}>
+        {ALL_CATS.map(cat => (
+          <button key={cat} onClick={() => setActiveCat(cat)}
+            style={{ padding:'6px 16px', borderRadius:20, fontSize:13, cursor:'pointer', transition:'all .15s', fontWeight: activeCat===cat ? 600 : 400,
+              border: `1.5px solid ${activeCat===cat ? '#0085C7' : 'var(--border)'}`,
+              background: activeCat===cat ? '#0085C7' : 'transparent',
+              color: activeCat===cat ? 'white' : 'var(--text2)'
+            }}>
+            {ar ? CATS_AR[cat] : cat}
+          </button>
+        ))}
+      </div>
+
       {!loading && visible.length === 0 && (
         <div className="empty" style={{ padding:'40px 24px', textAlign:'center' }}>
           <div style={{ width:56, height:56, borderRadius:14, background:'var(--surface2)', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 14px' }}>
@@ -669,18 +683,6 @@ export default function Resources({ profile, onRefresh }) {
       )}
     </div>
   )
-}      {/* Category tabs */}
-      <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:16 }}>
-        {ALL_CATS.map(cat => (
-          <button key={cat} onClick={() => setActiveCat(cat)}
-            style={{ padding:'6px 16px', borderRadius:20, fontSize:13, cursor:'pointer', transition:'all .15s', fontWeight: activeCat===cat ? 600 : 400,
-              border: `1.5px solid ${activeCat===cat ? '#0085C7' : 'var(--border)'}`,
-              background: activeCat===cat ? '#0085C7' : 'transparent',
-              color: activeCat===cat ? 'white' : 'var(--text2)'
-            }}>
-            {ar ? CATS_AR[cat] : cat}
-          </button>
-        ))}
-      </div>
+}
 
 
