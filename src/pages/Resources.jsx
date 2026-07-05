@@ -4,6 +4,10 @@ import { useLang } from '../lib/LangContext.jsx'
 import { toast, ConfirmModal } from '../components/Toast'
 import { canEdit } from '../lib/useAuth'
 
+const ALL_CATS = ['All', 'General', 'Requests Files', 'Technical Expert Links', 'Template Reports']
+const CATS_AR = { All:'الكل', General:'عام', 'Requests Files':'ملفات الطلبات', 'Technical Expert Links':'روابط الخبراء الفنيين', 'Template Reports':'نماذج التقارير' }
+
+
 // Icon/color per file type, by extension — mirrors the pattern used for person
 // documents elsewhere in the app, just keyed by file extension instead of a
 // fixed document-type list, since resources can be any kind of file.
@@ -272,8 +276,6 @@ export default function Resources({ profile, onRefresh }) {
     employee: ar ? 'الموظفون' : 'Employees',
   }
 
-  const ALL_CATS = ['All', 'General', 'Requests Files', 'Technical Expert Links', 'Template Reports']
-  const CATS_AR = { All:'الكل', General:'عام', 'Requests Files':'ملفات الطلبات', 'Technical Expert Links':'روابط الخبراء الفنيين', 'Template Reports':'نماذج التقارير' }
 
   return (
     <div>
