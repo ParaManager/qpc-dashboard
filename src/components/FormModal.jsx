@@ -259,7 +259,7 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
               <Field label={T.disability} placeholder={ar?"مثال: إصابة الحبل الشوكي":"e.g. Spinal Cord Injury"} {...f('disability')} />
               <div className="form-group">
                 <label className="form-label">{ar ? 'الإعاقة الإحصائية' : 'Statistics Disability'}</label>
-                <select className="form-input" value={formData.statistics_disability||''} onChange={e=>setFormData(p=>({...p,statistics_disability:e.target.value||null}))}>
+                <select className="form-input" value={form.statistics_disability||''} onChange={e=>setForm(p=>({...p,statistics_disability:e.target.value||null}))}>
                   <option value="">{ar ? '— اختر —' : '— Select —'}</option>
                   {[
                     ['Physical Disability',        'الإعاقات الجسدية / الحركية'],
