@@ -113,7 +113,7 @@ function exportExcel(athletes, coaches, documents, visibleCols, allCols, lang) {
     age_category:       a => a.age_category || '',
     sport_age_category: a => a.sport_age_category || '',
     coach_id:        a => { const c = coaches.find(c => c.id === a.coach_id); return c ? (ar && c.name_ar ? c.name_ar : c.name) : '' },
-    status:          a => ar ? (STATUS_AR[a.status]||a.status||'') : (a.status||''),
+    status:          a => { const es=effectiveStatus(a); return ar ? (STATUS_AR[es]||es||'') : (es||'') },
     medical_status:  a => a.medical_status || '',
     phone:           a => a.phone || '',
     email:           a => a.email || '',
@@ -398,14 +398,14 @@ export default function Athletes({ athletes, coaches, employees, results, docume
   let list = athletes.filter(a =>
     (sport  === 'All sports'   || a.sport  === sport)  &&
     (sportCategory === 'All categories' || a.sport_category === sportCategory) &&
-    (status === 'All statuses' || a.status === status) &&
+    (status === 'All statuses' || effectiveStatus(a) === status) &&
     (gender === 'All genders'  || a.gender === gender) &&
     a.name && // exclude blank names
     (a.name.toLowerCase().includes(search.toLowerCase()) || (a.name_ar||'').toLowerCase().includes(search.toLowerCase()) || (a.sport||'').toLowerCase().includes(search.toLowerCase())) &&
     // column-level filters
     (!colFilters.sport_category || colFilters.sport_category === 'All' || a.sport_category === colFilters.sport_category) &&
     (!colFilters.sport        || colFilters.sport === 'All'        || a.sport === colFilters.sport) &&
-    (!colFilters.status       || colFilters.status === 'All'       || a.status === colFilters.status) &&
+    (!colFilters.status       || colFilters.status === 'All'       || effectiveStatus(a) === colFilters.status) &&
     (!colFilters.gender       || colFilters.gender === 'All'       || a.gender === colFilters.gender) &&
     (!colFilters.nationality  || colFilters.nationality === 'All'  || a.nationality === colFilters.nationality) &&
     (!colFilters.disability   || colFilters.disability === 'All'   || a.disability === colFilters.disability) &&
@@ -635,7 +635,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
     <div class="badges">
       ${a.sport ? `<span class="badge badge-blue">${sportLabel(a.sport, a.sport_category, isAr)}</span>` : `<span class="badge badge-gray">${L('No Sport Assigned','لم يتم تحديد الرياضة')}</span>`}
       ${a.classification ? `<span class="badge badge-blue">${a.classification}</span>` : ''}
-      <span class="badge badge-${a.status==='Active'?'green':a.status==='Inactive'?'gray':a.status==='Retired'||a.status==='Suspended'?'red':a.status==='Injured'||a.status==='Under Medical Review'?'red':'amber'}">${isAr ? (STATUS_AR[a.status]||a.status||L('Unknown','غير محدد')) : (a.status||'Unknown')}</span>
+      <span class="badge badge-${(()=>{const es=effectiveStatus(a);return es==='Active'?'green':es==='Inactive'?'gray':es==='Retired'||es==='Suspended'?'red':es==='Injured'||es==='Under Medical Review'?'red':'amber'})()}">"${isAr ? (STATUS_AR[effectiveStatus(a)]||effectiveStatus(a)||L('Unknown','غير محدد')) : (effectiveStatus(a)||'Unknown')}</span>
     </div>
     <p style="margin-top:8px;color:#9aa3b2;font-size:11px">
       ${age ? (isAr ? `${age} ${L('years old','سنة')}` : `Age ${age}`) : ''}
@@ -1238,7 +1238,7 @@ ${myDocs.length > 0 ? `<div class="section">
       case 'status': {
         const STATUS_AR = {'Active':tx('status.active','Active'),'Inactive':tx('status.inactive','Inactive'),'Suspended':tx('status.suspended','Suspended'),'Under Medical Review':tx('status.underMedicalReview','Under Medical Review'),'Injured':tx('status.injured','Injured'),'Retired':tx('status.retired','Retired')}
         const sc = {Active:'badge-green',Inactive:'badge-gray',Suspended:'badge-red','Under Medical Review':'badge-amber',Injured:'badge-amber',Retired:'badge-gray'}
-        return a.status ? <span className={`badge ${sc[a.status]||'badge-gray'}`}>{STATUS_AR[a.status]||a.status}</span> : <span style={{ color:'var(--text3)' }}>—</span>
+        return a.status ? <span className={`badge ${sc[effectiveStatus(a)]||'badge-gray'}`}>{STATUS_AR[effectiveStatus(a)]||effectiveStatus(a)}</span> : <span style={{ color:'var(--text3)' }}>—</span>
       }
       case 'medical_status': {
         const ms = a.medical_status || 'None'

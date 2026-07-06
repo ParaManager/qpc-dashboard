@@ -127,7 +127,7 @@ ${myAthletes.length > 0 ? `<div class="section">
     <span style="flex:2">${isAr && a.name_ar ? a.name_ar : a.name}</span>
     <span style="flex:1;color:#5a6272">${a.sport ? sportLabel(a.sport, a.sport_category, isAr) : ''}</span>
     <span style="flex:1;color:#5a6272">${a.classification||'—'}</span>
-    <span style="flex:1;color:#5a6272">${isAr?(STATUS_AR[a.status]||a.status||''):(a.status||'')}</span>
+    <span style="flex:1;color:#5a6272">${isAr?(STATUS_AR[effectiveStatus(a)]||effectiveStatus(a)||''):(effectiveStatus(a)||'')}</span>
     <span style="flex:1">🥇${a.medals_gold||0} 🥈${a.medals_silver||0} 🥉${a.medals_bronze||0}</span>
   </div>`).join('')}
 </div>` : ''}
@@ -411,7 +411,7 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
               {c.sport_category && <span style={{ marginLeft:6, fontSize:11, color:'var(--text3)' }}>· {lang==='ar' ? (SPORT_CATEGORY_NAMES_AR[c.sport_category]||c.sport_category) : c.sport_category}</span>}
             </div>
             <div className="detail-badges">
-              <Badge label={lang==='ar'?(STATUS_AR[c.status]||c.status):c.status} />
+              <Badge label={lang==='ar'?(STATUS_AR[effectiveStatus(c)]||effectiveStatus(c)):effectiveStatus(c)} />
               {(c.status_start || c.status_end) && (
                 <Badge label={[c.status_start, c.status_end].filter(Boolean).join(' → ')} />
               )}
@@ -472,7 +472,7 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
                         <div style={{ fontSize:11, color:'#9aa3b2' }}>{a.sport ? sportLabel(a.sport, a.sport_category, lang==='ar') : ''} · {a.classification}</div>
                       </div>
                       <MedalDisplay gold={a.medals_gold} silver={a.medals_silver} bronze={a.medals_bronze} />
-                      <Badge label={lang==='ar' ? (STATUS_AR[a.status]||a.status) : a.status} />
+                      <Badge label={lang==='ar' ? (STATUS_AR[effectiveStatus(a)]||effectiveStatus(a)) : effectiveStatus(a)} />
                     </DashRow>
                   ))}
                   {myAthletes.length > 5 && (
@@ -559,7 +559,7 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
                   <div style={{ fontSize:11, color:'#9aa3b2', marginTop:1 }}>{lang==='ar' && c.name_ar ? c.name : (c.name_ar || tc(c.nationality))}</div>
                   <div style={{ fontSize:11, color:'#9aa3b2', marginTop:1 }}>{tc(c.nationality)}</div>
                 </div>
-                <Badge label={lang==='ar'?(STATUS_AR[c.status]||c.status):c.status} />
+                <Badge label={lang==='ar'?(STATUS_AR[effectiveStatus(c)]||effectiveStatus(c)):effectiveStatus(c)} />
               </div>
               <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
                 {[
