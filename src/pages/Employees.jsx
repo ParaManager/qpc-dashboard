@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { initials , effectiveStatus} from '../lib/helpers'
+import { initials, statusClass, effectiveStatus } from '../lib/helpers'
 import { ConfirmModal, toast } from '../components/Toast'
 import { supabase } from '../lib/supabase'
 import { canEdit } from '../lib/useAuth'
