@@ -929,6 +929,11 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
   if (selected) {
     const emp = employees.find(x => x.id === selected)
     if (!emp) { setSelected(null); return null }
+    // Coach-type employees → always show Coaches detail page, not Employee detail
+    if (COACH_DESIGNATIONS.includes(emp.designation)) {
+      const coach = coaches?.find(c => c.employee_id === emp.id || c.name === emp.name)
+      if (coach) { onNav('coaches', { coachId: coach.id }); return null }
+    }
     const color = DESIG_COLORS[emp.designation] || '#9aa3b2'
     return (
       <div>
