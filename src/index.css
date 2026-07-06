@@ -122,15 +122,16 @@ tbody tr { transition: background .1s; cursor: pointer; }
 tbody tr:hover { background: var(--surface2); }
 
 /* BADGES */
-.badge { display: inline-flex; align-items: center; font-size: 10.5px; padding: 3px 9px; border-radius: 20px; font-weight: 500; white-space: nowrap; }
-.badge-blue { background: #e8f3fb; color: #1565a0; }
-.badge-green { background: #e6f4ee; color: #0d6e42; }
-.badge-red { background: #fdeaea; color: #b52a2a; }
-.badge-amber { background: #fef3e2; color: #8a5a00; }
-.badge-gray { background: #f0f1f3; color: #555e70; }
-.badge-purple { background: #f0ebff; color: #5b21b6; }
-.badge-teal   { background: #e0f7f5; color: #0d6e63; }
-.badge-orange { background: #fff0e6; color: #9a3d00; }
+.badge { display: inline-flex; align-items: center; font-size: 10.5px; padding: 3px 10px; border-radius: 20px; font-weight: 600; white-space: nowrap; letter-spacing: .01em; }
+/* Solid, visible status colors */
+.badge-green  { background: #00875a; color: #ffffff; }           /* Active — strong green */
+.badge-gray   { background: #6b7280; color: #ffffff; }           /* Inactive / Retired — neutral gray */
+.badge-amber  { background: #d97706; color: #ffffff; }           /* On Leave — warm amber */
+.badge-blue   { background: #0070ba; color: #ffffff; }           /* In Competition — strong blue */
+.badge-teal   { background: #0d9488; color: #ffffff; }           /* In Training Camp — teal */
+.badge-orange { background: #ea580c; color: #ffffff; }           /* Injured — orange */
+.badge-purple { background: #7c3aed; color: #ffffff; }           /* Under Medical Review — purple */
+.badge-red    { background: #dc2626; color: #ffffff; }           /* Suspended — red */
 
 /* AVATAR */
 .av { border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; color: #fff; flex-shrink: 0; }
