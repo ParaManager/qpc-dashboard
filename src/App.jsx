@@ -110,6 +110,16 @@ export default function App() {
   }, [profile?.id])
 
   const fetchAll = useCallback(async () => {
+    // Auto-reset dated statuses where end date has passed
+    const today = new Date().toISOString().split('T')[0]
+    const dated = ['On Leave','In Competition','In Training Camp']
+    await Promise.all([
+      supabase.from('athletes').update({ status:'Active', status_start:null, status_end:null })
+        .in('status', dated).lt('status_end', today).not('status_end', 'is', null),
+      supabase.from('coaches').update({ status:'Active', status_start:null, status_end:null })
+        .in('status', dated).lt('status_end', today).not('status_end', 'is', null),
+    ])
+
     const [a, c, e, r, reg, docs, emp, pdocs, refs] = await Promise.all([
       supabase.from('athletes').select('*').order('name'),
       supabase.from('coaches').select('*').order('name'),
