@@ -7,6 +7,7 @@ import { canEdit } from '../lib/useAuth'
 import CareerHistory from '../components/CareerHistory.jsx'
 import { useLang } from '../lib/LangContext.jsx'
 import PersonDocuments from '../components/PersonDocuments'
+import EmployeeCardButton from '../components/EmployeeCard'
 
 function exportCoachPDF(coach, myAthletes, lang) {
   const isAr = lang === 'ar'
@@ -334,6 +335,18 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
     const c = coaches.find(x => x.id === selected)
     if (!c) { setSelected(null); return null }
     const myAthletes = athletes.filter(a => a.coach_id === c.id)
+    // Matching employee record (if this coach is also tracked as an employee) —
+    // lets us surface employee-only features like the ID card here.
+    const matchedEmployee = employees?.find(e =>
+      (c.qss_number && e.qss_number && e.qss_number === c.qss_number) ||
+      (c.name && e.name && e.name.trim().toLowerCase() === c.name.trim().toLowerCase())
+    )
+    // Where to go back to: if we were opened from the Employees page, Back
+    // must return there instead of just closing this detail view.
+    const goBack = () => {
+      if (navState?.returnTo === 'employees') onNav('employees')
+      else setSelected(null)
+    }
 
     return (
       <div>
@@ -354,7 +367,7 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
             onConfirm={() => handleDelete(c.id, c.name)} onCancel={() => setConfirm(null)} />
         )}
 
-        <button className="back-btn" onClick={() => setSelected(null)}><i className="ti ti-arrow-left" /> {tx('actions.back','Back')}</button>
+        <button className="back-btn" onClick={goBack}><i className="ti ti-arrow-left" /> {tx('actions.back','Back')}</button>
         <div style={{ display:'flex', gap:10, marginBottom:16, flexWrap:'wrap' }}>
           {canEdit(profile) && <>
             <button className="action-btn action-btn-edit" onClick={() => setForm('edit')}><i className="ti ti-pencil" /> {tx('actions.edit','Edit')}</button>
@@ -374,6 +387,7 @@ export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNa
             onClick={() => exportCoachPDF(c, myAthletes, lang)}>
             <i className="ti ti-printer" /> {tx('actions.exportPDF','Export PDF')}
           </button>
+          {matchedEmployee && <EmployeeCardButton emp={matchedEmployee} />}
         </div>
 
         <div className="detail-grid">
