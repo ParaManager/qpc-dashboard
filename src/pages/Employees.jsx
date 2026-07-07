@@ -929,9 +929,12 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
   if (selected) {
     const emp = employees.find(x => x.id === selected)
     if (!emp) { setSelected(null); return null }
-    // Coach-type employees → always show Coaches detail page, not Employee detail
-    if (COACH_DESIGNATIONS.includes(emp.designation)) {
-      const coach = coaches?.find(c => c.employee_id === emp.id || c.name === emp.name)
+    // Coach-type employees → always redirect to Coaches detail page
+    if (COACH_DESIGNATIONS.includes(emp.designation) && coaches?.length) {
+      const coach = coaches.find(c =>
+        (emp.qss_number && c.qss_number && c.qss_number === emp.qss_number) ||
+        (emp.name && c.name && c.name.trim().toLowerCase() === emp.name.trim().toLowerCase())
+      )
       if (coach) { onNav('coaches', { coachId: coach.id }); return null }
     }
     const color = DESIG_COLORS[emp.designation] || '#9aa3b2'
@@ -1090,8 +1093,11 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
           <tbody>
             {list.map(emp => (
               <tr key={emp.id} onClick={() => {
-              if (COACH_DESIGNATIONS.includes(emp.designation)) {
-                const coach = coaches?.find(c => c.employee_id === emp.id || c.name === emp.name)
+              if (COACH_DESIGNATIONS.includes(emp.designation) && coaches?.length) {
+                const coach = coaches.find(c =>
+                  (emp.qss_number && c.qss_number && c.qss_number === emp.qss_number) ||
+                  (emp.name && c.name && c.name.trim().toLowerCase() === emp.name.trim().toLowerCase())
+                )
                 if (coach) { onNav('coaches', { coachId: coach.id }); return }
               }
               setSelected(emp.id)
