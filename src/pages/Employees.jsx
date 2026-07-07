@@ -929,13 +929,14 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
   if (selected) {
     const emp = employees.find(x => x.id === selected)
     if (!emp) { setSelected(null); return null }
-    // Coach-type employees → always redirect to Coaches detail page
+    // Coach-type employees → always redirect to Coaches detail page,
+    // tagging where we came from so its Back button returns here.
     if (COACH_DESIGNATIONS.includes(emp.designation) && coaches?.length) {
       const coach = coaches.find(c =>
         (emp.qss_number && c.qss_number && c.qss_number === emp.qss_number) ||
         (emp.name && c.name && c.name.trim().toLowerCase() === emp.name.trim().toLowerCase())
       )
-      if (coach) { onNav('coaches', { coachId: coach.id }); return null }
+      if (coach) { onNav('coaches', { coachId: coach.id, returnTo: 'employees' }); return null }
     }
     const color = DESIG_COLORS[emp.designation] || '#9aa3b2'
     return (
@@ -1098,7 +1099,7 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
                   (emp.qss_number && c.qss_number && c.qss_number === emp.qss_number) ||
                   (emp.name && c.name && c.name.trim().toLowerCase() === emp.name.trim().toLowerCase())
                 )
-                if (coach) { onNav('coaches', { coachId: coach.id }); return }
+                if (coach) { onNav('coaches', { coachId: coach.id, returnTo: 'employees' }); return }
               }
               setSelected(emp.id)
             }} style={{ cursor:'pointer' }}>
