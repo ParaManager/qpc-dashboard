@@ -774,18 +774,20 @@ function EmpModal({ data, isEdit, onClose, onSave }) {
 
 const COACH_DESIGNATIONS = ['Coach', 'Assistant Coach', 'Technical Expert', 'Physiotherapist', 'Doctor']
 
-export default function Employees({ employees, coaches, personDocs, onRefresh, onNav, navState, profile }) {
+export default function Employees({ employees, coaches, personDocs, onRefresh, onNav, initEmployeeId, navState, profile }) {
   const { tx, tc, lang } = useLang()
   const [search, setSearch]         = useState('')
   const [sort, setSort]             = useState('name-asc')
   const [colFilters, setColFilters] = useState({})
-  const [selected, setSelected]     = useState(null)
+  const [selected, setSelected]     = useState(initEmployeeId || null)
   const [confirm, setConfirm]       = useState(null)
   const [uploading, setUploading]   = useState(false)
   const [editForm, setEditForm]     = useState(null)
   const [addModal, setAddModal]     = useState(false)
   const photoInput = useRef(null)
   const [cropFile, setCropFile] = useState(null) // { empId, file } pending crop
+
+  useEffect(() => { if (initEmployeeId) setSelected(initEmployeeId) }, [initEmployeeId])
 
   useEffect(() => {
     if (navState?.reset) {
