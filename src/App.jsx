@@ -72,12 +72,16 @@ export default function App() {
   // profiles, not this normal in-progress moment.
   const [signingUp, setSigningUp] = useState(false)
   const [page, setPage]               = useState(() => {
-    // On first load, use whatever page is already in the URL (e.g. coming back
-    // to a tab the browser discarded and silently reloaded, or a real page
-    // refresh) instead of always defaulting to the dashboard. Falls back to
-    // 'dashboard' for a bare '/' or an unrecognized path.
-    const path = window.location.pathname.replace(/^\/+/, '')
-    return path || 'dashboard'
+    // Any fresh load of the app (a real page refresh, opening a bookmarked/
+    // shared link, a tab the browser discarded and silently reloaded, etc.)
+    // always starts on the dashboard, regardless of whatever page was last
+    // shown before the reload. In-session navigation, and the browser's own
+    // back/forward buttons (handled separately via popstate below), are
+    // unaffected by this — this only governs the very first mount.
+    if (window.location.pathname !== '/dashboard' && window.location.pathname !== '/') {
+      window.history.replaceState({ page: 'dashboard' }, '', '/dashboard')
+    }
+    return 'dashboard'
   })
   const [refreshToken, setRefreshToken] = useState(0)  // bumped on every nav click to force a fresh reload, even when clicking the already-active page
   const [athletes, setAthletes]           = useState([])
@@ -90,6 +94,7 @@ export default function App() {
   const [personDocs, setPersonDocs]         = useState([])
   const [referees, setReferees]             = useState([])
   const [pendingRequestsCount, setPendingRequestsCount] = useState(0)
+  const [pendingAccountsCount, setPendingAccountsCount] = useState(0)
   const [dataLoading, setDataLoading]     = useState(true)
   const [navState, setNavState]           = useState({})
   const [notifCount, setNotifCount]       = useState(0)
@@ -121,7 +126,7 @@ export default function App() {
         .in('status', dated).lt('status_end', today).not('status_end', 'is', null),
     ])
 
-    const [a, c, e, r, reg, docs, emp, pdocs, refs, reqSubs] = await Promise.all([
+    const [a, c, e, r, reg, docs, emp, pdocs, refs, reqSubs, profs] = await Promise.all([
       supabase.from('athletes').select('*').order('name'),
       supabase.from('coaches').select('*').order('name'),
       supabase.from('events').select('*').order('start_date'),
@@ -135,6 +140,10 @@ export default function App() {
       // uses to compute per-form pending counts — reused here just to get a
       // single dashboard-wide pending count without duplicating that logic.
       supabase.from('request_submissions').select('status'),
+      // Same idea for pending account sign-ups — UserManagement.jsx already
+      // treats profiles.status === 'pending' as "awaiting approval"; this is
+      // just that same count, fetched centrally so Dashboard can show it too.
+      supabase.from('profiles').select('status'),
     ])
     if (a.data)    setAthletes(a.data)
     if (c.data)    setCoaches(c.data)
@@ -146,6 +155,7 @@ export default function App() {
     if (pdocs.data) setPersonDocs(pdocs.data)
     if (refs.data)  setReferees(refs.data)
     if (reqSubs.data) setPendingRequestsCount(reqSubs.data.filter(s => s.status === 'pending').length)
+    if (profs.data)   setPendingAccountsCount(profs.data.filter(p => p.status === 'pending').length)
     setDataLoading(false)
   }, [])
 
@@ -511,7 +521,7 @@ export default function App() {
           </div>
         </div>
         <div id="content">
-          {page==='dashboard' && !isCoach && <Dashboard athletes={myAthletes} coaches={coaches} employees={employees} referees={referees} events={events} results={results} pendingRequestsCount={pendingRequestsCount} onNav={goTo} profile={profile} />}
+          {page==='dashboard' && !isCoach && <Dashboard athletes={myAthletes} coaches={coaches} employees={employees} referees={referees} events={events} results={results} pendingRequestsCount={pendingRequestsCount} pendingAccountsCount={pendingAccountsCount} onNav={goTo} profile={profile} />}
           {page==='dashboard' && isCoach  && <CoachDashboard coach={myCoachRecord} athletes={myAthletes} events={events} results={results} onNav={goTo} profile={profile} />}
           {page==='athletes'  && <Athletes  athletes={myAthletes} coaches={coaches} employees={employees} results={results} documents={documents} events={events} registrations={registrations} onRefresh={fetchAll} onNav={goTo} initAthleteId={navState.athleteId} initStatusFilter={navState.statusFilter} navState={navState} profile={profile} />}
           {page==='coaches'   && isAdmin && <Coaches   coaches={coaches} athletes={athletes} employees={employees} personDocs={personDocs} onRefresh={fetchAll} onNav={goTo} initCoachId={navState.coachId} navState={navState} profile={profile} />}
