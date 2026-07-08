@@ -18,6 +18,15 @@ export function useAuth() {
   useEffect(() => {
     let mounted = true
 
+    // Safety net: on a cold load (fresh service worker install, flaky first
+    // network request, etc.) getSession() has been observed to occasionally
+    // never resolve, leaving the app stuck on the loading screen until a
+    // manual refresh. A hard timeout guarantees we always leave the loading
+    // state even in that worst case, instead of hanging forever.
+    const safetyTimer = setTimeout(() => {
+      if (mounted) setLoading(false)
+    }, 8000)
+
     // On mount: get session → fetch profile → THEN stop loading
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!mounted) return
@@ -28,6 +37,12 @@ export function useAuth() {
         if (mounted) setProfile(p)
       }
       if (mounted) setLoading(false)  // only stop loading AFTER profile fetch
+      clearTimeout(safetyTimer)
+    }).catch(() => {
+      // If getSession() itself rejects, don't hang — show the sign-in screen
+      // instead of an infinite loading state.
+      if (mounted) setLoading(false)
+      clearTimeout(safetyTimer)
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -52,7 +67,7 @@ export function useAuth() {
       }
     })
 
-    return () => { mounted = false; subscription.unsubscribe() }
+    return () => { mounted = false; clearTimeout(safetyTimer); subscription.unsubscribe() }
   }, [])
 
   // Supabase's default signOut() ends every session on every device at once.
