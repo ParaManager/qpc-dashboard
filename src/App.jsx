@@ -341,6 +341,22 @@ export default function App() {
   const myAthletes    = isCoach ? athletes.filter(a => a.coach_id === myCoachId) : athletes
   const myCoachRecord = isCoach && myCoachId ? coaches.find(c => String(c.id) === String(myCoachId)) || null : null
 
+  // My Profile should open the same detail page used elsewhere for this
+  // person (athlete/coach/employee), not a separate summary view — so we
+  // resolve which one applies once here and reuse it at the profile route.
+  const myEmployeeRecord = (role === 'employee' || role === 'admin') && profile?.employee_id
+    ? employees.find(e => String(e.id) === String(profile.employee_id)) || null
+    : null
+  // Same coach-designation list Employees.jsx already uses to decide when an
+  // employee record should really open the combined Coaches detail page.
+  const PROFILE_COACH_DESIGNATIONS = ['Coach', 'Assistant Coach', 'Technical Expert', 'Physiotherapist', 'Doctor']
+  const myEmployeeAsCoach = myEmployeeRecord && PROFILE_COACH_DESIGNATIONS.includes(myEmployeeRecord.designation)
+    ? coaches.find(c =>
+        (myEmployeeRecord.qss_number && c.qss_number && c.qss_number === myEmployeeRecord.qss_number) ||
+        (myEmployeeRecord.name && c.name && c.name.trim().toLowerCase() === myEmployeeRecord.name.trim().toLowerCase())
+      ) || null
+    : null
+
   // Block pending/rejected (admins always pass)
   // A signed-in auth user with no matching profiles row at all (e.g. their account
   // was rejected and then deleted, but the underlying auth login still exists) is
@@ -499,7 +515,25 @@ export default function App() {
           {page==='athlete-events'    && <AthleteEvents athlete={myAthlete} events={events} registrations={registrations} results={results} />}
           {page==='athlete-results'   && <AthleteResults athlete={myAthlete} results={results} />}
           {page==='settings'  && <Settings user={user} profile={profile} signOut={signOut} />}
-          {page==='profile'   && <Profile user={user} profile={profile} athletes={athletes} coaches={coaches} employees={employees} results={results} onNav={goTo} documents={documents} personDocs={personDocs} onRefresh={fetchAll} />}
+          {/* My Profile: open the same detail page this person already has
+              elsewhere (athlete / combined coach / employee), instead of a
+              separate summary — falls back to the generic Profile page only
+              when there's no matching record (e.g. guest accounts). */}
+          {page==='profile' && isAthlete && myAthlete && (
+            <Athletes athletes={[myAthlete]} coaches={coaches} employees={employees} results={results} documents={documents} events={events} registrations={registrations} onRefresh={fetchAll} onNav={goTo} initAthleteId={myAthlete.id} navState={navState} profile={profile} />
+          )}
+          {page==='profile' && isCoach && myCoachRecord && (
+            <Coaches coaches={[myCoachRecord]} athletes={athletes.filter(a => a.coach_id === myCoachRecord.id)} employees={employees} personDocs={personDocs} onRefresh={fetchAll} onNav={goTo} initCoachId={myCoachRecord.id} navState={navState} profile={profile} />
+          )}
+          {page==='profile' && !isAthlete && !isCoach && myEmployeeAsCoach && (
+            <Coaches coaches={[myEmployeeAsCoach]} athletes={athletes.filter(a => a.coach_id === myEmployeeAsCoach.id)} employees={employees} personDocs={personDocs} onRefresh={fetchAll} onNav={goTo} initCoachId={myEmployeeAsCoach.id} navState={navState} profile={profile} />
+          )}
+          {page==='profile' && !isAthlete && !isCoach && !myEmployeeAsCoach && myEmployeeRecord && (
+            <Employees employees={[myEmployeeRecord]} coaches={coaches} personDocs={personDocs} onRefresh={fetchAll} onNav={goTo} initEmployeeId={myEmployeeRecord.id} navState={navState} profile={profile} />
+          )}
+          {page==='profile' && !(isAthlete && myAthlete) && !(isCoach && myCoachRecord) && !myEmployeeAsCoach && !myEmployeeRecord && (
+            <Profile user={user} profile={profile} athletes={athletes} coaches={coaches} employees={employees} results={results} onNav={goTo} documents={documents} personDocs={personDocs} onRefresh={fetchAll} />
+          )}
           {page==='notifications' && <Notifications profile={profile} onNav={goTo} />}
           {page==='resources'     && <Resources profile={profile} onRefresh={fetchAll} />}
           {page==='requests'     && <Requests  profile={profile} onNav={goTo} />}
