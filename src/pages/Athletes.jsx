@@ -347,9 +347,12 @@ export default function Athletes({ athletes, coaches, employees, results, docume
     if (initStatusFilter)      setStatus(initStatusFilter)
   }, [initAthleteId, initStatusFilter])
 
-  // reset everything when nav clicked while already on athletes page
+  // Reset everything when nav clicked while already on athletes page — but
+  // not when the caller also asked to open a specific athlete (initAthleteId),
+  // e.g. this same page being reused for "My Profile": that explicit intent
+  // must always win over the generic reset signal from sidebar navigation.
   useEffect(() => {
-    if (navState?.reset) {
+    if (navState?.reset && initAthleteId == null) {
       setSelected(null)
       setSearch('')
       setSport('All sports')
@@ -359,7 +362,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
       setSort('name-asc')
       setColFilters({})
     }
-  }, [navState])
+  }, [navState, initAthleteId])
 
   // Close doc dropdown on outside click
   useEffect(() => {

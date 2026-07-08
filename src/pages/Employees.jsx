@@ -789,11 +789,14 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
 
   useEffect(() => { if (initEmployeeId) setSelected(initEmployeeId) }, [initEmployeeId])
 
+  // Same reasoning as Athletes.jsx/Coaches.jsx: a caller-provided
+  // initEmployeeId (e.g. this page reused for "My Profile") must always win
+  // over a generic reset.
   useEffect(() => {
-    if (navState?.reset) {
+    if (navState?.reset && initEmployeeId == null) {
       setSelected(null); setSearch(''); setSort('name-asc'); setColFilters({})
     }
-  }, [navState])
+  }, [navState, initEmployeeId])
 
   const hasFilters = search || Object.values(colFilters).some(v => v && v !== 'All')
   const DESIG_LABELS = lang === 'ar' ? {

@@ -224,8 +224,10 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
   const STATUS_AR = {'Active':'نشط','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي','Inactive':'غير نشط','Suspended':'موقوف'}
   useEffect(() => { if (initCoachId) setSelected(initCoachId) }, [initCoachId])
 
+  // Same reasoning as Athletes.jsx: a caller-provided initCoachId (e.g. this
+  // page reused for "My Profile") must always win over a generic reset.
   useEffect(() => {
-    if (navState?.reset) {
+    if (navState?.reset && initCoachId == null) {
       setSelected(null)
       setSearch('')
       setSport('All sports')
@@ -233,7 +235,7 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
       setStatus('All statuses')
       setSort('name-asc')
     }
-  }, [navState])
+  }, [navState, initCoachId])
 
   // Show every known sport (Paralympic + Special Olympics), not just ones currently
   // in use — so a sport with zero coaches today is still findable. Scoped to the
