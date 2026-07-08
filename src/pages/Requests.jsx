@@ -57,7 +57,7 @@ const emptyField = () => ({
   options: [], sort_order: 0,
 })
 
-export default function Requests({ profile }) {
+export default function Requests({ profile, navState }) {
   const { tx, lang } = useLang()
   const ar = lang === 'ar'
   const isAdmin = profile?.role === 'admin'
@@ -125,6 +125,17 @@ export default function Requests({ profile }) {
   }, [])
 
   useEffect(() => { fetchForms(); fetchMySubs() }, [fetchForms, fetchMySubs])
+
+  // Deep-link support: Dashboard's "Pending Requests" KPI card navigates here
+  // with navState.statusFilter === 'pending'. Once forms/subCounts are loaded,
+  // jump straight to the first form that has a pending submission, already
+  // filtered to the Pending tab — reuses the existing per-form subCounts this
+  // page already fetches for admins, no separate cross-form view needed.
+  useEffect(() => {
+    if (navState?.statusFilter !== 'pending' || !isAdmin || view !== 'list' || loading) return
+    const target = forms.find(f => (subCounts[f.id]?.pending || 0) > 0)
+    if (target) openFormDetail(target, 'pending')
+  }, [navState, isAdmin, loading, forms, subCounts])
 
   // ── form builder ──────────────────────────────────────────────────────────
   function openCreateForm() {
@@ -482,7 +493,7 @@ export default function Requests({ profile }) {
   }
 
   function openForm(f) { setSelectedForm(f); setAnswers({}); setView('fill-form') }
-  function openFormDetail(f) { setSelectedForm(f); fetchFormSubs(f.id); setSubFilter('all'); setView('form-detail') }
+  function openFormDetail(f, initialFilter = 'all') { setSelectedForm(f); fetchFormSubs(f.id); setSubFilter(initialFilter); setView('form-detail') }
 
   // ─────────────────────────────────────────────────────────────────────────
   // MAIN LIST VIEW
