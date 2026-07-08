@@ -352,8 +352,10 @@ export default function App() {
   const PROFILE_COACH_DESIGNATIONS = ['Coach', 'Assistant Coach', 'Technical Expert', 'Physiotherapist', 'Doctor']
   const myEmployeeAsCoach = myEmployeeRecord && PROFILE_COACH_DESIGNATIONS.includes(myEmployeeRecord.designation)
     ? coaches.find(c =>
-        (myEmployeeRecord.qss_number && c.qss_number && c.qss_number === myEmployeeRecord.qss_number) ||
-        (myEmployeeRecord.name && c.name && c.name.trim().toLowerCase() === myEmployeeRecord.name.trim().toLowerCase())
+        c.status !== 'Inactive' && (
+          (myEmployeeRecord.qss_number && c.qss_number && c.qss_number === myEmployeeRecord.qss_number) ||
+          (myEmployeeRecord.name && c.name && c.name.trim().toLowerCase() === myEmployeeRecord.name.trim().toLowerCase())
+        )
       ) || null
     : null
 
