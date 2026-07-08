@@ -937,8 +937,10 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
     // tagging where we came from so its Back button returns here.
     if (COACH_DESIGNATIONS.includes(emp.designation) && coaches?.length) {
       const coach = coaches.find(c =>
-        (emp.qss_number && c.qss_number && c.qss_number === emp.qss_number) ||
-        (emp.name && c.name && c.name.trim().toLowerCase() === emp.name.trim().toLowerCase())
+        c.status !== 'Inactive' && (
+          (emp.qss_number && c.qss_number && c.qss_number === emp.qss_number) ||
+          (emp.name && c.name && c.name.trim().toLowerCase() === emp.name.trim().toLowerCase())
+        )
       )
       if (coach) { onNav('coaches', { coachId: coach.id, returnTo: 'employees' }); return null }
     }
@@ -1105,8 +1107,10 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
               <tr key={emp.id} onClick={() => {
               if (COACH_DESIGNATIONS.includes(emp.designation) && coaches?.length) {
                 const coach = coaches.find(c =>
-                  (emp.qss_number && c.qss_number && c.qss_number === emp.qss_number) ||
-                  (emp.name && c.name && c.name.trim().toLowerCase() === emp.name.trim().toLowerCase())
+                  c.status !== 'Inactive' && (
+                    (emp.qss_number && c.qss_number && c.qss_number === emp.qss_number) ||
+                    (emp.name && c.name && c.name.trim().toLowerCase() === emp.name.trim().toLowerCase())
+                  )
                 )
                 if (coach) { onNav('coaches', { coachId: coach.id, returnTo: 'employees' }); return }
               }
@@ -1133,7 +1137,7 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
                 <td style={{ fontSize:12, color:'#5a6272', fontFamily:'monospace' }}>{emp.employee_number||'—'}</td>
                 <td style={{ fontSize:12, color:'#5a6272', fontFamily:'monospace' }}>{emp.qss_number||'—'}</td>
                 <td>{(() => {
-                  const coachRec = COACH_DESIGNATIONS.includes(emp.designation) ? coaches?.find(c => (emp.qss_number && c.qss_number && c.qss_number === emp.qss_number) || (emp.name && c.name && c.name.trim().toLowerCase() === emp.name.trim().toLowerCase())) : null
+                  const coachRec = COACH_DESIGNATIONS.includes(emp.designation) ? coaches?.find(c => c.status !== 'Inactive' && ((emp.qss_number && c.qss_number && c.qss_number === emp.qss_number) || (emp.name && c.name && c.name.trim().toLowerCase() === emp.name.trim().toLowerCase()))) : null
                   const src = coachRec || emp
                   const ds = effectiveStatus(src)
                   const dl = lang==='ar' ? ({'Active':'نشط','Inactive':'غير نشط','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي'}[ds]||ds) : (ds||'—')
