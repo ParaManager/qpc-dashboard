@@ -9,7 +9,7 @@ function roleLabel(role, ar) {
   return map[role] || role
 }
 
-export default function Dashboard({ athletes, coaches, employees, referees, events, results, pendingRequestsCount, onNav, profile }) {
+export default function Dashboard({ athletes, coaches, employees, referees, events, results, pendingRequestsCount, pendingAccountsCount, onNav, profile }) {
   const { tx, lang } = useLang()
   const ar = lang === 'ar'
   const active   = athletes.filter(a => a.status === 'Active').length
@@ -56,7 +56,24 @@ export default function Dashboard({ athletes, coaches, employees, referees, even
     { label: tx('dashboard.activeEvents','Active Events'), val: upcoming, hint: ar ? 'قادمة' : 'upcoming', color: '#EE334E', icon: 'ti-calendar-event', click: () => onNav('events', { statusFilter:'Upcoming' }) },
     { label: ar ? 'خارج المقر' : 'Away', val: allAway.length, hint: ar ? 'إجازة/معسكر/منافسة' : 'leave/camp/comp.', color: '#f97316', icon: 'ti-map-pin-off',
       click: () => toast(ar ? 'إدارة الغياب قريباً' : 'Away Management is coming soon', 'error') },
-    { label: tx('dashboard.pendingRequests','Pending Requests'), val: pendingRequestsCount, hint: ar ? 'بانتظار المراجعة' : 'awaiting review', color: '#d97706', icon: 'ti-clipboard-text', click: () => onNav('requests', { statusFilter:'pending' }) },
+    { label: tx('dashboard.pendingRequests','Pending Requests'), val: pendingRequestsCount + pendingAccountsCount,
+      // Two genuinely different things both called "requests": form
+      // submissions (Leave Request, Equipment Request, etc.) and account
+      // sign-up approvals. Rather than hide one behind the other, the hint
+      // spells out both counts plainly; the click still needs to go
+      // somewhere, so it prefers Requests (the busier, daily-use page) and
+      // only falls back to User Management when that's the only place with
+      // anything pending. Both pages remain one click away from the sidebar
+      // regardless, so this is just a convenient shortcut, not the only path.
+      hint: ar
+        ? `${pendingRequestsCount} نماذج · ${pendingAccountsCount} تسجيل`
+        : `${pendingRequestsCount} forms · ${pendingAccountsCount} sign-ups`,
+      color: '#d97706', icon: 'ti-clipboard-text',
+      click: () => {
+        if (pendingRequestsCount > 0) onNav('requests', { statusFilter:'pending' })
+        else if (pendingAccountsCount > 0) onNav('users')
+        else onNav('requests', { statusFilter:'pending' })
+      } },
   ]
 
   return (
@@ -146,109 +163,6 @@ export default function Dashboard({ athletes, coaches, employees, referees, even
           {leaders.length === 0 && <div className="empty">{tx('dashboard.noResults','No results yet')}</div>}
         </div>
       </div>
-
-      {/* ── Away / Out of Office Section (admin only) — reuses allAway computed above ── */}
-      {(() => {
-        const STATUS_COLOR  = { 'On Leave':'#f59e0b', 'In Competition':'#0085C7', 'In Training Camp':'#0d9488' }
-        const STATUS_ICON   = { 'On Leave':'ti-beach', 'In Competition':'ti-trophy', 'In Training Camp':'ti-run' }
-        const STATUS_AR     = { 'On Leave':'في إجازة', 'In Competition':'في منافسة', 'In Training Camp':'في معسكر تدريبي' }
-
-        const today = todayForAway
-
-        if (allAway.length === 0) return null
-
-        function daysDiff(dateStr) {
-          if (!dateStr) return null
-          const d = new Date(dateStr); d.setHours(0,0,0,0)
-          return Math.round((d - today) / 86400000)
-        }
-
-        function remainingLabel(days) {
-          if (days === null) return null
-          if (days < 0)  return ar ? `تأخر ${Math.abs(days)} يوم` : `${Math.abs(days)}d overdue`
-          if (days === 0) return ar ? 'يعود اليوم' : 'Returns today'
-          if (days === 1) return ar ? 'يعود غداً' : 'Returns tomorrow'
-          return ar ? `${days} أيام متبقية` : `${days}d left`
-        }
-
-        function sinceLabel(days) {
-          if (days === null) return null
-          const abs = Math.abs(days)
-          if (abs === 0) return ar ? 'غادر اليوم' : 'Left today'
-          if (abs === 1) return ar ? 'منذ أمس' : 'Since yesterday'
-          return ar ? `منذ ${abs} أيام` : `${abs}d ago`
-        }
-
-        function remainingColor(days) {
-          if (days === null) return 'var(--text3)'
-          if (days < 0)  return '#EE334E'
-          if (days <= 2) return '#f59e0b'
-          return '#009F6B'
-        }
-
-        return (
-          <div className="card" style={{ marginBottom:14 }}>
-            <div className="card-title">
-              <i className="ti ti-map-pin-off" /> {ar ? 'خارج المقر' : 'Away'}
-              <span style={{ fontSize:10, fontWeight:400, color:'var(--text3)', marginLeft:6 }}>
-                {allAway.length} {ar ? 'شخص' : 'people'}
-              </span>
-            </div>
-
-            {AWAY_STATUSES.map(status => {
-              const group = allAway.filter(p => p.status === status)
-              if (group.length === 0) return null
-              const clr  = STATUS_COLOR[status]
-              const icon = STATUS_ICON[status]
-              const lbl  = ar ? STATUS_AR[status] : status
-              return (
-                <div key={status} style={{ marginBottom:12 }}>
-                  <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:6 }}>
-                    <div style={{ width:26, height:26, borderRadius:8, background:clr+'18', display:'flex', alignItems:'center', justifyContent:'center' }}>
-                      <i className={`ti ${icon}`} style={{ fontSize:13, color:clr }} />
-                    </div>
-                    <span style={{ fontWeight:600, fontSize:12.5, color:clr }}>{lbl}</span>
-                    <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'1px 8px', borderRadius:20 }}>{group.length}</span>
-                  </div>
-                  {group.map(p => {
-                    const daysLeft  = daysDiff(p.status_end)
-                    const daysGone  = p.status_start ? -daysDiff(p.status_start) : null
-                    const remLabel  = remainingLabel(daysLeft)
-                    const sncLabel  = sinceLabel(daysGone)
-                    const remColor  = remainingColor(daysLeft)
-                    const name      = ar && p.name_ar ? p.name_ar : p.name
-                    return (
-                      <DashRow key={p.id}
-                        onClick={() => p._isCoach ? onNav('coaches', { coachId: p.id }) : onNav('athletes', { athleteId: p.id })}>
-                        <Avatar name={p.name} id={p.id} size={28} fs={9} />
-                        <div style={{ flex:1, minWidth:0 }}>
-                          <div style={{ fontSize:12.5, fontWeight:600, color:'var(--text)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{name}</div>
-                          <div style={{ fontSize:10.5, color:'var(--text3)', marginTop:1, display:'flex', gap:6, flexWrap:'wrap' }}>
-                            <span>{p._type}</span>
-                            {p.status_start && <span>· {p.status_start}{p.status_end ? ` → ${p.status_end}` : ''}</span>}
-                          </div>
-                        </div>
-                        <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:2, flexShrink:0 }}>
-                          {remLabel && (
-                            <span style={{ fontSize:10.5, fontWeight:600, color:remColor, background:remColor+'18', padding:'2px 8px', borderRadius:20, whiteSpace:'nowrap' }}>
-                              {remLabel}
-                            </span>
-                          )}
-                          {sncLabel && (
-                            <span style={{ fontSize:9.5, color:'var(--text3)', whiteSpace:'nowrap' }}>
-                              {sncLabel}
-                            </span>
-                          )}
-                        </div>
-                      </DashRow>
-                    )
-                  })}
-                </div>
-              )
-            })}
-          </div>
-        )
-      })()}
 
       {/* ── Sports Breakdown — now shows "X athletes · Y%" of total athletes ── */}
       <div className="card">
