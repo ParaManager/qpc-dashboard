@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect } from 'react'
 import { Avatar, MedalDisplay, statusClass, statusDot, DashRow, SPORT_META, SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, sportLabel, initials, getCurrentSeason } from '../lib/helpers'
 import { useLang } from '../lib/LangContext.jsx'
 import { toast } from '../components/Toast'
@@ -12,6 +13,20 @@ function roleLabel(role, ar) {
 export default function Dashboard({ athletes, coaches, employees, referees, events, results, pendingRequestsCount, pendingAccountsCount, onNav, profile }) {
   const { tx, lang } = useLang()
   const ar = lang === 'ar'
+
+  // Pending Requests card can point to two different places (form
+  // submissions vs. account sign-ups) — when both have pending items, a
+  // small popover lets the person choose, same pattern already used by
+  // DashboardBanners' own "which one?" picker.
+  const [showPendingPicker, setShowPendingPicker] = useState(false)
+  const pendingPickerRef = useRef(null)
+  useEffect(() => {
+    function handleOutsideClick(e) {
+      if (pendingPickerRef.current && !pendingPickerRef.current.contains(e.target)) setShowPendingPicker(false)
+    }
+    document.addEventListener('mousedown', handleOutsideClick)
+    return () => document.removeEventListener('mousedown', handleOutsideClick)
+  }, [])
   const active   = athletes.filter(a => a.status === 'Active').length
   const upcoming = events.filter(e => e.status === 'Upcoming' || e.status === 'Registration Open').length
 
@@ -56,21 +71,22 @@ export default function Dashboard({ athletes, coaches, employees, referees, even
     { label: tx('dashboard.activeEvents','Active Events'), val: upcoming, hint: ar ? 'قادمة' : 'upcoming', color: '#EE334E', icon: 'ti-calendar-event', click: () => onNav('events', { statusFilter:'Upcoming' }) },
     { label: ar ? 'خارج المقر' : 'Away', val: allAway.length, hint: ar ? 'إجازة/معسكر/منافسة' : 'leave/camp/comp.', color: '#f97316', icon: 'ti-map-pin-off',
       click: () => toast(ar ? 'إدارة الغياب قريباً' : 'Away Management is coming soon', 'error') },
-    { label: tx('dashboard.pendingRequests','Pending Requests'), val: pendingRequestsCount + pendingAccountsCount,
+    { isPending: true, label: tx('dashboard.pendingRequests','Pending Requests'), val: pendingRequestsCount + pendingAccountsCount,
       // Two genuinely different things both called "requests": form
       // submissions (Leave Request, Equipment Request, etc.) and account
-      // sign-up approvals. Rather than hide one behind the other, the hint
-      // spells out both counts plainly; the click still needs to go
-      // somewhere, so it prefers Requests (the busier, daily-use page) and
-      // only falls back to User Management when that's the only place with
-      // anything pending. Both pages remain one click away from the sidebar
-      // regardless, so this is just a convenient shortcut, not the only path.
+      // sign-up approvals. The hint spells out both counts plainly. If only
+      // one of them actually has anything pending, clicking goes straight
+      // there — no need to ask when there's nothing to choose between. If
+      // both do, clicking opens a small picker (same pattern as
+      // DashboardBanners) so the person decides where to go instead of one
+      // always silently winning over the other.
       hint: ar
         ? `${pendingRequestsCount} نماذج · ${pendingAccountsCount} تسجيل`
         : `${pendingRequestsCount} forms · ${pendingAccountsCount} sign-ups`,
       color: '#d97706', icon: 'ti-clipboard-text',
       click: () => {
-        if (pendingRequestsCount > 0) onNav('requests', { statusFilter:'pending' })
+        if (pendingRequestsCount > 0 && pendingAccountsCount > 0) setShowPendingPicker(v => !v)
+        else if (pendingRequestsCount > 0) onNav('requests', { statusFilter:'pending' })
         else if (pendingAccountsCount > 0) onNav('users')
         else onNav('requests', { statusFilter:'pending' })
       } },
@@ -123,8 +139,14 @@ export default function Dashboard({ athletes, coaches, employees, referees, even
 
       {/* ── 8 Compact KPI Cards ── */}
       <div className="kpi-grid">
-        {kpiCards.map(({ label, val, hint, color, icon, click }) => (
-          <div key={label} className="kpi-card" onClick={click}>
+        {kpiCards.map(({ label, val, hint, color, icon, click, isPending }) => (
+          <div key={label} className="kpi-card" onClick={click}
+            ref={isPending ? pendingPickerRef : undefined}
+            // Only this card ever needs to show a popover below itself, so
+            // only this one gets overflow:visible (inline style always wins
+            // over the shared .kpi-card class rule) — every other card keeps
+            // its normal clipped corners untouched.
+            style={isPending ? { overflow: 'visible' } : undefined}>
             <div className="kpi-icon" style={{ background: color + '18' }}>
               <i className={`ti ${icon}`} style={{ color, fontSize: 16 }} />
             </div>
@@ -134,6 +156,29 @@ export default function Dashboard({ athletes, coaches, employees, referees, even
               <div className="kpi-hint">{hint}</div>
             </div>
             <i className="ti ti-chevron-right kpi-arrow" />
+
+            {isPending && showPendingPicker && (
+              <div style={{ position:'absolute', top:'calc(100% + 4px)', left:0, right:0, background:'var(--surface)', border:'1px solid var(--border)', borderRadius:12, boxShadow:'0 8px 24px rgba(0,0,0,.15)', zIndex:30 }}
+                onClick={e => e.stopPropagation()}>
+                <div style={{ padding:'8px 14px', fontSize:11, fontWeight:600, color:'var(--text3)', borderBottom:'1px solid var(--border)' }}>
+                  {ar ? 'أين تريد الذهاب؟' : 'Which one?'}
+                </div>
+                <div onClick={() => { setShowPendingPicker(false); onNav('requests', { statusFilter:'pending' }) }}
+                  style={{ padding:'10px 14px', fontSize:13, cursor:'pointer', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'space-between', gap:8 }}
+                  onMouseEnter={e => e.currentTarget.style.background='var(--surface2)'}
+                  onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+                  <span>{ar ? `طلبات النماذج (${pendingRequestsCount})` : `Form Requests (${pendingRequestsCount})`}</span>
+                  <i className="ti ti-arrow-right" style={{ fontSize:13, color:'var(--text3)', flexShrink:0 }} />
+                </div>
+                <div onClick={() => { setShowPendingPicker(false); onNav('users') }}
+                  style={{ padding:'10px 14px', fontSize:13, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'space-between', gap:8 }}
+                  onMouseEnter={e => e.currentTarget.style.background='var(--surface2)'}
+                  onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+                  <span>{ar ? `طلبات الحسابات (${pendingAccountsCount})` : `Account Sign-ups (${pendingAccountsCount})`}</span>
+                  <i className="ti ti-arrow-right" style={{ fontSize:13, color:'var(--text3)', flexShrink:0 }} />
+                </div>
+              </div>
+            )}
           </div>
         ))}
       </div>
