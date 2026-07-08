@@ -198,7 +198,7 @@ function FormerAthletes({ coachId, athletes, lang, onNav }) {
   )
 }
 
-export default function Coaches({ coaches, athletes, personDocs, onRefresh, onNav, initCoachId, navState, profile }) {
+export default function Coaches({ coaches, athletes, employees, personDocs, onRefresh, onNav, initCoachId, navState, profile }) {
   const [search, setSearch]     = useState('')
   const [sport, setSport]       = useState('All sports')
   const [sportCategory, setSportCategory] = useState('All categories')
