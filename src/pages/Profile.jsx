@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
 import { Avatar, MedalDisplay, initials, avColor, sportLabel } from '../lib/helpers'
@@ -7,6 +7,7 @@ import EmployeeCardButton, { generateEmployeeCard } from '../components/Employee
 import CareerHistory from '../components/CareerHistory.jsx'
 import PersonDocuments from '../components/PersonDocuments'
 import { toast } from '../components/Toast'
+import PhotoCropModal from '../components/PhotoCropModal'
 
 function ExportPDFButton({ athlete }) {
   const { lang } = useLang()
@@ -38,6 +39,9 @@ export default function Profile({ user, profile, athletes, coaches, employees, r
   const [editing, setEditing]       = useState(false)
   const [form, setForm]             = useState({})
   const [saving, setSaving]         = useState(false)
+  const [uploading, setUploading]   = useState(false)
+  const [cropFile, setCropFile]     = useState(null)
+  const photoInput = useRef(null)
 
   const role = profile?.account_type || profile?.role || 'guest'
 
@@ -66,6 +70,46 @@ export default function Profile({ user, profile, athletes, coaches, employees, r
       )
       setPersonData(d || null)
     }
+  }
+
+  // Which table/storage bucket backs the current person's photo — mirrors
+  // the same per-role convention already used on the Athletes/Coaches/
+  // Employees detail pages, so uploads here update the exact same record.
+  function photoTarget() {
+    if (role === 'athlete') return { table: 'athletes', bucket: 'athlete-photos', prefix: '' }
+    if (role === 'coach')   return { table: 'coaches',  bucket: 'coach-photos',   prefix: '' }
+    if (role === 'admin' || role === 'employee') return { table: 'employees', bucket: 'coach-photos', prefix: 'emp_' }
+    return null
+  }
+
+  async function handlePhotoUpload(file) {
+    const target = photoTarget()
+    if (!target || !personData?.id || !file) return
+    setUploading(true)
+    try {
+      const ext  = (file.name.split('.').pop() || 'jpg').toLowerCase()
+      const path = `${target.prefix}${personData.id}.${ext}`
+      const { error: upErr } = await supabase.storage.from(target.bucket).upload(path, file, { upsert: true })
+      if (upErr) throw upErr
+      const { data } = supabase.storage.from(target.bucket).getPublicUrl(path)
+      const photoUrl = data.publicUrl + '?t=' + Date.now()
+      const { error: dbErr } = await supabase.from(target.table).update({ photo_url: photoUrl }).eq('id', personData.id)
+      if (dbErr) throw dbErr
+      toast(L('Photo updated!','تم تحديث الصورة!'))
+      await onRefresh()
+      await loadPersonData()
+    } catch (err) { toast(err.message || L('Upload failed','فشل الرفع'), 'error') }
+    finally { setUploading(false) }
+  }
+
+  async function handlePhotoRemove() {
+    const target = photoTarget()
+    if (!target || !personData?.id) return
+    const { error } = await supabase.from(target.table).update({ photo_url: null }).eq('id', personData.id)
+    if (error) { toast(error.message, 'error'); return }
+    toast(L('Photo removed','تم حذف الصورة'))
+    await onRefresh()
+    await loadPersonData()
   }
 
   async function saveProfile() {
@@ -166,19 +210,44 @@ ${myResults.length>0?`<div class="section"><div class="section-title">${L2('Comp
         <div>
           <div className="detail-profile">
             {/* Avatar */}
-            <div style={{
-              width: 90, height: 90, borderRadius: '50%',
-              background: personData?.photo_url ? 'transparent' : avColor(profile?.full_name || ''),
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 28, fontWeight: 700, color: '#fff',
-              margin: '0 auto 4px', overflow: 'hidden',
-              border: '3px solid var(--border)',
-              flexShrink: 0,
-            }}>
-              {personData?.photo_url
-                ? <img src={personData.photo_url} style={{ width:'100%', height:'100%', objectFit:'cover', objectPosition:'top center' }} />
-                : <span>{initials(profile?.full_name || user?.email || '?')}</span>
-              }
+            <div style={{ position:'relative', width:90, height:90, margin:'0 auto 4px' }}>
+              <div style={{
+                width: 90, height: 90, borderRadius: '50%',
+                background: personData?.photo_url ? 'transparent' : avColor(profile?.full_name || ''),
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 28, fontWeight: 700, color: '#fff',
+                overflow: 'hidden',
+                border: '3px solid var(--border)',
+                flexShrink: 0,
+              }}>
+                {personData?.photo_url
+                  ? <img src={personData.photo_url} style={{ width:'100%', height:'100%', objectFit:'cover', objectPosition:'top center' }} />
+                  : <span>{initials(profile?.full_name || user?.email || '?')}</span>
+                }
+              </div>
+              {photoTarget() && (
+                <div style={{ position:'absolute', bottom:0, right:0, display:'flex', gap:3 }}>
+                  <button onClick={() => photoInput.current.click()} disabled={uploading} title={L('Upload photo','رفع صورة')}
+                    style={{ width:26, height:26, borderRadius:'50%', background:roleColor, border:'2px solid #fff', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'#fff' }}>
+                    {uploading
+                      ? <div style={{ width:10, height:10, border:'2px solid rgba(255,255,255,.4)', borderTopColor:'#fff', borderRadius:'50%', animation:'spin .7s linear infinite' }} />
+                      : <i className="ti ti-camera" style={{ fontSize:12 }} />}
+                  </button>
+                  {personData?.photo_url && (
+                    <button onClick={handlePhotoRemove} title={L('Remove photo','حذف الصورة')}
+                      style={{ width:26, height:26, borderRadius:'50%', background:'#dc2626', border:'2px solid #fff', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'#fff' }}>
+                      <i className="ti ti-x" style={{ fontSize:12 }} />
+                    </button>
+                  )}
+                </div>
+              )}
+              <input ref={photoInput} type="file" accept="image/*" style={{ display:'none' }}
+                onChange={e => { if (e.target.files[0]) { setCropFile(e.target.files[0]); e.target.value = '' } }} />
+              {cropFile && (
+                <PhotoCropModal file={cropFile}
+                  onCancel={() => setCropFile(null)}
+                  onSave={(blob) => { setCropFile(null); handlePhotoUpload(blob) }} />
+              )}
             </div>
 
             {/* Name */}

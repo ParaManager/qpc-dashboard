@@ -8,6 +8,7 @@ import CareerHistory from '../components/CareerHistory.jsx'
 import { useLang } from '../lib/LangContext.jsx'
 import PersonDocuments from '../components/PersonDocuments'
 import EmployeeCardButton from '../components/EmployeeCard'
+import PhotoCropModal from '../components/PhotoCropModal'
 
 function exportCoachPDF(coach, myAthletes, lang) {
   const isAr = lang === 'ar'
@@ -217,6 +218,7 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
   const [uploading, setUploading] = useState(false)
   const [showAllAthletes, setShowAllAthletes] = useState(false)
   const photoInput = useRef(null)
+  const [cropFile, setCropFile] = useState(null) // { coachId, file } pending crop
 
   const { tx, tc, lang } = useLang()
   const STATUS_AR = {'Active':'نشط','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي','Inactive':'غير نشط','Suspended':'موقوف'}
@@ -415,8 +417,13 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
                 </div>
               )}
               <input ref={photoInput} type="file" accept="image/*" style={{ display:'none' }}
-                onChange={e => { if(e.target.files[0]) handlePhotoUpload(c.id, e.target.files[0]) }} />
+                onChange={e => { if(e.target.files[0]) { setCropFile({ coachId: c.id, file: e.target.files[0] }); e.target.value = '' } }} />
             </div>
+            {cropFile && cropFile.coachId === c.id && (
+              <PhotoCropModal file={cropFile.file}
+                onCancel={() => setCropFile(null)}
+                onSave={(blob) => { setCropFile(null); handlePhotoUpload(c.id, blob) }} />
+            )}
 
             <div className="detail-name">{lang==='ar' && c.name_ar ? c.name_ar : c.name}</div>
             <div className="detail-sub">{lang==='ar' && c.name_ar ? c.name : c.name_ar}</div>

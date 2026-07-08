@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import * as XLSX from 'xlsx'
 import { generateStatisticsReport } from '../lib/statisticsReport'
 import { Avatar, MedalDisplay, Badge, avColor, initials, DashRow, SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, SPORT_CATEGORY_NAMES_AR, SPORT_NAMES_AR, sportLabel, effectiveStatus } from '../lib/helpers'
+import PhotoCropModal from '../components/PhotoCropModal'
 import FormModal from '../components/FormModal'
 import { ConfirmModal, toast } from '../components/Toast'
 import { supabase } from '../lib/supabase'
@@ -339,6 +340,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
   const [colFilters, setColFilters] = useState({})
   const photoInput = useRef(null)
   const docInput   = useRef(null)
+  const [cropFile, setCropFile] = useState(null) // { athleteId, file } pending crop
 
   useEffect(() => {
     if (initAthleteId != null) setSelected(initAthleteId)
@@ -839,8 +841,13 @@ ${myDocs.length > 0 ? `<div class="section">
                     )}
                   </div>
                 )}
-                <input ref={photoInput} type="file" accept="image/*" style={{ display:'none' }} onChange={e => { if(e.target.files[0]) handlePhotoUpload(a.id, e.target.files[0]) }} />
+                <input ref={photoInput} type="file" accept="image/*" style={{ display:'none' }} onChange={e => { if(e.target.files[0]) { setCropFile({ athleteId: a.id, file: e.target.files[0] }); e.target.value = '' } }} />
               </div>
+              {cropFile && cropFile.athleteId === a.id && (
+                <PhotoCropModal file={cropFile.file}
+                  onCancel={() => setCropFile(null)}
+                  onSave={(blob) => { setCropFile(null); handlePhotoUpload(a.id, blob) }} />
+              )}
               <div className="detail-name">{lang==='ar' && a.name_ar ? a.name_ar : a.name}</div>
               {(lang==='ar' && a.name_ar ? a.name : a.name_ar) && <div className="detail-sub">{lang==='ar' && a.name_ar ? a.name : a.name_ar}</div>}
               <div className="detail-badges">

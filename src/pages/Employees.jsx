@@ -8,6 +8,7 @@ import { useLang } from '../lib/LangContext.jsx'
 import PersonDocuments from '../components/PersonDocuments'
 import * as XLSX from 'xlsx'
 import EmployeeCardButton from '../components/EmployeeCard'
+import PhotoCropModal from '../components/PhotoCropModal'
 
 const DESIGNATIONS = [
   'All designations',
@@ -784,6 +785,7 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
   const [editForm, setEditForm]     = useState(null)
   const [addModal, setAddModal]     = useState(false)
   const photoInput = useRef(null)
+  const [cropFile, setCropFile] = useState(null) // { empId, file } pending crop
 
   useEffect(() => {
     if (navState?.reset) {
@@ -983,8 +985,13 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
                   )}
                 </div>
               )}
-              <input ref={photoInput} type="file" accept="image/*" style={{ display:'none' }} onChange={e => { if(e.target.files[0]) handlePhotoUpload(emp.id, e.target.files[0]) }} />
+              <input ref={photoInput} type="file" accept="image/*" style={{ display:'none' }} onChange={e => { if(e.target.files[0]) { setCropFile({ empId: emp.id, file: e.target.files[0] }); e.target.value = '' } }} />
             </div>
+            {cropFile && cropFile.empId === emp.id && (
+              <PhotoCropModal file={cropFile.file}
+                onCancel={() => setCropFile(null)}
+                onSave={(blob) => { setCropFile(null); handlePhotoUpload(emp.id, blob) }} />
+            )}
             <div className="detail-name">{lang==='ar' && emp.name_ar ? emp.name_ar : emp.name}</div>
             {(lang==='ar' ? emp.name : emp.name_ar) && <div className="detail-sub">{lang==='ar' ? emp.name : emp.name_ar}</div>}
             <div style={{ margin:'10px 0' }}><DesigBadge label={emp.designation} displayLabel={DESIG_LABELS[emp.designation]} /></div>

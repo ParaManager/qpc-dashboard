@@ -4,6 +4,7 @@ import { useLang } from '../lib/LangContext.jsx'
 import { Avatar, avColor, initials } from '../lib/helpers'
 import { toast, ConfirmModal } from '../components/Toast'
 import { canEdit } from '../lib/useAuth'
+import PhotoCropModal from '../components/PhotoCropModal'
 import * as XLSX from 'xlsx'
 
 const COUNTRIES_EN = ['Afghanistan','Algeria','Argentina','Armenia','Australia','Azerbaijan','Bahrain','Bangladesh','Belarus','Belgium','Brazil','Cameroon','Canada','Chile','China','Colombia','Croatia','Czech Republic','Denmark','Egypt','Eritrea','Ethiopia','Finland','France','Georgia','Germany','Ghana','Greece','Guinea','Hungary','India','Indonesia','Iran','Iraq','Ireland','Italy','Japan','Jordan','Kazakhstan','Kenya','Kuwait','Kyrgyzstan','Lebanon','Libya','Malaysia','Mali','Mauritania','Mexico','Mongolia','Morocco','Myanmar','Nepal','Netherlands','New Zealand','Nigeria','Norway','Oman','Pakistan','Palestine','Peru','Philippines','Poland','Portugal','Qatar','Romania','Russia','Rwanda','Saudi Arabia','Scotland','Senegal','Serbia','Singapore','Slovakia','Somalia','South Africa','South Korea','Spain','Sri Lanka','Sudan','Sweden','Syria','Tajikistan','Tanzania','Thailand','Tunisia','Turkey','Turkmenistan','UAE','Uganda','UK','Ukraine','USA','Uzbekistan','Venezuela','Vietnam','Wales','Yemen','Zambia','Zimbabwe']
@@ -58,6 +59,7 @@ function exportExcel(list, lang) {
 
 function RefereeDetail({ r: initialR, ar, L, tcNat, profile, onBack, onEdit, onDelete, onRefresh }) {
   const photoInput   = useRef(null)
+  const [cropFile, setCropFile] = useState(null) // pending photo awaiting crop
   const docInput     = useRef(null)
   const [r, setR]                     = useState(initialR)
   const [uploading, setUploading]     = useState(false)
@@ -173,8 +175,13 @@ function RefereeDetail({ r: initialR, ar, L, tcNat, profile, onBack, onEdit, onD
                   )}
                 </div>
               )}
-              <input ref={photoInput} type="file" accept="image/*" style={{ display:'none' }} onChange={e => { if(e.target.files[0]) handlePhotoUpload(e.target.files[0]) }} />
+              <input ref={photoInput} type="file" accept="image/*" style={{ display:'none' }} onChange={e => { if(e.target.files[0]) { setCropFile(e.target.files[0]); e.target.value = '' } }} />
             </div>
+            {cropFile && (
+              <PhotoCropModal file={cropFile}
+                onCancel={() => setCropFile(null)}
+                onSave={(blob) => { setCropFile(null); handlePhotoUpload(blob) }} />
+            )}
 
             <div className="detail-name">{ar && r.name_ar ? r.name_ar : (r.name || '—')}</div>
             {r.name_ar && r.name && <div className="detail-sub">{ar ? r.name : r.name_ar}</div>}
