@@ -89,6 +89,7 @@ export default function App() {
   const [employees, setEmployees]         = useState([])
   const [personDocs, setPersonDocs]         = useState([])
   const [referees, setReferees]             = useState([])
+  const [pendingRequestsCount, setPendingRequestsCount] = useState(0)
   const [dataLoading, setDataLoading]     = useState(true)
   const [navState, setNavState]           = useState({})
   const [notifCount, setNotifCount]       = useState(0)
@@ -120,7 +121,7 @@ export default function App() {
         .in('status', dated).lt('status_end', today).not('status_end', 'is', null),
     ])
 
-    const [a, c, e, r, reg, docs, emp, pdocs, refs] = await Promise.all([
+    const [a, c, e, r, reg, docs, emp, pdocs, refs, reqSubs] = await Promise.all([
       supabase.from('athletes').select('*').order('name'),
       supabase.from('coaches').select('*').order('name'),
       supabase.from('events').select('*').order('start_date'),
@@ -130,6 +131,10 @@ export default function App() {
       supabase.from('employees').select('*').order('name'),
       supabase.from('person_documents').select('*').order('uploaded_at', { ascending: false }),
       supabase.from('referees').select('*').order('number'),
+      // Lightweight status-only fetch, same shape Requests.jsx itself already
+      // uses to compute per-form pending counts — reused here just to get a
+      // single dashboard-wide pending count without duplicating that logic.
+      supabase.from('request_submissions').select('status'),
     ])
     if (a.data)    setAthletes(a.data)
     if (c.data)    setCoaches(c.data)
@@ -140,6 +145,7 @@ export default function App() {
     if (emp.data)   setEmployees(emp.data)
     if (pdocs.data) setPersonDocs(pdocs.data)
     if (refs.data)  setReferees(refs.data)
+    if (reqSubs.data) setPendingRequestsCount(reqSubs.data.filter(s => s.status === 'pending').length)
     setDataLoading(false)
   }, [])
 
@@ -505,7 +511,7 @@ export default function App() {
           </div>
         </div>
         <div id="content">
-          {page==='dashboard' && !isCoach && <Dashboard athletes={myAthletes} coaches={coaches} events={events} results={results} onNav={goTo} profile={profile} />}
+          {page==='dashboard' && !isCoach && <Dashboard athletes={myAthletes} coaches={coaches} employees={employees} referees={referees} events={events} results={results} pendingRequestsCount={pendingRequestsCount} onNav={goTo} profile={profile} />}
           {page==='dashboard' && isCoach  && <CoachDashboard coach={myCoachRecord} athletes={myAthletes} events={events} results={results} onNav={goTo} profile={profile} />}
           {page==='athletes'  && <Athletes  athletes={myAthletes} coaches={coaches} employees={employees} results={results} documents={documents} events={events} registrations={registrations} onRefresh={fetchAll} onNav={goTo} initAthleteId={navState.athleteId} initStatusFilter={navState.statusFilter} navState={navState} profile={profile} />}
           {page==='coaches'   && isAdmin && <Coaches   coaches={coaches} athletes={athletes} employees={employees} personDocs={personDocs} onRefresh={fetchAll} onNav={goTo} initCoachId={navState.coachId} navState={navState} profile={profile} />}
@@ -538,7 +544,7 @@ export default function App() {
           )}
           {page==='notifications' && <Notifications profile={profile} onNav={goTo} />}
           {page==='resources'     && <Resources profile={profile} onRefresh={fetchAll} />}
-          {page==='requests'     && <Requests  profile={profile} onNav={goTo} />}
+          {page==='requests'     && <Requests  profile={profile} onNav={goTo} navState={navState} />}
           {page==='tasks'         && isAdmin && <Tasks profile={profile} onNav={goTo} />}
           {page==='referees'  && <Referees referees={referees} onRefresh={fetchAll} profile={profile} />}
           {page==='results'   && <Results   results={results} athletes={athletes} onRefresh={fetchAll} onNav={goTo} profile={profile} />}

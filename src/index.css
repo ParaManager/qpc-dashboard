@@ -111,6 +111,21 @@ button, input, select, textarea { font-family: 'DM Sans', sans-serif; }
 .stat-val { font-size: 30px; font-weight: 700; letter-spacing: -.04em; line-height: 1; }
 .stat-hint { font-size: 11px; color: var(--text3); margin-top: 4px; }
 
+/* KPI CARDS (compact) — dense management-focused replacement for the
+   larger .stat-card grid above (kept, unused now, in case anything else
+   ever needs the bigger style back). Same visual language: surface card,
+   colored icon chip, hover lift, arrow affordance — just tighter. */
+.kpi-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 14px; }
+.kpi-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; box-shadow: var(--shadow); cursor: pointer; transition: all .15s; position: relative; overflow: hidden; display: flex; align-items: center; gap: 10px; }
+.kpi-card:hover { border-color: var(--border2); transform: translateY(-1px); box-shadow: 0 4px 14px rgba(0,0,0,.08); }
+.kpi-card:hover .kpi-arrow { opacity: 1; transform: translateX(0); }
+.kpi-arrow { position: absolute; bottom: 8px; right: 8px; font-size: 12px; color: var(--text3); opacity: 0; transform: translateX(-3px); transition: all .15s; }
+.kpi-icon { width: 34px; height: 34px; border-radius: 9px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 16px; }
+.kpi-body { flex: 1; min-width: 0; }
+.kpi-label { font-size: 10.5px; color: var(--text2); margin-bottom: 2px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kpi-val { font-size: 19px; font-weight: 700; letter-spacing: -.03em; line-height: 1; }
+.kpi-hint { font-size: 9.5px; color: var(--text3); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
 /* TABLE */
 .tbl-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: auto; box-shadow: var(--shadow); max-width: 100%; }
 table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 600px; }
@@ -204,6 +219,8 @@ select.filter { padding: 8px 12px; border-radius: 9px; border: 1px solid var(--b
 .sport-chip { background: var(--surface2); border-radius: var(--radius); padding: 12px 14px; border: 1px solid transparent; cursor: pointer; transition: all .15s; }
 .sport-num { font-size: 22px; font-weight: 600; }
 .sport-name { font-size: 11px; color: var(--text2); margin-top: 2px; }
+.sport-label { font-size: 12px; font-weight: 600; color: var(--text); margin-top: 4px; }
+.sport-stat { font-size: 10.5px; color: var(--text3); margin-top: 2px; }
 .medal-tally-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-top: 4px; }
 .tally-card { background: var(--surface2); border-radius: var(--radius); padding: 12px 14px; }
 
@@ -366,6 +383,11 @@ body { overscroll-behavior: none; }
   .stat-card { padding: 14px; }
   .stat-val { font-size: 28px; }
 
+  /* KPI grid 2 columns on mobile */
+  .kpi-grid { grid-template-columns: repeat(2,1fr); gap: 8px; }
+  .kpi-card { padding: 10px; }
+  .kpi-val { font-size: 17px; }
+
   /* Two col becomes one col */
   .two-col { grid-template-columns: 1fr; }
   .two-col-even { grid-template-columns: 1fr; }
@@ -422,6 +444,7 @@ body { overscroll-behavior: none; }
   .cal-cell { min-height: 56px !important; }
   .cal-pill { font-size: 7px !important; }
   .stat-grid { grid-template-columns: 1fr; }
+  .kpi-grid { grid-template-columns: 1fr; }
   .sports-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
