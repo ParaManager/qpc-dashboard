@@ -88,7 +88,8 @@ export default function Dashboard({ athletes, coaches, employees, referees, even
         if (pendingRequestsCount > 0 && pendingAccountsCount > 0) setShowPendingPicker(v => !v)
         else if (pendingRequestsCount > 0) onNav('requests', { statusFilter:'pending' })
         else if (pendingAccountsCount > 0) onNav('users')
-        else onNav('requests', { statusFilter:'pending' })
+        // Both are 0 — nothing pending anywhere, so there's nowhere useful
+        // to send them; do nothing rather than navigate to an empty list.
       } },
   ]
 
