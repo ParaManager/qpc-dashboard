@@ -254,333 +254,10 @@ export default function Requests({ profile, navState }) {
   const visibleForms = isAdmin ? forms : forms.filter(f=>f.is_active && !f.is_private && f.visible_to?.includes(profile?.role))
   const filteredSubs = subFilter==='all' ? formSubs : formSubs.filter(s=>s.status===subFilter)
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // MY SUBMISSIONS VIEW
-  // ─────────────────────────────────────────────────────────────────────────
-  if (view==='my-submissions') return (
-    <div>
-      <div className="page-header" style={{marginBottom:20}}>
-        <div>
-          <button className="back-btn" onClick={()=>setView('list')}>
-            <i className="ti ti-arrow-left"/> {ar?'رجوع':'Back'}
-          </button>
-          <div className="page-title">{ar?'طلباتي':'My Requests'}</div>
-        </div>
-      </div>
-      {submissions.length===0
-        ? <div className="empty">{ar?'لا توجد طلبات بعد':'No requests submitted yet'}</div>
-        : <div style={{display:'flex',flexDirection:'column',gap:10}}>
-            {submissions.map(s=>{
-              const f=s.request_forms, clr=f?.color||'#0085C7'
-              return (
-                <div key={s.id} style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:12,padding:'14px 18px',display:'flex',alignItems:'center',gap:14,boxShadow:'var(--shadow)'}}>
-                  <div style={{width:40,height:40,borderRadius:10,background:clr+'18',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-                    <i className={`ti ${f?.icon||'ti-clipboard-text'}`} style={{fontSize:18,color:clr}}/>
-                  </div>
-                  <div style={{flex:1}}>
-                    <div style={{fontWeight:600,fontSize:14}}>{ar?(f?.title_ar||f?.title):f?.title}</div>
-                    <div style={{fontSize:12,color:'var(--text3)',marginTop:2}}>{new Date(s.submitted_at).toLocaleDateString()}</div>
-                    {s.admin_notes && <div style={{fontSize:12,color:'var(--text2)',marginTop:4,fontStyle:'italic'}}>"{s.admin_notes}"</div>}
-                  </div>
-                  {statusBadge(s.status)}
-                </div>
-              )
-            })}
-          </div>
-      }
-    </div>
-  )
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // FILL FORM VIEW
-  // ─────────────────────────────────────────────────────────────────────────
-  if (view==='fill-form' && selectedForm) {
-    const clr = selectedForm.color||'#0085C7'
-    return (
-      <div>
-        <div className="page-header" style={{marginBottom:20}}>
-          <div>
-            <button className="back-btn" onClick={()=>setView('list')}>
-              <i className="ti ti-arrow-left"/> {ar?'رجوع':'Back'}
-            </button>
-            <div style={{display:'flex',alignItems:'center',gap:12}}>
-              <div style={{width:44,height:44,borderRadius:12,background:clr+'18',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                <i className={`ti ${selectedForm.icon||'ti-clipboard-text'}`} style={{fontSize:22,color:clr}}/>
-              </div>
-              <div>
-                <div className="page-title">{ar?(selectedForm.title_ar||selectedForm.title):selectedForm.title}</div>
-                {selectedForm.description && <div className="page-sub">{ar?(selectedForm.description_ar||selectedForm.description):selectedForm.description}</div>}
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="card" style={{maxWidth:640}}>
-          {(selectedForm.request_form_fields||[]).map(field=>(
-            <div key={field.id} className="form-group" style={{marginBottom:18}}>
-              <label className="form-label">
-                {ar?(field.label_ar||field.label):field.label}
-                {field.is_required && <span style={{color:'#EE334E',marginLeft:4}}>*</span>}
-              </label>
-              {renderFieldInput(field)}
-            </div>
-          ))}
-          <div style={{display:'flex',gap:10,marginTop:8}}>
-            <button className="btn btn-blue" onClick={submitForm} disabled={submitting}>
-              <i className="ti ti-send"/> {submitting?(ar?'جارٍ الإرسال…':'Submitting…'):(ar?'إرسال':'Submit')}
-            </button>
-            <button className="btn-cancel" onClick={()=>setView('list')}>{ar?'إلغاء':'Cancel'}</button>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // FORM DETAIL (admin — submissions list)
-  // ─────────────────────────────────────────────────────────────────────────
-  if (view==='form-detail' && selectedForm && isAdmin) {
-    const clr = selectedForm.color||'#0085C7'
-    const pendingCount = filteredSubs.filter(s=>s.status==='pending').length
-    return (
-      <div>
-        <div className="page-header" style={{marginBottom:20}}>
-          <div>
-            <button className="back-btn" onClick={()=>setView('list')}>
-              <i className="ti ti-arrow-left"/> {ar?'رجوع':'Back'}
-            </button>
-            <div style={{display:'flex',alignItems:'center',gap:12}}>
-              <div style={{width:44,height:44,borderRadius:12,background:clr+'18',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                <i className={`ti ${selectedForm.icon||'ti-clipboard-text'}`} style={{fontSize:22,color:clr}}/>
-              </div>
-              <div>
-                <div className="page-title">{ar?(selectedForm.title_ar||selectedForm.title):selectedForm.title}</div>
-                <div className="page-sub">{formSubs.length} {ar?'طلب':'submission(s)'}{pendingCount>0 && <span style={{color:'#EE334E',fontWeight:600}}> · {pendingCount} {ar?'قيد الانتظار':'pending'}</span>}</div>
-              </div>
-            </div>
-          </div>
-          <div style={{display:'flex',gap:8}}>
-            <button className="action-btn action-btn-edit" onClick={()=>openEditForm(selectedForm)}><i className="ti ti-edit"/> {ar?'تعديل':'Edit'}</button>
-            <button className="action-btn action-btn-delete" onClick={()=>setConfirmDel(selectedForm)}><i className="ti ti-trash"/></button>
-          </div>
-        </div>
-
-        {/* Status filter tabs */}
-        <div style={{display:'flex',gap:6,marginBottom:16,flexWrap:'wrap'}}>
-          {['all','pending','in_review','approved','rejected'].map(s=>{
-            const m = s==='all' ? null : STATUS_META[s]
-            const active = subFilter===s
-            return (
-              <button key={s} onClick={()=>setSubFilter(s)}
-                style={{padding:'5px 14px',borderRadius:20,border:`1px solid ${active?(m?.color||'var(--blue)'):'var(--border)'}`,background:active?(m?.bg||'rgba(0,133,199,.08)'):'var(--surface)',color:active?(m?.color||'#0085C7'):'var(--text2)',fontSize:12,fontWeight:active?600:400,cursor:'pointer',transition:'all .15s'}}>
-                {s==='all'?(ar?'الكل':'All'):(ar?STATUS_META[s].label_ar:STATUS_META[s].label)}
-                {s!=='all' && formSubs.filter(x=>x.status===s).length>0 && <span style={{marginLeft:5,background:m?.color,color:'white',borderRadius:10,padding:'1px 5px',fontSize:10}}>{formSubs.filter(x=>x.status===s).length}</span>}
-              </button>
-            )
-          })}
-        </div>
-
-        {filteredSubs.length===0
-          ? <div className="empty">{ar?'لا توجد طلبات':'No submissions'}</div>
-          : <div style={{display:'flex',flexDirection:'column',gap:8}}>
-              {filteredSubs.map(s=>{
-                const initName = s.profiles?.full_name||'?'
-                const roleClr = ROLE_COLORS[s.profiles?.role]||'#999'
-                return (
-                  <div key={s.id}
-                    style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:12,padding:'14px 18px',display:'flex',alignItems:'center',gap:14,cursor:'pointer',transition:'all .15s',boxShadow:'var(--shadow)'}}
-                    onMouseEnter={e=>e.currentTarget.style.borderColor='var(--border2)'}
-                    onMouseLeave={e=>e.currentTarget.style.borderColor='var(--border)'}
-                    onClick={()=>{setSelectedSub(s);setView('submission-view')}}>
-                    <div style={{width:36,height:36,borderRadius:'50%',background:roleClr,display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700,color:'white',flexShrink:0}}>
-                      {initials(initName)}
-                    </div>
-                    <div style={{flex:1}}>
-                      <div style={{fontWeight:600,fontSize:14}}>{initName}</div>
-                      <div style={{fontSize:12,color:'var(--text3)',marginTop:2}}>
-                        {new Date(s.submitted_at).toLocaleDateString()} · <span style={{color:roleClr,fontWeight:500}}>{s.profiles?.role}</span>
-                      </div>
-                    </div>
-                    {statusBadge(s.status)}
-                    <i className="ti ti-chevron-right" style={{color:'var(--text3)',fontSize:16}}/>
-                  </div>
-                )
-              })}
-            </div>
-        }
-        {confirmDel && <ConfirmModal title={ar?'حذف النموذج':'Delete form'} message={`${ar?'حذف':'Delete'} "${confirmDel.title}"?`} onConfirm={()=>deleteForm(confirmDel)} onCancel={()=>setConfirmDel(null)}/>}
-      </div>
-    )
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // SUBMISSION DETAIL VIEW (admin reviews)
-  // ─────────────────────────────────────────────────────────────────────────
-  if (view==='submission-view' && selectedSub && isAdmin) {
-    const form = forms.find(f=>f.id===selectedSub.form_id)
-    const clr = form?.color||'#0085C7'
-    return (
-      <div>
-        <div className="page-header" style={{marginBottom:20}}>
-          <div>
-            <button className="back-btn" onClick={()=>setView('form-detail')}>
-              <i className="ti ti-arrow-left"/> {ar?'رجوع':'Back'}
-            </button>
-            <div style={{display:'flex',alignItems:'center',gap:12}}>
-              <div style={{width:36,height:36,borderRadius:'50%',background:ROLE_COLORS[selectedSub.profiles?.role]||'#999',display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:700,color:'white'}}>
-                {initials(selectedSub.profiles?.full_name||'?')}
-              </div>
-              <div>
-                <div className="page-title">{selectedSub.profiles?.full_name}</div>
-                <div className="page-sub">{new Date(selectedSub.submitted_at).toLocaleString()}</div>
-              </div>
-            </div>
-          </div>
-          <div style={{display:'flex',gap:10,alignItems:'center'}}>
-            {statusBadge(selectedSub.status)}
-            <button className="btn btn-blue"
-              onClick={()=>{setReviewSub(selectedSub);setReviewNote(selectedSub.admin_notes||'');setReviewStatus(selectedSub.status==='pending'?'approved':selectedSub.status)}}>
-              <i className="ti ti-edit"/> {ar?'مراجعة':'Review'}
-            </button>
-          </div>
-        </div>
-
-        <div className="card" style={{maxWidth:640}}>
-          {(form?.request_form_fields||[]).map(field=>{
-            const ans = selectedSub.answers[field.id]
-            return (
-              <div key={field.id} style={{marginBottom:16,paddingBottom:16,borderBottom:'1px solid var(--border)'}}>
-                <div style={{fontSize:11,color:'var(--text3)',fontWeight:600,marginBottom:4,textTransform:'uppercase',letterSpacing:'.04em'}}>{ar?(field.label_ar||field.label):field.label}</div>
-                <div style={{fontSize:14,color:'var(--text)',fontWeight:500}}>
-                  {Array.isArray(ans)?ans.join(', '):(ans||<span style={{color:'var(--text3)'}}>—</span>)}
-                </div>
-              </div>
-            )
-          })}
-          {selectedSub.admin_notes && (
-            <div style={{background:'var(--surface2)',borderRadius:8,padding:'10px 14px',marginTop:4}}>
-              <div style={{fontSize:11,color:'var(--text3)',marginBottom:4,fontWeight:600}}>{ar?'ملاحظات':'Admin Notes'}</div>
-              <div style={{fontSize:13}}>{selectedSub.admin_notes}</div>
-            </div>
-          )}
-        </div>
-
-        {/* Review modal */}
-        {reviewSub && (
-          <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.45)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center'}}
-            onClick={()=>setReviewSub(null)}>
-            <div style={{background:'var(--surface)',borderRadius:16,padding:24,width:420,boxShadow:'0 8px 32px rgba(0,0,0,.2)',border:'1px solid var(--border)'}}
-              onClick={e=>e.stopPropagation()}>
-              <div style={{fontWeight:700,fontSize:16,marginBottom:16}}>{ar?'مراجعة الطلب':'Review Request'}</div>
-              <div className="form-group">
-                <label className="form-label">{ar?'الحالة':'Status'}</label>
-                <select className="form-input" value={reviewStatus} onChange={e=>setReviewStatus(e.target.value)}>
-                  {Object.entries(STATUS_META).map(([k,v])=><option key={k} value={k}>{ar?v.label_ar:v.label}</option>)}
-                </select>
-              </div>
-              <div className="form-group">
-                <label className="form-label">{ar?'ملاحظة (اختياري)':'Note (optional)'}</label>
-                <textarea className="form-input" rows={3} value={reviewNote} onChange={e=>setReviewNote(e.target.value)} style={{resize:'vertical'}}/>
-              </div>
-              <div style={{display:'flex',gap:10,marginTop:8}}>
-                <button className="btn btn-blue" onClick={saveReview}>{ar?'حفظ':'Save'}</button>
-                <button className="btn-cancel" onClick={()=>setReviewSub(null)}>{ar?'إلغاء':'Cancel'}</button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  function openForm(f) { setSelectedForm(f); setAnswers({}); setView('fill-form') }
-  function openFormDetail(f, initialFilter = 'all') { setSelectedForm(f); fetchFormSubs(f.id); setSubFilter(initialFilter); setView('form-detail') }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // MAIN LIST VIEW
-  // ─────────────────────────────────────────────────────────────────────────
-  return (
-    <div>
-      {confirmDel && <ConfirmModal title={ar?'حذف النموذج':'Delete form'} message={`${ar?'حذف':'Delete'} "${confirmDel.title}"?`} onConfirm={()=>deleteForm(confirmDel)} onCancel={()=>setConfirmDel(null)}/>}
-
-      <div className="page-header" style={{marginBottom:20}}>
-        <div>
-          <div className="page-title">{ar?'الطلبات':'Requests'}</div>
-          <div className="page-sub">{ar?'نماذج الطلبات الرسمية':'Official request forms'}</div>
-        </div>
-        <div style={{display:'flex',gap:8}}>
-          {!isAdmin && (
-            <button className="action-btn action-btn-edit" onClick={()=>{setView('my-submissions');fetchMySubs()}}>
-              <i className="ti ti-history"/> {ar?'طلباتي':'My Requests'}
-            </button>
-          )}
-          {isAdmin && (
-            <button className="btn btn-red" onClick={openCreateForm}>
-              <i className="ti ti-plus"/> {ar?'نموذج جديد':'New Form'}
-            </button>
-          )}
-        </div>
-      </div>
-
-      {loading
-        ? <div className="empty"><i className="ti ti-loader ti-spin"/> {ar?'جارٍ التحميل…':'Loading…'}</div>
-        : visibleForms.length===0
-          ? <div className="empty">{ar?'لا توجد نماذج متاحة':'No request forms available'}</div>
-          : <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))',gap:16}}>
-              {visibleForms.map(f=>{
-                const clr = f.color||'#0085C7'
-                const cnt = subCounts[f.id]
-                return (
-                  <div key={f.id}
-                    style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:14,overflow:'hidden',cursor:'pointer',transition:'all .15s',boxShadow:'var(--shadow)',opacity:f.is_active?1:.7}}
-                    onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-2px)';e.currentTarget.style.boxShadow='0 6px 20px rgba(0,0,0,.09)'}}
-                    onMouseLeave={e=>{e.currentTarget.style.transform='';e.currentTarget.style.boxShadow='var(--shadow)'}}
-                    onClick={()=>isAdmin?openFormDetail(f):openForm(f)}>
-                    {/* Color accent bar */}
-                    <div style={{height:4,background:`linear-gradient(90deg,${clr},${clr}99)`}}/>
-                    <div style={{padding:18}}>
-                      <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:12}}>
-                        <div style={{width:42,height:42,borderRadius:11,background:clr+'15',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-                          <i className={`ti ${f.icon||'ti-clipboard-text'}`} style={{fontSize:20,color:clr}}/>
-                        </div>
-                        <div style={{display:'flex',gap:6,alignItems:'center'}}>
-                          {isAdmin && cnt?.pending>0 && (
-                            <span style={{background:'#EE334E',color:'white',fontSize:10,fontWeight:700,padding:'3px 8px',borderRadius:20}}>
-                              {cnt.pending} {ar?'جديد':'new'}
-                            </span>
-                          )}
-
-                        </div>
-                      </div>
-                      <div style={{fontWeight:700,fontSize:15,color:'var(--text)',marginBottom:4}}>{ar?(f.title_ar||f.title):f.title}</div>
-                      {(ar?(f.description_ar||f.description):f.description) && (
-                        <div style={{fontSize:12,color:'var(--text2)',marginBottom:12,lineHeight:1.6}}>
-                          {ar?(f.description_ar||f.description):f.description}
-                        </div>
-                      )}
-                      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:8}}>
-                        <div style={{display:'flex',gap:12,fontSize:11,color:'var(--text3)'}}>
-                          <span><i className="ti ti-forms" style={{fontSize:12}}/> {(f.request_form_fields||[]).length} {ar?'حقل':'fields'}</span>
-                          {isAdmin && cnt?.total>0 && <span><i className="ti ti-send" style={{fontSize:12}}/> {cnt.total}</span>}
-                        </div>
-                        <span style={{fontSize:10,fontWeight:600,padding:'2px 9px',borderRadius:20,background:f.is_active?'rgba(0,159,107,.1)':'rgba(180,180,180,.12)',color:f.is_active?'#009F6B':'#999'}}>
-                          {f.is_active?(ar?'نشط':'Active'):(ar?'معطّل':'Inactive')}
-                        </span>
-                      </div>
-                      {!isAdmin && (
-                        <button className="btn btn-blue" style={{width:'100%',marginTop:14,justifyContent:'center'}}
-                          onClick={e=>{e.stopPropagation();openForm(f)}}>
-                          <i className="ti ti-send"/> {ar?'تقديم طلب':'Submit Request'}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-      }
-
-      {/* ── Form Builder Modal ── */}
-      {showFormModal && (
+  // ── Form Builder Modal — extracted so it can be rendered from every
+  // early-return view below (form-detail, fill-form, submission-view,
+  // my-submissions), not just the main list view. ──
+  const formModalJsx = showFormModal && (
         <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.45)',zIndex:9999,display:'flex',alignItems:'flex-start',justifyContent:'center',overflowY:'auto',padding:'40px 20px'}}
           onClick={()=>setShowFormModal(false)}>
           <div style={{background:'var(--surface)',borderRadius:16,width:'100%',maxWidth:700,boxShadow:'0 16px 48px rgba(0,0,0,.25)',border:'1px solid var(--border)'}}
@@ -732,7 +409,338 @@ export default function Requests({ profile, navState }) {
             </div>
           </div>
         </div>
-      )}
+  )
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // MY SUBMISSIONS VIEW
+  // ─────────────────────────────────────────────────────────────────────────
+  if (view==='my-submissions') return (
+    <div>
+      <div className="page-header" style={{marginBottom:20}}>
+        <div>
+          <button className="back-btn" onClick={()=>setView('list')}>
+            <i className="ti ti-arrow-left"/> {ar?'رجوع':'Back'}
+          </button>
+          <div className="page-title">{ar?'طلباتي':'My Requests'}</div>
+        </div>
+      </div>
+      {submissions.length===0
+        ? <div className="empty">{ar?'لا توجد طلبات بعد':'No requests submitted yet'}</div>
+        : <div style={{display:'flex',flexDirection:'column',gap:10}}>
+            {submissions.map(s=>{
+              const f=s.request_forms, clr=f?.color||'#0085C7'
+              return (
+                <div key={s.id} style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:12,padding:'14px 18px',display:'flex',alignItems:'center',gap:14,boxShadow:'var(--shadow)'}}>
+                  <div style={{width:40,height:40,borderRadius:10,background:clr+'18',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                    <i className={`ti ${f?.icon||'ti-clipboard-text'}`} style={{fontSize:18,color:clr}}/>
+                  </div>
+                  <div style={{flex:1}}>
+                    <div style={{fontWeight:600,fontSize:14}}>{ar?(f?.title_ar||f?.title):f?.title}</div>
+                    <div style={{fontSize:12,color:'var(--text3)',marginTop:2}}>{new Date(s.submitted_at).toLocaleDateString()}</div>
+                    {s.admin_notes && <div style={{fontSize:12,color:'var(--text2)',marginTop:4,fontStyle:'italic'}}>"{s.admin_notes}"</div>}
+                  </div>
+                  {statusBadge(s.status)}
+                </div>
+              )
+            })}
+          </div>
+      }
+      {formModalJsx}
+    </div>
+  )
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // FILL FORM VIEW
+  // ─────────────────────────────────────────────────────────────────────────
+  if (view==='fill-form' && selectedForm) {
+    const clr = selectedForm.color||'#0085C7'
+    return (
+      <div>
+        <div className="page-header" style={{marginBottom:20}}>
+          <div>
+            <button className="back-btn" onClick={()=>setView('list')}>
+              <i className="ti ti-arrow-left"/> {ar?'رجوع':'Back'}
+            </button>
+            <div style={{display:'flex',alignItems:'center',gap:12}}>
+              <div style={{width:44,height:44,borderRadius:12,background:clr+'18',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                <i className={`ti ${selectedForm.icon||'ti-clipboard-text'}`} style={{fontSize:22,color:clr}}/>
+              </div>
+              <div>
+                <div className="page-title">{ar?(selectedForm.title_ar||selectedForm.title):selectedForm.title}</div>
+                {selectedForm.description && <div className="page-sub">{ar?(selectedForm.description_ar||selectedForm.description):selectedForm.description}</div>}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="card" style={{maxWidth:640}}>
+          {(selectedForm.request_form_fields||[]).map(field=>(
+            <div key={field.id} className="form-group" style={{marginBottom:18}}>
+              <label className="form-label">
+                {ar?(field.label_ar||field.label):field.label}
+                {field.is_required && <span style={{color:'#EE334E',marginLeft:4}}>*</span>}
+              </label>
+              {renderFieldInput(field)}
+            </div>
+          ))}
+          <div style={{display:'flex',gap:10,marginTop:8}}>
+            <button className="btn btn-blue" onClick={submitForm} disabled={submitting}>
+              <i className="ti ti-send"/> {submitting?(ar?'جارٍ الإرسال…':'Submitting…'):(ar?'إرسال':'Submit')}
+            </button>
+            <button className="btn-cancel" onClick={()=>setView('list')}>{ar?'إلغاء':'Cancel'}</button>
+          </div>
+        </div>
+        {formModalJsx}
+      </div>
+    )
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // FORM DETAIL (admin — submissions list)
+  // ─────────────────────────────────────────────────────────────────────────
+  if (view==='form-detail' && selectedForm && isAdmin) {
+    const clr = selectedForm.color||'#0085C7'
+    const pendingCount = filteredSubs.filter(s=>s.status==='pending').length
+    return (
+      <div>
+        <div className="page-header" style={{marginBottom:20}}>
+          <div>
+            <button className="back-btn" onClick={()=>setView('list')}>
+              <i className="ti ti-arrow-left"/> {ar?'رجوع':'Back'}
+            </button>
+            <div style={{display:'flex',alignItems:'center',gap:12}}>
+              <div style={{width:44,height:44,borderRadius:12,background:clr+'18',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                <i className={`ti ${selectedForm.icon||'ti-clipboard-text'}`} style={{fontSize:22,color:clr}}/>
+              </div>
+              <div>
+                <div className="page-title">{ar?(selectedForm.title_ar||selectedForm.title):selectedForm.title}</div>
+                <div className="page-sub">{formSubs.length} {ar?'طلب':'submission(s)'}{pendingCount>0 && <span style={{color:'#EE334E',fontWeight:600}}> · {pendingCount} {ar?'قيد الانتظار':'pending'}</span>}</div>
+              </div>
+            </div>
+          </div>
+          <div style={{display:'flex',gap:8}}>
+            <button className="action-btn action-btn-edit" onClick={()=>openEditForm(selectedForm)}><i className="ti ti-edit"/> {ar?'تعديل':'Edit'}</button>
+            <button className="action-btn action-btn-delete" onClick={()=>setConfirmDel(selectedForm)}><i className="ti ti-trash"/></button>
+          </div>
+        </div>
+
+        {/* Status filter tabs */}
+        <div style={{display:'flex',gap:6,marginBottom:16,flexWrap:'wrap'}}>
+          {['all','pending','in_review','approved','rejected'].map(s=>{
+            const m = s==='all' ? null : STATUS_META[s]
+            const active = subFilter===s
+            return (
+              <button key={s} onClick={()=>setSubFilter(s)}
+                style={{padding:'5px 14px',borderRadius:20,border:`1px solid ${active?(m?.color||'var(--blue)'):'var(--border)'}`,background:active?(m?.bg||'rgba(0,133,199,.08)'):'var(--surface)',color:active?(m?.color||'#0085C7'):'var(--text2)',fontSize:12,fontWeight:active?600:400,cursor:'pointer',transition:'all .15s'}}>
+                {s==='all'?(ar?'الكل':'All'):(ar?STATUS_META[s].label_ar:STATUS_META[s].label)}
+                {s!=='all' && formSubs.filter(x=>x.status===s).length>0 && <span style={{marginLeft:5,background:m?.color,color:'white',borderRadius:10,padding:'1px 5px',fontSize:10}}>{formSubs.filter(x=>x.status===s).length}</span>}
+              </button>
+            )
+          })}
+        </div>
+
+        {filteredSubs.length===0
+          ? <div className="empty">{ar?'لا توجد طلبات':'No submissions'}</div>
+          : <div style={{display:'flex',flexDirection:'column',gap:8}}>
+              {filteredSubs.map(s=>{
+                const initName = s.profiles?.full_name||'?'
+                const roleClr = ROLE_COLORS[s.profiles?.role]||'#999'
+                return (
+                  <div key={s.id}
+                    style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:12,padding:'14px 18px',display:'flex',alignItems:'center',gap:14,cursor:'pointer',transition:'all .15s',boxShadow:'var(--shadow)'}}
+                    onMouseEnter={e=>e.currentTarget.style.borderColor='var(--border2)'}
+                    onMouseLeave={e=>e.currentTarget.style.borderColor='var(--border)'}
+                    onClick={()=>{setSelectedSub(s);setView('submission-view')}}>
+                    <div style={{width:36,height:36,borderRadius:'50%',background:roleClr,display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700,color:'white',flexShrink:0}}>
+                      {initials(initName)}
+                    </div>
+                    <div style={{flex:1}}>
+                      <div style={{fontWeight:600,fontSize:14}}>{initName}</div>
+                      <div style={{fontSize:12,color:'var(--text3)',marginTop:2}}>
+                        {new Date(s.submitted_at).toLocaleDateString()} · <span style={{color:roleClr,fontWeight:500}}>{s.profiles?.role}</span>
+                      </div>
+                    </div>
+                    {statusBadge(s.status)}
+                    <i className="ti ti-chevron-right" style={{color:'var(--text3)',fontSize:16}}/>
+                  </div>
+                )
+              })}
+            </div>
+        }
+        {confirmDel && <ConfirmModal title={ar?'حذف النموذج':'Delete form'} message={`${ar?'حذف':'Delete'} "${confirmDel.title}"?`} onConfirm={()=>deleteForm(confirmDel)} onCancel={()=>setConfirmDel(null)}/>}
+        {formModalJsx}
+      </div>
+    )
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // SUBMISSION DETAIL VIEW (admin reviews)
+  // ─────────────────────────────────────────────────────────────────────────
+  if (view==='submission-view' && selectedSub && isAdmin) {
+    const form = forms.find(f=>f.id===selectedSub.form_id)
+    const clr = form?.color||'#0085C7'
+    return (
+      <div>
+        <div className="page-header" style={{marginBottom:20}}>
+          <div>
+            <button className="back-btn" onClick={()=>setView('form-detail')}>
+              <i className="ti ti-arrow-left"/> {ar?'رجوع':'Back'}
+            </button>
+            <div style={{display:'flex',alignItems:'center',gap:12}}>
+              <div style={{width:36,height:36,borderRadius:'50%',background:ROLE_COLORS[selectedSub.profiles?.role]||'#999',display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:700,color:'white'}}>
+                {initials(selectedSub.profiles?.full_name||'?')}
+              </div>
+              <div>
+                <div className="page-title">{selectedSub.profiles?.full_name}</div>
+                <div className="page-sub">{new Date(selectedSub.submitted_at).toLocaleString()}</div>
+              </div>
+            </div>
+          </div>
+          <div style={{display:'flex',gap:10,alignItems:'center'}}>
+            {statusBadge(selectedSub.status)}
+            <button className="btn btn-blue"
+              onClick={()=>{setReviewSub(selectedSub);setReviewNote(selectedSub.admin_notes||'');setReviewStatus(selectedSub.status==='pending'?'approved':selectedSub.status)}}>
+              <i className="ti ti-edit"/> {ar?'مراجعة':'Review'}
+            </button>
+          </div>
+        </div>
+
+        <div className="card" style={{maxWidth:640}}>
+          {(form?.request_form_fields||[]).map(field=>{
+            const ans = selectedSub.answers[field.id]
+            return (
+              <div key={field.id} style={{marginBottom:16,paddingBottom:16,borderBottom:'1px solid var(--border)'}}>
+                <div style={{fontSize:11,color:'var(--text3)',fontWeight:600,marginBottom:4,textTransform:'uppercase',letterSpacing:'.04em'}}>{ar?(field.label_ar||field.label):field.label}</div>
+                <div style={{fontSize:14,color:'var(--text)',fontWeight:500}}>
+                  {Array.isArray(ans)?ans.join(', '):(ans||<span style={{color:'var(--text3)'}}>—</span>)}
+                </div>
+              </div>
+            )
+          })}
+          {selectedSub.admin_notes && (
+            <div style={{background:'var(--surface2)',borderRadius:8,padding:'10px 14px',marginTop:4}}>
+              <div style={{fontSize:11,color:'var(--text3)',marginBottom:4,fontWeight:600}}>{ar?'ملاحظات':'Admin Notes'}</div>
+              <div style={{fontSize:13}}>{selectedSub.admin_notes}</div>
+            </div>
+          )}
+        </div>
+
+        {/* Review modal */}
+        {reviewSub && (
+          <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.45)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center'}}
+            onClick={()=>setReviewSub(null)}>
+            <div style={{background:'var(--surface)',borderRadius:16,padding:24,width:420,boxShadow:'0 8px 32px rgba(0,0,0,.2)',border:'1px solid var(--border)'}}
+              onClick={e=>e.stopPropagation()}>
+              <div style={{fontWeight:700,fontSize:16,marginBottom:16}}>{ar?'مراجعة الطلب':'Review Request'}</div>
+              <div className="form-group">
+                <label className="form-label">{ar?'الحالة':'Status'}</label>
+                <select className="form-input" value={reviewStatus} onChange={e=>setReviewStatus(e.target.value)}>
+                  {Object.entries(STATUS_META).map(([k,v])=><option key={k} value={k}>{ar?v.label_ar:v.label}</option>)}
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">{ar?'ملاحظة (اختياري)':'Note (optional)'}</label>
+                <textarea className="form-input" rows={3} value={reviewNote} onChange={e=>setReviewNote(e.target.value)} style={{resize:'vertical'}}/>
+              </div>
+              <div style={{display:'flex',gap:10,marginTop:8}}>
+                <button className="btn btn-blue" onClick={saveReview}>{ar?'حفظ':'Save'}</button>
+                <button className="btn-cancel" onClick={()=>setReviewSub(null)}>{ar?'إلغاء':'Cancel'}</button>
+              </div>
+            </div>
+          </div>
+        )}
+        {formModalJsx}
+      </div>
+    )
+  }
+
+  function openForm(f) { setSelectedForm(f); setAnswers({}); setView('fill-form') }
+  function openFormDetail(f, initialFilter = 'all') { setSelectedForm(f); fetchFormSubs(f.id); setSubFilter(initialFilter); setView('form-detail') }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // MAIN LIST VIEW
+  // ─────────────────────────────────────────────────────────────────────────
+  return (
+    <div>
+      {confirmDel && <ConfirmModal title={ar?'حذف النموذج':'Delete form'} message={`${ar?'حذف':'Delete'} "${confirmDel.title}"?`} onConfirm={()=>deleteForm(confirmDel)} onCancel={()=>setConfirmDel(null)}/>}
+
+      <div className="page-header" style={{marginBottom:20}}>
+        <div>
+          <div className="page-title">{ar?'الطلبات':'Requests'}</div>
+          <div className="page-sub">{ar?'نماذج الطلبات الرسمية':'Official request forms'}</div>
+        </div>
+        <div style={{display:'flex',gap:8}}>
+          {!isAdmin && (
+            <button className="action-btn action-btn-edit" onClick={()=>{setView('my-submissions');fetchMySubs()}}>
+              <i className="ti ti-history"/> {ar?'طلباتي':'My Requests'}
+            </button>
+          )}
+          {isAdmin && (
+            <button className="btn btn-red" onClick={openCreateForm}>
+              <i className="ti ti-plus"/> {ar?'نموذج جديد':'New Form'}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {loading
+        ? <div className="empty"><i className="ti ti-loader ti-spin"/> {ar?'جارٍ التحميل…':'Loading…'}</div>
+        : visibleForms.length===0
+          ? <div className="empty">{ar?'لا توجد نماذج متاحة':'No request forms available'}</div>
+          : <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))',gap:16}}>
+              {visibleForms.map(f=>{
+                const clr = f.color||'#0085C7'
+                const cnt = subCounts[f.id]
+                return (
+                  <div key={f.id}
+                    style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:14,overflow:'hidden',cursor:'pointer',transition:'all .15s',boxShadow:'var(--shadow)',opacity:f.is_active?1:.7}}
+                    onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-2px)';e.currentTarget.style.boxShadow='0 6px 20px rgba(0,0,0,.09)'}}
+                    onMouseLeave={e=>{e.currentTarget.style.transform='';e.currentTarget.style.boxShadow='var(--shadow)'}}
+                    onClick={()=>isAdmin?openFormDetail(f):openForm(f)}>
+                    {/* Color accent bar */}
+                    <div style={{height:4,background:`linear-gradient(90deg,${clr},${clr}99)`}}/>
+                    <div style={{padding:18}}>
+                      <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:12}}>
+                        <div style={{width:42,height:42,borderRadius:11,background:clr+'15',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                          <i className={`ti ${f.icon||'ti-clipboard-text'}`} style={{fontSize:20,color:clr}}/>
+                        </div>
+                        <div style={{display:'flex',gap:6,alignItems:'center'}}>
+                          {isAdmin && cnt?.pending>0 && (
+                            <span style={{background:'#EE334E',color:'white',fontSize:10,fontWeight:700,padding:'3px 8px',borderRadius:20}}>
+                              {cnt.pending} {ar?'جديد':'new'}
+                            </span>
+                          )}
+
+                        </div>
+                      </div>
+                      <div style={{fontWeight:700,fontSize:15,color:'var(--text)',marginBottom:4}}>{ar?(f.title_ar||f.title):f.title}</div>
+                      {(ar?(f.description_ar||f.description):f.description) && (
+                        <div style={{fontSize:12,color:'var(--text2)',marginBottom:12,lineHeight:1.6}}>
+                          {ar?(f.description_ar||f.description):f.description}
+                        </div>
+                      )}
+                      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:8}}>
+                        <div style={{display:'flex',gap:12,fontSize:11,color:'var(--text3)'}}>
+                          <span><i className="ti ti-forms" style={{fontSize:12}}/> {(f.request_form_fields||[]).length} {ar?'حقل':'fields'}</span>
+                          {isAdmin && cnt?.total>0 && <span><i className="ti ti-send" style={{fontSize:12}}/> {cnt.total}</span>}
+                        </div>
+                        <span style={{fontSize:10,fontWeight:600,padding:'2px 9px',borderRadius:20,background:f.is_active?'rgba(0,159,107,.1)':'rgba(180,180,180,.12)',color:f.is_active?'#009F6B':'#999'}}>
+                          {f.is_active?(ar?'نشط':'Active'):(ar?'معطّل':'Inactive')}
+                        </span>
+                      </div>
+                      {!isAdmin && (
+                        <button className="btn btn-blue" style={{width:'100%',marginTop:14,justifyContent:'center'}}
+                          onClick={e=>{e.stopPropagation();openForm(f)}}>
+                          <i className="ti ti-send"/> {ar?'تقديم طلب':'Submit Request'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+      }
+
+      {formModalJsx}
     </div>
   )
 
