@@ -93,7 +93,43 @@ export default function Resources({ profile, onRefresh }) {
       (r.description||'').toLowerCase().includes(q) ||
       (r.description_ar||'').toLowerCase().includes(q)
     )
+  }).sort((a, b) => {
+    // Pinned resources always first; within each group, preserve the
+    // existing created_at ordering already applied by the query, and among
+    // pinned items keep a consistent order via pinned_at.
+    if (!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1
+    if (a.pinned && b.pinned) return new Date(a.pinned_at || 0) - new Date(b.pinned_at || 0)
+    return 0
   })
+
+  // Category counts respect the same permission-filtered `resources` array
+  // (RLS already restricts it to what this user may see) and search text,
+  // but ignore the active category filter itself so every tab shows its
+  // own total.
+  const categoryCounts = ALL_CATS.reduce((acc, cat) => {
+    acc[cat] = resources.filter(r => {
+      if (cat !== 'All' && (r.category || 'General') !== cat) return false
+      if (!search) return true
+      const q = search.toLowerCase()
+      return (
+        r.title.toLowerCase().includes(q) ||
+        (r.title_ar||'').toLowerCase().includes(q) ||
+        (r.description||'').toLowerCase().includes(q) ||
+        (r.description_ar||'').toLowerCase().includes(q)
+      )
+    }).length
+    return acc
+  }, {})
+
+  async function togglePin(r) {
+    const nextPinned = !r.pinned
+    const { error } = await supabase.from('resources').update({
+      pinned: nextPinned,
+      pinned_at: nextPinned ? new Date().toISOString() : null,
+    }).eq('id', r.id)
+    if (error) { toast(error.message, 'error'); return }
+    setResources(prev => prev.map(x => x.id === r.id ? { ...x, pinned: nextPinned, pinned_at: nextPinned ? new Date().toISOString() : null } : x))
+  }
 
   function resetForm() {
     setForm({ resourceType: 'file', title: '', titleAr: '', description: '', descriptionAr: '', linkUrl: '', isPrivate: false, visibleTo: ['admin','coach','athlete','employee'], category: 'General' })
@@ -137,6 +173,15 @@ export default function Resources({ profile, onRefresh }) {
       return
     }
     setPendingFile(file)
+    // Auto-fill the title from the filename, only if the admin hasn't
+    // already typed one in — never overwrite an existing title.
+    setForm(f => {
+      if (f.title.trim()) return f
+      const base = file.name.replace(/\.[^./\\]+$/, '')
+      const cleaned = base.replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim()
+        .replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1))
+      return cleaned ? { ...f, title: cleaned } : f
+    })
   }
 
   function normalizeUrl(url) {
@@ -593,7 +638,7 @@ export default function Resources({ profile, onRefresh }) {
               background: activeCat===cat ? '#0085C7' : 'transparent',
               color: activeCat===cat ? 'white' : 'var(--text2)'
             }}>
-            {ar ? CATS_AR[cat] : cat}
+            {ar ? CATS_AR[cat] : cat} ({categoryCounts[cat] || 0})
           </button>
         ))}
       </div>
@@ -635,6 +680,9 @@ export default function Resources({ profile, onRefresh }) {
                 </div>
                 <div style={{ flex:1, minWidth:0 }}>
                   <div style={{ fontSize:14, fontWeight:600, display:'flex', alignItems:'center', gap:6 }}>
+                    {r.pinned && (
+                      <i className="ti ti-pin-filled" style={{ fontSize:12, color:'#d97706' }} title={ar ? 'مثبت' : 'Pinned'} />
+                    )}
                     {ar && r.title_ar ? r.title_ar : r.title}
                     {r.is_private && (
                       <i className="ti ti-lock" style={{ fontSize:11, color:'var(--text3)' }} title={ar ? 'فقط أنا' : 'Only me'} />
@@ -653,6 +701,27 @@ export default function Resources({ profile, onRefresh }) {
                       </>
                     )}
                   </div>
+                  <div style={{ marginTop:6, display:'flex', gap:5, flexWrap:'wrap' }}>
+                    {(() => {
+                      const ROLE_LABEL = {
+                        admin:    ar ? 'المسؤولون' : 'Admins',
+                        coach:    ar ? 'المدربون' : 'Coaches',
+                        athlete:  ar ? 'الرياضيون' : 'Athletes',
+                        employee: ar ? 'الموظفون' : 'Employees',
+                      }
+                      const ALL_ROLES = ['admin','coach','athlete','employee']
+                      if (r.is_private) {
+                        return <span className="badge badge-gray" style={{ fontSize:10 }}>{ar ? 'فقط أنا' : 'Only Me'}</span>
+                      }
+                      const roles = r.visible_to || []
+                      if (ALL_ROLES.every(role => roles.includes(role))) {
+                        return <span className="badge badge-green" style={{ fontSize:10 }}>{ar ? 'الجميع' : 'Everyone'}</span>
+                      }
+                      return roles.map(role => (
+                        <span key={role} className="badge badge-blue" style={{ fontSize:10 }}>{ROLE_LABEL[role] || role}</span>
+                      ))
+                    })()}
+                  </div>
                 </div>
                 <div style={{ display:'flex', gap:6, flexShrink:0 }}>
                   <button
@@ -661,6 +730,13 @@ export default function Resources({ profile, onRefresh }) {
                     title={isLink ? (ar ? 'فتح' : 'Open') : (ar ? 'تحميل' : 'Download')}>
                     <i className={`ti ${isLink ? 'ti-external-link' : 'ti-download'}`} />
                   </button>
+                  {isAdmin && (
+                    <button onClick={() => togglePin(r)}
+                      style={{ display:'flex', alignItems:'center', justifyContent:'center', width:28, height:28, borderRadius:7, background: r.pinned ? '#fef3e2' : 'var(--surface)', border: `1px solid ${r.pinned ? '#d97706' : 'var(--border)'}`, color: r.pinned ? '#d97706' : 'var(--text2)', cursor:'pointer' }}
+                      title={r.pinned ? (ar ? 'إلغاء التثبيت' : 'Unpin') : (ar ? 'تثبيت' : 'Pin')}>
+                      <i className={`ti ${r.pinned ? 'ti-pin-filled' : 'ti-pin'}`} style={{ fontSize:14 }} />
+                    </button>
+                  )}
                   {isAdmin && (
                     <button onClick={() => openEdit(r)}
                       style={{ display:'flex', alignItems:'center', justifyContent:'center', width:28, height:28, borderRadius:7, background:'var(--surface)', border:'1px solid var(--border)', color:'var(--text2)', cursor:'pointer' }}
