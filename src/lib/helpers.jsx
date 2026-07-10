@@ -452,6 +452,12 @@ export function statusDot(status) {
   }[status] || '#9aa3b2'
 }
 
+// Designations that make an employee record also count as a coach for
+// status purposes — kept here as the shared definition so Employees.jsx and
+// Dashboard.jsx (and anything else that needs it later) can't drift out of
+// sync with each other about who counts as "coach-type".
+export const COACH_DESIGNATIONS = ['Coach', 'Assistant Coach', 'Technical Expert', 'Physiotherapist', 'Doctor']
+
 // Returns the effective status for today, respecting status_start dates.
 // If status_start is in the future, the person is still 'Active' until that date.
 export function effectiveStatus(person) {
