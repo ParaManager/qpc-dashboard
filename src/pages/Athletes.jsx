@@ -42,7 +42,7 @@ function athleteDocStatus(athleteId, documents) {
   return { key: 'missing', missing: missingTypes.length, missingTypes }
 }
 
-// ── Bulk Import Documents (admin only) ──────────────────────────────────
+// ── Import Documents (admin only) ──────────────────────────────────
 // Filenames are used ONLY to extract the QID (the part before the first
 // underscore) to match an athlete via athletes.id_number. The document type
 // is always whatever the admin explicitly selected — never inferred from
@@ -186,7 +186,7 @@ function BulkImportDocsModal({ athletes, documents, lang, onClose, onDone }) {
     <div className="modal-overlay" onClick={() => !importing && onClose()}>
       <div className="modal-box" style={{ width: 720 }} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <div className="modal-title">{L('Bulk Import Documents', 'استيراد وثائق بالجملة')}</div>
+          <div className="modal-title">{L('Import Documents', 'استيراد وثائق')}</div>
           <button className="modal-close" onClick={() => !importing && onClose()}><i className="ti ti-x" /></button>
         </div>
 
@@ -383,7 +383,7 @@ const DOC_TYPES_AR = {
   'SDMS License':'رخصة SDMS', 'Other':'أخرى',
 }
 
-// ── Bulk Export Documents (admin only) ──────────────────────────────────
+// ── Export Documents (admin only) ──────────────────────────────────
 function sanitizeFilename(name) {
   return name.replace(/[\\/:*?"<>|]/g, '_').replace(/\s+/g, ' ').trim() || 'file'
 }
@@ -464,7 +464,7 @@ function BulkExportDocsModal({ athletes, documents, lang, onClose }) {
     <div className="modal-overlay" onClick={() => !exporting && onClose()}>
       <div className="modal-box" style={{ width: 680 }} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <div className="modal-title">{L('Bulk Export Documents', 'تصدير وثائق بالجملة')}</div>
+          <div className="modal-title">{L('Export Documents', 'تصدير وثائق')}</div>
           <button className="modal-close" onClick={() => !exporting && onClose()}><i className="ti ti-x" /></button>
         </div>
 
@@ -853,6 +853,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
   const [bulkOpen, setBulkOpen] = useState(false)
   const [selectedIds, setSelectedIds] = useState(new Set())
   const [bulkExportOpen, setBulkExportOpen] = useState(false)
+  const [exportSelectMode, setExportSelectMode] = useState(false)
   const [docType, setDocType]       = useState('Original Passport')
   const [docDropOpen, setDocDropOpen] = useState(false)
   const [docConfirm, setDocConfirm] = useState(null)
@@ -1934,7 +1935,7 @@ ${myDocs.length > 0 ? `<div class="section">
           athletes={athletes.filter(a => selectedIds.has(a.id))}
           documents={documents || []}
           lang={lang}
-          onClose={() => setBulkExportOpen(false)}
+          onClose={() => { setBulkExportOpen(false); setExportSelectMode(false); setSelectedIds(new Set()) }}
         />
       )}
 
@@ -2017,15 +2018,28 @@ ${myDocs.length > 0 ? `<div class="section">
           )}
           {canEdit(profile) && !editMode && (
             <button className="action-btn action-btn-edit" style={{ padding:'8px 14px', fontSize:13 }} onClick={() => setBulkOpen(true)}>
-              <i className="ti ti-file-upload" /> {lang==='ar' ? 'استيراد وثائق بالجملة' : 'Bulk Import Documents'}
+              <i className="ti ti-file-upload" /> {lang==='ar' ? 'استيراد وثائق' : 'Import Documents'}
             </button>
           )}
-          {canEdit(profile) && !editMode && (
-            <button className="action-btn action-btn-edit" style={{ padding:'8px 14px', fontSize:13, opacity: selectedIds.size === 0 ? .5 : 1, cursor: selectedIds.size === 0 ? 'not-allowed' : 'pointer' }}
-              disabled={selectedIds.size === 0}
-              onClick={() => setBulkExportOpen(true)}>
-              <i className="ti ti-file-zip" /> {lang==='ar' ? `تصدير وثائق بالجملة (${selectedIds.size})` : `Bulk Export Documents (${selectedIds.size})`}
+          {canEdit(profile) && !editMode && !exportSelectMode && (
+            <button className="action-btn action-btn-edit" style={{ padding:'8px 14px', fontSize:13 }}
+              onClick={() => { setExportSelectMode(true); setSelectedIds(new Set()) }}>
+              <i className="ti ti-file-zip" /> {lang==='ar' ? 'تصدير وثائق' : 'Export Documents'}
             </button>
+          )}
+          {canEdit(profile) && !editMode && exportSelectMode && (
+            <>
+              <button className="action-btn action-btn-edit"
+                style={{ padding:'8px 14px', fontSize:13, opacity: selectedIds.size === 0 ? .5 : 1, cursor: selectedIds.size === 0 ? 'not-allowed' : 'pointer' }}
+                disabled={selectedIds.size === 0}
+                onClick={() => setBulkExportOpen(true)}>
+                <i className="ti ti-file-zip" /> {lang==='ar' ? `تصدير وثائق (${selectedIds.size})` : `Export Documents (${selectedIds.size})`}
+              </button>
+              <button className="action-btn" style={{ padding:'8px 14px', fontSize:13 }}
+                onClick={() => { setExportSelectMode(false); setSelectedIds(new Set()) }}>
+                <i className="ti ti-x" /> {lang==='ar' ? 'إلغاء' : 'Cancel'}
+              </button>
+            </>
           )}
           {canEdit(profile) && !editMode && (
             <button className="btn btn-blue" onClick={() => setForm('new')}><i className="ti ti-plus" /> {tx('athletes.addAthlete','Add athlete')}</button>
@@ -2055,7 +2069,7 @@ ${myDocs.length > 0 ? `<div class="section">
         <table>
           <thead>
             <tr>
-              {canEdit(profile) && !editMode && (
+              {canEdit(profile) && !editMode && exportSelectMode && (
                 <th style={{ width:32 }}>
                   <input type="checkbox"
                     checked={list.length > 0 && list.every(a => selectedIds.has(a.id))}
@@ -2095,7 +2109,7 @@ ${myDocs.length > 0 ? `<div class="section">
             {/* INLINE FILTER ROW */}
             {!editMode && (
               <tr style={{ background:'#f8f9fb' }}>
-                {canEdit(profile) && !editMode && <th />}
+                {canEdit(profile) && !editMode && exportSelectMode && <th />}
                 {ALL_COLS.filter(col => isVisible(col.key)).map(col => {
                   const activeCategory = colFilters.sport_category && colFilters.sport_category !== 'All' ? colFilters.sport_category : null
                   const sportsForFilter = activeCategory
@@ -2171,7 +2185,7 @@ ${myDocs.length > 0 ? `<div class="section">
               return (
                 <tr key={a.id} onClick={() => !editMode && setSelected(a.id)}
                   style={{ cursor:editMode?'default':'pointer', background:isChanged?'#f0f7ff':'' }}>
-                  {canEdit(profile) && !editMode && (
+                  {canEdit(profile) && !editMode && exportSelectMode && (
                     <td onClick={e => e.stopPropagation()}>
                       <input type="checkbox" checked={selectedIds.has(a.id)}
                         onChange={e => {
