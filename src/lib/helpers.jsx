@@ -519,20 +519,30 @@ export function computeAwayPeople(athletes, coaches, employees, lang) {
   // fields on the employees table). This only changes which record's data
   // is displayed for someone already correctly determined to be away — the
   // away/not-away determination itself is unchanged.
-  const awayEmployees = (employees || [])
+  const awayEmployeeResults = (employees || [])
     .map(e => {
       const src = employeeStatusSource(e)
       if (src !== e) matchedCoachIds.add(src.id)
-      return { emp: e, src }
+      return { emp: e, src, isCoachType: src !== e }
     })
     .filter(({ src }) => AWAY_STATUSES.includes(effectiveStatus(src)))
-    .map(({ emp, src }) => src === emp ? emp : { ...src, id: emp.id, name: emp.name, name_ar: emp.name_ar })
+    .map(({ emp, src, isCoachType }) => ({
+      person: isCoachType ? { ...src, name: src.name, name_ar: src.name_ar } : emp,
+      isCoachType,
+    }))
+
+  // A coach-type employee is classified and displayed as a Coach (not an
+  // Employee), since that is their true role — only genuinely regular
+  // employee records are counted/displayed as Employee.
+  const awayEmployees = awayEmployeeResults.filter(r => !r.isCoachType).map(r => r.person)
+  const awayEmployeesAsCoaches = awayEmployeeResults.filter(r => r.isCoachType).map(r => r.person)
 
   const awayCoaches = (coaches || []).filter(c => !matchedCoachIds.has(c.id) && AWAY_STATUSES.includes(effectiveStatus(c)))
 
   const allAway = [
     ...awayAthletes.map(a => ({ ...a, _type: ar ? 'رياضي' : 'Athlete' })),
     ...awayCoaches.map(c  => ({ ...c, _type: ar ? 'مدرب' : 'Coach', _isCoach: true })),
+    ...awayEmployeesAsCoaches.map(c => ({ ...c, _type: ar ? 'مدرب' : 'Coach', _isCoach: true })),
     ...awayEmployees.map(e => ({ ...e, _type: ar ? 'موظف' : 'Employee', _isEmployee: true })),
   ]
 
