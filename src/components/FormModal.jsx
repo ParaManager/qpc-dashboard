@@ -297,7 +297,7 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
             </Row>
             <Row>
               <Field label={T.coach} options={[{ value:'', label: T.unassigned }, ...(coaches||[]).map(c => ({ value: c.id, label: ar && c.name_ar ? c.name_ar : c.name }))]} {...f('coachId')} />
-              <Field label={T.status} options={statusOptsAthlete} {...f('status')} />
+              <Field label={T.status} options={statusOptsAthlete} {...f('status')} onChange={(name, v) => { set(name, v); if (!DATE_STATUSES.includes(v)) { set('statusStart', null); set('statusEnd', null) } }} />
               {DATE_STATUSES.includes(form.status) && (
                 <div className="form-group">
                   <label className="form-label">{ar ? 'تاريخ البداية' : 'Start date'}</label>
@@ -366,7 +366,7 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
             </Row>
             <Row>
               <Field label={T.since} type="date" {...f('since')} />
-              <Field label={T.status} options={statusOptsCoach} {...f('status')} />
+              <Field label={T.status} options={statusOptsCoach} {...f('status')} onChange={(name, v) => { set(name, v); if (!DATE_STATUSES.includes(v)) { set('statusStart', null); set('statusEnd', null) } }} />
               {DATE_STATUSES.includes(form.status) && (
                 <div className="form-group">
                   <label className="form-label">{ar ? 'تاريخ البداية' : 'Start date'}</label>
