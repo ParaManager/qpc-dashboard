@@ -40,15 +40,19 @@ export default function Dashboard({ athletes, coaches, employees, referees, even
   // effectiveStatus() (rule 6's single source of truth) directly instead of
   // a separately reimplemented check, so both the "not started yet" (rule 1)
   // and "already ended" (rule 3) cases are handled correctly and can't drift
-  // out of sync with how every other page decides who's away. ──
-  const awayAthletes = athletes.filter(a => effectiveStatus(a) !== 'Active')
-  const awayCoaches  = coaches.filter(c => effectiveStatus(c) !== 'Active')
+  // out of sync with how every other page decides who's away. Only these
+  // three statuses count as "away" — other non-Active statuses (Inactive,
+  // Injured, Under Medical Review, Suspended, Retired) are not temporary
+  // absences and must not be counted here. ──
+  const AWAY_STATUSES = ['On Leave', 'In Competition', 'In Training Camp']
+  const awayAthletes = athletes.filter(a => AWAY_STATUSES.includes(effectiveStatus(a)))
+  const awayCoaches  = coaches.filter(c => AWAY_STATUSES.includes(effectiveStatus(c)))
   // Plain (non coach-type) employees can now also carry temporary statuses.
   // Coach-type employees are excluded here since their real status already
   // comes from the coaches table and is already counted via awayCoaches —
   // including them again here would double-count the same person.
   const awayEmployees = (employees || []).filter(e =>
-    !COACH_DESIGNATIONS.includes(e.designation) && effectiveStatus(e) !== 'Active'
+    !COACH_DESIGNATIONS.includes(e.designation) && AWAY_STATUSES.includes(effectiveStatus(e))
   )
   const allAway = [
     ...awayAthletes.map(a => ({ ...a, _type: ar ? 'رياضي' : 'Athlete' })),
