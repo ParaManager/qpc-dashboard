@@ -28,6 +28,18 @@ const DOC_TYPES  = [
   'SDMS License',
   'Other',
 ]
+// Required document types for completeness checks — same list the athlete
+// Documents section itself tracks, minus the free-form 'Other' catch-all
+// which isn't a specific required document.
+const REQUIRED_DOC_TYPES = DOC_TYPES.filter(t => t !== 'Other')
+function athleteDocStatus(athleteId, documents) {
+  const myDocs = (documents || []).filter(d => d.athlete_id === athleteId)
+  if (myDocs.length === 0) return { key: 'none', missing: REQUIRED_DOC_TYPES.length }
+  const present = new Set(myDocs.map(d => d.type))
+  const missing = REQUIRED_DOC_TYPES.filter(t => !present.has(t)).length
+  if (missing === 0) return { key: 'complete', missing: 0 }
+  return { key: 'missing', missing }
+}
 const DOC_TYPES_AR = {
   'Photo':'صورة', 'Original Passport':'الجواز الأصلي', 'Mission Passport':'جواز المهمة',
   'Qatar ID':'الرقم الشخصي',
@@ -123,6 +135,7 @@ function exportExcel(athletes, coaches, documents, visibleCols, allCols, lang) {
     passport_expiry: a => a.passport_expiry || '',
     id_expiry:       a => a.id_expiry || '',
     medals:          a => ar ? `ذهب:${a.medals_gold||0} فضة:${a.medals_silver||0} برونز:${a.medals_bronze||0}` : `Gold:${a.medals_gold||0} Silver:${a.medals_silver||0} Bronze:${a.medals_bronze||0}`,
+    documents:       a => { const ds = athleteDocStatus(a.id, documents); return ds.key==='complete' ? (ar?'مكتمل':'Complete') : ds.key==='missing' ? (ar?`${ds.missing} ناقص`:`${ds.missing} Missing`) : (ar?'لا يوجد وثائق':'No Documents') },
   }
 
   const visibleDefs = allCols.filter(c => visibleCols.includes(c.key))
@@ -309,6 +322,14 @@ export default function Athletes({ athletes, coaches, employees, results, docume
   const [gender, setGender]         = useState('All genders')
   const [sort, setSort]             = useState('name-asc')
   const [selected, setSelected]     = useState(initAthleteId ?? null)
+  const [scrollToDocs, setScrollToDocs] = useState(false)
+  useEffect(() => {
+    if (selected && scrollToDocs) {
+      const el = document.getElementById('athlete-documents-section')
+      if (el) { el.scrollIntoView({ behavior:'smooth', block:'start' }) }
+      setScrollToDocs(false)
+    }
+  }, [selected, scrollToDocs])
   const [form, setForm]             = useState(null)
   const [confirm, setConfirm]       = useState(null)
   const [medalModal, setMedalModal] = useState(null)
@@ -418,7 +439,12 @@ export default function Athletes({ athletes, coaches, employees, results, docume
     (!colFilters.age_category || colFilters.age_category === 'All' || a.age_category === colFilters.age_category) &&
     (!colFilters.sport_age_category || colFilters.sport_age_category === 'All' || a.sport_age_category === colFilters.sport_age_category) &&
     (!colFilters.medical_status || colFilters.medical_status === 'All' || (colFilters.medical_status === 'None' ? !a.medical_status || a.medical_status === 'None' : a.medical_status === colFilters.medical_status)) &&
-    (!colFilters.coachName    || colFilters.coachName === 'All'    || coaches.find(c => c.id === a.coach_id)?.name === colFilters.coachName)
+    (!colFilters.coachName    || colFilters.coachName === 'All'    || coaches.find(c => c.id === a.coach_id)?.name === colFilters.coachName) &&
+    (!colFilters.documents    || colFilters.documents === 'All'    || (
+      colFilters.documents === 'Complete' ? athleteDocStatus(a.id, documents).key === 'complete' :
+      colFilters.documents === 'Missing'  ? athleteDocStatus(a.id, documents).key === 'missing'  :
+      colFilters.documents === 'None'     ? athleteDocStatus(a.id, documents).key === 'none'     : true
+    ))
   )
   list = [...list].sort((a, b) => {
     if (sort === 'name-asc')         return a.name.localeCompare(b.name)
@@ -1070,7 +1096,7 @@ ${myDocs.length > 0 ? `<div class="section">
             <CareerHistory personId={a.id} personType="athlete" personName={lang==='ar'&&a.name_ar?a.name_ar:a.name} />
 
             {/* DOCUMENTS */}
-            <div className="info-card">
+            <div className="info-card" id="athlete-documents-section">
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
                 <div className="info-title" style={{ margin:0 }}>{lang==='ar'?'الوثائق':'Documents'} <span style={{ marginLeft:8, fontSize:11, fontWeight:400, color:'var(--text3)', textTransform:'none', letterSpacing:0 }}>{myDocs.length} {lang==='ar'?'ملف':`file${myDocs.length!==1?'s':''}`}</span></div>
               </div>
@@ -1221,6 +1247,7 @@ ${myDocs.length > 0 ? `<div class="section">
     { key:'passport_expiry', label:tx('athletes.passportExpiry','Passport Expiry'), default:false, editable:false },
     { key:'id_expiry',       label:tx('athletes.idExpiry','ID Expiry'),       default:false, editable:false },
     { key:'medals',          label:tx('athletes.medals','Medals'),            default:true,  editable:false },
+    { key:'documents',       label:tx('athletes.documents','Documents'),       default:true,  editable:false },
   ]
 
   function toggleCol(key) {
@@ -1283,6 +1310,21 @@ ${myDocs.length > 0 ? `<div class="section">
       case 'id_number':        return <span style={{ color:'var(--text2)', fontFamily:'monospace', fontSize:12 }}>{a.id_number || '—'}</span>
       case 'id_expiry':        return <span style={{ color: expired(a.id_expiry) ? '#dc2626' : 'var(--text2)' }}>{a.id_expiry || '—'}{expired(a.id_expiry) && <span style={{ marginLeft:4, fontSize:10, color:'#dc2626' }}>⚠</span>}</span>
       case 'medals':           return <MedalDisplay gold={a.medals_gold} silver={a.medals_silver} bronze={a.medals_bronze} />
+      case 'documents': {
+        const ds = athleteDocStatus(a.id, documents)
+        const cls = ds.key === 'complete' ? 'badge-green' : ds.key === 'missing' ? 'badge-amber' : 'badge-gray'
+        const text = ds.key === 'complete'
+          ? (lang==='ar' ? 'مكتمل' : 'Complete')
+          : ds.key === 'missing'
+            ? (lang==='ar' ? `${ds.missing} ناقص` : `${ds.missing} Missing`)
+            : (lang==='ar' ? 'لا يوجد وثائق' : 'No Documents')
+        return (
+          <span className={`badge ${cls}`} style={{ cursor:'pointer' }}
+            onClick={e => { e.stopPropagation(); setScrollToDocs(true); setSelected(a.id) }}>
+            {text}
+          </span>
+        )
+      }
       default: return '—'
     }
   }
@@ -1483,6 +1525,7 @@ ${myDocs.length > 0 ? `<div class="section">
                     age_category:         ['All', 'Under 5', '5 - 9', '10 - 14', '15 - 19', '20 - 24', '25 - 29', '30 - 34', '35 - 39', '40 - 44', '45 - 49', '50 - 54', '55 - 59', '60 - 64', '65+'],
                     sport_age_category:   ['All', 'براعم (8-10)', 'أشبال (11-13)', 'شبلات (11-13)', 'ناشئين (14-17)', 'ناشئات (14-17)', 'شباب (17-20)', 'شابات (17-20)', 'رجال (20+)', 'سيدات (20+)'],
                     medical_status: ['All', 'None', 'Screening', 'Medical Certificate'],
+                    documents: ['All', 'Complete', 'Missing', 'None'],
                   }
                   const opts = filterOpts[col.key]
                   if (!opts) return <th key={col.key} />
@@ -1521,6 +1564,7 @@ ${myDocs.length > 0 ? `<div class="section">
                             sport_category: { 'All':allLabel, ...Object.fromEntries(SPORT_CATEGORIES.map(c => [c, lang==='ar' ? (SPORT_CATEGORY_NAMES_AR[c]||c) : c])) },
                             age_category:       { 'All':allLabel },
                             sport_age_category: { 'All':allLabel },
+                            documents: { 'All':allLabel, 'Complete': lang==='ar'?'مكتمل':'Complete', 'Missing': lang==='ar'?'ناقص':'Missing Documents', 'None': lang==='ar'?'لا يوجد وثائق':'No Documents' },
                           }
                           return <option key={o} value={o}>{LABELS[col.key]?.[o] || o}</option>
                         })}
