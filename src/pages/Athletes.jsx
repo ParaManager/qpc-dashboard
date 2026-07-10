@@ -63,6 +63,9 @@ function BulkImportDocsModal({ athletes, documents, lang, onClose, onDone }) {
   const [progress, setProgress] = useState({ done: 0, total: 0 })
   const [summary, setSummary] = useState(null)
   const fileInputRef = useRef(null)
+  // Per-duplicate chosen action, keyed by a stable index into the
+  // duplicates list (rebuilt each render from `preview`, see below).
+  const [dupeActions, setDupeActions] = useState({})
 
   function addFiles(fileList) {
     const arr = Array.from(fileList || [])
@@ -70,9 +73,14 @@ function BulkImportDocsModal({ athletes, documents, lang, onClose, onDone }) {
   }
 
   // Build the preview classification: matched / unmatched / ambiguous /
-  // duplicate, based on the currently selected document type.
+  // duplicate, based on the currently selected document type. Files
+  // identical in name+size to an earlier file already placed in this same
+  // batch (matched or duplicate) are treated as extra copies: only the
+  // first usable occurrence is kept, the rest are pushed to duplicates so
+  // they're never silently imported twice from one batch.
   const preview = (() => {
     const matched = [], unmatched = [], ambiguous = [], duplicates = []
+    const seenInBatch = new Set() // key: athleteId|name|size
     for (const file of files) {
       const qid = extractQidFromFilename(file.name)
       if (!qid) { unmatched.push({ file, qid }); continue }
@@ -80,23 +88,37 @@ function BulkImportDocsModal({ athletes, documents, lang, onClose, onDone }) {
       if (matches.length === 0) { unmatched.push({ file, qid }); continue }
       if (matches.length > 1) { ambiguous.push({ file, qid, matches }); continue }
       const athlete = matches[0]
-      const isDupe = documents.some(d =>
+      const batchKey = `${athlete.id}|${file.name}|${file.size}`
+      const existingDoc = documents.find(d =>
         d.athlete_id === athlete.id &&
         d.type === docType &&
         d.name === file.name &&
         d.file_size === file.size
       )
-      if (isDupe) { duplicates.push({ file, qid, athlete }); continue }
+      if (existingDoc) { duplicates.push({ file, qid, athlete, existingDoc }); continue }
+      if (seenInBatch.has(batchKey)) { duplicates.push({ file, qid, athlete, existingDoc: null }); continue }
+      seenInBatch.add(batchKey)
       matched.push({ file, qid, athlete })
     }
     return { matched, unmatched, ambiguous, duplicates }
   })()
 
+  function dupeAction(i) { return dupeActions[i] || 'skip' }
+  function setAllDupeActions(action) {
+    const next = {}
+    preview.duplicates.forEach((_, i) => { next[i] = action })
+    setDupeActions(next)
+  }
+
   async function handleImport() {
-    if (preview.matched.length === 0) return
+    const toReplace = preview.duplicates
+      .map((d, i) => ({ d, i }))
+      .filter(({ d, i }) => dupeAction(i) === 'replace' && d.existingDoc)
+    if (preview.matched.length === 0 && toReplace.length === 0) return
     setImporting(true)
-    setProgress({ done: 0, total: preview.matched.length })
-    let imported = 0, failed = 0
+    setProgress({ done: 0, total: preview.matched.length + toReplace.length })
+    let imported = 0, replaced = 0, failed = 0
+
     for (const item of preview.matched) {
       try {
         const ext = item.file.name.split('.').pop()
@@ -115,10 +137,44 @@ function BulkImportDocsModal({ athletes, documents, lang, onClose, onDone }) {
       }
       setProgress(p => ({ ...p, done: p.done + 1 }))
     }
+
+    // Replacements: upload new file first, then update the existing record,
+    // and only delete the old storage file once both steps above succeeded.
+    // Never delete the old file first, and clean up the newly uploaded file
+    // if the database update fails, so nothing is ever orphaned and the old
+    // document stays fully intact on any failure.
+    for (const { d } of toReplace) {
+      let newPath = null
+      try {
+        const ext = d.file.name.split('.').pop()
+        newPath = `${d.athlete.id}/${Date.now()}_${Math.random().toString(36).slice(2,8)}.${ext}`
+        const { error: upErr } = await supabase.storage.from('athlete-documents').upload(newPath, d.file)
+        if (upErr) throw upErr
+        const { data } = supabase.storage.from('athlete-documents').getPublicUrl(newPath)
+        const { error: updErr } = await supabase.from('athlete_documents').update({
+          name: d.file.name, file_url: data.publicUrl, file_path: newPath,
+          file_size: d.file.size, uploaded_at: new Date().toISOString(),
+        }).eq('id', d.existingDoc.id)
+        if (updErr) {
+          await supabase.storage.from('athlete-documents').remove([newPath])
+          throw updErr
+        }
+        // DB update succeeded — now safe to remove the old file.
+        if (d.existingDoc.file_path) {
+          await supabase.storage.from('athlete-documents').remove([d.existingDoc.file_path])
+        }
+        replaced++
+      } catch {
+        failed++
+      }
+      setProgress(p => ({ ...p, done: p.done + 1 }))
+    }
+
     setImporting(false)
+    const skippedDuplicates = preview.duplicates.filter((_, i) => dupeAction(i) !== 'replace').length
     setSummary({
-      imported, failed,
-      skippedDuplicates: preview.duplicates.length,
+      imported, replaced, failed,
+      skippedDuplicates,
       unmatched: preview.unmatched.length,
       ambiguous: preview.ambiguous.length,
     })
@@ -139,6 +195,7 @@ function BulkImportDocsModal({ athletes, documents, lang, onClose, onDone }) {
               <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 12 }}>{L('Import complete', 'اكتمل الاستيراد')}</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
                 <div className="badge badge-green" style={{ padding: '10px 14px', fontSize: 13, justifyContent: 'flex-start' }}>{L('Imported', 'تم الاستيراد')}: {summary.imported}</div>
+                <div className="badge badge-blue" style={{ padding: '10px 14px', fontSize: 13, justifyContent: 'flex-start' }}>{L('Replaced', 'تم الاستبدال')}: {summary.replaced}</div>
                 <div className="badge badge-gray" style={{ padding: '10px 14px', fontSize: 13, justifyContent: 'flex-start' }}>{L('Skipped duplicates', 'تم تخطي المكرر')}: {summary.skippedDuplicates}</div>
                 <div className="badge badge-amber" style={{ padding: '10px 14px', fontSize: 13, justifyContent: 'flex-start' }}>{L('Unmatched', 'غير مطابق')}: {summary.unmatched}</div>
                 <div className="badge badge-amber" style={{ padding: '10px 14px', fontSize: 13, justifyContent: 'flex-start' }}>{L('Ambiguous', 'غير مؤكد')}: {summary.ambiguous}</div>
@@ -230,13 +287,60 @@ function BulkImportDocsModal({ athletes, documents, lang, onClose, onDone }) {
                   )}
                   {preview.duplicates.length > 0 && (
                     <div>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 6 }}>{L('Duplicates (will be skipped)', 'مكرر (سيتم تخطيه)')} ({preview.duplicates.length})</div>
-                      {preview.duplicates.map((m, i) => (
-                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, padding: '8px 10px', background: 'var(--surface2)', borderRadius: 8, marginBottom: 4, fontSize: 12 }}>
-                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{m.file.name}</span>
-                          <span style={{ color: 'var(--text2)' }}>{ar && m.athlete.name_ar ? m.athlete.name_ar : m.athlete.name}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.04em' }}>{L('Duplicates', 'مكرر')} ({preview.duplicates.length})</div>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button type="button" onClick={() => setAllDupeActions('skip')} disabled={importing}
+                            style={{ fontSize: 11, padding: '4px 10px', borderRadius: 20, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text2)', cursor: 'pointer' }}>
+                            {L('Skip All Duplicates', 'تخطي كل المكررات')}
+                          </button>
+                          <button type="button" onClick={() => setAllDupeActions('replace')} disabled={importing}
+                            style={{ fontSize: 11, padding: '4px 10px', borderRadius: 20, border: '1px solid #0085C7', background: 'rgba(0,133,199,.08)', color: '#0085C7', cursor: 'pointer' }}>
+                            {L('Replace All Duplicates', 'استبدال كل المكررات')}
+                          </button>
                         </div>
-                      ))}
+                      </div>
+                      {preview.duplicates.map((m, i) => {
+                        const action = dupeAction(i)
+                        const canReplace = !!m.existingDoc
+                        return (
+                          <div key={i} style={{ padding: '10px 10px', background: 'var(--surface2)', borderRadius: 8, marginBottom: 6, fontSize: 12 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 4 }}>
+                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, fontWeight: 500 }}>{m.file.name}</span>
+                              <span style={{ color: 'var(--text2)' }}>{ar && m.athlete?.name_ar ? m.athlete.name_ar : m.athlete?.name}</span>
+                              <span style={{ color: 'var(--text3)', fontFamily: 'monospace' }}>{m.qid}</span>
+                              <span className="badge badge-blue" style={{ fontSize: 10 }}>{ar ? (DOC_TYPES_AR[docType] || docType) : docType}</span>
+                            </div>
+                            {m.existingDoc && (
+                              <div style={{ color: 'var(--text3)', marginBottom: 6 }}>
+                                {L('Existing', 'الحالي')}: {m.existingDoc.name} — {m.existingDoc.uploaded_at ? new Date(m.existingDoc.uploaded_at).toLocaleDateString() : '—'}
+                              </div>
+                            )}
+                            {!canReplace && (
+                              <div style={{ color: 'var(--text3)', marginBottom: 6 }}>
+                                {L('Duplicate within this batch — only the first occurrence can be imported.', 'مكرر ضمن هذه الدفعة — يمكن استيراد النسخة الأولى فقط.')}
+                              </div>
+                            )}
+                            <div style={{ display: 'flex', gap: 6 }}>
+                              <button type="button" disabled={importing} onClick={() => setDupeActions(prev => ({ ...prev, [i]: 'skip' }))}
+                                style={{ fontSize: 11, padding: '4px 10px', borderRadius: 20, cursor: 'pointer',
+                                  border: `1px solid ${action === 'skip' ? 'var(--text3)' : 'var(--border)'}`,
+                                  background: action === 'skip' ? 'var(--surface)' : 'transparent',
+                                  color: action === 'skip' ? 'var(--text)' : 'var(--text3)', fontWeight: action === 'skip' ? 600 : 400 }}>
+                                {L('Skip', 'تخطي')}
+                              </button>
+                              <button type="button" disabled={importing || !canReplace} onClick={() => canReplace && setDupeActions(prev => ({ ...prev, [i]: 'replace' }))}
+                                style={{ fontSize: 11, padding: '4px 10px', borderRadius: 20, cursor: canReplace ? 'pointer' : 'not-allowed',
+                                  border: `1px solid ${action === 'replace' ? '#0085C7' : 'var(--border)'}`,
+                                  background: action === 'replace' ? 'rgba(0,133,199,.1)' : 'transparent',
+                                  color: action === 'replace' ? '#0085C7' : 'var(--text3)', fontWeight: action === 'replace' ? 600 : 400,
+                                  opacity: canReplace ? 1 : .5 }}>
+                                {L('Replace', 'استبدال')}
+                              </button>
+                            </div>
+                          </div>
+                        )
+                      })}
                     </div>
                   )}
                 </div>
@@ -251,9 +355,15 @@ function BulkImportDocsModal({ athletes, documents, lang, onClose, onDone }) {
           ) : (
             <>
               <button className="btn-cancel" onClick={onClose} disabled={importing}>{L('Cancel', 'إلغاء')}</button>
-              <button className="btn btn-blue" disabled={importing || preview.matched.length === 0} onClick={handleImport}>
-                {importing ? L('Importing…', 'جارٍ الاستيراد...') : `${L('Import', 'استيراد')} (${preview.matched.length})`}
-              </button>
+              {(() => {
+                const replaceCount = preview.duplicates.filter((_, i) => dupeAction(i) === 'replace' && preview.duplicates[i].existingDoc).length
+                const totalActionable = preview.matched.length + replaceCount
+                return (
+                  <button className="btn btn-blue" disabled={importing || totalActionable === 0} onClick={handleImport}>
+                    {importing ? L('Importing…', 'جارٍ الاستيراد...') : `${L('Import', 'استيراد')} (${totalActionable})`}
+                  </button>
+                )
+              })()}
             </>
           )}
         </div>
