@@ -693,11 +693,55 @@ function exportEmployeesExcel(list, lang, coaches) {
   XLSX.writeFile(wb, `QPC_${ar?'الموظفون':'Employees'}_${new Date().toISOString().slice(0,10)}.xlsx`)
 }
 
-function EmpModal({ data, isEdit, onClose, onSave }) {
+function EmpModal({ data, isEdit, onClose, onSave, customDesignations = [], onDesignationAdded }) {
   const [form, setForm] = useState(data || { status:'Active' })
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
   const { lang } = useLang()
   const ar = lang === 'ar'
+  const [showNewDesig, setShowNewDesig] = useState(false)
+  const [newDesigEn, setNewDesigEn] = useState('')
+  const [newDesigAr, setNewDesigAr] = useState('')
+  const [newDesigErr, setNewDesigErr] = useState('')
+  const [savingDesig, setSavingDesig] = useState(false)
+
+  // Merge the fixed built-in designations with any custom ones already saved
+  // in Supabase, de-duplicated case-insensitively so a custom entry that
+  // happens to match a built-in one doesn't show twice.
+  const allDesignations = (() => {
+    const base = DESIGNATIONS.slice(1).map(d => ({ label: d, label_ar: DESIG_AR[d] || '' }))
+    const seen = new Set(base.map(d => d.label.trim().toLowerCase()))
+    const extra = customDesignations.filter(d => {
+      const key = (d.label||'').trim().toLowerCase()
+      if (!key || seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+    return [...base, ...extra].sort((a, b) => a.label.localeCompare(b.label))
+  })()
+
+  async function handleAddDesignation() {
+    const label = newDesigEn.trim()
+    const labelAr = newDesigAr.trim()
+    if (!label) { setNewDesigErr(ar ? 'الرجاء إدخال المسمى الوظيفي' : 'Please enter a designation'); return }
+    const dupe = allDesignations.some(d => d.label.trim().toLowerCase() === label.toLowerCase())
+    if (dupe) { setNewDesigErr(ar ? 'هذا المسمى موجود بالفعل' : 'This designation already exists'); return }
+    setSavingDesig(true)
+    setNewDesigErr('')
+    const { data: inserted, error } = await supabase.from('employee_designations')
+      .insert({ label, label_ar: labelAr || null })
+      .select('label, label_ar')
+      .single()
+    setSavingDesig(false)
+    if (error) {
+      // Unique constraint race — another admin may have just added the same one.
+      setNewDesigErr(ar ? 'تعذر حفظ المسمى الوظيفي (قد يكون مكررًا)' : 'Could not save designation (it may already exist)')
+      return
+    }
+    onDesignationAdded?.(inserted)
+    set('designation', inserted.label)
+    setShowNewDesig(false)
+    setNewDesigEn(''); setNewDesigAr('')
+  }
   const inp = (name, type='text', placeholder='') => (
     <input className="form-input" type={type} placeholder={placeholder}
       value={form[name]||''} onChange={e => set(name, e.target.value)} />
@@ -750,7 +794,32 @@ function EmpModal({ data, isEdit, onClose, onSave }) {
           </div>
           <div className="form-section">{ar?'الدور والتوظيف':'Role & Employment'}</div>
           <div className="form-row">
-            {grp(ar?'المسمى الوظيفي (إنجليزي)':'Designation (English)', sel("designation", [{value:'',label:''},...DESIGNATIONS.slice(1).map(d => ({value:d, label: ar?(DESIG_AR[d]||d):d}))]))}
+            {grp(ar?'المسمى الوظيفي (إنجليزي)':'Designation (English)', (
+              <>
+                <select className="form-input" value={showNewDesig ? '__add_new__' : (form.designation||'')} onChange={e => {
+                  if (e.target.value === '__add_new__') { setShowNewDesig(true); return }
+                  setShowNewDesig(false)
+                  set('designation', e.target.value)
+                }}>
+                  <option value="">{''}</option>
+                  {allDesignations.map(d => <option key={d.label} value={d.label}>{ar ? (d.label_ar || d.label) : d.label}</option>)}
+                  <option value="__add_new__">{ar ? '+ إضافة مسمى وظيفي جديد' : '+ Add New Designation'}</option>
+                </select>
+                {showNewDesig && (
+                  <div style={{ marginTop: 8, padding: 10, border: '1px solid var(--border)', borderRadius: 10, background: 'var(--surface2)' }}>
+                    <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                      <input className="form-input" placeholder={ar?'المسمى الجديد (إنجليزي)':'New designation (English)'} value={newDesigEn} onChange={e => setNewDesigEn(e.target.value)} />
+                      <input className="form-input" placeholder={ar?'المسمى الجديد (عربي)':'New designation (Arabic)'} value={newDesigAr} onChange={e => setNewDesigAr(e.target.value)} dir="rtl" />
+                    </div>
+                    {newDesigErr && <div style={{ color: '#dc2626', fontSize: 12, marginBottom: 8 }}>{newDesigErr}</div>}
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button type="button" className="btn-cancel" onClick={() => { setShowNewDesig(false); setNewDesigEn(''); setNewDesigAr(''); setNewDesigErr('') }}>{ar?'إلغاء':'Cancel'}</button>
+                      <button type="button" className="btn" style={{ background:'#0085C7' }} disabled={savingDesig} onClick={handleAddDesignation}>{savingDesig ? (ar?'جارٍ الحفظ...':'Saving...') : (ar?'حفظ':'Save')}</button>
+                    </div>
+                  </div>
+                )}
+              </>
+            ))}
             {grp(ar?'المسمى الوظيفي (عربي)':'Designation (Arabic)', inp("designation_ar", "text", "e.g. مدرب"))}
           </div>
           <div className="form-row">
@@ -813,6 +882,13 @@ function employeeStatusSource(emp, coaches) {
 }
 
 export default function Employees({ employees, coaches, personDocs, onRefresh, onNav, initEmployeeId, navState, profile }) {
+  const [customDesignations, setCustomDesignations] = useState([])
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from('employee_designations').select('label, label_ar').order('label')
+      if (data) setCustomDesignations(data)
+    })()
+  }, [])
   const { tx, tc, lang } = useLang()
   const [search, setSearch]         = useState('')
   const [sort, setSort]             = useState('name-asc')
@@ -872,7 +948,7 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
   }
 
   const COL_FILTERS = {
-    designation: ['All', ...DESIGNATIONS.slice(1)],
+    designation: ['All', ...[...new Set([...DESIGNATIONS.slice(1), ...customDesignations.map(d => d.label)])]],
     nationality: ['All', ...['Afghanistan', 'Algeria', 'Argentina', 'Armenia', 'Australia', 'Austria', 'Azerbaijan', 'Bahrain', 'Bangladesh', 'Belarus', 'Belgium', 'Brazil', 'Cameroon', 'Canada', 'Chile', 'China', 'Colombia', 'Croatia', 'Czech Republic', 'Denmark', 'Egypt', 'Eritrea', 'Ethiopia', 'Finland', 'France', 'Georgia', 'Germany', 'Ghana', 'Greece', 'Guinea', 'Hungary', 'India', 'Indonesia', 'Iran', 'Iraq', 'Ireland', 'Italy', 'Japan', 'Jordan', 'Kazakhstan', 'Kenya', 'Kuwait', 'Kyrgyzstan', 'Lebanon', 'Libya', 'Malaysia', 'Mali', 'Mauritania', 'Mexico', 'Mongolia', 'Morocco', 'Myanmar', 'Nepal', 'Netherlands', 'New Zealand', 'Nigeria', 'Norway', 'Oman', 'Pakistan', 'Palestine', 'Peru', 'Philippines', 'Poland', 'Portugal', 'Qatar', 'Romania', 'Russia', 'Rwanda', 'Saudi Arabia', 'Scotland', 'Senegal', 'Serbia', 'Singapore', 'Slovakia', 'Somalia', 'South Africa', 'South Korea', 'Spain', 'Sri Lanka', 'Sudan', 'Sweden', 'Syria', 'Tajikistan', 'Tanzania', 'Thailand', 'Tunisia', 'Turkey', 'Turkmenistan', 'UAE', 'Uganda', 'UK', 'Ukraine', 'USA', 'Uzbekistan', 'Venezuela', 'Vietnam', 'Wales', 'Yemen', 'Zambia', 'Zimbabwe']],
     gender:      ['All','Male','Female'],
     status:      ['All','Active','On Leave','In Competition','In Training Camp','Inactive'],
@@ -998,7 +1074,7 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
     const color = DESIG_COLORS[emp.designation] || '#9aa3b2'
     return (
       <div>
-        {editForm && <EmpModal data={editForm} isEdit={true} onClose={() => setEditForm(null)} onSave={handleSave} />}
+        {editForm && <EmpModal data={editForm} isEdit={true} onClose={() => setEditForm(null)} onSave={handleSave} customDesignations={customDesignations} onDesignationAdded={d => setCustomDesignations(p => [...p, d])} />}
         {confirm && (
           <ConfirmModal title="Delete employee" message={`Delete ${emp.name}?`}
             onConfirm={() => handleDelete(emp.id, emp.name)} onCancel={() => setConfirm(null)} />
@@ -1104,7 +1180,7 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
   return (
     <div>
       {(addModal || editForm) && (
-        <EmpModal data={editForm||{}} isEdit={!!editForm} onClose={() => { setAddModal(false); setEditForm(null) }} onSave={handleSave} />
+        <EmpModal data={editForm||{}} isEdit={!!editForm} onClose={() => { setAddModal(false); setEditForm(null) }} onSave={handleSave} customDesignations={customDesignations} onDesignationAdded={d => setCustomDesignations(p => [...p, d])} />
       )}
       <div className="page-header">
         <div><div className="page-title">{tx('pages.employees','Employees')}</div><div className="page-sub">{list.length} {tx('employees.ofEmployees','of')} {employees.length} {tx('pages.employees','employees')}</div></div>
