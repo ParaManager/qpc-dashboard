@@ -40,6 +40,227 @@ function athleteDocStatus(athleteId, documents) {
   if (missing === 0) return { key: 'complete', missing: 0 }
   return { key: 'missing', missing }
 }
+
+// ── Bulk Import Documents (admin only) ──────────────────────────────────
+// Filenames are used ONLY to extract the QID (the part before the first
+// underscore) to match an athlete via athletes.id_number. The document type
+// is always whatever the admin explicitly selected — never inferred from
+// the filename.
+function extractQidFromFilename(filename) {
+  const base = filename.split('.').slice(0, -1).join('.') || filename
+  const qid = base.split('_')[0].trim()
+  return qid
+}
+
+function BulkImportDocsModal({ athletes, documents, lang, onClose, onDone }) {
+  const ar = lang === 'ar'
+  const L = (en, arText) => ar ? arText : en
+
+  const [docType, setDocType] = useState(DOC_TYPES[0])
+  const [files, setFiles] = useState([])
+  const [dragOver, setDragOver] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const [progress, setProgress] = useState({ done: 0, total: 0 })
+  const [summary, setSummary] = useState(null)
+  const fileInputRef = useRef(null)
+
+  function addFiles(fileList) {
+    const arr = Array.from(fileList || [])
+    if (arr.length) setFiles(prev => [...prev, ...arr])
+  }
+
+  // Build the preview classification: matched / unmatched / ambiguous /
+  // duplicate, based on the currently selected document type.
+  const preview = (() => {
+    const matched = [], unmatched = [], ambiguous = [], duplicates = []
+    for (const file of files) {
+      const qid = extractQidFromFilename(file.name)
+      if (!qid) { unmatched.push({ file, qid }); continue }
+      const matches = athletes.filter(a => a.id_number && a.id_number.trim() === qid)
+      if (matches.length === 0) { unmatched.push({ file, qid }); continue }
+      if (matches.length > 1) { ambiguous.push({ file, qid, matches }); continue }
+      const athlete = matches[0]
+      const isDupe = documents.some(d =>
+        d.athlete_id === athlete.id &&
+        d.type === docType &&
+        d.name === file.name &&
+        d.file_size === file.size
+      )
+      if (isDupe) { duplicates.push({ file, qid, athlete }); continue }
+      matched.push({ file, qid, athlete })
+    }
+    return { matched, unmatched, ambiguous, duplicates }
+  })()
+
+  async function handleImport() {
+    if (preview.matched.length === 0) return
+    setImporting(true)
+    setProgress({ done: 0, total: preview.matched.length })
+    let imported = 0, failed = 0
+    for (const item of preview.matched) {
+      try {
+        const ext = item.file.name.split('.').pop()
+        const path = `${item.athlete.id}/${Date.now()}_${Math.random().toString(36).slice(2,8)}.${ext}`
+        const { error: upErr } = await supabase.storage.from('athlete-documents').upload(path, item.file)
+        if (upErr) throw upErr
+        const { data } = supabase.storage.from('athlete-documents').getPublicUrl(path)
+        const { error: dbErr } = await supabase.from('athlete_documents').insert({
+          athlete_id: item.athlete.id, name: item.file.name, type: docType,
+          file_url: data.publicUrl, file_path: path, file_size: item.file.size,
+        })
+        if (dbErr) throw dbErr
+        imported++
+      } catch {
+        failed++
+      }
+      setProgress(p => ({ ...p, done: p.done + 1 }))
+    }
+    setImporting(false)
+    setSummary({
+      imported, failed,
+      skippedDuplicates: preview.duplicates.length,
+      unmatched: preview.unmatched.length,
+      ambiguous: preview.ambiguous.length,
+    })
+    await onDone()
+  }
+
+  return (
+    <div className="modal-overlay" onClick={() => !importing && onClose()}>
+      <div className="modal-box" style={{ width: 720 }} onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <div className="modal-title">{L('Bulk Import Documents', 'استيراد وثائق بالجملة')}</div>
+          <button className="modal-close" onClick={() => !importing && onClose()}><i className="ti ti-x" /></button>
+        </div>
+
+        <div className="modal-body">
+          {summary ? (
+            <div>
+              <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 12 }}>{L('Import complete', 'اكتمل الاستيراد')}</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
+                <div className="badge badge-green" style={{ padding: '10px 14px', fontSize: 13, justifyContent: 'flex-start' }}>{L('Imported', 'تم الاستيراد')}: {summary.imported}</div>
+                <div className="badge badge-gray" style={{ padding: '10px 14px', fontSize: 13, justifyContent: 'flex-start' }}>{L('Skipped duplicates', 'تم تخطي المكرر')}: {summary.skippedDuplicates}</div>
+                <div className="badge badge-amber" style={{ padding: '10px 14px', fontSize: 13, justifyContent: 'flex-start' }}>{L('Unmatched', 'غير مطابق')}: {summary.unmatched}</div>
+                <div className="badge badge-amber" style={{ padding: '10px 14px', fontSize: 13, justifyContent: 'flex-start' }}>{L('Ambiguous', 'غير مؤكد')}: {summary.ambiguous}</div>
+                <div className="badge badge-red" style={{ padding: '10px 14px', fontSize: 13, justifyContent: 'flex-start' }}>{L('Failed', 'فشل')}: {summary.failed}</div>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="form-group">
+                <label className="form-label">{L('Document Type', 'نوع الوثيقة')}</label>
+                <select className="form-input" value={docType} onChange={e => setDocType(e.target.value)} disabled={importing}>
+                  {DOC_TYPES.map(t => <option key={t} value={t}>{ar ? (DOC_TYPES_AR[t] || t) : t}</option>)}
+                </select>
+                <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 6 }}>
+                  {L('All imported files will be saved as this document type, regardless of filename.', 'سيتم حفظ جميع الملفات المستوردة بهذا النوع من الوثائق، بغض النظر عن اسم الملف.')}
+                </div>
+              </div>
+
+              <div
+                onDragOver={e => { e.preventDefault(); setDragOver(true) }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={e => { e.preventDefault(); setDragOver(false); addFiles(e.dataTransfer.files) }}
+                onClick={() => fileInputRef.current?.click()}
+                style={{
+                  border: `2px dashed ${dragOver ? '#0085C7' : 'var(--border)'}`,
+                  borderRadius: 12, padding: '24px 16px', textAlign: 'center', cursor: 'pointer',
+                  background: dragOver ? 'rgba(0,133,199,.05)' : 'var(--surface2)', marginBottom: 16, marginTop: 12,
+                }}>
+                <i className="ti ti-upload" style={{ fontSize: 26, color: 'var(--text3)' }} />
+                <div style={{ fontSize: 13, marginTop: 8 }}>{L('Click or drag files here', 'انقر أو اسحب الملفات هنا')}</div>
+                <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>{L('Filenames must start with the athlete QID, e.g. 123456789_id.pdf', 'يجب أن يبدأ اسم الملف بالرقم الشخصي للرياضي، مثال: 123456789_id.pdf')}</div>
+                <input ref={fileInputRef} type="file" multiple style={{ display: 'none' }} onChange={e => { addFiles(e.target.files); e.target.value = '' }} />
+              </div>
+
+              {files.length > 0 && (
+                <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 12 }}>
+                  {files.length} {L('file(s) selected', 'ملف تم اختياره')} — {preview.matched.length} {L('matched', 'مطابق')}, {preview.unmatched.length} {L('unmatched', 'غير مطابق')}, {preview.ambiguous.length} {L('ambiguous', 'غير مؤكد')}, {preview.duplicates.length} {L('duplicates', 'مكرر')}
+                </div>
+              )}
+
+              {importing && (
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ height: 8, background: 'var(--surface2)', borderRadius: 6, overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${progress.total ? (progress.done / progress.total) * 100 : 0}%`, background: '#0085C7', transition: 'width .2s' }} />
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 6 }}>{progress.done} / {progress.total} {L('uploaded', 'تم الرفع')}</div>
+                </div>
+              )}
+
+              {files.length > 0 && (
+                <div style={{ maxHeight: 320, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  {preview.matched.length > 0 && (
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#00875a', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 6 }}>{L('Matched', 'مطابق')} ({preview.matched.length})</div>
+                      {preview.matched.map((m, i) => (
+                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, padding: '8px 10px', background: 'var(--surface2)', borderRadius: 8, marginBottom: 4, fontSize: 12 }}>
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{m.file.name}</span>
+                          <span style={{ color: 'var(--text2)' }}>{ar && m.athlete.name_ar ? m.athlete.name_ar : m.athlete.name}</span>
+                          <span style={{ color: 'var(--text3)', fontFamily: 'monospace' }}>{m.qid}</span>
+                          <span className="badge badge-green" style={{ fontSize: 10 }}>{ar ? (DOC_TYPES_AR[docType] || docType) : docType}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {preview.unmatched.length > 0 && (
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#d97706', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 6 }}>{L('Unmatched', 'غير مطابق')} ({preview.unmatched.length})</div>
+                      {preview.unmatched.map((m, i) => (
+                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, padding: '8px 10px', background: 'var(--surface2)', borderRadius: 8, marginBottom: 4, fontSize: 12 }}>
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{m.file.name}</span>
+                          <span style={{ color: 'var(--text3)', fontFamily: 'monospace' }}>{m.qid || '—'}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {preview.ambiguous.length > 0 && (
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#d97706', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 6 }}>{L('Ambiguous matches', 'تطابقات غير مؤكدة')} ({preview.ambiguous.length})</div>
+                      {preview.ambiguous.map((m, i) => (
+                        <div key={i} style={{ padding: '8px 10px', background: 'var(--surface2)', borderRadius: 8, marginBottom: 4, fontSize: 12 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{m.file.name}</span>
+                            <span style={{ color: 'var(--text3)', fontFamily: 'monospace' }}>{m.qid}</span>
+                          </div>
+                          <div style={{ color: 'var(--text3)', marginTop: 2 }}>{m.matches.length} {L('athletes share this QID', 'رياضيون يشتركون في هذا الرقم')}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {preview.duplicates.length > 0 && (
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 6 }}>{L('Duplicates (will be skipped)', 'مكرر (سيتم تخطيه)')} ({preview.duplicates.length})</div>
+                      {preview.duplicates.map((m, i) => (
+                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, padding: '8px 10px', background: 'var(--surface2)', borderRadius: 8, marginBottom: 4, fontSize: 12 }}>
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{m.file.name}</span>
+                          <span style={{ color: 'var(--text2)' }}>{ar && m.athlete.name_ar ? m.athlete.name_ar : m.athlete.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        <div className="modal-footer">
+          {summary ? (
+            <button className="btn btn-blue" onClick={onClose}>{L('Close', 'إغلاق')}</button>
+          ) : (
+            <>
+              <button className="btn-cancel" onClick={onClose} disabled={importing}>{L('Cancel', 'إلغاء')}</button>
+              <button className="btn btn-blue" disabled={importing || preview.matched.length === 0} onClick={handleImport}>
+                {importing ? L('Importing…', 'جارٍ الاستيراد...') : `${L('Import', 'استيراد')} (${preview.matched.length})`}
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
 const DOC_TYPES_AR = {
   'Photo':'صورة', 'Original Passport':'الجواز الأصلي', 'Mission Passport':'جواز المهمة',
   'Qatar ID':'الرقم الشخصي',
@@ -335,6 +556,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
   const [medalModal, setMedalModal] = useState(null)
   const [uploading, setUploading]   = useState(false)
   const [docUploading, setDocUploading] = useState(false)
+  const [bulkOpen, setBulkOpen] = useState(false)
   const [docType, setDocType]       = useState('Original Passport')
   const [docDropOpen, setDocDropOpen] = useState(false)
   const [docConfirm, setDocConfirm] = useState(null)
@@ -1376,6 +1598,15 @@ ${myDocs.length > 0 ? `<div class="section">
   return (
     <div>
       {form && <FormModal type="athlete" record={null} coaches={coaches} onSave={handleSave} onClose={() => setForm(null)} />}
+      {bulkOpen && canEdit(profile) && (
+        <BulkImportDocsModal
+          athletes={athletes}
+          documents={documents || []}
+          lang={lang}
+          onClose={() => setBulkOpen(false)}
+          onDone={async () => { setBulkOpen(false); await onRefresh() }}
+        />
+      )}
 
       <div className="page-header">
         <div><div className="page-title">{tx('pages.athletes','Athletes')}</div><div className="page-sub">{list.length} of {athletes.length} {tx('pages.athletes','athletes')}</div></div>
@@ -1453,6 +1684,11 @@ ${myDocs.length > 0 ? `<div class="section">
                 }
               </button>
             </>
+          )}
+          {canEdit(profile) && !editMode && (
+            <button className="action-btn action-btn-edit" style={{ padding:'8px 14px', fontSize:13 }} onClick={() => setBulkOpen(true)}>
+              <i className="ti ti-file-upload" /> {lang==='ar' ? 'استيراد وثائق بالجملة' : 'Bulk Import Documents'}
+            </button>
           )}
           {canEdit(profile) && !editMode && (
             <button className="btn btn-blue" onClick={() => setForm('new')}><i className="ti ti-plus" /> {tx('athletes.addAthlete','Add athlete')}</button>
