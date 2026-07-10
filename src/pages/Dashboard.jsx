@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Avatar, MedalDisplay, statusClass, statusDot, DashRow, SPORT_META, SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, sportLabel, initials, getCurrentSeason } from '../lib/helpers'
+import { Avatar, MedalDisplay, statusClass, statusDot, DashRow, SPORT_META, SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, sportLabel, initials, getCurrentSeason, effectiveStatus, COACH_DESIGNATIONS } from '../lib/helpers'
 import { useLang } from '../lib/LangContext.jsx'
 import { toast } from '../components/Toast'
 import DashboardBanners from '../components/DashboardBanners'
@@ -35,22 +35,25 @@ export default function Dashboard({ athletes, coaches, employees, referees, even
     .filter(a => (a.medals_gold+a.medals_silver+a.medals_bronze) > 0)
     .slice(0, 5)
 
-  // ── Away status — hoisted here (was previously computed only inside the
-  // Away section below) so the same count can back the "Away" KPI card too,
-  // instead of recalculating it in two places. ──
-  const AWAY_STATUSES = ['On Leave', 'In Competition', 'In Training Camp']
-  const todayForAway = new Date(); todayForAway.setHours(0,0,0,0)
-  function isEffectivelyAway(p) {
-    if (!AWAY_STATUSES.includes(p.status)) return false
-    if (!p.status_start) return true // no start date = immediate
-    const start = new Date(p.status_start); start.setHours(0,0,0,0)
-    return todayForAway >= start
-  }
-  const awayAthletes = athletes.filter(isEffectivelyAway)
-  const awayCoaches  = coaches.filter(isEffectivelyAway)
+  // ── Away status — hoisted here so the same count can back the "Away" KPI
+  // card too, instead of recalculating it in two places. Uses the real
+  // effectiveStatus() (rule 6's single source of truth) directly instead of
+  // a separately reimplemented check, so both the "not started yet" (rule 1)
+  // and "already ended" (rule 3) cases are handled correctly and can't drift
+  // out of sync with how every other page decides who's away. ──
+  const awayAthletes = athletes.filter(a => effectiveStatus(a) !== 'Active')
+  const awayCoaches  = coaches.filter(c => effectiveStatus(c) !== 'Active')
+  // Plain (non coach-type) employees can now also carry temporary statuses.
+  // Coach-type employees are excluded here since their real status already
+  // comes from the coaches table and is already counted via awayCoaches —
+  // including them again here would double-count the same person.
+  const awayEmployees = (employees || []).filter(e =>
+    !COACH_DESIGNATIONS.includes(e.designation) && effectiveStatus(e) !== 'Active'
+  )
   const allAway = [
     ...awayAthletes.map(a => ({ ...a, _type: ar ? 'رياضي' : 'Athlete' })),
     ...awayCoaches.map(c  => ({ ...c, _type: ar ? 'مدرب' : 'Coach', _isCoach: true })),
+    ...awayEmployees.map(e => ({ ...e, _type: ar ? 'موظف' : 'Employee', _isEmployee: true })),
   ]
 
   // ── Sports in use — same source data the Sports Breakdown section below

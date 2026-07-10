@@ -464,12 +464,24 @@ export default function Athletes({ athletes, coaches, employees, results, docume
 
   async function handleSave(formData) {
     const isEdit = !!formData.id
+    // Rule 4: temporary status dates only make sense alongside a dated
+    // status (On Leave / In Competition / In Training Camp). If the person
+    // was moved to any other status (most commonly back to Active), clear
+    // status_start/status_end here regardless of whatever stale values the
+    // form still happens to be holding — this is the one place status
+    // actually gets written, so it's the authoritative guard against stale
+    // dates lingering in the database.
+    const DATE_STATUSES = ['On Leave', 'In Competition', 'In Training Camp']
+    const isDatedStatus = DATE_STATUSES.includes(formData.status)
     const payload = {
       name: formData.name, name_ar: formData.nameAr, dob: formData.dob || null,
       gender: formData.gender, nationality: formData.nationality,
       sport: formData.sport, classification: formData.classification,
       disability: formData.disability, statistics_disability: formData.statistics_disability || null, coach_id: formData.coachId || null,
-      status: formData.status, status_start: formData.statusStart||null, status_end: formData.statusEnd||null, phone: formData.phone, email: formData.email,
+      status: formData.status,
+      status_start: isDatedStatus ? (formData.statusStart||null) : null,
+      status_end:   isDatedStatus ? (formData.statusEnd||null)   : null,
+      phone: formData.phone, email: formData.email,
       join_date: formData.joinDate || null,
       passport_number: formData.passportNumber || null,
       passport_expiry: formData.passportExpiry || null,
@@ -854,8 +866,15 @@ ${myDocs.length > 0 ? `<div class="section">
               <div className="detail-name">{lang==='ar' && a.name_ar ? a.name_ar : a.name}</div>
               {(lang==='ar' && a.name_ar ? a.name : a.name_ar) && <div className="detail-sub">{lang==='ar' && a.name_ar ? a.name : a.name_ar}</div>}
               <div className="detail-badges">
-                <Badge label={{'Active':lang==='ar'?'نشط':'Active','On Leave':lang==='ar'?'في إجازة':'On Leave','In Competition':lang==='ar'?'في منافسة':'In Competition','In Training Camp':lang==='ar'?'في معسكر تدريبي':'In Training Camp','Inactive':lang==='ar'?'غير نشط':'Inactive','Injured':lang==='ar'?'مصاب':'Injured','Under Medical Review':lang==='ar'?'تحت المراجعة الطبية':'Under Medical Review','Suspended':lang==='ar'?'موقوف':'Suspended','Retired':lang==='ar'?'متقاعد':'Retired'}[a.status]||a.status} />
-                {(a.status_start || a.status_end) && (
+                <Badge label={{'Active':lang==='ar'?'نشط':'Active','On Leave':lang==='ar'?'في إجازة':'On Leave','In Competition':lang==='ar'?'في منافسة':'In Competition','In Training Camp':lang==='ar'?'في معسكر تدريبي':'In Training Camp','Inactive':lang==='ar'?'غير نشط':'Inactive','Injured':lang==='ar'?'مصاب':'Injured','Under Medical Review':lang==='ar'?'تحت المراجعة الطبية':'Under Medical Review','Suspended':lang==='ar'?'موقوف':'Suspended','Retired':lang==='ar'?'متقاعد':'Retired'}[effectiveStatus(a)]||effectiveStatus(a)} />
+                {/* Rule 5: once status_end has actually passed, the person
+                    has effectively returned to Active and the old dates are
+                    stale — don't show them (even though they may still sit
+                    in the database until the record is next edited). A
+                    future-scheduled leave/camp/competition whose start date
+                    hasn't arrived yet is still shown here, since that's
+                    useful context, not stale data. */}
+                {(a.status_start || a.status_end) && !(a.status_end && new Date(a.status_end) < new Date(new Date().toDateString())) && (
                   <Badge label={[a.status_start, a.status_end].filter(Boolean).join(' → ')} />
                 )}
                 <span className="badge badge-blue">{a.sport ? sportLabel(a.sport, a.sport_category, lang==='ar') : ''}</span>

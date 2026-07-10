@@ -274,13 +274,21 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
 
   async function handleSave(formData) {
     const isEdit = !!formData.id
+    // Rule 4: same guard as Athletes.jsx — a status_start/status_end pair
+    // only makes sense alongside a dated status, so clear both whenever the
+    // person is saved with any other status (most commonly a manual return
+    // to Active), regardless of stale values still sitting in the form.
+    const DATE_STATUSES = ['On Leave', 'In Competition', 'In Training Camp']
+    const isDatedStatus = DATE_STATUSES.includes(formData.status)
     const payload = {
       name: formData.name, name_ar: formData.nameAr,
       nationality: formData.nationality, gender: formData.gender,
       sport_category: formData.sportCategory,
       sport: formData.sport,
       license: formData.license, since: formData.since || null,
-      email: formData.email, phone: formData.phone, status: formData.status, status_start: formData.statusStart||null, status_end: formData.statusEnd||null,
+      email: formData.email, phone: formData.phone, status: formData.status,
+      status_start: isDatedStatus ? (formData.statusStart||null) : null,
+      status_end:   isDatedStatus ? (formData.statusEnd||null)   : null,
       qss_number: formData.qssNumber, employee_number: formData.employeeNumber,
       passport_number: formData.passportNumber || null,
       passport_expiry: formData.passportExpiry || null,
@@ -435,7 +443,9 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
             </div>
             <div className="detail-badges">
               <Badge label={lang==='ar'?(STATUS_AR[effectiveStatus(c)]||effectiveStatus(c)):effectiveStatus(c)} />
-              {(c.status_start || c.status_end) && (
+              {/* Rule 5: hide the date range once status_end has actually
+                  passed (stale); a future-scheduled range is still shown. */}
+              {(c.status_start || c.status_end) && !(c.status_end && new Date(c.status_end) < new Date(new Date().toDateString())) && (
                 <Badge label={[c.status_start, c.status_end].filter(Boolean).join(' → ')} />
               )}
             </div>

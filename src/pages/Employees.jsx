@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { initials, statusClass, effectiveStatus } from '../lib/helpers'
+import { initials, statusClass, effectiveStatus, COACH_DESIGNATIONS } from '../lib/helpers'
 import { ConfirmModal, toast } from '../components/Toast'
 import { supabase } from '../lib/supabase'
 import { canEdit } from '../lib/useAuth'
@@ -97,7 +97,7 @@ function DesigBadge({ label, displayLabel }) {
   )
 }
 
-function exportEmployeesPDF(emp, lang) {
+function exportEmployeesPDF(emp, lang, coaches) {
   const isAr = lang === 'ar'
   const dir = isAr ? 'rtl' : 'ltr'
   const L = (en, ar) => isAr ? ar : en
@@ -107,7 +107,7 @@ function exportEmployeesPDF(emp, lang) {
   }
   const color = DESIG_COLORS[emp.designation] || '#9aa3b2'
   const DESIG_AR_MAP = {'Coach':'مدرب','Assistant Coach':'مدرب مساعد','Technical Expert':'خبير تقني','Physiotherapist':'معالج فيزيائي','Doctor':'طبيب','Secretary General':'الأمين العام','Executive Manager':'مدير تنفيذي','Administration Secretary':'سكرتير إداري','Secretary Assistant':'مساعد سكرتير','Administrative National Team':'إداري الفريق الوطني','Administrative Youth Team':'إداري فريق الشباب','Administrative Center & Development':'إداري المركز والتطوير','Accountant':'محاسب','Public Relation Officer':'مسؤول علاقات عامة','Receptionist':'موظف استقبال','Board Member':'عضو مجلس إدارة','Official':'مسؤول','Delegate':'مندوب','Employee':'موظف','Store Keeper':'أمين مخزن','Waiter':'نادل','Worker':'عامل','Driver':'سائق'}
-  const STATUS_AR = {'Active':'نشط','Inactive':'غير نشط','On Leave':'في إجازة'}
+  const STATUS_AR = {'Active':'نشط','Inactive':'غير نشط','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي'}
   const COUNTRY_AR = {'Qatar':'قطر','Egypt':'مصر','Algeria':'الجزائر','Jordan':'الأردن','Tunisia':'تونس','Morocco':'المغرب','Saudi Arabia':'المملكة العربية السعودية','Somalia':'الصومال','Ireland':'أيرلندا','Spain':'إسبانيا','France':'فرنسا','UK':'المملكة المتحدة','USA':'الولايات المتحدة','Sudan':'السودان','Libya':'ليبيا','Pakistan':'باكستان','India':'الهند'}
 
   const html = `<!DOCTYPE html>
@@ -167,7 +167,7 @@ function exportEmployeesPDF(emp, lang) {
   ${field(L('QSS #','رقم QSS'), emp.qss_number)}
   ${field(L('Gender','الجنس'), emp.gender ? (isAr?(emp.gender==='Male'?'ذكر':'أنثى'):emp.gender) : null)}
   ${field(L('Nationality','الجنسية'), isAr?(COUNTRY_AR[emp.nationality]||emp.nationality):emp.nationality)}
-  ${field(L('Status','الحالة'), isAr?(STATUS_AR[emp.status]||emp.status):emp.status)}
+  ${field(L('Status','الحالة'), (() => { const es = effectiveStatus(employeeStatusSource(emp, coaches)); return isAr?(STATUS_AR[es]||es):es })())}
   ${field(L('Phone','الهاتف'), emp.phone)}
   ${field(L('Email','البريد الإلكتروني'), emp.email)}
 </div>
@@ -664,9 +664,9 @@ function exportIDCard(emp) {
   win.document.close()
 }
 
-function exportEmployeesExcel(list, lang) {
+function exportEmployeesExcel(list, lang, coaches) {
   const ar = lang === 'ar'
-  const STATUS_AR = {'Active':'نشط','Inactive':'غير نشط','On Leave':'في إجازة'}
+  const STATUS_AR = {'Active':'نشط','Inactive':'غير نشط','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي'}
   const DESIG_AR_MAP = {'Coach':'مدرب','Assistant Coach':'مدرب مساعد','Technical Expert':'خبير تقني','Physiotherapist':'معالج فيزيائي','Doctor':'طبيب','Secretary General':'الأمين العام','Executive Manager':'مدير تنفيذي','Administration Secretary':'سكرتير إداري','Secretary Assistant':'مساعد سكرتير','Administrative National Team':'إداري الفريق الوطني','Administrative Youth Team':'إداري فريق الشباب','Administrative Center & Development':'إداري المركز والتطوير','Accountant':'محاسب','Public Relation Officer':'مسؤول علاقات عامة','Receptionist':'موظف استقبال','Board Member':'عضو مجلس إدارة','Official':'مسؤول','Delegate':'مندوب','Employee':'موظف','Store Keeper':'أمين مخزن','Waiter':'نادل','Worker':'عامل','Driver':'سائق'}
   const COUNTRY_MAP = {'qatar':'قطر','egypt':'مصر','algeria':'الجزائر','morocco':'المغرب','jordan':'الأردن','saudi arabia':'المملكة العربية السعودية','uae':'الإمارات','kuwait':'الكويت','bahrain':'البحرين','oman':'عُمان','iraq':'العراق','syria':'سوريا','lebanon':'لبنان','yemen':'اليمن','somalia':'الصومال','sudan':'السودان','libya':'ليبيا','tunisia':'تونس','pakistan':'باكستان','india':'الهند','iran':'إيران','turkey':'تركيا','ireland':'أيرلندا','france':'فرنسا','spain':'إسبانيا','germany':'ألمانيا','uk':'المملكة المتحدة','usa':'الولايات المتحدة'}
   const tc = n => n ? (ar ? (COUNTRY_MAP[n.toLowerCase().trim()]||n) : n) : ''
@@ -683,7 +683,7 @@ function exportEmployeesExcel(list, lang) {
     [L('QSS #','رقم QSS')]:           e.qss_number || '',
     [L('Phone','الهاتف')]:             e.phone || '',
     [L('Email','البريد الإلكتروني')]:   e.email || '',
-    [L('Status','الحالة')]:            ar ? (STATUS_AR[e.status]||e.status||'') : (e.status||''),
+    [L('Status','الحالة')]:            (() => { const es = effectiveStatus(employeeStatusSource(e, coaches)); return ar ? (STATUS_AR[es]||es||'') : (es||'') })(),
     [L('Notes','ملاحظات')]:            e.notes || '',
   }))
   const ws = XLSX.utils.json_to_sheet(rows)
@@ -710,11 +710,21 @@ function EmpModal({ data, isEdit, onClose, onSave }) {
   const grp = (label, field) => (
     <div className="form-group"><label className="form-label">{label}</label>{field}</div>
   )
+  const DATE_STATUSES = ['On Leave', 'In Competition', 'In Training Camp']
   const statusOpts = [
-    { value:'Active',   label: ar?'نشط':'Active' },
-    { value:'On Leave', label: ar?'في إجازة':'On Leave' },
-    { value:'Inactive', label: ar?'غير نشط':'Inactive' },
+    { value:'Active',            label: ar?'نشط':'Active' },
+    { value:'On Leave',          label: ar?'في إجازة':'On Leave' },
+    { value:'In Competition',    label: ar?'في منافسة':'In Competition' },
+    { value:'In Training Camp',  label: ar?'في معسكر تدريبي':'In Training Camp' },
+    { value:'Inactive',          label: ar?'غير نشط':'Inactive' },
   ]
+  // Rule 4: clear the temporary dates in form state as soon as the status
+  // is changed away from a dated one, so stale values can't linger even
+  // before Save is pressed (handleSave also guards this at the write side).
+  const setStatus = (v) => {
+    set('status', v)
+    if (!DATE_STATUSES.includes(v)) { set('status_start', null); set('status_end', null) }
+  }
   const genderOpts = [
     { value:'',       label: '' },
     { value:'Male',   label: ar?'ذكر':'Male' },
@@ -750,7 +760,23 @@ function EmpModal({ data, isEdit, onClose, onSave }) {
           <div className="form-row">
             {grp(ar?'رقم المنصب (Job ID)':'Job ID', inp("job_id", "text", "e.g. QPC-J0001"))}
           </div>
-          {grp(ar?'الحالة':'Status', sel("status", statusOpts))}
+          <div className="form-row">
+            {grp(ar?'الحالة':'Status', (
+              <select className="form-input" value={form.status||''} onChange={e => setStatus(e.target.value)}>
+                {statusOpts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+            ))}
+            {DATE_STATUSES.includes(form.status) && grp(ar?'تاريخ البداية':'Start date', (
+              <input type="date" className="form-input" value={form.status_start||''} onChange={e=>set('status_start', e.target.value||null)} />
+            ))}
+          </div>
+          {DATE_STATUSES.includes(form.status) && (
+            <div className="form-row">
+              {grp(ar?'تاريخ الرجوع':'Return date', (
+                <input type="date" className="form-input" value={form.status_end||''} onChange={e=>set('status_end', e.target.value||null)} />
+              ))}
+            </div>
+          )}
           <div className="form-section">{ar?'معلومات الاتصال':'Contact'}</div>
           <div className="form-row">
             {grp(ar?'الهاتف':'Phone', inp("phone", "text", "+974 XXXX XXXX"))}
@@ -772,7 +798,19 @@ function EmpModal({ data, isEdit, onClose, onSave }) {
   )
 }
 
-const COACH_DESIGNATIONS = ['Coach', 'Assistant Coach', 'Technical Expert', 'Physiotherapist', 'Doctor']
+// Rule 7: coach-type employees show the coaches table's own status, not the
+// employees table's — this one helper is now the single place that decides
+// which record's status actually applies to a given employee, reused by the
+// list badge, the detail-view badge, and the status column filter, so the
+// three can never drift out of sync with each other.
+function employeeStatusSource(emp, coaches) {
+  if (!COACH_DESIGNATIONS.includes(emp.designation)) return emp
+  const coachRec = coaches?.find(c => c.status !== 'Inactive' && (
+    (emp.qss_number && c.qss_number && c.qss_number === emp.qss_number) ||
+    (emp.name && c.name && c.name.trim().toLowerCase() === emp.name.trim().toLowerCase())
+  ))
+  return coachRec || emp
+}
 
 export default function Employees({ employees, coaches, personDocs, onRefresh, onNav, initEmployeeId, navState, profile }) {
   const { tx, tc, lang } = useLang()
@@ -837,11 +875,11 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
     designation: ['All', ...DESIGNATIONS.slice(1)],
     nationality: ['All', ...['Afghanistan', 'Algeria', 'Argentina', 'Armenia', 'Australia', 'Austria', 'Azerbaijan', 'Bahrain', 'Bangladesh', 'Belarus', 'Belgium', 'Brazil', 'Cameroon', 'Canada', 'Chile', 'China', 'Colombia', 'Croatia', 'Czech Republic', 'Denmark', 'Egypt', 'Eritrea', 'Ethiopia', 'Finland', 'France', 'Georgia', 'Germany', 'Ghana', 'Greece', 'Guinea', 'Hungary', 'India', 'Indonesia', 'Iran', 'Iraq', 'Ireland', 'Italy', 'Japan', 'Jordan', 'Kazakhstan', 'Kenya', 'Kuwait', 'Kyrgyzstan', 'Lebanon', 'Libya', 'Malaysia', 'Mali', 'Mauritania', 'Mexico', 'Mongolia', 'Morocco', 'Myanmar', 'Nepal', 'Netherlands', 'New Zealand', 'Nigeria', 'Norway', 'Oman', 'Pakistan', 'Palestine', 'Peru', 'Philippines', 'Poland', 'Portugal', 'Qatar', 'Romania', 'Russia', 'Rwanda', 'Saudi Arabia', 'Scotland', 'Senegal', 'Serbia', 'Singapore', 'Slovakia', 'Somalia', 'South Africa', 'South Korea', 'Spain', 'Sri Lanka', 'Sudan', 'Sweden', 'Syria', 'Tajikistan', 'Tanzania', 'Thailand', 'Tunisia', 'Turkey', 'Turkmenistan', 'UAE', 'Uganda', 'UK', 'Ukraine', 'USA', 'Uzbekistan', 'Venezuela', 'Vietnam', 'Wales', 'Yemen', 'Zambia', 'Zimbabwe']],
     gender:      ['All','Male','Female'],
-    status:      ['All','Active','On Leave','Inactive'],
+    status:      ['All','Active','On Leave','In Competition','In Training Camp','Inactive'],
   }
   const COL_FILTER_LABELS = {
     gender: { 'All':tx('filters.all','All'), 'Male':tx('form.male','Male'), 'Female':tx('form.female','Female') },
-    status: { 'All':tx('filters.all','All'), 'Active':tx('status.active','Active'), 'On Leave':tx('status.onLeave','On Leave'), 'Inactive':tx('status.inactive','Inactive') },
+    status: { 'All':tx('filters.all','All'), 'Active':tx('status.active','Active'), 'On Leave':tx('status.onLeave','On Leave'), 'In Competition': lang==='ar' ? 'في منافسة' : 'In Competition', 'In Training Camp': lang==='ar' ? 'في معسكر تدريبي' : 'In Training Camp', 'Inactive':tx('status.inactive','Inactive') },
   }
 
   let list = employees.filter(e =>
@@ -852,7 +890,7 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
     (!colFilters.designation || colFilters.designation === 'All' || e.designation === colFilters.designation) &&
     (!colFilters.nationality || colFilters.nationality === 'All' || e.nationality === colFilters.nationality) &&
     (!colFilters.gender      || colFilters.gender === 'All'      || e.gender === colFilters.gender) &&
-    (!colFilters.status      || colFilters.status === 'All'      || e.status === colFilters.status)
+    (!colFilters.status      || colFilters.status === 'All'      || effectiveStatus(employeeStatusSource(e, coaches)) === colFilters.status)
   )
   list = [...list].sort((a, b) => {
     if (sort === 'name-asc')   return a.name.localeCompare(b.name)
@@ -867,8 +905,8 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
     if (sort === 'emp-desc')     return (b.employee_number||'').localeCompare(a.employee_number||'')
     if (sort === 'qss-asc')      return (a.qss_number||'').localeCompare(b.qss_number||'')
     if (sort === 'qss-desc')     return (b.qss_number||'').localeCompare(a.qss_number||'')
-    if (sort === 'status-asc')   return (a.status||'').localeCompare(b.status||'')
-    if (sort === 'status-desc')  return (b.status||'').localeCompare(a.status||'')
+    if (sort === 'status-asc')   return (effectiveStatus(employeeStatusSource(a, coaches))||'').localeCompare(effectiveStatus(employeeStatusSource(b, coaches))||'')
+    if (sort === 'status-desc')  return (effectiveStatus(employeeStatusSource(b, coaches))||'').localeCompare(effectiveStatus(employeeStatusSource(a, coaches))||'')
     return 0
   })
 
@@ -880,13 +918,23 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
   }
 
   async function handleSave(formData, isEdit) {
+    // Rule 4: same authoritative write-side guard as Athletes.jsx/Coaches.jsx
+    // — status_start/status_end only make sense alongside a dated status,
+    // so force them to null whenever the saved status is anything else
+    // (typically a manual return to Active), regardless of stale form state.
+    const DATE_STATUSES = ['On Leave', 'In Competition', 'In Training Camp']
+    const finalStatus = formData.status || 'Active'
+    const isDatedStatus = DATE_STATUSES.includes(finalStatus)
     const payload = {
       name: formData.name, name_ar: formData.name_ar || null,
       gender: formData.gender || null, nationality: formData.nationality || null,
       designation: formData.designation || null, designation_ar: formData.designation_ar || null,
       employee_number: formData.employee_number || null, qss_number: formData.qss_number || null, job_id: formData.job_id || null,
       phone: formData.phone || null, email: formData.email || null,
-      status: formData.status || 'Active', notes: formData.notes || null,
+      status: finalStatus,
+      status_start: isDatedStatus ? (formData.status_start||null) : null,
+      status_end:   isDatedStatus ? (formData.status_end||null)   : null,
+      notes: formData.notes || null,
     }
     if (!payload.name) { toast('Name is required', 'error'); return }
     const { error } = isEdit
@@ -965,7 +1013,7 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
             style={{ borderColor:'#009F6B', color:'#009F6B' }}
             onMouseEnter={e => e.currentTarget.style.background='#e6f4ee'}
             onMouseLeave={e => e.currentTarget.style.background=''}
-            onClick={() => exportEmployeesPDF(emp, lang)}>
+            onClick={() => exportEmployeesPDF(emp, lang, coaches)}>
             
             <i className="ti ti-printer" /> {tx('actions.exportPDF','Export PDF')}
           </button>
@@ -1003,8 +1051,30 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
             {(lang==='ar' ? emp.name : emp.name_ar) && <div className="detail-sub">{lang==='ar' ? emp.name : emp.name_ar}</div>}
             <div style={{ margin:'10px 0' }}><DesigBadge label={emp.designation} displayLabel={DESIG_LABELS[emp.designation]} /></div>
             {emp.designation_ar && <div style={{ fontSize:13, color:'var(--text2)', marginBottom:8, direction:'rtl' }}>{emp.designation_ar}</div>}
+            {/* Rule 7: coach-type employees show the coaches table's own
+                status (same match already used in the list view), not the
+                employees table's — so this stays consistent whichever page
+                the person is viewed from. Rule 6: effectiveStatus() is the
+                single source of truth for what's displayed here. Rule 5:
+                the date-range badge only shows while still relevant. */}
+            {(() => {
+              const src = employeeStatusSource(emp, coaches)
+              const ds = effectiveStatus(src)
+              const dl = lang==='ar'
+                ? ({'Active':'نشط','Inactive':'غير نشط','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي'}[ds]||ds)
+                : (ds||'—')
+              const expired = src.status_end && new Date(src.status_end) < new Date(new Date().toDateString())
+              return (
+                <div className="detail-badges" style={{ marginBottom:10 }}>
+                  <span className={`badge ${statusClass(ds)}`}>{dl}</span>
+                  {(src.status_start || src.status_end) && !expired && (
+                    <span className="badge badge-gray">{[src.status_start, src.status_end].filter(Boolean).join(' → ')}</span>
+                  )}
+                </div>
+              )
+            })()}
             <div className="detail-fields">
-              {[[tx('profile.employeeNum','Employee #'),emp.employee_number],[tx('profile.qssNumber','QSS #'),emp.qss_number],[tx('profile.gender','Gender'),emp.gender],[tx('profile.nationality','Nationality'),tc(emp.nationality)],[tx('profile.phone','Phone'),emp.phone],[tx('profile.email','Email'),emp.email],[tx('employees.status','Status'),emp.status]].map(([k,v]) => (
+              {[[tx('profile.employeeNum','Employee #'),emp.employee_number],[tx('profile.qssNumber','QSS #'),emp.qss_number],[tx('profile.gender','Gender'),emp.gender],[tx('profile.nationality','Nationality'),tc(emp.nationality)],[tx('profile.phone','Phone'),emp.phone],[tx('profile.email','Email'),emp.email]].map(([k,v]) => (
                 <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv" style={{ fontSize:12 }}>{v||'—'}</span></div>
               ))}
             </div>
@@ -1039,7 +1109,7 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
       <div className="page-header">
         <div><div className="page-title">{tx('pages.employees','Employees')}</div><div className="page-sub">{list.length} {tx('employees.ofEmployees','of')} {employees.length} {tx('pages.employees','employees')}</div></div>
         <div style={{ display:'flex', gap:8 }}>
-          <button className="btn" style={{ background:'#009F6B' }} onClick={() => exportEmployeesExcel(list, lang)}>
+          <button className="btn" style={{ background:'#009F6B' }} onClick={() => exportEmployeesExcel(list, lang, coaches)}>
             <i className="ti ti-table-export" /> {tx('actions.exportExcel','Export Excel')}
           </button>
           {hasFilters && (
@@ -1140,8 +1210,7 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
                 <td style={{ fontSize:12, color:'#5a6272', fontFamily:'monospace' }}>{emp.employee_number||'—'}</td>
                 <td style={{ fontSize:12, color:'#5a6272', fontFamily:'monospace' }}>{emp.qss_number||'—'}</td>
                 <td>{(() => {
-                  const coachRec = COACH_DESIGNATIONS.includes(emp.designation) ? coaches?.find(c => c.status !== 'Inactive' && ((emp.qss_number && c.qss_number && c.qss_number === emp.qss_number) || (emp.name && c.name && c.name.trim().toLowerCase() === emp.name.trim().toLowerCase()))) : null
-                  const src = coachRec || emp
+                  const src = employeeStatusSource(emp, coaches)
                   const ds = effectiveStatus(src)
                   const dl = lang==='ar' ? ({'Active':'نشط','Inactive':'غير نشط','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي'}[ds]||ds) : (ds||'—')
                   return <span className={`badge ${statusClass(ds)}`}>{dl}</span>
