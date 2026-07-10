@@ -7,6 +7,7 @@ import PhotoCropModal from '../components/PhotoCropModal'
 import FormModal from '../components/FormModal'
 import { ConfirmModal, toast } from '../components/Toast'
 import { supabase } from '../lib/supabase'
+import JSZip from 'jszip'
 import { canEdit } from '../lib/useAuth'
 import CareerHistory from '../components/CareerHistory.jsx'
 import { useLang } from '../lib/LangContext.jsx'
@@ -382,6 +383,189 @@ const DOC_TYPES_AR = {
   'SDMS License':'رخصة SDMS', 'Other':'أخرى',
 }
 
+// ── Bulk Export Documents (admin only) ──────────────────────────────────
+function sanitizeFilename(name) {
+  return name.replace(/[\\/:*?"<>|]/g, '_').replace(/\s+/g, ' ').trim() || 'file'
+}
+
+function BulkExportDocsModal({ athletes, documents, lang, onClose }) {
+  const ar = lang === 'ar'
+  const L = (en, arText) => ar ? arText : en
+
+  const [docType, setDocType] = useState(DOC_TYPES[0])
+  const [multiMode, setMultiMode] = useState('latest') // 'latest' | 'all'
+  const [exporting, setExporting] = useState(false)
+  const [progress, setProgress] = useState({ done: 0, total: 0 })
+  const [done, setDone] = useState(false)
+
+  const rows = athletes.map(a => {
+    const docs = documents
+      .filter(d => d.athlete_id === a.id && d.type === docType)
+      .sort((x, y) => new Date(y.uploaded_at || 0) - new Date(x.uploaded_at || 0))
+    return { athlete: a, docs }
+  })
+  const withDoc = rows.filter(r => r.docs.length > 0)
+  const missing = rows.filter(r => r.docs.length === 0)
+  const withMultiple = rows.filter(r => r.docs.length > 1)
+
+  const filesToInclude = multiMode === 'latest'
+    ? withDoc.map(r => ({ athlete: r.athlete, docs: [r.docs[0]] }))
+    : withDoc.map(r => ({ athlete: r.athlete, docs: r.docs }))
+  const totalFiles = filesToInclude.reduce((sum, r) => sum + r.docs.length, 0)
+
+  async function handleExport() {
+    if (totalFiles === 0) return
+    setExporting(true)
+    setProgress({ done: 0, total: totalFiles })
+    const zip = new JSZip()
+    const usedNames = new Set()
+
+    for (const { athlete, docs } of filesToInclude) {
+      const baseName = sanitizeFilename(`${athlete.name}_${docType}`)
+      for (let i = 0; i < docs.length; i++) {
+        const doc = docs[i]
+        try {
+          const res = await fetch(doc.file_url)
+          const blob = await res.blob()
+          const ext = (doc.name && doc.name.includes('.')) ? doc.name.split('.').pop() : (doc.file_path?.split('.').pop() || 'bin')
+          let filename = `${baseName}.${ext}`
+          let n = 2
+          while (usedNames.has(filename)) { filename = `${baseName}_${n}.${ext}`; n++ }
+          usedNames.add(filename)
+          zip.file(filename, blob)
+        } catch {
+          // skip this file on fetch failure; does not fail the whole export
+        }
+        setProgress(p => ({ ...p, done: p.done + 1 }))
+      }
+    }
+
+    if (missing.length > 0) {
+      const header = 'Athlete Name,Athlete QID,Missing Document Type\n'
+      const lines = missing.map(r => `"${(r.athlete.name || '').replace(/"/g, '""')}","${r.athlete.id_number || ''}","${docType}"`).join('\n')
+      zip.file('missing_documents_report.csv', header + lines)
+    }
+
+    const blob = await zip.generateAsync({ type: 'blob' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `${sanitizeFilename(docType)}_export.zip`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+
+    setExporting(false)
+    setDone(true)
+  }
+
+  return (
+    <div className="modal-overlay" onClick={() => !exporting && onClose()}>
+      <div className="modal-box" style={{ width: 680 }} onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <div className="modal-title">{L('Bulk Export Documents', 'تصدير وثائق بالجملة')}</div>
+          <button className="modal-close" onClick={() => !exporting && onClose()}><i className="ti ti-x" /></button>
+        </div>
+
+        <div className="modal-body">
+          {done ? (
+            <div style={{ textAlign: 'center', padding: '20px 0' }}>
+              <i className="ti ti-circle-check" style={{ fontSize: 40, color: '#00875a' }} />
+              <div style={{ fontWeight: 600, fontSize: 14, marginTop: 10 }}>{L('Export complete', 'اكتمل التصدير')}</div>
+              <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 4 }}>
+                {totalFiles} {L('file(s) downloaded', 'ملف تم تنزيله')}{missing.length > 0 ? ` · ${missing.length} ${L('missing (see report in ZIP)', 'مفقود (راجع التقرير داخل الملف المضغوط)')}` : ''}
+              </div>
+            </div>
+          ) : (
+            <>
+              <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 14 }}>
+                {athletes.length} {L('athlete(s) selected', 'رياضي تم اختياره')}
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">{L('Document Type', 'نوع الوثيقة')}</label>
+                <select className="form-input" value={docType} onChange={e => setDocType(e.target.value)} disabled={exporting}>
+                  {DOC_TYPES.map(t => <option key={t} value={t}>{ar ? (DOC_TYPES_AR[t] || t) : t}</option>)}
+                </select>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, margin: '14px 0' }}>
+                <div className="badge badge-green" style={{ padding: '8px 10px', fontSize: 12, justifyContent: 'flex-start' }}>{L('Has document', 'يمتلك الوثيقة')}: {withDoc.length}</div>
+                <div className="badge badge-amber" style={{ padding: '8px 10px', fontSize: 12, justifyContent: 'flex-start' }}>{L('Missing', 'مفقود')}: {missing.length}</div>
+                <div className="badge badge-blue" style={{ padding: '8px 10px', fontSize: 12, justifyContent: 'flex-start' }}>{L('Multiple files', 'ملفات متعددة')}: {withMultiple.length}</div>
+              </div>
+
+              {withMultiple.length > 0 && (
+                <div className="form-group">
+                  <label className="form-label">{L('For athletes with multiple files of this type', 'للرياضيين الذين لديهم عدة ملفات من هذا النوع')}</label>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button type="button" disabled={exporting} onClick={() => setMultiMode('latest')}
+                      style={{ fontSize: 12, padding: '6px 12px', borderRadius: 20, cursor: 'pointer',
+                        border: `1px solid ${multiMode === 'latest' ? '#0085C7' : 'var(--border)'}`,
+                        background: multiMode === 'latest' ? 'rgba(0,133,199,.1)' : 'transparent',
+                        color: multiMode === 'latest' ? '#0085C7' : 'var(--text2)', fontWeight: multiMode === 'latest' ? 600 : 400 }}>
+                      {L('Download latest only', 'تنزيل الأحدث فقط')}
+                    </button>
+                    <button type="button" disabled={exporting} onClick={() => setMultiMode('all')}
+                      style={{ fontSize: 12, padding: '6px 12px', borderRadius: 20, cursor: 'pointer',
+                        border: `1px solid ${multiMode === 'all' ? '#0085C7' : 'var(--border)'}`,
+                        background: multiMode === 'all' ? 'rgba(0,133,199,.1)' : 'transparent',
+                        color: multiMode === 'all' ? '#0085C7' : 'var(--text2)', fontWeight: multiMode === 'all' ? 600 : 400 }}>
+                      {L('Download all', 'تنزيل الكل')}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {missing.length > 0 && (
+                <div style={{ marginTop: 14 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#d97706', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 6 }}>
+                    {L('Missing this document', 'مفقود هذه الوثيقة')} ({missing.length})
+                  </div>
+                  <div style={{ maxHeight: 140, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {missing.map(r => (
+                      <div key={r.athlete.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, padding: '6px 10px', background: 'var(--surface2)', borderRadius: 8, fontSize: 12 }}>
+                        <span>{ar && r.athlete.name_ar ? r.athlete.name_ar : r.athlete.name}</span>
+                        <span style={{ color: 'var(--text3)', fontFamily: 'monospace' }}>{r.athlete.id_number || '—'}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 6 }}>
+                    {L('A report listing these will be included in the ZIP.', 'سيتم تضمين تقرير بهذه الحالات داخل الملف المضغوط.')}
+                  </div>
+                </div>
+              )}
+
+              {exporting && (
+                <div style={{ marginTop: 16 }}>
+                  <div style={{ height: 8, background: 'var(--surface2)', borderRadius: 6, overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${progress.total ? (progress.done / progress.total) * 100 : 0}%`, background: '#0085C7', transition: 'width .2s' }} />
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 6 }}>{progress.done} / {progress.total} {L('processed', 'تمت معالجته')}</div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        <div className="modal-footer">
+          {done ? (
+            <button className="btn btn-blue" onClick={onClose}>{L('Close', 'إغلاق')}</button>
+          ) : (
+            <>
+              <button className="btn-cancel" onClick={onClose} disabled={exporting}>{L('Cancel', 'إلغاء')}</button>
+              <button className="btn btn-blue" disabled={exporting || totalFiles === 0} onClick={handleExport}>
+                {exporting ? L('Exporting…', 'جارٍ التصدير...') : `${L('Download ZIP', 'تنزيل الملف المضغوط')} (${totalFiles})`}
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 const DOC_ICONS  = {
   'Photo':                          'ti-photo',
   'Original Passport':              'ti-id',
@@ -667,6 +851,8 @@ export default function Athletes({ athletes, coaches, employees, results, docume
   const [uploading, setUploading]   = useState(false)
   const [docUploading, setDocUploading] = useState(false)
   const [bulkOpen, setBulkOpen] = useState(false)
+  const [selectedIds, setSelectedIds] = useState(new Set())
+  const [bulkExportOpen, setBulkExportOpen] = useState(false)
   const [docType, setDocType]       = useState('Original Passport')
   const [docDropOpen, setDocDropOpen] = useState(false)
   const [docConfirm, setDocConfirm] = useState(null)
@@ -1743,6 +1929,14 @@ ${myDocs.length > 0 ? `<div class="section">
           onDone={async () => { setBulkOpen(false); await onRefresh() }}
         />
       )}
+      {bulkExportOpen && canEdit(profile) && (
+        <BulkExportDocsModal
+          athletes={athletes.filter(a => selectedIds.has(a.id))}
+          documents={documents || []}
+          lang={lang}
+          onClose={() => setBulkExportOpen(false)}
+        />
+      )}
 
       <div className="page-header">
         <div><div className="page-title">{tx('pages.athletes','Athletes')}</div><div className="page-sub">{list.length} of {athletes.length} {tx('pages.athletes','athletes')}</div></div>
@@ -1827,6 +2021,13 @@ ${myDocs.length > 0 ? `<div class="section">
             </button>
           )}
           {canEdit(profile) && !editMode && (
+            <button className="action-btn action-btn-edit" style={{ padding:'8px 14px', fontSize:13, opacity: selectedIds.size === 0 ? .5 : 1, cursor: selectedIds.size === 0 ? 'not-allowed' : 'pointer' }}
+              disabled={selectedIds.size === 0}
+              onClick={() => setBulkExportOpen(true)}>
+              <i className="ti ti-file-zip" /> {lang==='ar' ? `تصدير وثائق بالجملة (${selectedIds.size})` : `Bulk Export Documents (${selectedIds.size})`}
+            </button>
+          )}
+          {canEdit(profile) && !editMode && (
             <button className="btn btn-blue" onClick={() => setForm('new')}><i className="ti ti-plus" /> {tx('athletes.addAthlete','Add athlete')}</button>
           )}
         </div>
@@ -1854,6 +2055,20 @@ ${myDocs.length > 0 ? `<div class="section">
         <table>
           <thead>
             <tr>
+              {canEdit(profile) && !editMode && (
+                <th style={{ width:32 }}>
+                  <input type="checkbox"
+                    checked={list.length > 0 && list.every(a => selectedIds.has(a.id))}
+                    onChange={e => {
+                      setSelectedIds(prev => {
+                        const next = new Set(prev)
+                        if (e.target.checked) list.forEach(a => next.add(a.id))
+                        else list.forEach(a => next.delete(a.id))
+                        return next
+                      })
+                    }} />
+                </th>
+              )}
               {ALL_COLS.filter(c => isVisible(c.key)).map(c => {
                 const isSortable = ['name','name_ar','sport_category','sport','classification','nationality','status','dob','join_date','age_category','sport_age_category','disability','statistics_disability','coach_id','gender'].includes(c.key)
                 const isAsc  = sort === `${c.key}-asc`
@@ -1880,6 +2095,7 @@ ${myDocs.length > 0 ? `<div class="section">
             {/* INLINE FILTER ROW */}
             {!editMode && (
               <tr style={{ background:'#f8f9fb' }}>
+                {canEdit(profile) && !editMode && <th />}
                 {ALL_COLS.filter(col => isVisible(col.key)).map(col => {
                   const activeCategory = colFilters.sport_category && colFilters.sport_category !== 'All' ? colFilters.sport_category : null
                   const sportsForFilter = activeCategory
@@ -1955,6 +2171,18 @@ ${myDocs.length > 0 ? `<div class="section">
               return (
                 <tr key={a.id} onClick={() => !editMode && setSelected(a.id)}
                   style={{ cursor:editMode?'default':'pointer', background:isChanged?'#f0f7ff':'' }}>
+                  {canEdit(profile) && !editMode && (
+                    <td onClick={e => e.stopPropagation()}>
+                      <input type="checkbox" checked={selectedIds.has(a.id)}
+                        onChange={e => {
+                          setSelectedIds(prev => {
+                            const next = new Set(prev)
+                            if (e.target.checked) next.add(a.id); else next.delete(a.id)
+                            return next
+                          })
+                        }} />
+                    </td>
+                  )}
                   {cols.map(c => (
                     <td key={c.key}>
                       {editMode ? renderEditCell(a, c.key) : renderCell(a, c.key)}
