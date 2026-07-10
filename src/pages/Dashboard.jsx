@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
-import { Avatar, MedalDisplay, statusClass, statusDot, DashRow, SPORT_META, SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, sportLabel, initials, getCurrentSeason, effectiveStatus, COACH_DESIGNATIONS } from '../lib/helpers'
+import { Avatar, MedalDisplay, statusClass, statusDot, DashRow, SPORT_META, SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, sportLabel, initials, getCurrentSeason, computeAwayPeople } from '../lib/helpers'
 import { useLang } from '../lib/LangContext.jsx'
-import { toast } from '../components/Toast'
 import DashboardBanners from '../components/DashboardBanners'
 
 // Role label shown under the welcome name in the hero banner
@@ -35,51 +34,10 @@ export default function Dashboard({ athletes, coaches, employees, referees, even
     .filter(a => (a.medals_gold+a.medals_silver+a.medals_bronze) > 0)
     .slice(0, 5)
 
-  // ── Away status — hoisted here so the same count can back the "Away" KPI
-  // card too, instead of recalculating it in two places. Uses the real
-  // effectiveStatus() (rule 6's single source of truth), which already
-  // handles the inclusive start/end date window correctly: the start date
-  // itself counts as away (today < start stays Active, so today === start
-  // is already away), and the end date itself still counts as away (today
-  // > end reverts to Active, so today === end is still away). Only these
-  // three statuses count as "away" — other non-Active statuses (Inactive,
-  // Injured, Under Medical Review, Suspended, Retired) are not temporary
-  // absences and must not be counted here. ──
-  const AWAY_STATUSES = ['On Leave', 'In Competition', 'In Training Camp']
-  const awayAthletes = athletes.filter(a => AWAY_STATUSES.includes(effectiveStatus(a)))
-
-  // For each employee, resolve which record actually holds their real status:
-  // a coach-type employee's true status lives on their linked coaches-table
-  // row when one exists, otherwise their own employee record is authoritative
-  // (this was the bug — coach-type employees were previously excluded
-  // outright with no fallback, so an "On Leave" employee with no linked
-  // coach record, or no successful match, simply vanished from the count).
-  function employeeStatusSource(emp) {
-    if (!COACH_DESIGNATIONS.includes(emp.designation)) return emp
-    const coachRec = coaches?.find(c => c.status !== 'Inactive' && (
-      (emp.qss_number && c.qss_number && c.qss_number === emp.qss_number) ||
-      (emp.name && c.name && c.name.trim().toLowerCase() === emp.name.trim().toLowerCase())
-    ))
-    return coachRec || emp
-  }
-
-  // Coach records already reached through a matched coach-type employee —
-  // tracked so those coaches aren't counted a second time below.
-  const matchedCoachIds = new Set()
-  const awayEmployees = (employees || []).filter(e => {
-    const src = employeeStatusSource(e)
-    if (src !== e) matchedCoachIds.add(src.id) // matched to a real coach record
-    return AWAY_STATUSES.includes(effectiveStatus(src))
-  })
-
-  // Coaches not already accounted for via an employee match above.
-  const awayCoaches = coaches.filter(c => !matchedCoachIds.has(c.id) && AWAY_STATUSES.includes(effectiveStatus(c)))
-
-  const allAway = [
-    ...awayAthletes.map(a => ({ ...a, _type: ar ? 'رياضي' : 'Athlete' })),
-    ...awayCoaches.map(c  => ({ ...c, _type: ar ? 'مدرب' : 'Coach', _isCoach: true })),
-    ...awayEmployees.map(e => ({ ...e, _type: ar ? 'موظف' : 'Employee', _isEmployee: true })),
-  ]
+  // Away KPI count — single source of truth shared with the Away Management
+  // page (src/lib/helpers.jsx computeAwayPeople), so the two can never show
+  // different numbers for the same underlying data.
+  const { allAway } = computeAwayPeople(athletes, coaches, employees, lang)
 
   // ── Sports in use — same source data the Sports Breakdown section below
   // uses, reused here for the "Sports" KPI card count. ──
@@ -98,7 +56,7 @@ export default function Dashboard({ athletes, coaches, employees, referees, even
     { label: tx('dashboard.sports','Sports'), val: sportEntries.length, hint: ar ? 'قيد الاستخدام' : 'in use', color: '#0d9488', icon: 'ti-ball-football', click: () => onNav('sports') },
     { label: tx('dashboard.activeEvents','Active Events'), val: upcoming, hint: ar ? 'قادمة' : 'upcoming', color: '#EE334E', icon: 'ti-calendar-event', click: () => onNav('events', { statusFilter:'Upcoming' }) },
     { label: ar ? 'خارج المقر' : 'Away', val: allAway.length, hint: ar ? 'إجازة/معسكر/منافسة' : 'leave/camp/comp.', color: '#f97316', icon: 'ti-map-pin-off',
-      click: () => toast(ar ? 'إدارة الغياب قريباً' : 'Away Management is coming soon', 'error') },
+      click: () => onNav('away') },
     { isPending: true, label: tx('dashboard.pendingRequests','Pending Requests'), val: pendingRequestsCount + pendingAccountsCount,
       // Two genuinely different things both called "requests": form
       // submissions (Leave Request, Equipment Request, etc.) and account
