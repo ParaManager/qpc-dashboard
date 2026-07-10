@@ -34,11 +34,11 @@ const DOC_TYPES  = [
 const REQUIRED_DOC_TYPES = DOC_TYPES.filter(t => t !== 'Other')
 function athleteDocStatus(athleteId, documents) {
   const myDocs = (documents || []).filter(d => d.athlete_id === athleteId)
-  if (myDocs.length === 0) return { key: 'none', missing: REQUIRED_DOC_TYPES.length, missingTypes: REQUIRED_DOC_TYPES }
+  if (myDocs.length === 0) return { key: 'none', missing: REQUIRED_DOC_TYPES.length }
   const present = new Set(myDocs.map(d => d.type))
-  const missingTypes = REQUIRED_DOC_TYPES.filter(t => !present.has(t))
-  if (missingTypes.length === 0) return { key: 'complete', missing: 0, missingTypes: [] }
-  return { key: 'missing', missing: missingTypes.length, missingTypes }
+  const missing = REQUIRED_DOC_TYPES.filter(t => !present.has(t)).length
+  if (missing === 0) return { key: 'complete', missing: 0 }
+  return { key: 'missing', missing }
 }
 
 // ── Bulk Import Documents (admin only) ──────────────────────────────────
@@ -577,7 +577,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
   const [visibleCols, setVisibleCols] = useState(
     profile?.role === 'coach'
       ? COACH_DEFAULT_COLS
-      : ['name','sport_category','sport','classification','nationality','coach_id','status','medals','docs']
+      : ['name','sport','coach_id','status','medical_status','passport_expiry','id_expiry']
   )
   const [colPickerOpen, setColPickerOpen] = useState(false)
   const [colFilters, setColFilters] = useState({})
@@ -1470,7 +1470,6 @@ ${myDocs.length > 0 ? `<div class="section">
     { key:'id_expiry',       label:tx('athletes.idExpiry','ID Expiry'),       default:false, editable:false },
     { key:'medals',          label:tx('athletes.medals','Medals'),            default:true,  editable:false },
     { key:'documents',       label:tx('athletes.documents','Documents'),       default:true,  editable:false },
-    { key:'missing_documents', label: lang==='ar' ? 'الوثائق الناقصة' : 'Missing Documents', default:false, editable:false },
   ]
 
   function toggleCol(key) {
@@ -1546,31 +1545,6 @@ ${myDocs.length > 0 ? `<div class="section">
             onClick={e => { e.stopPropagation(); setScrollToDocs(true); setSelected(a.id) }}>
             {text}
           </span>
-        )
-      }
-      case 'missing_documents': {
-        const ds = athleteDocStatus(a.id, documents)
-        if (ds.key === 'complete') {
-          return <span style={{ color:'var(--text3)' }}>{lang==='ar' ? '—' : '—'}</span>
-        }
-        if (ds.key === 'none') {
-          return (
-            <span style={{ color:'#dc2626', fontSize:12, cursor:'pointer' }}
-              onClick={e => { e.stopPropagation(); setScrollToDocs(true); setSelected(a.id) }}>
-              {lang==='ar' ? 'جميع الوثائق مفقودة' : 'All documents are missing'}
-            </span>
-          )
-        }
-        return (
-          <div style={{ display:'flex', flexDirection:'column', gap:2, cursor:'pointer' }}
-            onClick={e => { e.stopPropagation(); setScrollToDocs(true); setSelected(a.id) }}>
-            {ds.missingTypes.map(t => (
-              <span key={t} style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, color:'var(--text2)' }}>
-                <i className="ti ti-x" style={{ color:'#dc2626', fontSize:13, flexShrink:0 }} />
-                {lang==='ar' ? (DOC_TYPES_AR[t] || t) : t}
-              </span>
-            ))}
-          </div>
         )
       }
       default: return '—'
