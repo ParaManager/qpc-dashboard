@@ -475,6 +475,70 @@ export function effectiveStatus(person) {
   return person.status
 }
 
+// The statuses that count as a temporary "away" absence — used consistently
+// wherever the app needs to decide who's currently away.
+export const AWAY_STATUSES = ['On Leave', 'In Competition', 'In Training Camp']
+
+// Single source of truth for "who is currently away" across athletes,
+// coaches, and employees. Originally built inline in Dashboard.jsx for the
+// Away KPI card; extracted here so the Away Management page (and anything
+// else that needs this later) reuses the exact same computation instead of
+// a second, potentially-drifting copy.
+//
+// Coach-type employees (Coach, Assistant Coach, Technical Expert,
+// Physiotherapist, Doctor) are resolved to their linked coaches-table record
+// when one exists — that record is authoritative for their status — and
+// fall back to their own employee record when no match is found, so they're
+// never silently dropped. Matched coaches are counted once, through the
+// employee entry, and excluded from the separate coaches list to avoid
+// double-counting.
+//
+// Returns { allAway, awayAthletes, awayCoaches, awayEmployees }. Every
+// person in the returned arrays is spread with a `_type` label (localized
+// via `lang`) and, for coaches/employees, a `_isCoach`/`_isEmployee` flag —
+// exactly the shape Dashboard.jsx already produced.
+export function computeAwayPeople(athletes, coaches, employees, lang) {
+  const ar = lang === 'ar'
+
+  const awayAthletes = (athletes || []).filter(a => AWAY_STATUSES.includes(effectiveStatus(a)))
+
+  function employeeStatusSource(emp) {
+    if (!COACH_DESIGNATIONS.includes(emp.designation)) return emp
+    const coachRec = coaches?.find(c => c.status !== 'Inactive' && (
+      (emp.qss_number && c.qss_number && c.qss_number === emp.qss_number) ||
+      (emp.name && c.name && c.name.trim().toLowerCase() === emp.name.trim().toLowerCase())
+    ))
+    return coachRec || emp
+  }
+
+  const matchedCoachIds = new Set()
+  // For a coach-type employee resolved to a linked coach record, that coach
+  // record is where the real status/status_start/status_end actually live —
+  // so the object carried forward must be the resolved record, not the
+  // original employee shell (which may still hold stale/unrelated status
+  // fields on the employees table). This only changes which record's data
+  // is displayed for someone already correctly determined to be away — the
+  // away/not-away determination itself is unchanged.
+  const awayEmployees = (employees || [])
+    .map(e => {
+      const src = employeeStatusSource(e)
+      if (src !== e) matchedCoachIds.add(src.id)
+      return { emp: e, src }
+    })
+    .filter(({ src }) => AWAY_STATUSES.includes(effectiveStatus(src)))
+    .map(({ emp, src }) => src === emp ? emp : { ...src, id: emp.id, name: emp.name, name_ar: emp.name_ar })
+
+  const awayCoaches = (coaches || []).filter(c => !matchedCoachIds.has(c.id) && AWAY_STATUSES.includes(effectiveStatus(c)))
+
+  const allAway = [
+    ...awayAthletes.map(a => ({ ...a, _type: ar ? 'رياضي' : 'Athlete' })),
+    ...awayCoaches.map(c  => ({ ...c, _type: ar ? 'مدرب' : 'Coach', _isCoach: true })),
+    ...awayEmployees.map(e => ({ ...e, _type: ar ? 'موظف' : 'Employee', _isEmployee: true })),
+  ]
+
+  return { allAway, awayAthletes, awayCoaches, awayEmployees }
+}
+
 export function MedalDisplay({ gold, silver, bronze }) {
   if (!gold && !silver && !bronze) return <span style={{ color: '#aaa', fontSize: 12 }}>—</span>
   return (
