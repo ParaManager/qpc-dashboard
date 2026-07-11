@@ -118,7 +118,10 @@ export default function App() {
 
   const fetchAll = useCallback(async () => {
     // Auto-reset dated statuses where end date has passed
-    const today = new Date().toISOString().split('T')[0]
+    // Local Qatar-day string, not UTC (toISOString() shifts the date back
+    // for any UTC+ timezone, e.g. still "yesterday" at 00:44 local).
+    const _now = new Date()
+    const today = `${_now.getFullYear()}-${String(_now.getMonth()+1).padStart(2,'0')}-${String(_now.getDate()).padStart(2,'0')}`
     const dated = ['On Leave','In Competition','In Training Camp']
     await Promise.all([
       supabase.from('athletes').update({ status:'Active', status_start:null, status_end:null })
@@ -139,8 +142,10 @@ export default function App() {
         const adminIds = (admins || []).map(x => x.id)
         if (adminIds.length) {
           const todayD = new Date(); todayD.setHours(0,0,0,0)
-          const tomorrowStr = new Date(todayD.getTime() + 86400000).toISOString().slice(0,10)
-          const todayStr = todayD.toISOString().slice(0,10)
+          const tomorrowD = new Date(todayD.getTime() + 86400000)
+          const toLocalDateStr = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+          const tomorrowStr = toLocalDateStr(tomorrowD)
+          const todayStr = toLocalDateStr(todayD)
           const inserts = []
           const upsertIgnoreConflict = async (rows, label) => {
             if (!rows.length) return
