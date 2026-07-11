@@ -31,13 +31,19 @@ export default function Notifications({ profile, onNav }) {
   const ar = lang === 'ar'
   const L = (en, a) => ar ? a : en
 
+  const PAGE_SIZE = 100
   const [notifs, setNotifs] = useState([])
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(false)
   const [filter, setFilter] = useState('all') // 'all' | 'unread'
   const [catFilter, setCatFilter] = useState('All')
 
   useEffect(() => { load() }, [profile?.id])
 
+  // Loads the first page. Paginated (not a single unlimited fetch) so this
+  // stays fast as notification history grows — "Load more" fetches the next
+  // page instead of everything at once.
   async function load() {
     if (!profile?.id) return
     setLoading(true)
@@ -46,9 +52,24 @@ export default function Notifications({ profile, onNav }) {
       .select('*')
       .eq('user_id', String(profile.id))
       .order('created_at', { ascending: false })
-      .limit(100)
+      .range(0, PAGE_SIZE - 1)
     setNotifs(data || [])
+    setHasMore((data || []).length === PAGE_SIZE)
     setLoading(false)
+  }
+
+  async function loadMore() {
+    if (!profile?.id || loadingMore) return
+    setLoadingMore(true)
+    const { data } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('user_id', String(profile.id))
+      .order('created_at', { ascending: false })
+      .range(notifs.length, notifs.length + PAGE_SIZE - 1)
+    setNotifs(prev => [...prev, ...(data || [])])
+    setHasMore((data || []).length === PAGE_SIZE)
+    setLoadingMore(false)
   }
 
   async function markRead(id) {
@@ -281,6 +302,14 @@ export default function Notifications({ profile, onNav }) {
           </>
         )}
       </div>
+      {hasMore && (
+        <div style={{ textAlign:'center', marginTop:14 }}>
+          <button onClick={loadMore} disabled={loadingMore}
+            style={{ padding:'8px 18px', borderRadius:9, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--text2)', fontSize:13, cursor: loadingMore ? 'default' : 'pointer' }}>
+            {loadingMore ? L('Loading…','جارٍ التحميل…') : L('Load more','تحميل المزيد')}
+          </button>
+        </div>
+      )}
     </div>
   )
 }
