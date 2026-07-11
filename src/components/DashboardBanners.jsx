@@ -68,7 +68,19 @@ export default function DashboardBanners({ profile, onNav, extraBanners = [], ma
   const SESSION_REMINDER_TYPES = ['needs_attendance']
   const excuseRequests = activeNotifs.filter(n => n.type === 'excuse_request')
   const accessRequests = activeNotifs.filter(n => n.type === 'access_request')
-  const otherNotifs     = activeNotifs.filter(n => n.type !== 'excuse_request' && n.type !== 'access_request' && !SESSION_REMINDER_TYPES.includes(n.type))
+  // Only the legacy types this banner block was originally built around
+  // (i.e. anything actually listed in TYPE_META above) get the persistent
+  // "keep nagging until resolved" treatment. Newer notification types
+  // (resource_added, task reminders, away/expiry reminders, etc.) were never
+  // meant to behave that way — they're normal, dismissible notifications, so
+  // they must respect read/dismissed like the bell dropdown and full list do.
+  // Falling back to "respect read/dismissed" for anything not explicitly
+  // known here also means a future new type added elsewhere won't
+  // accidentally inherit the nagging behavior just by existing.
+  const otherNotifs = activeNotifs.filter(n =>
+    n.type !== 'excuse_request' && n.type !== 'access_request' && !SESSION_REMINDER_TYPES.includes(n.type) &&
+    (TYPE_META[n.type] ? true : (!n.read && !n.dismissed))
+  )
 
   const banners = [...extraBanners]
 
