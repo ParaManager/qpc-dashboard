@@ -127,7 +127,140 @@ export default function App() {
         .in('status', dated).lt('status_end', today).not('status_end', 'is', null),
     ])
 
-    const [a, c, e, r, reg, docs, emp, pdocs, refs, reqSubs, profs] = await Promise.all([
+    // ── Admin Notification Center: scheduled-style reminder checks ──────────
+    // There is no server-side cron in this project, so these checks run once
+    // per admin session load instead. Every insert below relies on the
+    // (user_id, dedup_key) unique index added to `notifications` — running
+    // this block repeatedly (multiple tabs, frequent reloads, etc.) can never
+    // create a duplicate, since a conflicting dedup_key is simply rejected.
+    if (profile?.role === 'admin') {
+      try {
+        const { data: admins } = await supabase.from('profiles').select('id').eq('role', 'admin')
+        const adminIds = (admins || []).map(x => x.id)
+        if (adminIds.length) {
+          const todayD = new Date(); todayD.setHours(0,0,0,0)
+          const tomorrowStr = new Date(todayD.getTime() + 86400000).toISOString().slice(0,10)
+          const todayStr = todayD.toISOString().slice(0,10)
+          const inserts = []
+          const upsertIgnoreConflict = async (rows) => {
+            if (!rows.length) return
+            await supabase.from('notifications').upsert(rows, { onConflict: 'user_id,dedup_key', ignoreDuplicates: true })
+          }
+
+          // 4. TASKS — due tomorrow / due today / overdue, once each, never
+          // for completed tasks (the only "resolved" status this app has).
+          const { data: liveTasks } = await supabase.from('tasks').select('*').neq('status', 'done')
+          for (const t of (liveTasks || [])) {
+            if (!t.due_date) continue
+            const ownerId = t.created_by
+            if (!ownerId) continue
+            const base = { user_id: ownerId, category: 'Tasks', target_path: 'tasks', related_entity_type: 'task', related_entity_id: t.id, read: false }
+            if (t.due_date === tomorrowStr) {
+              inserts.push({ ...base, type: 'task_due_tomorrow',
+                title: lang==='ar' ? 'مهمة مستحقة غداً' : 'Task due tomorrow', body: t.title,
+                dedup_key: `task-due-tomorrow-${t.id}` })
+            } else if (t.due_date === todayStr) {
+              inserts.push({ ...base, type: 'task_due_today',
+                title: lang==='ar' ? 'مهمة مستحقة اليوم' : 'Task due today', body: t.title,
+                dedup_key: `task-due-today-${t.id}-${todayStr}` })
+            } else if (t.due_date < todayStr) {
+              inserts.push({ ...base, type: 'task_overdue',
+                title: lang==='ar' ? 'مهمة متأخرة' : 'Task overdue', body: t.title,
+                dedup_key: `task-overdue-${t.id}` })
+            }
+          }
+
+          // 5. AWAY MANAGEMENT — status starts today / ends today, once each.
+          // Uses the exact same inclusive date semantics already implemented
+          // by effectiveStatus()/computeAwayPeople() elsewhere in the app —
+          // not a separate reimplementation, just read directly from the
+          // already-fetched status_start/status_end fields.
+          const AWAY_STATUSES = ['On Leave','In Competition','In Training Camp']
+          const [athletesForAway, coachesForAway, employeesForAway] = await Promise.all([
+            supabase.from('athletes').select('id,name,name_ar,status,status_start,status_end'),
+            supabase.from('coaches').select('id,name,name_ar,status,status_start,status_end'),
+            supabase.from('employees').select('id,name,name_ar,status,status_start,status_end'),
+          ])
+          const awayGroups = [
+            { rows: athletesForAway.data || [], type: 'athlete', path: 'athletes', param: 'athleteId' },
+            { rows: coachesForAway.data || [],  type: 'coach',   path: 'coaches',  param: 'coachId' },
+            { rows: employeesForAway.data || [],type: 'employee',path: 'employees',param: 'employeeId' },
+          ]
+          for (const group of awayGroups) {
+            for (const p of group.rows) {
+              if (!AWAY_STATUSES.includes(p.status)) continue
+              const name = p.name || ''
+              if (p.status_start === todayStr) {
+                inserts.push({
+                  user_id: adminIds[0], category: 'Away Management', target_path: group.path,
+                  related_entity_type: group.type, related_entity_id: String(p.id), read: false,
+                  type: 'away_start',
+                  title: lang==='ar' ? 'بدء غياب مؤقت' : 'Temporary status started',
+                  body: lang==='ar' ? `${name} — ${p.status} يبدأ اليوم` : `${name}'s ${p.status.toLowerCase()} starts today`,
+                  dedup_key: `away-start-${group.type}-${p.id}-${todayStr}`,
+                })
+              }
+              if (p.status_end === todayStr) {
+                inserts.push({
+                  user_id: adminIds[0], category: 'Away Management', target_path: group.path,
+                  related_entity_type: group.type, related_entity_id: String(p.id), read: false,
+                  type: 'away_end',
+                  title: lang==='ar' ? 'انتهاء غياب مؤقت' : 'Temporary status ending',
+                  body: lang==='ar' ? `${name} — ${p.status} ينتهي اليوم` : `${name}'s ${p.status.toLowerCase()} ends today`,
+                  dedup_key: `away-end-${group.type}-${p.id}-${todayStr}`,
+                })
+              }
+            }
+          }
+          // Away notifications go to every admin, not just the first — expand.
+          const awayInserts = inserts.filter(x => x.type === 'away_start' || x.type === 'away_end')
+          const nonAwayInserts = inserts.filter(x => x.type !== 'away_start' && x.type !== 'away_end')
+          const expandedAway = awayInserts.flatMap(row => adminIds.map(uid => ({ ...row, user_id: uid, dedup_key: `${row.dedup_key}-${uid}` })))
+
+          // 6. DOCUMENT EXPIRY — passport & Qatar ID, athletes only (per
+          // existing fields reviewed). Initial warning at 30/14/7 days out
+          // and on/after expiry, then a repeat only every 30 days while still
+          // unresolved — encoded as a cycle number baked directly into the
+          // dedup_key so re-running this never duplicates the same cycle,
+          // and a later renewal (expiry date pushed forward) naturally
+          // produces a fresh, different dedup_key instead of being silently
+          // suppressed forever.
+          const { data: athletesForExpiry } = await supabase.from('athletes').select('id,name,name_ar,passport_expiry,id_expiry')
+          const expiryInserts = []
+          for (const a2 of (athletesForExpiry || [])) {
+            for (const [field, label, labelAr] of [['passport_expiry','Passport','جواز السفر'], ['id_expiry','Qatar ID','الرقم الشخصي']]) {
+              const exp = a2[field]
+              if (!exp) continue
+              const expDate = new Date(exp); expDate.setHours(0,0,0,0)
+              const daysUntil = Math.round((expDate - todayD) / 86400000)
+              if (daysUntil > 30) continue // not due for any reminder yet
+              const cycle = daysUntil >= 0 ? 0 : Math.floor(Math.abs(daysUntil) / 30)
+              const expired = daysUntil < 0
+              const dedupKey = `${field.replace('_expiry','')}-expiry-${a2.id}-${expired ? `expired-cycle${cycle}` : 'warning'}`
+              expiryInserts.push({
+                category: 'Documents', target_path: 'athletes', related_entity_type: 'athlete', related_entity_id: String(a2.id), read: false,
+                type: expired ? 'document_expired' : 'document_expiring',
+                title: expired
+                  ? (lang==='ar' ? `${labelAr} منتهي الصلاحية` : `${label} expired`)
+                  : (lang==='ar' ? `${labelAr} على وشك الانتهاء` : `${label} expiring soon`),
+                body: lang==='ar' ? `${a2.name_ar || a2.name} — ${labelAr} ${expired ? 'منتهي' : 'ينتهي'} في ${exp}` : `${a2.name} — ${label} ${expired ? 'expired' : 'expires'} on ${exp}`,
+                dedup_key: dedupKey,
+              })
+            }
+          }
+          const expandedExpiry = expiryInserts.flatMap(row => adminIds.map(uid => ({ ...row, user_id: uid, dedup_key: `${row.dedup_key}-${uid}` })))
+
+          await upsertIgnoreConflict(nonAwayInserts)
+          await upsertIgnoreConflict(expandedAway)
+          await upsertIgnoreConflict(expandedExpiry)
+        }
+      } catch {
+        // Reminder generation failing must never block the app from loading
+        // its actual data below.
+      }
+    }
+
+    const [a, c, e, r, reg, docs, emp, pdocs, refs, reqSubs, profs, tasksRes] = await Promise.all([
       supabase.from('athletes').select('*').order('name'),
       supabase.from('coaches').select('*').order('name'),
       supabase.from('events').select('*').order('start_date'),
@@ -145,6 +278,8 @@ export default function App() {
       // treats profiles.status === 'pending' as "awaiting approval"; this is
       // just that same count, fetched centrally so Dashboard can show it too.
       supabase.from('profiles').select('status'),
+      // Needed for the due-date reminder checks run below.
+      supabase.from('tasks').select('*'),
     ])
     if (a.data)    setAthletes(a.data)
     if (c.data)    setCoaches(c.data)
@@ -158,7 +293,7 @@ export default function App() {
     if (reqSubs.data) setPendingRequestsCount(reqSubs.data.filter(s => s.status === 'pending').length)
     if (profs.data)   setPendingAccountsCount(profs.data.filter(p => p.status === 'pending').length)
     setDataLoading(false)
-  }, [])
+  }, [profile?.id, profile?.role, lang])
 
   useEffect(() => { if (user) fetchAll() }, [user, fetchAll])
 
