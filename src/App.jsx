@@ -142,13 +142,18 @@ export default function App() {
           const tomorrowStr = new Date(todayD.getTime() + 86400000).toISOString().slice(0,10)
           const todayStr = todayD.toISOString().slice(0,10)
           const inserts = []
-          const upsertIgnoreConflict = async (rows) => {
+          const upsertIgnoreConflict = async (rows, label) => {
             if (!rows.length) return
-            await supabase.from('notifications').upsert(rows, { onConflict: 'user_id,dedup_key', ignoreDuplicates: true })
+            const { error } = await supabase.from('notifications').upsert(rows, { onConflict: 'user_id,dedup_key', ignoreDuplicates: true })
+            if (error) console.error(`[notifications] upsert failed for ${label}:`, error)
           }
 
           // 4. TASKS — due tomorrow / due today / overdue, once each, never
           // for completed tasks (the only "resolved" status this app has).
+          // Stage transitions: once a task reaches a later stage, its
+          // earlier-stage notification(s) are deleted so only the current,
+          // relevant one remains — a task that's now overdue shouldn't still
+          // show a stale "due tomorrow"/"due today" alongside it.
           const { data: liveTasks } = await supabase.from('tasks').select('*').neq('status', 'done')
           for (const t of (liveTasks || [])) {
             if (!t.due_date) continue
@@ -160,10 +165,17 @@ export default function App() {
                 title: lang==='ar' ? 'مهمة مستحقة غداً' : 'Task due tomorrow', body: t.title,
                 dedup_key: `task-due-tomorrow-${t.id}` })
             } else if (t.due_date === todayStr) {
+              const { error } = await supabase.from('notifications').delete()
+                .eq('related_entity_type', 'task').eq('related_entity_id', t.id).eq('dedup_key', `task-due-tomorrow-${t.id}`)
+              if (error) console.error('[notifications] failed clearing due-tomorrow on transition to due-today:', error)
               inserts.push({ ...base, type: 'task_due_today',
                 title: lang==='ar' ? 'مهمة مستحقة اليوم' : 'Task due today', body: t.title,
                 dedup_key: `task-due-today-${t.id}-${todayStr}` })
             } else if (t.due_date < todayStr) {
+              const { error } = await supabase.from('notifications').delete()
+                .eq('related_entity_type', 'task').eq('related_entity_id', t.id)
+                .in('type', ['task_due_tomorrow', 'task_due_today'])
+              if (error) console.error('[notifications] failed clearing due-tomorrow/due-today on transition to overdue:', error)
               inserts.push({ ...base, type: 'task_overdue',
                 title: lang==='ar' ? 'مهمة متأخرة' : 'Task overdue', body: t.title,
                 dedup_key: `task-overdue-${t.id}` })
@@ -171,10 +183,14 @@ export default function App() {
           }
 
           // 5. AWAY MANAGEMENT — status starts today / ends today, once each.
-          // Uses the exact same inclusive date semantics already implemented
-          // by effectiveStatus()/computeAwayPeople() elsewhere in the app —
-          // not a separate reimplementation, just read directly from the
-          // already-fetched status_start/status_end fields.
+          // This reads status/status_start/status_end directly and checks
+          // exact date equality against today — it does NOT call the shared
+          // effectiveStatus()/computeAwayPeople() helpers, since those answer
+          // a different question ("is this person currently away right now")
+          // than what's needed here ("did their away period start or end on
+          // exactly today's date"). The inclusive-boundary semantics are the
+          // same ones those helpers use, just applied directly to the
+          // already-fetched rows below rather than routed through them.
           const AWAY_STATUSES = ['On Leave','In Competition','In Training Camp']
           const [athletesForAway, coachesForAway, employeesForAway] = await Promise.all([
             supabase.from('athletes').select('id,name,name_ar,status,status_start,status_end'),
@@ -250,13 +266,15 @@ export default function App() {
           }
           const expandedExpiry = expiryInserts.flatMap(row => adminIds.map(uid => ({ ...row, user_id: uid, dedup_key: `${row.dedup_key}-${uid}` })))
 
-          await upsertIgnoreConflict(nonAwayInserts)
-          await upsertIgnoreConflict(expandedAway)
-          await upsertIgnoreConflict(expandedExpiry)
+          await upsertIgnoreConflict(nonAwayInserts, 'tasks')
+          await upsertIgnoreConflict(expandedAway, 'away')
+          await upsertIgnoreConflict(expandedExpiry, 'expiry')
         }
-      } catch {
+      } catch (err) {
         // Reminder generation failing must never block the app from loading
-        // its actual data below.
+        // its actual data below — but the failure itself must be visible,
+        // not silently swallowed.
+        console.error('[notifications] reminder generation failed:', err)
       }
     }
 
