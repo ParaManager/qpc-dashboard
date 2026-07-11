@@ -199,10 +199,12 @@ export default function Resources({ profile, onRefresh }) {
   // not notify again, only genuine creation does.
   async function notifyNewResource(resourceId, payload) {
     if (!resourceId) return
+    // Admins are the ones adding resources here, so notify every admin
+    // including whoever just created it — a working confirmation, not a
+    // notification that only exists in theory for some other admin.
     const { data: admins } = await supabase.from('profiles').select('id').eq('role', 'admin')
-    const recipients = (admins || []).filter(a => a.id !== profile?.id)
-    if (recipients.length === 0) return
-    await supabase.from('notifications').insert(recipients.map(a => ({
+    if (!admins?.length) return
+    await supabase.from('notifications').insert(admins.map(a => ({
       user_id: a.id,
       type: 'resource_added',
       title: ar ? 'مورد جديد' : 'New resource added',
