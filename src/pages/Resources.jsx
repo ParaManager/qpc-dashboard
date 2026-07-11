@@ -193,13 +193,13 @@ export default function Resources({ profile, onRefresh }) {
     return trimmed
   }
 
-  // Notify other admins once when a new (non-private) resource is added.
-  // Skipped entirely for "Only Me" resources and never sent to the admin who
-  // just created it — they already know. Editing an existing resource does
-  // not notify again, only genuine creation does.
+  // Notify every admin once when a new (non-private) resource is added —
+  // including whoever just created it, since admins are the ones adding
+  // resources here and a working confirmation is more useful than silence.
+  // Skipped entirely for "Only Me" resources. Editing an existing resource
+  // does not notify again, only genuine creation does.
   async function notifyNewResource(resourceId, payload) {
     if (!resourceId) return
-    // Admins are the ones adding resources here, so notify every admin
     // including whoever just created it — a working confirmation, not a
     // notification that only exists in theory for some other admin.
     const { data: admins } = await supabase.from('profiles').select('id').eq('role', 'admin')

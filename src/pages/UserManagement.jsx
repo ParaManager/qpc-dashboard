@@ -20,6 +20,7 @@ export default function UserManagement({ profile, initUserId }) {
   const highlightRef = useRef(null)
   const [rejReason, setRejReason] = useState({})
   const [confirmDelete, setConfirmDelete] = useState(null)
+  const [actionPending, setActionPending] = useState({}) // userId -> true while approve/reject in flight
 
   useEffect(() => { loadUsers() }, [])
 
@@ -44,53 +45,80 @@ export default function UserManagement({ profile, initUserId }) {
   }
 
   async function approve(user) {
-    await supabase.from('profiles').update({
-      status: 'active',
-      role: user.account_type || user.role,
-      account_type: user.account_type || user.role,  // keep in sync for legacy
-      approved_at: new Date().toISOString(),
-      approved_by: profile?.id,
-    }).eq('id', user.id)
-    await supabase.from('notifications').insert({
-      user_id: user.id,
-      type: 'account_approved',
-      title: ar ? 'تم قبول طلب الوصول' : 'Access request approved',
-      body: ar ? 'تم تفعيل حسابك، يمكنك الآن تسجيل الدخول.' : 'Your account has been activated — you can now sign in.',
-      data: {},
-      read: false,
-      category: 'Accounts', target_path: 'dashboard', related_entity_type: 'profile', related_entity_id: user.id,
-    })
-    // Resolve the access_request notification(s) every admin received for this applicant
-    const { data: pendingNotifs } = await supabase.from('notifications').select('id, data').eq('type', 'access_request')
-    const toResolve = (pendingNotifs || []).filter(n => n.data?.applicant_id === user.id).map(n => n.id)
-    if (toResolve.length > 0) await supabase.from('notifications').delete().in('id', toResolve)
-    toast(L(`${user.full_name || user.email} approved`, `تمت الموافقة على ${user.full_name || ''}`))
-    loadUsers()
+    if (actionPending[user.id]) return
+    setActionPending(prev => ({ ...prev, [user.id]: true }))
+    try {
+      await supabase.from('profiles').update({
+        status: 'active',
+        role: user.account_type || user.role,
+        account_type: user.account_type || user.role,  // keep in sync for legacy
+        approved_at: new Date().toISOString(),
+        approved_by: profile?.id,
+      }).eq('id', user.id)
+      // Stable dedup_key means a second approve click (or a retried request)
+      // can never insert a duplicate approval notification for this user.
+      const { error: notifErr } = await supabase.from('notifications').insert({
+        user_id: user.id,
+        type: 'account_approved',
+        title: ar ? 'تم قبول طلب الوصول' : 'Access request approved',
+        body: ar ? 'تم تفعيل حسابك، يمكنك الآن تسجيل الدخول.' : 'Your account has been activated — you can now sign in.',
+        data: {},
+        read: false,
+        category: 'Accounts', target_path: 'dashboard', related_entity_type: 'profile', related_entity_id: user.id,
+        dedup_key: `account-approved-${user.id}`,
+      })
+      if (notifErr) console.error('[notifications] failed to insert account_approved:', notifErr)
+      // Resolve the access_request notification(s) every admin received for this
+      // applicant, and remove any earlier account_rejected notification too —
+      // if the account was previously rejected and is now approved, that old
+      // rejection notice is stale and must not remain active.
+      // access_request rows carry applicant_id inside `data`; account_rejected
+      // rows are matched directly on related_entity_id instead.
+      const { error: delErr1 } = await supabase.from('notifications').delete().eq('type', 'access_request').eq('data->>applicant_id', user.id)
+      const { error: delErr2 } = await supabase.from('notifications').delete().eq('type', 'account_rejected').eq('related_entity_id', user.id)
+      if (delErr1) console.error('[notifications] failed clearing access_request on approve:', delErr1)
+      if (delErr2) console.error('[notifications] failed clearing stale account_rejected on approve:', delErr2)
+      toast(L(`${user.full_name || user.email} approved`, `تمت الموافقة على ${user.full_name || ''}`))
+      loadUsers()
+    } finally {
+      setActionPending(prev => { const next = { ...prev }; delete next[user.id]; return next })
+    }
   }
 
   async function reject(user) {
-    const reason = rejReason[user.id] || ''
-    await supabase.from('profiles').update({
-      status: 'rejected',
-      rejection_reason: reason,
-    }).eq('id', user.id)
-    await supabase.from('notifications').insert({
-      user_id: user.id,
-      type: 'account_rejected',
-      title: ar ? 'تحديث على طلب الوصول' : 'Access request update',
-      body: reason
-        ? (ar ? `لم تتم الموافقة على طلبك. السبب: ${reason}` : `Your request was not approved. Reason: ${reason}`)
-        : (ar ? 'لم تتم الموافقة على طلبك في الوقت الحالي.' : 'Your request was not approved at this time.'),
-      data: {},
-      read: false,
-      category: 'Accounts', target_path: 'dashboard', related_entity_type: 'profile', related_entity_id: user.id,
-    })
-    // Resolve the access_request notification(s) every admin received for this applicant
-    const { data: pendingNotifs } = await supabase.from('notifications').select('id, data').eq('type', 'access_request')
-    const toResolve = (pendingNotifs || []).filter(n => n.data?.applicant_id === user.id).map(n => n.id)
-    if (toResolve.length > 0) await supabase.from('notifications').delete().in('id', toResolve)
-    toast(L('Request rejected', 'تم رفض الطلب'))
-    loadUsers()
+    if (actionPending[user.id]) return
+    setActionPending(prev => ({ ...prev, [user.id]: true }))
+    try {
+      const reason = rejReason[user.id] || ''
+      await supabase.from('profiles').update({
+        status: 'rejected',
+        rejection_reason: reason,
+      }).eq('id', user.id)
+      const { error: notifErr } = await supabase.from('notifications').insert({
+        user_id: user.id,
+        type: 'account_rejected',
+        title: ar ? 'تحديث على طلب الوصول' : 'Access request update',
+        body: reason
+          ? (ar ? `لم تتم الموافقة على طلبك. السبب: ${reason}` : `Your request was not approved. Reason: ${reason}`)
+          : (ar ? 'لم تتم الموافقة على طلبك في الوقت الحالي.' : 'Your request was not approved at this time.'),
+        data: {},
+        read: false,
+        category: 'Accounts', target_path: 'dashboard', related_entity_type: 'profile', related_entity_id: user.id,
+        dedup_key: `account-rejected-${user.id}`,
+      })
+      if (notifErr) console.error('[notifications] failed to insert account_rejected:', notifErr)
+      // Resolve the original access_request, and remove any earlier
+      // account_approved notification — if a previously-approved account is
+      // now being rejected, that old approval notice is stale.
+      const { error: delErr1 } = await supabase.from('notifications').delete().eq('type', 'access_request').eq('data->>applicant_id', user.id)
+      const { error: delErr2 } = await supabase.from('notifications').delete().eq('type', 'account_approved').eq('related_entity_id', user.id)
+      if (delErr1) console.error('[notifications] failed clearing access_request on reject:', delErr1)
+      if (delErr2) console.error('[notifications] failed clearing stale account_approved on reject:', delErr2)
+      toast(L('Request rejected', 'تم رفض الطلب'))
+      loadUsers()
+    } finally {
+      setActionPending(prev => { const next = { ...prev }; delete next[user.id]; return next })
+    }
   }
 
   async function changeRole(userId, role) {
@@ -214,8 +242,8 @@ export default function UserManagement({ profile, initUserId }) {
                 <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'flex-start' }}>
                   {u.status === 'pending' && (
                     <>
-                      <button onClick={() => approve(u)}
-                        style={{ padding:'7px 16px', background:'#009F6B', color:'#fff', border:'none', borderRadius:8, fontSize:13, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:5 }}>
+                      <button onClick={() => approve(u)} disabled={!!actionPending[u.id]}
+                        style={{ padding:'7px 16px', background:'#009F6B', color:'#fff', border:'none', borderRadius:8, fontSize:13, fontWeight:600, cursor: actionPending[u.id] ? 'default' : 'pointer', opacity: actionPending[u.id] ? .6 : 1, display:'flex', alignItems:'center', gap:5 }}>
                         <i className="ti ti-check" /> {L('Approve','موافقة')}
                       </button>
                       <div style={{ display:'flex', gap:6 }}>
@@ -225,8 +253,8 @@ export default function UserManagement({ profile, initUserId }) {
                           onChange={e => setRejReason(prev => ({...prev, [u.id]: e.target.value}))}
                           style={{ padding:'6px 10px', border:'1px solid var(--border)', borderRadius:8, fontSize:12, background:'var(--surface)', color:'var(--text)', width:200 }}
                         />
-                        <button onClick={() => reject(u)}
-                          style={{ padding:'7px 14px', background:'#EE334E', color:'#fff', border:'none', borderRadius:8, fontSize:13, fontWeight:600, cursor:'pointer', display:'flex', alignItems:'center', gap:5 }}>
+                        <button onClick={() => reject(u)} disabled={!!actionPending[u.id]}
+                          style={{ padding:'7px 14px', background:'#EE334E', color:'#fff', border:'none', borderRadius:8, fontSize:13, fontWeight:600, cursor: actionPending[u.id] ? 'default' : 'pointer', opacity: actionPending[u.id] ? .6 : 1, display:'flex', alignItems:'center', gap:5 }}>
                           <i className="ti ti-x" /> {L('Reject','رفض')}
                         </button>
                       </div>
@@ -248,8 +276,8 @@ export default function UserManagement({ profile, initUserId }) {
 
                   {u.status === 'rejected' && (
                     <>
-                    <button onClick={() => approve(u)}
-                      style={{ padding:'7px 14px', background:'var(--surface2)', color:'var(--text2)', border:'1px solid var(--border)', borderRadius:8, fontSize:12, cursor:'pointer' }}>
+                    <button onClick={() => approve(u)} disabled={!!actionPending[u.id]}
+                      style={{ padding:'7px 14px', background:'var(--surface2)', color:'var(--text2)', border:'1px solid var(--border)', borderRadius:8, fontSize:12, cursor: actionPending[u.id] ? 'default' : 'pointer', opacity: actionPending[u.id] ? .6 : 1 }}>
                       <i className="ti ti-refresh" /> {L('Re-activate','إعادة التفعيل')}
                     </button>
                     <button onClick={() => setConfirmDelete(u)}

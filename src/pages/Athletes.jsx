@@ -116,6 +116,11 @@ function BulkImportDocsModal({ athletes, documents, lang, profile, onClose, onDo
       .map((d, i) => ({ d, i }))
       .filter(({ d, i }) => dupeAction(i) === 'replace' && d.existingDoc)
     if (preview.matched.length === 0 && toReplace.length === 0) return
+    // One stable ID for this entire import run, generated once up front and
+    // reused for the single final notification below — Date.now() alone was
+    // not a real dedup key since it's always different on every call; this
+    // ID is what actually identifies "this one import operation".
+    const operationId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2,10)}`
     setImporting(true)
     setProgress({ done: 0, total: preview.matched.length + toReplace.length })
     let imported = 0, replaced = 0, failed = 0
@@ -179,32 +184,43 @@ function BulkImportDocsModal({ athletes, documents, lang, profile, onClose, onDo
       unmatched: preview.unmatched.length,
       ambiguous: preview.ambiguous.length,
     })
-    // One notification per import operation, to every admin (including the
-    // one who ran it, so it also shows up as a historical record for them).
-    // Succeeded vs failed is judged on whether anything was actually written.
+    // Exactly one notification per import operation, keyed on the stable
+    // operationId generated at the start of this function — a retried or
+    // duplicated call for the same run (which cannot happen from the UI
+    // today, since the button is disabled while importing, but this is the
+    // actual guarantee rather than relying on that alone) can never insert
+    // a second notification for the same operation.
     const { data: admins } = await supabase.from('profiles').select('id').eq('role', 'admin')
     if (admins?.length) {
+      const nothingHappened = imported === 0 && replaced === 0 && failed === 0
       const succeeded = (imported + replaced) > 0 && failed === 0
       const partial = (imported + replaced) > 0 && failed > 0
-      const type = succeeded || partial ? 'import_succeeded' : 'import_failed'
-      const summaryText = ar
-        ? `تم استيراد ${imported}، استبدال ${replaced}، تخطي ${skippedDuplicates}، غير مطابق ${preview.unmatched.length}، فشل ${failed}`
-        : `Imported ${imported}, replaced ${replaced}, skipped ${skippedDuplicates}, unmatched ${preview.unmatched.length}, failed ${failed}`
-      const dedupSuffix = `${Date.now()}`
-      await supabase.from('notifications').insert(admins.map(a => ({
+      // All files were skipped as duplicates (or there was simply nothing
+      // matched to act on) — this is a completed, successful run, not a
+      // failure, even though zero files were actually written.
+      const type = nothingHappened ? 'import_succeeded' : (succeeded || partial ? 'import_succeeded' : 'import_failed')
+      const summaryText = nothingHappened
+        ? (ar ? 'لم يتم استيراد أي وثائق جديدة لأن جميع الملفات المحددة تم تخطيها.' : 'No new documents were imported because all selected files were skipped.')
+        : (ar
+            ? `تم استيراد ${imported}، استبدال ${replaced}، تخطي ${skippedDuplicates}، غير مطابق ${preview.unmatched.length}، فشل ${failed}`
+            : `Imported ${imported}, replaced ${replaced}, skipped ${skippedDuplicates}, unmatched ${preview.unmatched.length}, failed ${failed}`)
+      const { error: notifErr } = await supabase.from('notifications').insert(admins.map(a => ({
         user_id: a.id,
         type,
-        title: succeeded
-          ? (ar ? 'اكتمل استيراد الوثائق' : 'Document import completed')
-          : partial
-            ? (ar ? 'اكتمل استيراد الوثائق جزئياً' : 'Document import completed with errors')
-            : (ar ? 'فشل استيراد الوثائق' : 'Document import failed'),
+        title: nothingHappened
+          ? (ar ? 'اكتمل الاستيراد — لا جديد' : 'Import completed — nothing new')
+          : succeeded
+            ? (ar ? 'اكتمل استيراد الوثائق' : 'Document import completed')
+            : partial
+              ? (ar ? 'اكتمل استيراد الوثائق جزئياً' : 'Document import completed with errors')
+              : (ar ? 'فشل استيراد الوثائق' : 'Document import failed'),
         body: summaryText,
         data: { page: 'athletes' },
         read: false,
-        category: 'Documents', target_path: 'athletes', related_entity_type: 'import_batch', related_entity_id: null,
-        dedup_key: `doc-import-${profile?.id || 'unknown'}-${dedupSuffix}-${a.id}`,
+        category: 'Documents', target_path: 'athletes', related_entity_type: 'import_batch', related_entity_id: operationId,
+        dedup_key: `doc-import-${type === 'import_failed' ? 'failed' : 'succeeded'}-${operationId}-${a.id}`,
       })))
+      if (notifErr) console.error('[notifications] failed to insert import result notification:', notifErr)
     }
     await onDone()
   }
