@@ -3,16 +3,28 @@ import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
 
 const TYPE_META = {
-  excuse_request:     { icon:'ti-clock',           color:'#f59e0b' },
-  session_added:      { icon:'ti-calendar-plus',   color:'#009F6B' },
-  timetable_created:  { icon:'ti-calendar-repeat', color:'#8b5cf6' },
-  request_approved:   { icon:'ti-circle-check',    color:'#009F6B' },
-  request_rejected:   { icon:'ti-circle-x',        color:'#EE334E' },
-  account_approved:   { icon:'ti-user-check',      color:'#009F6B' },
-  account_rejected:   { icon:'ti-user-x',          color:'#EE334E' },
-  needs_attendance:   { icon:'ti-clipboard-check', color:'#f59e0b' },
-  access_request:     { icon:'ti-user-plus',        color:'#0085C7' },
+  excuse_request:     { icon:'ti-clock',           color:'#f59e0b', category:'System' },
+  session_added:      { icon:'ti-calendar-plus',   color:'#009F6B', category:'System' },
+  timetable_created:  { icon:'ti-calendar-repeat', color:'#8b5cf6', category:'System' },
+  request_approved:   { icon:'ti-circle-check',    color:'#009F6B', category:'Requests' },
+  request_rejected:   { icon:'ti-circle-x',        color:'#EE334E', category:'Requests' },
+  account_approved:   { icon:'ti-user-check',      color:'#009F6B', category:'Accounts' },
+  account_rejected:   { icon:'ti-user-x',          color:'#EE334E', category:'Accounts' },
+  needs_attendance:   { icon:'ti-clipboard-check', color:'#f59e0b', category:'System' },
+  access_request:     { icon:'ti-user-plus',       color:'#0085C7', category:'Accounts' },
+  request:            { icon:'ti-clipboard-text',  color:'#0085C7', category:'Requests' },
+  resource_added:     { icon:'ti-folder-plus',     color:'#0085C7', category:'Resources' },
+  import_succeeded:   { icon:'ti-file-check',      color:'#009F6B', category:'Documents' },
+  import_failed:      { icon:'ti-file-x',          color:'#EE334E', category:'Documents' },
+  task_due_tomorrow:  { icon:'ti-calendar-event',  color:'#f59e0b', category:'Tasks' },
+  task_due_today:     { icon:'ti-calendar-event',  color:'#f59e0b', category:'Tasks' },
+  task_overdue:       { icon:'ti-alert-triangle',  color:'#EE334E', category:'Tasks' },
+  away_start:         { icon:'ti-plane-departure',  color:'#d97706', category:'Away Management' },
+  away_end:           { icon:'ti-plane-arrival',    color:'#009F6B', category:'Away Management' },
+  document_expiring:  { icon:'ti-file-alert',       color:'#f59e0b', category:'Documents' },
+  document_expired:   { icon:'ti-file-x',           color:'#EE334E', category:'Documents' },
 }
+const CATEGORIES = ['All','Requests','Tasks','Documents','Resources','Away Management','Accounts','System']
 
 export default function Notifications({ profile, onNav }) {
   const { lang } = useLang()
@@ -22,6 +34,7 @@ export default function Notifications({ profile, onNav }) {
   const [notifs, setNotifs] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all') // 'all' | 'unread'
+  const [catFilter, setCatFilter] = useState('All')
 
   useEffect(() => { load() }, [profile?.id])
 
@@ -74,10 +87,25 @@ export default function Notifications({ profile, onNav }) {
       onNav('users', n.data?.applicant_id ? { userId: n.data.applicant_id } : {})
     } else if (n.type === 'account_approved' || n.type === 'account_rejected') {
       onNav('dashboard', {})
+    } else if (n.type === 'request') {
+      onNav('requests', {})
+    } else if (n.type === 'resource_added') {
+      onNav('resources', {})
+    } else if (n.type === 'import_succeeded' || n.type === 'import_failed') {
+      onNav('athletes', {})
+    } else if (['task_due_tomorrow','task_due_today','task_overdue'].includes(n.type)) {
+      onNav('tasks', {})
+    } else if (n.type === 'away_start' || n.type === 'away_end') {
+      const page = n.related_entity_type === 'coach' ? 'coaches' : n.related_entity_type === 'employee' ? 'employees' : 'athletes'
+      const idParam = n.related_entity_type === 'coach' ? 'coachId' : n.related_entity_type === 'employee' ? 'employeeId' : 'athleteId'
+      onNav(n.target_path || page, { [idParam]: n.related_entity_id })
+    } else if (n.type === 'document_expiring' || n.type === 'document_expired') {
+      onNav('athletes', { athleteId: n.related_entity_id })
     }
   }
 
-  const visible = filter === 'unread' ? notifs.filter(n => !n.read) : notifs
+  const visible = (filter === 'unread' ? notifs.filter(n => !n.read) : notifs)
+    .filter(n => catFilter === 'All' || (n.category || TYPE_META[n.type]?.category || 'System') === catFilter)
 
   // Group needs_attendance into one row, since these can pile up to one-per-session
   // and shouldn't clutter the list individually.
@@ -131,6 +159,19 @@ export default function Notifications({ profile, onNav }) {
               color: filter===key ? 'var(--text)' : 'var(--text3)',
               boxShadow: filter===key ? '0 1px 3px rgba(0,0,0,.1)' : 'none' }}>
             {label}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:16 }}>
+        {CATEGORIES.map(cat => (
+          <button key={cat} onClick={() => setCatFilter(cat)}
+            style={{ padding:'5px 14px', borderRadius:20, fontSize:12, cursor:'pointer', transition:'all .15s',
+              fontWeight: catFilter===cat ? 600 : 400,
+              border: `1.5px solid ${catFilter===cat ? '#0085C7' : 'var(--border)'}`,
+              background: catFilter===cat ? '#0085C7' : 'transparent',
+              color: catFilter===cat ? 'white' : 'var(--text2)' }}>
+            {cat === 'All' ? L('All categories','كل الفئات') : cat}
           </button>
         ))}
       </div>

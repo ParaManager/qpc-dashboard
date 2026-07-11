@@ -197,12 +197,15 @@ export default function Requests({ profile, navState }) {
     try {
       await supabase.from('request_submissions').insert({ form_id:selectedForm.id, submitted_by:profile.id, answers })
       const { data: admins } = await supabase.from('profiles').select('id').eq('role','admin')
+      const { data: insertedSub } = await supabase.from('request_submissions').select('id').eq('form_id', selectedForm.id).eq('submitted_by', profile.id).order('submitted_at', { ascending:false }).limit(1).single()
       if (admins?.length) {
         await supabase.from('notifications').insert(admins.map(a => ({
           user_id:a.id,
           title: ar?`طلب جديد: ${selectedForm.title_ar||selectedForm.title}`:`New request: ${selectedForm.title}`,
           body: `${profile.full_name} ${ar?'أرسل طلباً':'submitted a request'}.`,
           type:'request', data:{ form_id:selectedForm.id, page:'requests' },
+          category:'Requests', target_path:'requests', related_entity_type:'request_submission', related_entity_id: insertedSub?.id || null,
+          dedup_key: insertedSub?.id ? `request-submitted-${insertedSub.id}-${a.id}` : null,
         })))
       }
       toast(ar?'تم الإرسال!':'Submitted!','success')
@@ -219,6 +222,7 @@ export default function Requests({ profile, navState }) {
       title: ar?'تحديث حالة الطلب':'Request status updated',
       body: `${ar?'طلبك':'Your request'} "${reviewSub.request_forms?.title||''}" ${ar?'أصبح':''} ${ar?meta.label_ar:meta.label}${ar?'':'.'}`,
       type:'request', data:{ page:'requests' },
+      category:'Requests', target_path:'requests', related_entity_type:'request_submission', related_entity_id: reviewSub.id,
     })
     toast(ar?'تم التحديث':'Updated','success')
     setReviewSub(null); fetchFormSubs(reviewSub.form_id)

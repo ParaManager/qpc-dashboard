@@ -53,7 +53,7 @@ function extractQidFromFilename(filename) {
   return qid
 }
 
-function BulkImportDocsModal({ athletes, documents, lang, onClose, onDone }) {
+function BulkImportDocsModal({ athletes, documents, lang, profile, onClose, onDone }) {
   const ar = lang === 'ar'
   const L = (en, arText) => ar ? arText : en
 
@@ -179,6 +179,33 @@ function BulkImportDocsModal({ athletes, documents, lang, onClose, onDone }) {
       unmatched: preview.unmatched.length,
       ambiguous: preview.ambiguous.length,
     })
+    // One notification per import operation, to every admin (including the
+    // one who ran it, so it also shows up as a historical record for them).
+    // Succeeded vs failed is judged on whether anything was actually written.
+    const { data: admins } = await supabase.from('profiles').select('id').eq('role', 'admin')
+    if (admins?.length) {
+      const succeeded = (imported + replaced) > 0 && failed === 0
+      const partial = (imported + replaced) > 0 && failed > 0
+      const type = succeeded || partial ? 'import_succeeded' : 'import_failed'
+      const summaryText = ar
+        ? `تم استيراد ${imported}، استبدال ${replaced}، تخطي ${skippedDuplicates}، غير مطابق ${preview.unmatched.length}، فشل ${failed}`
+        : `Imported ${imported}, replaced ${replaced}, skipped ${skippedDuplicates}, unmatched ${preview.unmatched.length}, failed ${failed}`
+      const dedupSuffix = `${Date.now()}`
+      await supabase.from('notifications').insert(admins.map(a => ({
+        user_id: a.id,
+        type,
+        title: succeeded
+          ? (ar ? 'اكتمل استيراد الوثائق' : 'Document import completed')
+          : partial
+            ? (ar ? 'اكتمل استيراد الوثائق جزئياً' : 'Document import completed with errors')
+            : (ar ? 'فشل استيراد الوثائق' : 'Document import failed'),
+        body: summaryText,
+        data: { page: 'athletes' },
+        read: false,
+        category: 'Documents', target_path: 'athletes', related_entity_type: 'import_batch', related_entity_id: null,
+        dedup_key: `doc-import-${profile?.id || 'unknown'}-${dedupSuffix}-${a.id}`,
+      })))
+    }
     await onDone()
   }
 
@@ -1034,10 +1061,29 @@ export default function Athletes({ athletes, coaches, employees, results, docume
       id_expiry: formData.idExpiry || null,
     }
     if (!payload.name) { toast('Name is required', 'error'); return }
+    const priorRecord = isEdit ? athletes.find(a => a.id === formData.id) : null
     const { error } = isEdit
       ? await supabase.from('athletes').update(payload).eq('id', formData.id)
       : await supabase.from('athletes').insert(payload)
     if (error) { toast(error.message, 'error'); return }
+    // Resolution rule: once an expiry date is actually changed (renewed or
+    // corrected), any previously sent expiry reminders for that specific
+    // document no longer reflect reality — clear them. The next reminder
+    // check will naturally create a fresh one later if the new date is
+    // itself approaching/past expiry.
+    if (isEdit && priorRecord) {
+      // dedup_key is always in a stable, language-independent format
+      // ("passport-expiry-{id}-..." / "id-expiry-{id}-..."), unlike title
+      // text which varies by the language active when it was generated —
+      // matching on dedup_key precisely targets only the relevant document's
+      // reminders without disturbing the other one.
+      if (priorRecord.passport_expiry !== payload.passport_expiry) {
+        await supabase.from('notifications').delete().eq('related_entity_type', 'athlete').eq('related_entity_id', String(formData.id)).like('dedup_key', 'passport-expiry-%')
+      }
+      if (priorRecord.id_expiry !== payload.id_expiry) {
+        await supabase.from('notifications').delete().eq('related_entity_type', 'athlete').eq('related_entity_id', String(formData.id)).like('dedup_key', 'id-expiry-%')
+      }
+    }
     toast(isEdit ? `${payload.name} updated` : `${payload.name} added`)
     setForm(null); await onRefresh()
     if (isEdit) setSelected(formData.id)
@@ -1926,6 +1972,7 @@ ${myDocs.length > 0 ? `<div class="section">
           athletes={athletes}
           documents={documents || []}
           lang={lang}
+          profile={profile}
           onClose={() => setBulkOpen(false)}
           onDone={async () => { setBulkOpen(false); await onRefresh() }}
         />

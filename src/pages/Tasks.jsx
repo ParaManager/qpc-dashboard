@@ -126,12 +126,19 @@ export default function Tasks({ profile, onNav }) {
       updated_at: new Date().toISOString(),
     }
     let error
+    const dueDateChanged = editing !== 'new' && editing.due_date !== payload.due_date
     if (editing === 'new') {
       ;({ error } = await supabase.from('tasks').insert({ ...payload, created_by: profile?.id || null }))
     } else {
       ;({ error } = await supabase.from('tasks').update(payload).eq('id', editing.id))
     }
     if (error) { toast(error.message, 'error'); return }
+    // If the due date changed, the previously created due-date reminders (tied
+    // to the old date via their dedup_key) no longer reflect reality — clear
+    // them so the next check can create fresh, correct ones for the new date.
+    if (dueDateChanged) {
+      await supabase.from('notifications').delete().eq('related_entity_type', 'task').eq('related_entity_id', editing.id)
+    }
     toast(editing === 'new' ? (ar ? 'تمت إضافة المهمة' : 'Task added') : (ar ? 'تم حفظ التغييرات' : 'Task updated'))
     setEditing(null)
     await load()
@@ -144,6 +151,11 @@ export default function Tasks({ profile, onNav }) {
       updated_at: new Date().toISOString(),
     }).eq('id', task.id)
     if (error) { toast(error.message, 'error'); return }
+    // Resolution rule: a completed task's due-date reminders no longer apply
+    // — clear them so they don't linger as stale notifications.
+    if (status === 'done') {
+      await supabase.from('notifications').delete().eq('related_entity_type', 'task').eq('related_entity_id', task.id)
+    }
     await load()
   }
 

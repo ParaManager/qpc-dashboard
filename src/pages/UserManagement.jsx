@@ -58,6 +58,7 @@ export default function UserManagement({ profile, initUserId }) {
       body: ar ? 'تم تفعيل حسابك، يمكنك الآن تسجيل الدخول.' : 'Your account has been activated — you can now sign in.',
       data: {},
       read: false,
+      category: 'Accounts', target_path: 'dashboard', related_entity_type: 'profile', related_entity_id: user.id,
     })
     // Resolve the access_request notification(s) every admin received for this applicant
     const { data: pendingNotifs } = await supabase.from('notifications').select('id, data').eq('type', 'access_request')
@@ -82,6 +83,7 @@ export default function UserManagement({ profile, initUserId }) {
         : (ar ? 'لم تتم الموافقة على طلبك في الوقت الحالي.' : 'Your request was not approved at this time.'),
       data: {},
       read: false,
+      category: 'Accounts', target_path: 'dashboard', related_entity_type: 'profile', related_entity_id: user.id,
     })
     // Resolve the access_request notification(s) every admin received for this applicant
     const { data: pendingNotifs } = await supabase.from('notifications').select('id, data').eq('type', 'access_request')

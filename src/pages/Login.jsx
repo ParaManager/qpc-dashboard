@@ -129,6 +129,8 @@ export default function Login({ onRequestSent, onSigningUpChange }) {
           body: ar ? `${form.fullName} (${typeLabel}) يطلب الوصول` : `${form.fullName} (${typeLabel}) is requesting access`,
           data: { applicant_id: data.user.id },
           read: false,
+          category: 'Accounts', target_path: 'users', related_entity_type: 'profile', related_entity_id: data.user.id,
+          dedup_key: `access-request-${data.user.id}-${a.id}`,
         }))
       )
     }

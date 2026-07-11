@@ -193,6 +193,27 @@ export default function Resources({ profile, onRefresh }) {
     return trimmed
   }
 
+  // Notify other admins once when a new (non-private) resource is added.
+  // Skipped entirely for "Only Me" resources and never sent to the admin who
+  // just created it — they already know. Editing an existing resource does
+  // not notify again, only genuine creation does.
+  async function notifyNewResource(resourceId, payload) {
+    if (!resourceId) return
+    const { data: admins } = await supabase.from('profiles').select('id').eq('role', 'admin')
+    const recipients = (admins || []).filter(a => a.id !== profile?.id)
+    if (recipients.length === 0) return
+    await supabase.from('notifications').insert(recipients.map(a => ({
+      user_id: a.id,
+      type: 'resource_added',
+      title: ar ? 'مورد جديد' : 'New resource added',
+      body: ar ? `تمت إضافة "${payload.title_ar || payload.title}"` : `"${payload.title}" was added`,
+      data: { resource_id: resourceId, page: 'resources' },
+      read: false,
+      category: 'Resources', target_path: 'resources', related_entity_type: 'resource', related_entity_id: resourceId,
+      dedup_key: `resource-added-${resourceId}-${a.id}`,
+    })))
+  }
+
   async function handleSubmit() {
     if (!form.title.trim()) { toast(ar ? 'العنوان مطلوب' : 'Title is required', 'error'); return }
     const isEdit = !!editingResource
@@ -227,10 +248,16 @@ export default function Resources({ profile, onRefresh }) {
           file_size: null,
           file_type: null,
         }
-        const { error: dbErr } = isEdit
-          ? await supabase.from('resources').update(payload).eq('id', editingResource.id)
-          : await supabase.from('resources').insert({ ...payload, uploaded_by: profile?.id || null })
-        if (dbErr) throw dbErr
+        let insertedId = null
+        if (isEdit) {
+          const { error: dbErr } = await supabase.from('resources').update(payload).eq('id', editingResource.id)
+          if (dbErr) throw dbErr
+        } else {
+          const { data: inserted, error: dbErr } = await supabase.from('resources').insert({ ...payload, uploaded_by: profile?.id || null }).select('id').single()
+          if (dbErr) throw dbErr
+          insertedId = inserted?.id
+        }
+        if (!isEdit && !payload.is_private) await notifyNewResource(insertedId, payload)
 
         toast(isEdit ? (ar ? 'تم حفظ التغييرات' : 'Changes saved') : (ar ? 'تمت إضافة الرابط بنجاح' : 'Link added'))
         setShowUpload(false)
@@ -274,10 +301,16 @@ export default function Resources({ profile, onRefresh }) {
       }
 
       const payload = { ...baseFields, resource_type: 'file', ...fileFields }
-      const { error: dbErr } = isEdit
-        ? await supabase.from('resources').update(payload).eq('id', editingResource.id)
-        : await supabase.from('resources').insert({ ...payload, uploaded_by: profile?.id || null })
-      if (dbErr) throw dbErr
+      let insertedFileId = null
+      if (isEdit) {
+        const { error: dbErr } = await supabase.from('resources').update(payload).eq('id', editingResource.id)
+        if (dbErr) throw dbErr
+      } else {
+        const { data: inserted, error: dbErr } = await supabase.from('resources').insert({ ...payload, uploaded_by: profile?.id || null }).select('id').single()
+        if (dbErr) throw dbErr
+        insertedFileId = inserted?.id
+      }
+      if (!isEdit && !payload.is_private) await notifyNewResource(insertedFileId, payload)
 
       toast(isEdit ? (ar ? 'تم حفظ التغييرات' : 'Changes saved') : (ar ? 'تم رفع الملف بنجاح' : 'Resource uploaded'))
       setShowUpload(false)
