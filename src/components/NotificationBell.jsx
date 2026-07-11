@@ -155,12 +155,35 @@ export default function NotificationBell({ isAdmin, userId }) {
                     window.dispatchEvent(new CustomEvent('navigate', { detail: { page:'users', userId: n.data?.applicant_id } }))
                   } else if (n.type==='account_approved' || n.type==='account_rejected') {
                     window.dispatchEvent(new CustomEvent('navigate', { detail: { page:'dashboard' } }))
+                  } else if (n.type==='request') {
+                    window.dispatchEvent(new CustomEvent('navigate', { detail: { page:'requests' } }))
+                  } else if (n.type==='resource_added') {
+                    window.dispatchEvent(new CustomEvent('navigate', { detail: { page:'resources' } }))
+                  } else if (n.type==='import_succeeded' || n.type==='import_failed') {
+                    window.dispatchEvent(new CustomEvent('navigate', { detail: { page:'athletes' } }))
+                  } else if (n.type==='task_due_tomorrow' || n.type==='task_due_today' || n.type==='task_overdue') {
+                    window.dispatchEvent(new CustomEvent('navigate', { detail: { page:'tasks' } }))
+                  } else if (n.type==='away_start' || n.type==='away_end') {
+                    const entityPage = n.related_entity_type==='coach' ? 'coaches' : n.related_entity_type==='employee' ? 'employees' : 'athletes'
+                    const idParam = n.related_entity_type==='coach' ? 'coachId' : n.related_entity_type==='employee' ? 'employeeId' : 'athleteId'
+                    window.dispatchEvent(new CustomEvent('navigate', { detail: { page: n.target_path || entityPage, [idParam]: n.related_entity_id } }))
+                  } else if (n.type==='document_expiring' || n.type==='document_expired') {
+                    window.dispatchEvent(new CustomEvent('navigate', { detail: { page:'athletes', athleteId: n.related_entity_id } }))
                   }
                 }}
                 style={{ padding:'12px 16px', borderBottom:'1px solid var(--border)', display:'flex', gap:10, alignItems:'flex-start', background:'#0085C705', cursor:'pointer', transition:'background .15s' }}
                 onMouseEnter={e => e.currentTarget.style.background='var(--surface2)'}
                 onMouseLeave={e => e.currentTarget.style.background='#0085C705'}>
-                <div style={{ width:8, height:8, borderRadius:'50%', background: n.type==='excuse_request'?'#f59e0b':n.type==='session_added'?'#009F6B':n.type==='needs_attendance'?'#f59e0b':n.type==='timetable_created'?'#8b5cf6':n.type==='account_rejected'?'#EE334E':n.type==='account_approved'?'#009F6B':'#0085C7', flexShrink:0, marginTop:5 }} />
+                <div style={{ width:8, height:8, borderRadius:'50%', background: (
+                  n.type==='excuse_request'?'#f59e0b':n.type==='session_added'?'#009F6B':n.type==='needs_attendance'?'#f59e0b':
+                  n.type==='timetable_created'?'#8b5cf6':n.type==='account_rejected'?'#EE334E':n.type==='account_approved'?'#009F6B':
+                  n.type==='request'?'#0085C7':n.type==='resource_added'?'#0085C7':
+                  n.type==='import_succeeded'?'#009F6B':n.type==='import_failed'?'#EE334E':
+                  n.type==='task_due_tomorrow'?'#f59e0b':n.type==='task_due_today'?'#f59e0b':n.type==='task_overdue'?'#EE334E':
+                  n.type==='away_start'?'#d97706':n.type==='away_end'?'#009F6B':
+                  n.type==='document_expiring'?'#f59e0b':n.type==='document_expired'?'#EE334E':
+                  '#0085C7'
+                ), flexShrink:0, marginTop:5 }} />
                 <div style={{ flex:1 }}>
                   <div style={{ fontSize:13, fontWeight:500 }}>{n.title}</div>
                   <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>{n.body}</div>
