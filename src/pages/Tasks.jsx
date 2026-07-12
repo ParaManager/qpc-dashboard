@@ -29,9 +29,29 @@ const CATEGORY_META = {
   email:          { en: 'Email',          ar: 'بريد إلكتروني', color: '#e11d8f', icon: 'ti-send' },
 }
 
+// Local Qatar-day string, not UTC (toISOString() shifts the date back for
+// any UTC+ timezone).
+function localDateStr(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+}
+function daysUntilDue(task) {
+  if (!task.due_date) return null
+  const today = new Date(); today.setHours(0,0,0,0)
+  const due = new Date(task.due_date); due.setHours(0,0,0,0)
+  return Math.round((due - today) / 86400000)
+}
 function isOverdue(task) {
   if (!task.due_date || task.status === 'done') return false
-  return task.due_date < new Date().toISOString().slice(0, 10)
+  return task.due_date < localDateStr(new Date())
+}
+function isDueToday(task) {
+  if (!task.due_date || task.status === 'done') return false
+  return daysUntilDue(task) === 0
+}
+function isDueSoon(task) {
+  if (!task.due_date || task.status === 'done') return false
+  const d = daysUntilDue(task)
+  return d === 1 || d === 2
 }
 
 function formatDue(dateStr, ar) {
@@ -307,15 +327,19 @@ export default function Tasks({ profile, onNav }) {
               <div style={{ display: 'grid', gap: 8 }}>
                 {byStatus[status].map(task => {
                   const overdue = isOverdue(task)
+                  const dueToday = isDueToday(task)
+                  const dueSoon = isDueSoon(task)
+                  const frameColor = overdue ? '#EE334E' : dueToday ? '#009F6B' : dueSoon ? '#f59e0b' : null
+                  const frameBg = overdue ? '#FFF5F5' : dueToday ? '#F0FBF6' : dueSoon ? '#FFFBEB' : 'var(--surface)'
                   return (
                     <div key={task.id} onClick={() => openEdit(task)}
                       style={{
-                        background: overdue ? '#FFF5F5' : 'var(--surface)', border: `2px solid ${overdue ? '#EE334E' : 'var(--border)'}`,
+                        background: frameBg, border: `2px solid ${frameColor || 'var(--border)'}`,
                         borderRadius: 12, padding: '12px 14px', cursor: 'pointer', boxShadow: 'var(--shadow)',
                         transition: 'border-color .15s',
                       }}
-                      onMouseEnter={e => { if (!overdue) e.currentTarget.style.borderColor = 'var(--border2)' }}
-                      onMouseLeave={e => { if (!overdue) e.currentTarget.style.borderColor = 'var(--border)' }}>
+                      onMouseEnter={e => { if (!frameColor) e.currentTarget.style.borderColor = 'var(--border2)' }}
+                      onMouseLeave={e => { if (!frameColor) e.currentTarget.style.borderColor = 'var(--border)' }}>
                       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 13, fontWeight: 600, textDecoration: status === 'done' ? 'line-through' : 'none', color: status === 'done' ? 'var(--text3)' : 'var(--text)' }}>
@@ -340,7 +364,7 @@ export default function Tasks({ profile, onNav }) {
                           </span>
                         )}
                         {task.due_date && (
-                          <span style={{ fontSize: 11, fontWeight: 600, color: overdue ? '#EE334E' : 'var(--text3)', display: 'flex', alignItems: 'center', gap: 3 }}>
+                          <span style={{ fontSize: 11, fontWeight: 600, color: frameColor || 'var(--text3)', display: 'flex', alignItems: 'center', gap: 3 }}>
                             <i className="ti ti-calendar" style={{ fontSize: 12 }} />
                             {formatDue(task.due_date, ar)}
                             {overdue && ` · ${ar ? 'متأخرة' : 'overdue'}`}
