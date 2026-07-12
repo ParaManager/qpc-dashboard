@@ -38,7 +38,7 @@ const NAV_ADMIN = (tx) => [
   { section: tx('nav.admin','Admin'),            items: [{ id:'users', icon:'ti-users-group', label:tx('nav.users','User Management') }, { id:'settings', icon:'ti-settings', label:tx('nav.settings','Settings') }] },
 ]
 const NAV_COACH = (tx) => [
-  { section: tx('nav.overview','Overview'),      items: [{ id:'dashboard', icon:'ti-layout-dashboard', label:tx('nav.dashboard','Dashboard') }, { id:'notifications', icon:'ti-bell', label:tx('nav.notifications','Notifications') }, { id:'resources', icon:'ti-folder', label:tx('nav.resources','Resources') }, { id:'requests', icon:'ti-clipboard-text', label:tx('nav.requests','Requests') }, { id:'profile', icon:'ti-user-circle', label:tx('nav.profile','My Profile') }] },
+  { section: tx('nav.overview','Overview'),      items: [{ id:'dashboard', icon:'ti-layout-dashboard', label:tx('nav.dashboard','Dashboard') }, { id:'notifications', icon:'ti-bell', label:tx('nav.notifications','Notifications') }, { id:'resources', icon:'ti-folder', label:tx('nav.resources','Resources') }, { id:'requests', icon:'ti-clipboard-text', label:tx('nav.requests','Requests') }, { id:'tasks', icon:'ti-checklist', label:tx('nav.tasks','Tasks') }, { id:'profile', icon:'ti-user-circle', label:tx('nav.profile','My Profile') }] },
   { section: tx('nav.training','Training'),      items: [{ id:'schedule', icon:'ti-calendar', label:tx('nav.schedule','Schedule') }, { id:'attendance', icon:'ti-clipboard-check', label:tx('nav.attendance','Attendance') }] },
   { section: tx('nav.competitions','Competitions'), items: [{ id:'events', icon:'ti-calendar-event', label:tx('nav.events','Events') }, { id:'results', icon:'ti-medal', label:tx('nav.results','Results') }] },
   { section: tx('nav.account','Account'),         items: [{ id:'settings', icon:'ti-settings', label:tx('nav.settings','Settings') }] },
@@ -210,7 +210,7 @@ export default function App() {
           const { data: liveTasks } = await supabase.from('tasks').select('*').neq('status', 'done')
           for (const t of (liveTasks || [])) {
             if (!t.due_date) continue
-            const ownerId = t.created_by
+            const ownerId = t.assigned_to || t.created_by
             if (!ownerId) continue
             const base = { user_id: ownerId, category: 'Tasks', target_path: 'tasks', related_entity_type: 'task', related_entity_id: t.id, read: false }
             if (t.due_date === tomorrowStr) {
@@ -538,6 +538,9 @@ export default function App() {
   const role      = profile?.role || 'guest'
   const userStatus = profile?.status || 'active'
   const isAdmin   = role === 'admin'
+  // The one main admin, identified only by email — never by displayed name,
+  // QID, employee id, or a hardcoded UUID.
+  const isMainAdmin = (profile?.email || '').toLowerCase() === 'hsinou@gmail.com'
   const isAthlete = role === 'athlete'
   const isCoach   = role === 'coach'
   const activeNav = isCoach ? NAV_COACH(tx) : isAdmin ? NAV_ADMIN(tx) : isAthlete ? NAV_ATHLETE(tx) : NAV_GUEST(tx)
@@ -748,7 +751,7 @@ export default function App() {
           {page==='resources'     && <Resources profile={profile} onRefresh={fetchAll} />}
           {page==='requests'     && <Requests  profile={profile} onNav={goTo} navState={navState} />}
           {page==='away' && isAdmin && <Away athletes={athletes} coaches={coaches} employees={employees} onNav={goTo} profile={profile} />}
-          {page==='tasks'         && isAdmin && <Tasks profile={profile} onNav={goTo} />}
+          {page==='tasks'         && <Tasks profile={profile} isMainAdmin={isMainAdmin} onNav={goTo} />}
           {page==='referees'  && <Referees referees={referees} onRefresh={fetchAll} profile={profile} />}
           {page==='results'   && <Results   results={results} athletes={athletes} onRefresh={fetchAll} onNav={goTo} profile={profile} />}
           {page==='sports'    && <Sports    athletes={athletes} coaches={coaches} events={events} results={results} onNav={goTo} initSport={navState.sport} initCategory={navState.category} profile={profile} />}
