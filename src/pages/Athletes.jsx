@@ -1089,15 +1089,18 @@ export default function Athletes({ athletes, coaches, employees, results, docume
     // itself approaching/past expiry.
     if (isEdit && priorRecord) {
       // dedup_key is always in a stable, language-independent format
-      // ("passport-expiry-{id}-..." / "id-expiry-{id}-..."), unlike title
-      // text which varies by the language active when it was generated —
-      // matching on dedup_key precisely targets only the relevant document's
-      // reminders without disturbing the other one.
+      // ("document-warning-60/30-{id}-{docType}-{expiryDate}" or
+      // "document-expired-{id}-{docType}-{cycle}-{expiryDate}"), unlike
+      // title text which varies by language — matching on dedup_key
+      // precisely targets only the relevant document's reminders, and also
+      // clears any leftover key from the old pre-update reminder scheme.
       if (priorRecord.passport_expiry !== payload.passport_expiry) {
-        await supabase.from('notifications').delete().eq('related_entity_type', 'athlete').eq('related_entity_id', String(formData.id)).like('dedup_key', 'passport-expiry-%')
+        await supabase.from('notifications').delete().eq('related_entity_type', 'athlete').eq('related_entity_id', String(formData.id))
+          .or(`dedup_key.like.document-warning-60-${formData.id}-passport-%,dedup_key.like.document-warning-30-${formData.id}-passport-%,dedup_key.like.document-expired-${formData.id}-passport-%,dedup_key.like.passport-expiry-%`)
       }
       if (priorRecord.id_expiry !== payload.id_expiry) {
-        await supabase.from('notifications').delete().eq('related_entity_type', 'athlete').eq('related_entity_id', String(formData.id)).like('dedup_key', 'id-expiry-%')
+        await supabase.from('notifications').delete().eq('related_entity_type', 'athlete').eq('related_entity_id', String(formData.id))
+          .or(`dedup_key.like.document-warning-60-${formData.id}-id-%,dedup_key.like.document-warning-30-${formData.id}-id-%,dedup_key.like.document-expired-${formData.id}-id-%,dedup_key.like.id-expiry-%`)
       }
     }
     toast(isEdit ? `${payload.name} updated` : `${payload.name} added`)
