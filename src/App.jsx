@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from './lib/supabase'
 import { useAuth, canEdit } from './lib/useAuth'
-import { isTrustedAdmin, isMainAdmin as isMainAdminCheck } from './lib/permissions'
+import { isTrustedAdmin, isMainAdmin as isMainAdminCheck, isTrustedAdminEmail } from './lib/permissions'
 import { getCurrentSeason } from './lib/helpers'
 import { ToastContainer } from './components/Toast'
 import Login     from './pages/Login'
@@ -187,8 +187,11 @@ export default function App() {
   const runAdminReminders = useCallback(async () => {
     if (profile?.role === 'admin') {
       try {
-        const { data: admins } = await supabase.from('profiles').select('id').eq('role', 'admin')
-        const adminIds = (admins || []).map(x => x.id)
+        // Away/expiry reminders go to the two trusted admins specifically,
+        // not every role='admin' account — a future third admin must not
+        // be flooded with these by default, matching the trusted-admin model.
+        const { data: admins } = await supabase.from('profiles').select('id, email').eq('role', 'admin')
+        const adminIds = (admins || []).filter(a => isTrustedAdminEmail(a.email)).map(x => x.id)
         if (adminIds.length) {
           const todayD = new Date(); todayD.setHours(0,0,0,0)
           const tomorrowD = new Date(todayD.getTime() + 86400000)
