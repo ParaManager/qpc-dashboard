@@ -9,6 +9,8 @@ import { ConfirmModal, toast } from '../components/Toast'
 import { supabase } from '../lib/supabase'
 import JSZip from 'jszip'
 import { canEdit } from '../lib/useAuth'
+import { isTrustedAdmin } from '../lib/permissions'
+import { logAdminActivity } from '../lib/adminActivity'
 import CareerHistory from '../components/CareerHistory.jsx'
 import { useLang } from '../lib/LangContext.jsx'
 import AthleteCardButton from '../components/AthleteCard'
@@ -222,6 +224,21 @@ function BulkImportDocsModal({ athletes, documents, lang, profile, onClose, onDo
       })))
       if (notifErr) console.error('[notifications] failed to insert import result notification:', notifErr)
     }
+    // Permanent audit trail row for this import operation — kept separate
+    // from the richer, existing all-admins broadcast notification above
+    // (which already reaches both trusted admins, since both have
+    // role='admin') rather than sending a second, duplicate notification.
+    await supabase.from('activity_log').insert({
+      actor_id: profile?.id || null,
+      actor_name: profile?.full_name || profile?.email || 'Someone',
+      actor_email: (profile?.email || '').toLowerCase() || null,
+      action: failed > 0 && (imported + replaced) === 0 ? 'import_failed' : 'import_succeeded',
+      entity_type: 'import',
+      entity_id: operationId,
+      entity_label: `${imported} imported, ${replaced} replaced, ${failed} failed`,
+      module: 'athletes',
+      metadata: { imported, replaced, failed, skipped: skippedDuplicates, unmatched: preview.unmatched.length },
+    })
     await onDone()
   }
 
@@ -1104,6 +1121,13 @@ export default function Athletes({ athletes, coaches, employees, results, docume
       }
     }
     toast(isEdit ? `${payload.name} updated` : `${payload.name} added`)
+    if (isTrustedAdmin(profile)) {
+      logAdminActivity({
+        actor: profile, action: isEdit ? 'updated' : 'created',
+        entityType: 'athlete', entityId: formData.id || null, entityLabel: payload.name,
+        module: 'athletes',
+      })
+    }
     setForm(null); await onRefresh()
     if (isEdit) setSelected(formData.id)
   }
@@ -1112,6 +1136,9 @@ export default function Athletes({ athletes, coaches, employees, results, docume
     const { error } = await supabase.from('athletes').delete().eq('id', id)
     if (error) { toast(error.message, 'error'); return }
     toast(`${name} deleted`)
+    if (isTrustedAdmin(profile)) {
+      logAdminActivity({ actor: profile, action: 'deleted', entityType: 'athlete', entityId: id, entityLabel: name, module: 'athletes' })
+    }
     setSelected(null); setConfirm(null); onRefresh()
   }
 
@@ -1159,7 +1186,12 @@ export default function Athletes({ athletes, coaches, employees, results, docume
         file_url: data.publicUrl, file_path: path, file_size: file.size,
       })
       if (dbErr) throw dbErr
-      toast(`${docType} uploaded!`); await onRefresh()
+      toast(`${docType} uploaded!`)
+      if (isTrustedAdmin(profile)) {
+        const athleteName = athletes.find(a => a.id === athleteId)?.name || String(athleteId)
+        logAdminActivity({ actor: profile, action: 'created', entityType: 'document', entityId: athleteId, entityLabel: `${docType} for ${athleteName}`, module: 'athletes' })
+      }
+      await onRefresh()
     } catch (err) { toast(err.message || 'Upload failed', 'error') }
     finally { setDocUploading(false); if (docInput.current) docInput.current.value = '' }
   }
@@ -1168,7 +1200,12 @@ export default function Athletes({ athletes, coaches, employees, results, docume
     await supabase.storage.from('athlete-documents').remove([doc.file_path])
     const { error } = await supabase.from('athlete_documents').delete().eq('id', doc.id)
     if (error) { toast(error.message, 'error'); return }
-    toast('Document deleted'); setDocConfirm(null); await onRefresh()
+    toast('Document deleted')
+    if (isTrustedAdmin(profile)) {
+      const athleteName = athletes.find(a => a.id === doc.athlete_id)?.name || String(doc.athlete_id)
+      logAdminActivity({ actor: profile, action: 'deleted', entityType: 'document', entityId: doc.athlete_id, entityLabel: `${doc.type || 'document'} for ${athleteName}`, module: 'athletes' })
+    }
+    setDocConfirm(null); await onRefresh()
   }
 
   async function saveNotes(athleteId) {

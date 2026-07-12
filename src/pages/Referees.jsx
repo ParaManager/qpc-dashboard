@@ -4,6 +4,8 @@ import { useLang } from '../lib/LangContext.jsx'
 import { Avatar, avColor, initials } from '../lib/helpers'
 import { toast, ConfirmModal } from '../components/Toast'
 import { canEdit } from '../lib/useAuth'
+import { isTrustedAdmin } from '../lib/permissions'
+import { logAdminActivity } from '../lib/adminActivity'
 import PhotoCropModal from '../components/PhotoCropModal'
 import * as XLSX from 'xlsx'
 
@@ -339,20 +341,29 @@ export default function Referees({ referees, onRefresh, profile }) {
       const { error } = await supabase.from('referees').update(payload).eq('id', form.id)
       if (error) { toast(error.message,'error'); setSaving(false); return }
       toast(L('Updated','تم التحديث'))
+      if (isTrustedAdmin(profile)) {
+        logAdminActivity({ actor: profile, action: 'updated', entityType: 'referee', entityId: form.id, entityLabel: payload.name, module: 'referees' })
+      }
     } else {
       const { error } = await supabase.from('referees').insert(payload)
       if (error) { toast(error.message,'error'); setSaving(false); return }
       toast(L('Referee added','تم إضافة الحكم'))
+      if (isTrustedAdmin(profile)) {
+        logAdminActivity({ actor: profile, action: 'created', entityType: 'referee', entityId: null, entityLabel: payload.name, module: 'referees' })
+      }
     }
     setSaving(false)
     setShowForm(false); setEditData(null)
     onRefresh()
   }
 
-  async function handleDelete(id) {
+  async function handleDelete(id, name) {
     const { error } = await supabase.from('referees').delete().eq('id', id)
     if (error) { toast(error.message,'error'); return }
     toast(L('Deleted','تم الحذف'))
+    if (isTrustedAdmin(profile)) {
+      logAdminActivity({ actor: profile, action: 'deleted', entityType: 'referee', entityId: id, entityLabel: name || String(id), module: 'referees' })
+    }
     setSelected(null)
     onRefresh()
   }
@@ -382,7 +393,7 @@ export default function Referees({ referees, onRefresh, profile }) {
       r={r} ar={ar} L={L} tcNat={tcNat} profile={profile}
       onBack={() => setSelected(null)}
       onEdit={() => { setEditData(r); setShowForm(true); setSelected(null) }}
-      onDelete={() => handleDelete(r.id)}
+      onDelete={() => handleDelete(r.id, r.name)}
       onRefresh={onRefresh}
     />
   }

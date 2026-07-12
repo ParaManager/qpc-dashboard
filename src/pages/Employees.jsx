@@ -3,6 +3,8 @@ import { initials, statusClass, effectiveStatus, COACH_DESIGNATIONS } from '../l
 import { ConfirmModal, toast } from '../components/Toast'
 import { supabase } from '../lib/supabase'
 import { canEdit } from '../lib/useAuth'
+import { isTrustedAdmin } from '../lib/permissions'
+import { logAdminActivity } from '../lib/adminActivity'
 import CareerHistory from '../components/CareerHistory.jsx'
 import { useLang } from '../lib/LangContext.jsx'
 import PersonDocuments from '../components/PersonDocuments'
@@ -990,6 +992,9 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
     const { error } = await supabase.from('employees').delete().eq('id', id)
     if (error) { toast(error.message, 'error'); return }
     toast(`${name} deleted`)
+    if (isTrustedAdmin(profile)) {
+      logAdminActivity({ actor: profile, action: 'deleted', entityType: 'employee', entityId: id, entityLabel: name, module: 'employees' })
+    }
     setSelected(null); setConfirm(null); onRefresh()
   }
 
@@ -1018,6 +1023,9 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
       : await supabase.from('employees').insert(payload)
     if (error) { toast(error.message, 'error'); return }
     toast(isEdit ? `${payload.name} updated` : `${payload.name} added`)
+    if (isTrustedAdmin(profile)) {
+      logAdminActivity({ actor: profile, action: isEdit ? 'updated' : 'created', entityType: 'employee', entityId: formData.id || null, entityLabel: payload.name, module: 'employees' })
+    }
     setEditForm(null); setAddModal(false)
     await onRefresh()
     if (isEdit) setSelected(formData.id)

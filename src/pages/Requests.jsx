@@ -3,6 +3,8 @@ import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
 import { toast, ConfirmModal } from '../components/Toast'
 import { initials } from '../lib/helpers'
+import { isTrustedAdmin } from '../lib/permissions'
+import { logAdminActivity } from '../lib/adminActivity'
 
 const FIELD_TYPES = [
   { value:'text',     icon:'ti-forms',         label:'Short Text',     label_ar:'نص قصير' },
@@ -225,6 +227,12 @@ export default function Requests({ profile, navState }) {
       category:'Requests', target_path:'requests', related_entity_type:'request_submission', related_entity_id: reviewSub.id,
     })
     toast(ar?'تم التحديث':'Updated','success')
+    if (isTrustedAdmin(profile)) {
+      logAdminActivity({
+        actor: profile, action: reviewStatus === 'approved' ? 'approved' : reviewStatus === 'rejected' ? 'rejected' : 'updated',
+        entityType: 'request', entityId: reviewSub.id, entityLabel: reviewSub.request_forms?.title || 'request', module: 'requests',
+      })
+    }
     setReviewSub(null); fetchFormSubs(reviewSub.form_id)
     setFormSubs(p => p.map(s => s.id===reviewSub.id ? {...s, status:reviewStatus, admin_notes:reviewNote} : s))
   }

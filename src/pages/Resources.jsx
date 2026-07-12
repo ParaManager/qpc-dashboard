@@ -3,6 +3,8 @@ import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
 import { toast, ConfirmModal } from '../components/Toast'
 import { canEdit } from '../lib/useAuth'
+import { isTrustedAdmin } from '../lib/permissions'
+import { logAdminActivity } from '../lib/adminActivity'
 
 const ALL_CATS = ['All', 'General', 'Requests Files', 'Technical Expert Links', 'Template Reports']
 const CATS_AR = { All:'الكل', General:'عام', 'Requests Files':'ملفات الطلبات', 'Technical Expert Links':'روابط الخبراء الفنيين', 'Template Reports':'نماذج التقارير' }
@@ -254,10 +256,12 @@ export default function Resources({ profile, onRefresh }) {
         if (isEdit) {
           const { error: dbErr } = await supabase.from('resources').update(payload).eq('id', editingResource.id)
           if (dbErr) throw dbErr
+          if (isTrustedAdmin(profile)) logAdminActivity({ actor: profile, action: 'updated', entityType: 'resource', entityId: editingResource.id, entityLabel: payload.title, module: 'resources' })
         } else {
           const { data: inserted, error: dbErr } = await supabase.from('resources').insert({ ...payload, uploaded_by: profile?.id || null }).select('id').single()
           if (dbErr) throw dbErr
           insertedId = inserted?.id
+          if (isTrustedAdmin(profile)) logAdminActivity({ actor: profile, action: 'created', entityType: 'resource', entityId: insertedId, entityLabel: payload.title, module: 'resources' })
         }
         if (!isEdit && !payload.is_private) await notifyNewResource(insertedId, payload)
 
@@ -307,10 +311,12 @@ export default function Resources({ profile, onRefresh }) {
       if (isEdit) {
         const { error: dbErr } = await supabase.from('resources').update(payload).eq('id', editingResource.id)
         if (dbErr) throw dbErr
+        if (isTrustedAdmin(profile)) logAdminActivity({ actor: profile, action: pendingFile ? 'replaced' : 'updated', entityType: 'resource', entityId: editingResource.id, entityLabel: payload.title, module: 'resources' })
       } else {
         const { data: inserted, error: dbErr } = await supabase.from('resources').insert({ ...payload, uploaded_by: profile?.id || null }).select('id').single()
         if (dbErr) throw dbErr
         insertedFileId = inserted?.id
+        if (isTrustedAdmin(profile)) logAdminActivity({ actor: profile, action: 'created', entityType: 'resource', entityId: insertedFileId, entityLabel: payload.title, module: 'resources' })
       }
       if (!isEdit && !payload.is_private) await notifyNewResource(insertedFileId, payload)
 
@@ -342,6 +348,7 @@ export default function Resources({ profile, onRefresh }) {
       const { error } = await supabase.from('resources').delete().eq('id', resource.id)
       if (error) throw error
       toast(ar ? 'تم حذف الملف' : 'Resource deleted')
+      if (isTrustedAdmin(profile)) logAdminActivity({ actor: profile, action: 'deleted', entityType: 'resource', entityId: resource.id, entityLabel: resource.title, module: 'resources' })
       setConfirmDel(null)
       await load()
     } catch (err) {

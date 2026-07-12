@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
 import { toast, ConfirmModal } from '../components/Toast'
 import { Avatar, initials } from '../lib/helpers'
+import { isMainAdminEmail } from '../lib/permissions'
 
 const STATUSES = ['todo', 'in_progress', 'done']
 const STATUS_META = {
@@ -95,7 +96,7 @@ export default function Tasks({ profile, isMainAdmin, onNav }) {
       .select('id, email, full_name, role, account_type, status, employee_id')
       .eq('status', 'active')
     const list = (data || []).filter(p => {
-      const isMain = (p.email || '').toLowerCase() === 'hsinou@gmail.com'
+      const isMain = isMainAdminEmail(p.email)
       if (isMain) return true
       if (!['admin', 'employee', 'coach'].includes(p.account_type || p.role)) return false
       if (!p.employee_id) return false
@@ -207,7 +208,10 @@ export default function Tasks({ profile, isMainAdmin, onNav }) {
 
   async function notifyCompletionIfRequested(taskId, payload) {
     if (!payload.notify_on_complete) return
-    const { data: mainAdmins } = await supabase.from('profiles').select('id').ilike('email', 'hsinou@gmail.com')
+    // Uses the same centralized main-admin identification as everywhere
+    // else, rather than a locally hardcoded email literal.
+    const { data: allActive } = await supabase.from('profiles').select('id, email').eq('status', 'active')
+    const mainAdmins = (allActive || []).filter(p => isMainAdminEmail(p.email))
     const mainAdminId = mainAdmins?.[0]?.id
     if (!mainAdminId || mainAdminId === profile?.id) return
     const { error } = await supabase.from('notifications').insert({

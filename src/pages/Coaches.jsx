@@ -4,6 +4,8 @@ import FormModal from '../components/FormModal'
 import { ConfirmModal, toast } from '../components/Toast'
 import { supabase } from '../lib/supabase'
 import { canEdit } from '../lib/useAuth'
+import { isTrustedAdmin } from '../lib/permissions'
+import { logAdminActivity } from '../lib/adminActivity'
 import CareerHistory from '../components/CareerHistory.jsx'
 import { useLang } from '../lib/LangContext.jsx'
 import PersonDocuments from '../components/PersonDocuments'
@@ -301,6 +303,9 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
       : await supabase.from('coaches').insert(payload)
     if (error) { toast(error.message, 'error'); return }
     toast(isEdit ? `${payload.name} updated` : `${payload.name} added`)
+    if (isTrustedAdmin(profile)) {
+      logAdminActivity({ actor: profile, action: isEdit ? 'updated' : 'created', entityType: 'coach', entityId: formData.id || null, entityLabel: payload.name, module: 'coaches' })
+    }
     setForm(null); await onRefresh()
     if (isEdit) setSelected(formData.id)
   }
@@ -309,6 +314,9 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
     const { error } = await supabase.from('coaches').delete().eq('id', id)
     if (error) { toast(error.message, 'error'); return }
     toast(`${name} deleted`)
+    if (isTrustedAdmin(profile)) {
+      logAdminActivity({ actor: profile, action: 'deleted', entityType: 'coach', entityId: id, entityLabel: name, module: 'coaches' })
+    }
     setSelected(null); setConfirm(null); onRefresh()
   }
 

@@ -3,6 +3,8 @@ import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
 import { toast } from '../components/Toast'
 import { Avatar } from '../lib/helpers'
+import { isTrustedAdmin } from '../lib/permissions'
+import { logAdminActivity } from '../lib/adminActivity'
 
 const ROLE_COLORS  = { admin:'#EE334E', coach:'#0085C7', athlete:'#009F6B', guest:'#8b5cf6' }
 const STATUS_COLORS = { active:'#009F6B', pending:'#f59e0b', rejected:'#EE334E' }
@@ -79,6 +81,9 @@ export default function UserManagement({ profile, initUserId }) {
       if (delErr1) console.error('[notifications] failed clearing access_request on approve:', delErr1)
       if (delErr2) console.error('[notifications] failed clearing stale account_rejected on approve:', delErr2)
       toast(L(`${user.full_name || user.email} approved`, `تمت الموافقة على ${user.full_name || ''}`))
+      if (isTrustedAdmin(profile)) {
+        logAdminActivity({ actor: profile, action: 'approved', entityType: 'user', entityId: user.id, entityLabel: user.full_name || user.email, module: 'users' })
+      }
       loadUsers()
     } finally {
       setActionPending(prev => { const next = { ...prev }; delete next[user.id]; return next })
@@ -115,6 +120,9 @@ export default function UserManagement({ profile, initUserId }) {
       if (delErr1) console.error('[notifications] failed clearing access_request on reject:', delErr1)
       if (delErr2) console.error('[notifications] failed clearing stale account_approved on reject:', delErr2)
       toast(L('Request rejected', 'تم رفض الطلب'))
+      if (isTrustedAdmin(profile)) {
+        logAdminActivity({ actor: profile, action: 'rejected', entityType: 'user', entityId: user.id, entityLabel: user.full_name || user.email, module: 'users' })
+      }
       loadUsers()
     } finally {
       setActionPending(prev => { const next = { ...prev }; delete next[user.id]; return next })
@@ -122,14 +130,22 @@ export default function UserManagement({ profile, initUserId }) {
   }
 
   async function changeRole(userId, role) {
+    const target = users.find(u => u.id === userId)
     await supabase.from('profiles').update({ role, account_type: role }).eq('id', userId)  // keep both in sync
     toast(L('Role updated', 'تم تحديث الدور'))
+    if (isTrustedAdmin(profile)) {
+      logAdminActivity({ actor: profile, action: 'role_changed', entityType: 'user', entityId: userId, entityLabel: target?.full_name || target?.email || String(userId), module: 'users', metadata: { new_role: role } })
+    }
     loadUsers()
   }
 
   async function deactivate(userId) {
+    const target = users.find(u => u.id === userId)
     await supabase.from('profiles').update({ status: 'rejected' }).eq('id', userId)
     toast(L('Account deactivated', 'تم إلغاء تفعيل الحساب'))
+    if (isTrustedAdmin(profile)) {
+      logAdminActivity({ actor: profile, action: 'status_changed', entityType: 'user', entityId: userId, entityLabel: target?.full_name || target?.email || String(userId), module: 'users', metadata: { new_status: 'rejected' } })
+    }
     loadUsers()
   }
 

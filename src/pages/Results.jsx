@@ -3,6 +3,8 @@ import { Avatar, MedalDisplay, Badge } from '../lib/helpers'
 import FormModal from '../components/FormModal'
 import { ConfirmModal, toast } from '../components/Toast'
 import { canEdit } from '../lib/useAuth'
+import { isTrustedAdmin } from '../lib/permissions'
+import { logAdminActivity } from '../lib/adminActivity'
 import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
 
@@ -61,6 +63,12 @@ export default function Results({ results, athletes, onRefresh, onNav, profile }
       }).eq('id', athlete.id)
     }
     toast(isEdit ? 'Result updated' : 'Result added')
+    if (isTrustedAdmin(profile)) {
+      logAdminActivity({
+        actor: profile, action: isEdit ? 'updated' : 'created', entityType: 'result',
+        entityId: formData.id || null, entityLabel: `${payload.athlete_name} — ${payload.event_name}`, module: 'results',
+      })
+    }
     setForm(null); onRefresh()
   }
 
@@ -76,7 +84,11 @@ export default function Results({ results, athletes, onRefresh, onNav, profile }
         medals_bronze: remaining.filter(x => x.medal === 'bronze').length,
       }).eq('id', r.athlete_id)
     }
-    toast('Result deleted'); setConfirm(null); onRefresh()
+    toast('Result deleted')
+    if (isTrustedAdmin(profile)) {
+      logAdminActivity({ actor: profile, action: 'deleted', entityType: 'result', entityId: id, entityLabel: r ? `${r.athlete_name} — ${r.event_name}` : String(id), module: 'results' })
+    }
+    setConfirm(null); onRefresh()
   }
 
   const tallyAthletes = [...athletes]

@@ -4,6 +4,8 @@ import FormModal from '../components/FormModal'
 import { ConfirmModal, toast } from '../components/Toast'
 import { supabase } from '../lib/supabase'
 import { canEdit } from '../lib/useAuth'
+import { isTrustedAdmin } from '../lib/permissions'
+import { logAdminActivity } from '../lib/adminActivity'
 import { useLang } from '../lib/LangContext.jsx'
 
 export default function Events({ events, athletes, results, registrations, onRefresh, onNav, initEventId, initStatusFilter, profile }) {
@@ -53,6 +55,9 @@ export default function Events({ events, athletes, results, registrations, onRef
       : await supabase.from('events').insert(payload)
     if (error) { toast(error.message, 'error'); return }
     toast(isEdit ? `${payload.name} updated` : `${payload.name} created`)
+    if (isTrustedAdmin(profile)) {
+      logAdminActivity({ actor: profile, action: isEdit ? 'updated' : 'created', entityType: 'event', entityId: formData.id || null, entityLabel: payload.name, module: 'events' })
+    }
     setForm(null); await onRefresh()
     if (isEdit) setSelected(formData.id)
   }
@@ -61,6 +66,9 @@ export default function Events({ events, athletes, results, registrations, onRef
     const { error } = await supabase.from('events').delete().eq('id', id)
     if (error) { toast(error.message, 'error'); return }
     toast(`${name} deleted`)
+    if (isTrustedAdmin(profile)) {
+      logAdminActivity({ actor: profile, action: 'deleted', entityType: 'event', entityId: id, entityLabel: name, module: 'events' })
+    }
     setSelected(null); setConfirm(null); onRefresh()
   }
 
