@@ -136,6 +136,54 @@ export default function App() {
     // (user_id, dedup_key) unique index added to `notifications` — running
     // this block repeatedly (multiple tabs, frequent reloads, etc.) can never
     // create a duplicate, since a conflicting dedup_key is simply rejected.
+
+    const [a, c, e, r, reg, docs, emp, pdocs, refs, reqSubs, profs, tasksRes] = await Promise.all([
+      supabase.from('athletes').select('*').order('name'),
+      supabase.from('coaches').select('*').order('name'),
+      supabase.from('events').select('*').order('start_date'),
+      supabase.from('results').select('*').order('date', { ascending: false }),
+      supabase.from('event_registrations').select('*'),
+      supabase.from('athlete_documents').select('*').order('uploaded_at', { ascending: false }),
+      supabase.from('employees').select('*').order('name'),
+      supabase.from('person_documents').select('*').order('uploaded_at', { ascending: false }),
+      supabase.from('referees').select('*').order('number'),
+      // Lightweight status-only fetch, same shape Requests.jsx itself already
+      // uses to compute per-form pending counts — reused here just to get a
+      // single dashboard-wide pending count without duplicating that logic.
+      supabase.from('request_submissions').select('status'),
+      // Same idea for pending account sign-ups — UserManagement.jsx already
+      // treats profiles.status === 'pending' as "awaiting approval"; this is
+      // just that same count, fetched centrally so Dashboard can show it too.
+      supabase.from('profiles').select('status'),
+      // Needed for the due-date reminder checks run below.
+      supabase.from('tasks').select('*'),
+    ])
+    if (a.data)    setAthletes(a.data)
+    if (c.data)    setCoaches(c.data)
+    if (e.data)    setEvents(e.data)
+    if (r.data)    setResults(r.data)
+    if (reg.data)  setRegistrations(reg.data)
+    if (docs.data) setDocuments(docs.data)
+    if (emp.data)   setEmployees(emp.data)
+    if (pdocs.data) setPersonDocs(pdocs.data)
+    if (refs.data)  setReferees(refs.data)
+    if (reqSubs.data) setPendingRequestsCount(reqSubs.data.filter(s => s.status === 'pending').length)
+    if (profs.data)   setPendingAccountsCount(profs.data.filter(p => p.status === 'pending').length)
+    setDataLoading(false)
+  }, [profile?.id, profile?.role, lang])
+
+  // Runs the admin notification-reminder checks (tasks, away management,
+  // document expiry). This used to run inline inside fetchAll(), sequentially
+  // *before* the real app data was fetched — every network round-trip here
+  // (admins query, tasks query, per-task delete calls, away queries, expiry
+  // queries, upserts) added directly to how long the white "Loading QPC
+  // Dashboard…" screen stayed up, which is especially painful on a cold/slow
+  // connection (first open of the day, idle for hours, etc.). It's invisible
+  // background bookkeeping the user never sees happen, so it now runs
+  // separately, fired off *after* the real data has already loaded and the
+  // dashboard is on screen — it no longer blocks anything the user is
+  // waiting to see.
+  const runAdminReminders = useCallback(async () => {
     if (profile?.role === 'admin') {
       try {
         const { data: admins } = await supabase.from('profiles').select('id').eq('role', 'admin')
@@ -297,43 +345,13 @@ export default function App() {
         console.error('[notifications] reminder generation failed:', err)
       }
     }
-
-    const [a, c, e, r, reg, docs, emp, pdocs, refs, reqSubs, profs, tasksRes] = await Promise.all([
-      supabase.from('athletes').select('*').order('name'),
-      supabase.from('coaches').select('*').order('name'),
-      supabase.from('events').select('*').order('start_date'),
-      supabase.from('results').select('*').order('date', { ascending: false }),
-      supabase.from('event_registrations').select('*'),
-      supabase.from('athlete_documents').select('*').order('uploaded_at', { ascending: false }),
-      supabase.from('employees').select('*').order('name'),
-      supabase.from('person_documents').select('*').order('uploaded_at', { ascending: false }),
-      supabase.from('referees').select('*').order('number'),
-      // Lightweight status-only fetch, same shape Requests.jsx itself already
-      // uses to compute per-form pending counts — reused here just to get a
-      // single dashboard-wide pending count without duplicating that logic.
-      supabase.from('request_submissions').select('status'),
-      // Same idea for pending account sign-ups — UserManagement.jsx already
-      // treats profiles.status === 'pending' as "awaiting approval"; this is
-      // just that same count, fetched centrally so Dashboard can show it too.
-      supabase.from('profiles').select('status'),
-      // Needed for the due-date reminder checks run below.
-      supabase.from('tasks').select('*'),
-    ])
-    if (a.data)    setAthletes(a.data)
-    if (c.data)    setCoaches(c.data)
-    if (e.data)    setEvents(e.data)
-    if (r.data)    setResults(r.data)
-    if (reg.data)  setRegistrations(reg.data)
-    if (docs.data) setDocuments(docs.data)
-    if (emp.data)   setEmployees(emp.data)
-    if (pdocs.data) setPersonDocs(pdocs.data)
-    if (refs.data)  setReferees(refs.data)
-    if (reqSubs.data) setPendingRequestsCount(reqSubs.data.filter(s => s.status === 'pending').length)
-    if (profs.data)   setPendingAccountsCount(profs.data.filter(p => p.status === 'pending').length)
-    setDataLoading(false)
   }, [profile?.id, profile?.role, lang])
 
   useEffect(() => { if (user) fetchAll() }, [user, fetchAll])
+  // Fire-and-forget: runs after the visible app data is already loaded, so
+  // it never delays the initial render. Any failure inside is caught and
+  // logged by runAdminReminders itself.
+  useEffect(() => { if (user && profile?.role === 'admin' && !dataLoading) runAdminReminders() }, [user, profile?.role, dataLoading, runAdminReminders])
 
   // Manual refresh for mobile/tablet, where pull-to-refresh isn't available in a
   // Manual refresh for mobile/tablet. Two different problems live under one button:
