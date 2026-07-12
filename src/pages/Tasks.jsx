@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
 import { toast, ConfirmModal } from '../components/Toast'
+import { Avatar, initials } from '../lib/helpers'
 
 const STATUSES = ['todo', 'in_progress', 'done']
 const STATUS_META = {
@@ -17,8 +18,6 @@ const PRIORITY_META = {
   minor:    { en: 'Minor',    ar: 'طفيفة',   color: '#0085C7' },
 }
 
-// One badge of color + icon per kind of work, so a glance at the board tells
-// you not just what's urgent but what category it actually belongs to.
 const CATEGORY_META = {
   administrative: { en: 'Administrative', ar: 'إداري',      color: '#64748b', icon: 'ti-clipboard-list' },
   competition:    { en: 'Competition',    ar: 'منافسة',     color: '#d4af37', icon: 'ti-medal' },
@@ -29,8 +28,6 @@ const CATEGORY_META = {
   email:          { en: 'Email',          ar: 'بريد إلكتروني', color: '#e11d8f', icon: 'ti-send' },
 }
 
-// Local Qatar-day string, not UTC (toISOString() shifts the date back for
-// any UTC+ timezone).
 function localDateStr(d) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
 }
@@ -60,19 +57,29 @@ function formatDue(dateStr, ar) {
   return d.toLocaleDateString(ar ? 'ar-QA' : 'en-GB', { day: 'numeric', month: 'short' })
 }
 
-export default function Tasks({ profile, onNav }) {
+function idHash(str) {
+  let h = 0
+  for (let i = 0; i < (str || '').length; i++) { h = (h * 31 + str.charCodeAt(i)) | 0 }
+  return Math.abs(h)
+}
+
+export default function Tasks({ profile, isMainAdmin, onNav }) {
   const { tx, lang } = useLang()
   const ar = lang === 'ar'
 
   const [tasks, setTasks]       = useState([])
+  const [eligible, setEligible] = useState([])
   const [loading, setLoading]   = useState(true)
   const [search, setSearch]     = useState('')
-  const [quickTitle, setQuickTitle] = useState('')
-  const [adding, setAdding]     = useState(false)
+  const [viewScope, setViewScope] = useState('mine')
+  const [assigneeFilter, setAssigneeFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [categoryFilter, setCategoryFilter] = useState('all')
+  const [dueFilter, setDueFilter] = useState('all')
 
-  const [editing, setEditing]   = useState(null) // task object being edited, or 'new' for the full new-task modal
+  const [editing, setEditing]   = useState(null)
   const [confirmDel, setConfirmDel] = useState(null)
-  const [form, setForm] = useState({ title: '', notes: '', priority: 'moderate', category: '', dueDate: '', status: 'todo' })
+  const [form, setForm] = useState({ title: '', notes: '', priority: 'moderate', category: '', dueDate: '', status: 'todo', assignedTo: profile?.id || '', notifyOnComplete: false })
 
   async function load() {
     setLoading(true)
@@ -82,15 +89,53 @@ export default function Tasks({ profile, onNav }) {
     setLoading(false)
   }
 
-  useEffect(() => { load() }, [])
+  async function loadEligible() {
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, email, full_name, role, account_type, status, employee_id')
+      .eq('status', 'active')
+    const list = (data || []).filter(p => {
+      const isMain = (p.email || '').toLowerCase() === 'hsinou@gmail.com'
+      if (isMain) return true
+      if (!['admin', 'employee', 'coach'].includes(p.account_type || p.role)) return false
+      if (!p.employee_id) return false
+      if (!p.full_name || !p.full_name.trim()) return false
+      return true
+    })
+    setEligible(list)
+  }
 
-  const visible = tasks.filter(t =>
-    !search || t.title.toLowerCase().includes(search.toLowerCase()) || (t.notes||'').toLowerCase().includes(search.toLowerCase())
-  )
+  useEffect(() => { load(); loadEligible() }, [])
+
+  function assigneeLabel(p) {
+    if (!p) return ''
+    if (p.full_name && p.full_name.trim()) return p.full_name.trim()
+    if (p.email && !/^COACH-\d+$/.test(p.email)) return p.email
+    return ar ? 'مستخدم' : 'User'
+  }
+  function findAssignee(id) { return eligible.find(p => p.id === id) }
+
+  const scoped = isMainAdmin
+    ? (viewScope === 'all' ? tasks : tasks.filter(t => t.assigned_to === profile?.id))
+    : tasks.filter(t => t.assigned_to === profile?.id)
+
+  const filtered = scoped.filter(t => {
+    if (search && !t.title.toLowerCase().includes(search.toLowerCase()) && !(t.notes||'').toLowerCase().includes(search.toLowerCase())) return false
+    if (isMainAdmin && assigneeFilter !== 'all' && t.assigned_to !== assigneeFilter) return false
+    if (statusFilter !== 'all' && t.status !== statusFilter) return false
+    if (categoryFilter !== 'all' && (t.category || '') !== categoryFilter) return false
+    if (dueFilter !== 'all') {
+      if (dueFilter === 'overdue' && !isOverdue(t)) return false
+      if (dueFilter === 'today' && !isDueToday(t)) return false
+      if (dueFilter === 'soon' && !isDueSoon(t)) return false
+      if (dueFilter === 'later' && !(t.due_date && !isOverdue(t) && !isDueToday(t) && !isDueSoon(t))) return false
+      if (dueFilter === 'none' && t.due_date) return false
+    }
+    return true
+  })
 
   const byStatus = STATUSES.reduce((acc, s) => {
-    acc[s] = visible.filter(t => t.status === s).sort((a, b) => {
-      // Overdue first, then by due date, then newest created.
+    acc[s] = filtered.filter(t => t.status === s).sort((a, b) => {
       const aOver = isOverdue(a), bOver = isOverdue(b)
       if (aOver !== bOver) return aOver ? -1 : 1
       if (a.due_date && b.due_date) return a.due_date.localeCompare(b.due_date)
@@ -101,19 +146,11 @@ export default function Tasks({ profile, onNav }) {
     return acc
   }, {})
 
-  async function quickAdd() {
-    if (!quickTitle.trim()) return
-    setAdding(true)
-    const { error } = await supabase.from('tasks').insert({
-      title: quickTitle.trim(),
-      status: 'todo',
-      priority: 'moderate',
-      created_by: profile?.id || null,
-    })
-    setAdding(false)
-    if (error) { toast(error.message, 'error'); return }
-    setQuickTitle('')
-    await load()
+  const summary = {
+    todo: scoped.filter(t => t.status === 'todo').length,
+    in_progress: scoped.filter(t => t.status === 'in_progress').length,
+    done: scoped.filter(t => t.status === 'done').length,
+    overdue: scoped.filter(isOverdue).length,
   }
 
   function openEdit(task) {
@@ -124,17 +161,20 @@ export default function Tasks({ profile, onNav }) {
       category: task.category || '',
       dueDate: task.due_date || '',
       status: task.status,
+      assignedTo: task.assigned_to || profile?.id || '',
+      notifyOnComplete: !!task.notify_on_complete,
     })
     setEditing(task)
   }
 
   function openNew() {
-    setForm({ title: '', notes: '', priority: 'moderate', category: '', dueDate: '', status: 'todo' })
+    setForm({ title: '', notes: '', priority: 'moderate', category: '', dueDate: '', status: 'todo', assignedTo: profile?.id || '', notifyOnComplete: false })
     setEditing('new')
   }
 
   async function handleSave() {
     if (!form.title.trim()) { toast(ar ? 'العنوان مطلوب' : 'Title is required', 'error'); return }
+    const assignedTo = isMainAdmin ? (form.assignedTo || profile?.id) : profile?.id
     const payload = {
       title: form.title.trim(),
       notes: form.notes.trim() || null,
@@ -142,39 +182,57 @@ export default function Tasks({ profile, onNav }) {
       category: form.category || null,
       due_date: form.dueDate || null,
       status: form.status,
+      assigned_to: assignedTo,
+      notify_on_complete: form.notifyOnComplete,
       completed_at: form.status === 'done' ? new Date().toISOString() : null,
       updated_at: new Date().toISOString(),
     }
     let error
     const dueDateChanged = editing !== 'new' && editing.due_date !== payload.due_date
+    const justCompleted = editing !== 'new' && editing.status !== 'done' && payload.status === 'done'
     if (editing === 'new') {
       ;({ error } = await supabase.from('tasks').insert({ ...payload, created_by: profile?.id || null }))
     } else {
       ;({ error } = await supabase.from('tasks').update(payload).eq('id', editing.id))
     }
     if (error) { toast(error.message, 'error'); return }
-    // If the due date changed, the previously created due-date reminders (tied
-    // to the old date via their dedup_key) no longer reflect reality — clear
-    // them so the next check can create fresh, correct ones for the new date.
     if (dueDateChanged) {
       await supabase.from('notifications').delete().eq('related_entity_type', 'task').eq('related_entity_id', editing.id)
     }
+    if (justCompleted) await notifyCompletionIfRequested(editing.id, payload)
     toast(editing === 'new' ? (ar ? 'تمت إضافة المهمة' : 'Task added') : (ar ? 'تم حفظ التغييرات' : 'Task updated'))
     setEditing(null)
     await load()
   }
 
+  async function notifyCompletionIfRequested(taskId, payload) {
+    if (!payload.notify_on_complete) return
+    const { data: mainAdmins } = await supabase.from('profiles').select('id').ilike('email', 'hsinou@gmail.com')
+    const mainAdminId = mainAdmins?.[0]?.id
+    if (!mainAdminId || mainAdminId === profile?.id) return
+    const { error } = await supabase.from('notifications').insert({
+      user_id: mainAdminId,
+      type: 'task_completed',
+      title: ar ? 'اكتملت المهمة' : 'Task completed',
+      body: ar ? `${profile?.full_name || ''} أكمل: ${payload.title}` : `${profile?.full_name || 'A user'} completed: ${payload.title}`,
+      data: {},
+      read: false,
+      category: 'Tasks', target_path: 'tasks', related_entity_type: 'task', related_entity_id: taskId,
+    })
+    if (error) console.error('[notifications] failed to insert task_completed:', error)
+  }
+
   async function setStatus(task, status) {
+    const wasNotDone = task.status !== 'done'
     const { error } = await supabase.from('tasks').update({
       status,
       completed_at: status === 'done' ? new Date().toISOString() : null,
       updated_at: new Date().toISOString(),
     }).eq('id', task.id)
     if (error) { toast(error.message, 'error'); return }
-    // Resolution rule: a completed task's due-date reminders no longer apply
-    // — clear them so they don't linger as stale notifications.
     if (status === 'done') {
       await supabase.from('notifications').delete().eq('related_entity_type', 'task').eq('related_entity_id', task.id)
+      if (wasNotDone) await notifyCompletionIfRequested(task.id, { ...task, notify_on_complete: task.notify_on_complete })
     }
     await load()
   }
@@ -186,6 +244,9 @@ export default function Tasks({ profile, onNav }) {
     setConfirmDel(null)
     await load()
   }
+
+  const hasActiveFilters = search || assigneeFilter !== 'all' || statusFilter !== 'all' || categoryFilter !== 'all' || dueFilter !== 'all'
+  function clearFilters() { setSearch(''); setAssigneeFilter('all'); setStatusFilter('all'); setCategoryFilter('all'); setDueFilter('all') }
 
   return (
     <div>
@@ -214,6 +275,27 @@ export default function Tasks({ profile, onNav }) {
                 <label>{ar ? 'ملاحظات' : 'Notes'}</label>
                 <textarea className="form-input" rows={3} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} style={{ resize: 'vertical' }} />
               </div>
+
+              {isMainAdmin && (
+                <div className="form-group">
+                  <label>{ar ? 'مُسندة إلى' : 'Assigned To'}</label>
+                  <select className="form-input" value={form.assignedTo} onChange={e => setForm(f => ({ ...f, assignedTo: e.target.value }))}>
+                    {eligible.map(p => (
+                      <option key={p.id} value={p.id}>
+                        {p.id === profile?.id ? (ar ? `نفسي (${assigneeLabel(p)})` : `Myself (${assigneeLabel(p)})`) : assigneeLabel(p)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {form.assignedTo && form.assignedTo !== profile?.id && (
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12.5, color: 'var(--text2)', marginBottom: 14, cursor: 'pointer' }}>
+                  <input type="checkbox" checked={form.notifyOnComplete} onChange={e => setForm(f => ({ ...f, notifyOnComplete: e.target.checked }))} />
+                  {ar ? 'إعلام المسؤول الرئيسي عند إكمال هذه المهمة' : 'Let the main admin know when this task is completed'}
+                </label>
+              )}
+
               <div className="form-row">
                 <div className="form-group">
                   <label>{ar ? 'الأولوية' : 'Priority'}</label>
@@ -276,29 +358,70 @@ export default function Tasks({ profile, onNav }) {
         </button>
       </div>
 
-      <div className="filters">
-        <div className="search-wrap"><i className="ti ti-search" /><input placeholder={ar ? 'بحث في المهام...' : 'Search tasks…'} value={search} onChange={e => setSearch(e.target.value)} /></div>
+      {isMainAdmin && (
+        <div style={{ display: 'flex', gap: 6, background: 'var(--surface2)', borderRadius: 10, padding: 4, marginBottom: 14, width: 'fit-content' }}>
+          {[['mine', ar ? 'مهامي' : 'My Tasks'], ['all', ar ? 'كل المهام' : 'All Tasks']].map(([key, label]) => (
+            <button key={key} onClick={() => setViewScope(key)}
+              style={{ padding: '6px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600,
+                background: viewScope === key ? 'var(--surface)' : 'transparent',
+                color: viewScope === key ? 'var(--text)' : 'var(--text3)',
+                boxShadow: viewScope === key ? '0 1px 3px rgba(0,0,0,.1)' : 'none' }}>
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 14 }}>
+        {[
+          ['todo', STATUS_META.todo.color, summary.todo],
+          ['in_progress', STATUS_META.in_progress.color, summary.in_progress],
+          ['done', STATUS_META.done.color, summary.done],
+          ['overdue', '#EE334E', summary.overdue],
+        ].map(([key, color, count]) => (
+          <div key={key} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px' }}>
+            <div style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.03em' }}>
+              {key === 'overdue' ? (ar ? 'متأخرة' : 'Overdue') : (ar ? STATUS_META[key].ar : STATUS_META[key].en)}
+            </div>
+            <div style={{ fontSize: 20, fontWeight: 700, color }}>{count}</div>
+          </div>
+        ))}
       </div>
 
-      {/* Quick add — typing a title and hitting Enter is faster than opening the
-          full modal for the common case of just jotting something down. */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-        <input
-          className="form-input"
-          placeholder={ar ? 'أضف مهمة سريعة واضغط Enter...' : 'Add a quick task and press Enter…'}
-          value={quickTitle}
-          onChange={e => setQuickTitle(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') quickAdd() }}
-          disabled={adding}
-        />
-        <button className="btn btn-blue" onClick={quickAdd} disabled={adding || !quickTitle.trim()}>
-          <i className="ti ti-plus" />
-        </button>
+      <div className="filters" style={{ flexWrap: 'wrap' }}>
+        <div className="search-wrap"><i className="ti ti-search" /><input placeholder={ar ? 'بحث في المهام...' : 'Search tasks…'} value={search} onChange={e => setSearch(e.target.value)} /></div>
+        {isMainAdmin && (
+          <select className="form-input" style={{ width: 'auto' }} value={assigneeFilter} onChange={e => setAssigneeFilter(e.target.value)}>
+            <option value="all">{ar ? 'كل المسؤولين' : 'All assignees'}</option>
+            {eligible.map(p => <option key={p.id} value={p.id}>{p.id === profile?.id ? (ar ? 'نفسي' : 'Myself') : assigneeLabel(p)}</option>)}
+          </select>
+        )}
+        <select className="form-input" style={{ width: 'auto' }} value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+          <option value="all">{ar ? 'كل الحالات' : 'All statuses'}</option>
+          {STATUSES.map(s => <option key={s} value={s}>{ar ? STATUS_META[s].ar : STATUS_META[s].en}</option>)}
+        </select>
+        <select className="form-input" style={{ width: 'auto' }} value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}>
+          <option value="all">{ar ? 'كل الفئات' : 'All categories'}</option>
+          {Object.keys(CATEGORY_META).map(c => <option key={c} value={c}>{ar ? CATEGORY_META[c].ar : CATEGORY_META[c].en}</option>)}
+        </select>
+        <select className="form-input" style={{ width: 'auto' }} value={dueFilter} onChange={e => setDueFilter(e.target.value)}>
+          <option value="all">{ar ? 'كل تواريخ الاستحقاق' : 'All due dates'}</option>
+          <option value="overdue">{ar ? 'متأخرة' : 'Overdue'}</option>
+          <option value="today">{ar ? 'اليوم' : 'Due today'}</option>
+          <option value="soon">{ar ? 'خلال يومين' : 'Due soon (1–2d)'}</option>
+          <option value="later">{ar ? 'لاحقاً' : 'Later'}</option>
+          <option value="none">{ar ? 'بدون تاريخ' : 'No due date'}</option>
+        </select>
+        {hasActiveFilters && (
+          <button onClick={clearFilters} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '8px 12px', borderRadius: 9, border: '1px solid #fca5a5', background: '#fef2f2', color: '#dc2626', fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+            <i className="ti ti-x" style={{ fontSize: 13 }} /> {ar ? 'مسح الفلاتر' : 'Clear Filters'}
+          </button>
+        )}
       </div>
 
       {loading && <div className="empty" style={{ padding:24 }}>{ar ? 'جارٍ التحميل...' : 'Loading…'}</div>}
 
-      {!loading && tasks.length === 0 && (
+      {!loading && scoped.length === 0 && (
         <div className="empty" style={{ padding:'40px 24px', textAlign:'center' }}>
           <div style={{ width:56, height:56, borderRadius:14, background:'var(--surface2)', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 14px' }}>
             <i className="ti ti-checklist" style={{ fontSize:26, color:'var(--text3)' }} />
@@ -308,7 +431,13 @@ export default function Tasks({ profile, onNav }) {
         </div>
       )}
 
-      {!loading && tasks.length > 0 && (
+      {!loading && scoped.length > 0 && filtered.length === 0 && (
+        <div className="empty" style={{ padding:'40px 24px', textAlign:'center' }}>
+          {ar ? 'لا توجد نتائج مطابقة للفلاتر المحددة.' : 'No results match the selected filters.'}
+        </div>
+      )}
+
+      {!loading && filtered.length > 0 && (
         <div className="tasks-board">
           {STATUSES.map(status => (
             <div key={status}>
@@ -324,59 +453,65 @@ export default function Tasks({ profile, onNav }) {
                 </div>
               )}
 
-              <div style={{ display: 'grid', gap: 8 }}>
+              <div style={{ display: 'grid', gap: 6 }}>
                 {byStatus[status].map(task => {
                   const overdue = isOverdue(task)
                   const dueToday = isDueToday(task)
                   const dueSoon = isDueSoon(task)
                   const frameColor = overdue ? '#EE334E' : dueToday ? '#009F6B' : dueSoon ? '#f59e0b' : null
                   const frameBg = overdue ? '#FFF5F5' : dueToday ? '#F0FBF6' : dueSoon ? '#FFFBEB' : 'var(--surface)'
+                  const assignee = findAssignee(task.assigned_to)
                   return (
                     <div key={task.id} onClick={() => openEdit(task)}
                       style={{
                         background: frameBg, border: `2px solid ${frameColor || 'var(--border)'}`,
-                        borderRadius: 12, padding: '12px 14px', cursor: 'pointer', boxShadow: 'var(--shadow)',
+                        borderRadius: 11, padding: '9px 11px', cursor: 'pointer', boxShadow: 'var(--shadow)',
                         transition: 'border-color .15s',
                       }}
                       onMouseEnter={e => { if (!frameColor) e.currentTarget.style.borderColor = 'var(--border2)' }}
                       onMouseLeave={e => { if (!frameColor) e.currentTarget.style.borderColor = 'var(--border)' }}>
-                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 13, fontWeight: 600, textDecoration: status === 'done' ? 'line-through' : 'none', color: status === 'done' ? 'var(--text3)' : 'var(--text)' }}>
+                          <div style={{ fontSize: 12.5, fontWeight: 600, textDecoration: status === 'done' ? 'line-through' : 'none', color: status === 'done' ? 'var(--text3)' : 'var(--text)' }}>
                             {task.title}
                           </div>
                           {task.notes && (
-                            <div style={{ fontSize: 11.5, color: 'var(--text3)', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical' }}>
                               {task.notes}
                             </div>
                           )}
                         </div>
                         {task.priority && PRIORITY_META[task.priority] && (
-                          <i className="ti ti-flag" style={{ fontSize: 13, color: PRIORITY_META[task.priority].color, flexShrink: 0, marginTop: 2 }} title={ar ? PRIORITY_META[task.priority].ar : PRIORITY_META[task.priority].en} />
+                          <i className="ti ti-flag" style={{ fontSize: 12, color: PRIORITY_META[task.priority].color, flexShrink: 0, marginTop: 2 }} title={ar ? PRIORITY_META[task.priority].ar : PRIORITY_META[task.priority].en} />
                         )}
                       </div>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
                         {task.category && CATEGORY_META[task.category] && (
-                          <span style={{ fontSize: 10.5, fontWeight: 600, color: CATEGORY_META[task.category].color, background: CATEGORY_META[task.category].color + '15', padding: '2px 7px', borderRadius: 20, display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <i className={`ti ${CATEGORY_META[task.category].icon}`} style={{ fontSize: 11 }} />
+                          <span style={{ fontSize: 10, fontWeight: 600, color: CATEGORY_META[task.category].color, background: CATEGORY_META[task.category].color + '15', padding: '1px 6px', borderRadius: 20, display: 'flex', alignItems: 'center', gap: 3 }}>
+                            <i className={`ti ${CATEGORY_META[task.category].icon}`} style={{ fontSize: 10 }} />
                             {ar ? CATEGORY_META[task.category].ar : CATEGORY_META[task.category].en}
                           </span>
                         )}
                         {task.due_date && (
-                          <span style={{ fontSize: 11, fontWeight: 600, color: frameColor || 'var(--text3)', display: 'flex', alignItems: 'center', gap: 3 }}>
-                            <i className="ti ti-calendar" style={{ fontSize: 12 }} />
+                          <span style={{ fontSize: 10.5, fontWeight: 600, color: frameColor || 'var(--text3)', display: 'flex', alignItems: 'center', gap: 2 }}>
+                            <i className="ti ti-calendar" style={{ fontSize: 11 }} />
                             {formatDue(task.due_date, ar)}
                             {overdue && ` · ${ar ? 'متأخرة' : 'overdue'}`}
                           </span>
                         )}
+                        {assignee && (
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10.5, color: 'var(--text3)', marginLeft: 'auto' }}>
+                            <Avatar name={assigneeLabel(assignee)} id={idHash(assignee.id)} size={16} fs={7} />
+                            <span style={{ maxWidth: 70, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{assigneeLabel(assignee)}</span>
+                          </span>
+                        )}
                       </div>
 
-                      {/* Quick status move — one click to advance without opening the modal. */}
-                      <div style={{ display: 'flex', gap: 6, marginTop: 10 }} onClick={e => e.stopPropagation()}>
+                      <div style={{ display: 'flex', gap: 5, marginTop: 8 }} onClick={e => e.stopPropagation()}>
                         {STATUSES.filter(s => s !== status).map(s => (
                           <button key={s} onClick={() => setStatus(task, s)}
-                            style={{ fontSize: 10.5, fontWeight: 600, padding: '3px 9px', borderRadius: 20, border: `1px solid ${STATUS_META[s].color}40`, background: STATUS_META[s].color + '10', color: STATUS_META[s].color, cursor: 'pointer' }}>
+                            style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 20, border: `1px solid ${STATUS_META[s].color}40`, background: STATUS_META[s].color + '10', color: STATUS_META[s].color, cursor: 'pointer' }}>
                             → {ar ? STATUS_META[s].ar : STATUS_META[s].en}
                           </button>
                         ))}
