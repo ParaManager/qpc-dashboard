@@ -249,23 +249,38 @@ export default function App() {
           const { data: athletesForExpiry } = await supabase.from('athletes').select('id,name,name_ar,passport_expiry,id_expiry')
           const expiryInserts = []
           for (const a2 of (athletesForExpiry || [])) {
-            for (const [field, label, labelAr] of [['passport_expiry','Passport','جواز السفر'], ['id_expiry','Qatar ID','الرقم الشخصي']]) {
+            for (const [field, docType, label, labelAr] of [['passport_expiry','passport','Passport','جواز السفر'], ['id_expiry','id','Qatar ID','الرقم الشخصي']]) {
               const exp = a2[field]
               if (!exp) continue
               const expDate = new Date(exp); expDate.setHours(0,0,0,0)
               const daysUntil = Math.round((expDate - todayD) / 86400000)
-              if (daysUntil > 30) continue // not due for any reminder yet
-              const cycle = daysUntil >= 0 ? 0 : Math.floor(Math.abs(daysUntil) / 30)
+              // Document is valid through its expiry date — only "day after
+              // expiry" (daysUntil < 0) counts as expired. 60-day and 30-day
+              // warnings fire only on those exact days, not a >30 window.
               const expired = daysUntil < 0
-              const dedupKey = `${field.replace('_expiry','')}-expiry-${a2.id}-${expired ? `expired-cycle${cycle}` : 'warning'}`
+              let type, title, body, dedupKey
+              if (!expired && daysUntil === 60) {
+                type = 'document_expiring'
+                title = lang==='ar' ? `${labelAr} — تنبيه 60 يوماً` : `${label} — 60-day warning`
+                body = lang==='ar' ? `${a2.name_ar || a2.name} — ${labelAr} ينتهي في ${exp}` : `${a2.name} — ${label} expires on ${exp}`
+                dedupKey = `document-warning-60-${a2.id}-${docType}-${exp}`
+              } else if (!expired && daysUntil === 30) {
+                type = 'document_expiring'
+                title = lang==='ar' ? `${labelAr} — تنبيه 30 يوماً` : `${label} — 30-day warning`
+                body = lang==='ar' ? `${a2.name_ar || a2.name} — ${labelAr} ينتهي في ${exp}` : `${a2.name} — ${label} expires on ${exp}`
+                dedupKey = `document-warning-30-${a2.id}-${docType}-${exp}`
+              } else if (expired) {
+                const cycle = Math.floor((Math.abs(daysUntil) - 1) / 30)
+                type = 'document_expired'
+                title = lang==='ar' ? `${labelAr} منتهي الصلاحية` : `${label} expired`
+                body = lang==='ar' ? `${a2.name_ar || a2.name} — ${labelAr} منتهي منذ ${exp}` : `${a2.name} — ${label} expired on ${exp}`
+                dedupKey = `document-expired-${a2.id}-${docType}-${cycle}-${exp}`
+              } else {
+                continue // not one of the exact reminder days
+              }
               expiryInserts.push({
                 category: 'Documents', target_path: 'athletes', related_entity_type: 'athlete', related_entity_id: String(a2.id), read: false,
-                type: expired ? 'document_expired' : 'document_expiring',
-                title: expired
-                  ? (lang==='ar' ? `${labelAr} منتهي الصلاحية` : `${label} expired`)
-                  : (lang==='ar' ? `${labelAr} على وشك الانتهاء` : `${label} expiring soon`),
-                body: lang==='ar' ? `${a2.name_ar || a2.name} — ${labelAr} ${expired ? 'منتهي' : 'ينتهي'} في ${exp}` : `${a2.name} — ${label} ${expired ? 'expired' : 'expires'} on ${exp}`,
-                dedup_key: dedupKey,
+                type, title, body, dedup_key: dedupKey,
               })
             }
           }
