@@ -512,14 +512,21 @@ export default function Tasks({ profile, isMainAdmin, onNav }) {
                         )}
                       </div>
 
-                      <div style={{ display: 'flex', gap: 5, marginTop: 8 }} onClick={e => e.stopPropagation()}>
-                        {STATUSES.filter(s => s !== status).map(s => (
-                          <button key={s} onClick={() => setStatus(task, s)}
-                            style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 20, border: `1px solid ${STATUS_META[s].color}40`, background: STATUS_META[s].color + '10', color: STATUS_META[s].color, cursor: 'pointer' }}>
-                            → {ar ? STATUS_META[s].ar : STATUS_META[s].en}
-                          </button>
-                        ))}
-                      </div>
+                      {/* Quick status-move buttons only make sense for whoever is
+                          actually doing the work — the Main Admin viewing a task
+                          assigned to someone else can still change status via the
+                          edit modal if truly needed, but shouldn't get a one-click
+                          shortcut for work that isn't theirs. */}
+                      {task.assigned_to === profile?.id && (
+                        <div style={{ display: 'flex', gap: 5, marginTop: 8 }} onClick={e => e.stopPropagation()}>
+                          {STATUSES.filter(s => s !== status).map(s => (
+                            <button key={s} onClick={() => setStatus(task, s)}
+                              style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 20, border: `1px solid ${STATUS_META[s].color}40`, background: STATUS_META[s].color + '10', color: STATUS_META[s].color, cursor: 'pointer' }}>
+                              → {ar ? STATUS_META[s].ar : STATUS_META[s].en}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )
                 })}
