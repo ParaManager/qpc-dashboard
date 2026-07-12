@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from './lib/supabase'
 import { useAuth, canEdit } from './lib/useAuth'
+import { isTrustedAdmin, isMainAdmin as isMainAdminCheck } from './lib/permissions'
 import { getCurrentSeason } from './lib/helpers'
 import { ToastContainer } from './components/Toast'
 import Login     from './pages/Login'
@@ -538,9 +539,14 @@ export default function App() {
   const role      = profile?.role || 'guest'
   const userStatus = profile?.status || 'active'
   const isAdmin   = role === 'admin'
-  // The one main admin, identified only by email — never by displayed name,
-  // QID, employee id, or a hardcoded UUID.
-  const isMainAdmin = (profile?.email || '').toLowerCase() === 'hsinou@gmail.com'
+  // Trusted-admin status now comes from the centralized permissions helper
+  // (src/lib/permissions.js), which is also mirrored by the SQL
+  // is_trusted_admin() function used in RLS policies — a future third
+  // role='admin' profile is NOT automatically trusted, unlike `isAdmin`
+  // above which still means "any admin-role account" for the many
+  // capabilities both trusted admins share with every other admin today.
+  const isTrusted   = isTrustedAdmin(profile, user)
+  const isMainAdmin = isMainAdminCheck(profile, user)
   const isAthlete = role === 'athlete'
   const isCoach   = role === 'coach'
   const activeNav = isCoach ? NAV_COACH(tx) : isAdmin ? NAV_ADMIN(tx) : isAthlete ? NAV_ATHLETE(tx) : NAV_GUEST(tx)
@@ -752,9 +758,9 @@ export default function App() {
           {page==='requests'     && <Requests  profile={profile} onNav={goTo} navState={navState} />}
           {page==='away' && isAdmin && <Away athletes={athletes} coaches={coaches} employees={employees} onNav={goTo} profile={profile} />}
           {page==='tasks'         && <Tasks profile={profile} isMainAdmin={isMainAdmin} onNav={goTo} />}
-          {page==='referees'  && <Referees referees={referees} onRefresh={fetchAll} profile={profile} />}
+          {page==='referees'  && isAdmin && <Referees referees={referees} onRefresh={fetchAll} profile={profile} />}
           {page==='results'   && <Results   results={results} athletes={athletes} onRefresh={fetchAll} onNav={goTo} profile={profile} />}
-          {page==='sports'    && <Sports    athletes={athletes} coaches={coaches} events={events} results={results} onNav={goTo} initSport={navState.sport} initCategory={navState.category} profile={profile} />}
+          {page==='sports'    && isAdmin && <Sports    athletes={athletes} coaches={coaches} events={events} results={results} onNav={goTo} initSport={navState.sport} initCategory={navState.category} profile={profile} />}
           {page==='employees' && isAdmin && <Employees employees={employees} coaches={coaches} personDocs={personDocs} onRefresh={fetchAll} onNav={goTo} initEmployeeId={navState.employeeId} navState={navState} profile={profile} />}
         </div>
       </div>
