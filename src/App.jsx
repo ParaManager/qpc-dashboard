@@ -359,11 +359,19 @@ export default function App() {
     }
   }, [profile?.id, profile?.role, lang])
 
-  useEffect(() => { if (user) fetchAll() }, [user, fetchAll])
+  // Depend on user?.id (a stable string), not the `user` object itself —
+  // TOKEN_REFRESHED (fired routinely, including on tab focus) produces a
+  // new user object reference with the same id, which previously
+  // re-triggered this effect and reloaded all app data on every tab
+  // switch even though nothing the user was looking at had changed.
+  useEffect(() => { if (user) fetchAll() }, [user?.id, fetchAll])
   // Fire-and-forget: runs after the visible app data is already loaded, so
   // it never delays the initial render. Any failure inside is caught and
   // logged by runAdminReminders itself.
-  useEffect(() => { if (user && profile?.role === 'admin' && !dataLoading) runAdminReminders() }, [user, profile?.role, dataLoading, runAdminReminders])
+  // Same reasoning as the fetchAll effect above — key off user?.id (stable)
+  // rather than the user object itself, so a routine token refresh on tab
+  // focus doesn't re-run the whole admin reminder sweep every time.
+  useEffect(() => { if (user && profile?.role === 'admin' && !dataLoading) runAdminReminders() }, [user?.id, profile?.role, dataLoading, runAdminReminders])
 
   // Manual refresh for mobile/tablet, where pull-to-refresh isn't available in a
   // Manual refresh for mobile/tablet. Two different problems live under one button:
