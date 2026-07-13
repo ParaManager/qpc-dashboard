@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import * as XLSX from 'xlsx'
 import { generateStatisticsReport } from '../lib/statisticsReport'
 import { Avatar, MedalDisplay, Badge, avColor, initials, DashRow, SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, SPORT_CATEGORY_NAMES_AR, SPORT_NAMES_AR, sportLabel, effectiveStatus } from '../lib/helpers'
@@ -709,19 +709,46 @@ function exportExcel(athletes, coaches, documents, visibleCols, allCols, lang) {
     passport_number: a => a.passport_number || '',
     passport_expiry: a => a.passport_expiry || '',
     id_expiry:       a => a.id_expiry || '',
-    medals:          a => ar ? `ذهب:${a.medals_gold||0} فضة:${a.medals_silver||0} برونز:${a.medals_bronze||0}` : `Gold:${a.medals_gold||0} Silver:${a.medals_silver||0} Bronze:${a.medals_bronze||0}`,
+    medals:          a => (a.medals_gold||0) + (a.medals_silver||0) + (a.medals_bronze||0),
     documents:       a => { const ds = athleteDocStatus(a.id, documents); return ds.key==='complete' ? (ar?'مكتمل':'Complete') : ds.key==='missing' ? (ar?`${ds.missing} ناقص`:`${ds.missing} Missing`) : (ar?'لا يوجد وثائق':'No Documents') },
+    missing_documents: a => { const ds = athleteDocStatus(a.id, documents); return ds.key==='complete' ? '' : ds.key==='none' ? (ar?'جميع الوثائق مفقودة':'All documents missing') : ds.missingTypes.map(t => ar ? (DOC_TYPES_AR[t]||t) : t).join(', ') },
   }
 
+  // Preserve ALL_COLS' own order (identity → sport → personal → status →
+  // documents → performance) rather than whatever order the caller's
+  // visibleCols array happens to be in.
   const visibleDefs = allCols.filter(c => visibleCols.includes(c.key))
+  const DATE_KEYS = new Set(['dob', 'join_date', 'passport_expiry', 'id_expiry'])
   const rows = athletes.map(a => {
     const row = {}
-    visibleDefs.forEach(col => { row[col.label] = colMap[col.key]?.(a) ?? '' })
-    row[L('Age','العمر')] = a.dob ? calcAge(a.dob) : ''
-    row[L('Years with QPC','سنوات مع QPC')] = a.join_date ? calcYearsActive(a.join_date) : ''
+    visibleDefs.forEach(col => {
+      const raw = colMap[col.key]?.(a)
+      if (DATE_KEYS.has(col.key) && raw) {
+        // Real Excel date value (not a text string) so spreadsheet users get
+        // proper date sorting/filtering — falls back to blank cleanly when
+        // the stored value isn't a valid date.
+        const d = new Date(raw)
+        row[col.label] = isNaN(d.getTime()) ? (raw || '') : d
+      } else {
+        row[col.label] = (raw === null || raw === undefined) ? '' : raw
+      }
+    })
     return row
   })
-  const ws = XLSX.utils.json_to_sheet(rows)
+  const ws = XLSX.utils.json_to_sheet(rows, { cellDates: true })
+  // Apply a readable date format to any column recognized as a date so
+  // Excel doesn't show its own default numeric/date serial formatting.
+  const dateColIdxs = visibleDefs.map((c, i) => DATE_KEYS.has(c.key) ? i : -1).filter(i => i >= 0)
+  if (dateColIdxs.length) {
+    const range = XLSX.utils.decode_range(ws['!ref'])
+    for (let R = range.s.r + 1; R <= range.e.r; R++) {
+      for (const C of dateColIdxs) {
+        const cellRef = XLSX.utils.encode_cell({ r: R, c: C })
+        const cell = ws[cellRef]
+        if (cell && cell.t === 'd') cell.z = 'yyyy-mm-dd'
+      }
+    }
+  }
   const wb = XLSX.utils.book_new()
   ws['!cols'] = visibleDefs.map(() => ({ wch: 20 }))
   XLSX.utils.book_append_sheet(wb, ws, ar ? 'الرياضيون' : 'Athletes')
@@ -930,17 +957,49 @@ export default function Athletes({ athletes, coaches, employees, results, docume
   // available for admin, who's looking across everyone. Shared between the
   // initial state below and the column picker's "Default" reset button, so the
   // two can't drift apart.
-  const COACH_DEFAULT_COLS = ['name','classification','nationality','status','medals','docs']
-  const [visibleCols, setVisibleCols] = useState(
-    profile?.role === 'coach'
-      ? COACH_DEFAULT_COLS
-      : ['name','sport','coach_id','status','medical_status','passport_expiry','id_expiry']
+  const COACH_DEFAULT_COLS = ['name','classification','nationality','status','medals','documents']
+  const DEFAULT_COLS_ADMIN = ['name','sport','coach_id','status','medical_status','passport_expiry','id_expiry']
+  const COLS_STORAGE_KEY = 'qpc_athletes_visible_cols_v1'
+  function loadStoredCols(fallback) {
+    try {
+      const raw = localStorage.getItem(COLS_STORAGE_KEY)
+      if (!raw) return fallback
+      const parsed = JSON.parse(raw)
+      if (!Array.isArray(parsed) || parsed.length === 0) return fallback
+      if (!parsed.every(k => typeof k === 'string')) return fallback
+      return parsed.includes('name') ? parsed : ['name', ...parsed]
+    } catch {
+      return fallback
+    }
+  }
+  const [visibleCols, setVisibleColsRaw] = useState(
+    loadStoredCols(profile?.role === 'coach' ? COACH_DEFAULT_COLS : DEFAULT_COLS_ADMIN)
   )
+  function setVisibleCols(next) {
+    setVisibleColsRaw(prev => {
+      const resolved = typeof next === 'function' ? next(prev) : next
+      try { localStorage.setItem(COLS_STORAGE_KEY, JSON.stringify(resolved)) } catch {}
+      return resolved
+    })
+  }
   const [colPickerOpen, setColPickerOpen] = useState(false)
+  const colPickerRef = useRef(null)
+  useEffect(() => {
+    if (!colPickerOpen) return
+    function onOutside(e) { if (colPickerRef.current && !colPickerRef.current.contains(e.target)) setColPickerOpen(false) }
+    function onEscape(e) { if (e.key === 'Escape') setColPickerOpen(false) }
+    document.addEventListener('mousedown', onOutside)
+    document.addEventListener('keydown', onEscape)
+    return () => { document.removeEventListener('mousedown', onOutside); document.removeEventListener('keydown', onEscape) }
+  }, [colPickerOpen])
   const [colFilters, setColFilters] = useState({})
   const photoInput = useRef(null)
   const docInput   = useRef(null)
   const [cropFile, setCropFile] = useState(null) // { athleteId, file } pending crop
+  // Pagination — client-side, resets to page 1 whenever search/filters/sort
+  // change the underlying result set.
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(25)
 
   useEffect(() => {
     if (initAthleteId != null) setSelected(initAthleteId)
@@ -989,9 +1048,18 @@ export default function Athletes({ athletes, coaches, employees, results, docume
     setGender('All genders')
     setSort('name-asc')
     setColFilters({})
+    setPage(1)
   }
 
   const hasActiveFilters = search || sport !== 'All sports' || sportCategory !== 'All categories' || status !== 'All statuses' || gender !== 'All genders' || sort !== 'name-asc' || Object.values(colFilters).some(v => v && v !== 'All')
+  const activeFilterCount = [
+    sport !== 'All sports', sportCategory !== 'All categories', status !== 'All statuses', gender !== 'All genders',
+    ...Object.values(colFilters).map(v => v && v !== 'All'),
+  ].filter(Boolean).length
+
+  // Reset to page 1 whenever the underlying result set could have changed
+  // shape — search, any filter, or sort order.
+  useEffect(() => { setPage(1) }, [search, sport, sportCategory, status, gender, colFilters, sort])
 
   // Show every known sport (Paralympic + Special Olympics), not just ones currently
   // in use — so a sport with zero athletes today is still findable once someone new
@@ -1000,72 +1068,162 @@ export default function Athletes({ athletes, coaches, employees, results, docume
   const sports = ['All sports', ...SPORTS, ...[...sportsInData].filter(s => !SPORTS.includes(s))]
   const sportCategories = ['All categories', ...SPORT_CATEGORIES]
 
-  let list = athletes.filter(a =>
-    (sport  === 'All sports'   || a.sport  === sport)  &&
-    (sportCategory === 'All categories' || a.sport_category === sportCategory) &&
-    (status === 'All statuses' || effectiveStatus(a) === status) &&
-    (gender === 'All genders'  || a.gender === gender) &&
-    a.name && // exclude blank names
-    (a.name.toLowerCase().includes(search.toLowerCase()) || (a.name_ar||'').toLowerCase().includes(search.toLowerCase()) || (a.sport||'').toLowerCase().includes(search.toLowerCase())) &&
-    // column-level filters
-    (!colFilters.sport_category || colFilters.sport_category === 'All' || a.sport_category === colFilters.sport_category) &&
-    (!colFilters.sport        || colFilters.sport === 'All'        || a.sport === colFilters.sport) &&
-    (!colFilters.status       || colFilters.status === 'All'       || effectiveStatus(a) === colFilters.status) &&
-    (!colFilters.gender       || colFilters.gender === 'All'       || a.gender === colFilters.gender) &&
-    (!colFilters.nationality  || colFilters.nationality === 'All'  || a.nationality === colFilters.nationality) &&
-    (!colFilters.disability   || colFilters.disability === 'All'   || a.disability === colFilters.disability) &&
-    (!colFilters.statistics_disability || colFilters.statistics_disability === 'All' || a.statistics_disability === colFilters.statistics_disability) &&
-    (!colFilters.age_category || colFilters.age_category === 'All' || a.age_category === colFilters.age_category) &&
-    (!colFilters.sport_age_category || colFilters.sport_age_category === 'All' || a.sport_age_category === colFilters.sport_age_category) &&
-    (!colFilters.medical_status || colFilters.medical_status === 'All' || (colFilters.medical_status === 'None' ? !a.medical_status || a.medical_status === 'None' : a.medical_status === colFilters.medical_status)) &&
-    (!colFilters.coachName    || colFilters.coachName === 'All'    || coaches.find(c => c.id === a.coach_id)?.name === colFilters.coachName) &&
-    (!colFilters.documents    || colFilters.documents === 'All'    || (
-      colFilters.documents === 'Complete' ? athleteDocStatus(a.id, documents).key === 'complete' :
-      colFilters.documents === 'Missing'  ? athleteDocStatus(a.id, documents).key === 'missing'  :
-      colFilters.documents === 'None'     ? athleteDocStatus(a.id, documents).key === 'none'     : true
-    ))
-  )
-  list = [...list].sort((a, b) => {
-    if (sort === 'name-asc')         return a.name.localeCompare(b.name)
-    if (sort === 'name-desc')        return b.name.localeCompare(a.name)
-    if (sort === 'name_ar-asc')      return (a.name_ar||'').localeCompare(b.name_ar||'')
-    if (sort === 'name_ar-desc')     return (b.name_ar||'').localeCompare(a.name_ar||'')
-    if (sort === 'sport_category-asc')  return (a.sport_category||'').localeCompare(b.sport_category||'')
-    if (sort === 'sport_category-desc') return (b.sport_category||'').localeCompare(a.sport_category||'')
-    if (sort === 'sport-asc')        return (a.sport||'').localeCompare(b.sport||'')
-    if (sort === 'sport-desc')       return (b.sport||'').localeCompare(a.sport||'')
-    if (sort === 'status-asc')       return (a.status||'').localeCompare(b.status||'')
-    if (sort === 'status-desc')      return (b.status||'').localeCompare(a.status||'')
-    if (sort === 'nationality-asc')  return (a.nationality||'').localeCompare(b.nationality||'')
-    if (sort === 'nationality-desc') return (b.nationality||'').localeCompare(a.nationality||'')
-    if (sort === 'disability-asc')             return (a.disability||'').localeCompare(b.disability||'')
-    if (sort === 'disability-desc')            return (b.disability||'').localeCompare(a.disability||'')
-    if (sort === 'statistics_disability-asc')  return (a.statistics_disability||'').localeCompare(b.statistics_disability||'')
-    if (sort === 'statistics_disability-desc') return (b.statistics_disability||'').localeCompare(a.statistics_disability||'')
-    if (sort === 'coach_id-asc')     return (coaches.find(c=>c.id===a.coach_id)?.name||'').localeCompare(coaches.find(c=>c.id===b.coach_id)?.name||'')
-    if (sort === 'coach_id-desc')    return (coaches.find(c=>c.id===b.coach_id)?.name||'').localeCompare(coaches.find(c=>c.id===a.coach_id)?.name||'')
-    if (sort === 'gender-asc')       return (a.gender||'').localeCompare(b.gender||'')
-    if (sort === 'gender-desc')      return (b.gender||'').localeCompare(a.gender||'')
-    if (sort === 'dob-asc')          return new Date(a.dob||0) - new Date(b.dob||0)
-    if (sort === 'dob-desc')         return new Date(b.dob||0) - new Date(a.dob||0)
-    if (sort === 'age_category-asc' || sort === 'age_category-desc') {
-      const AGE_ORDER = ['Under 5','5 - 9','10 - 14','15 - 19','20 - 24','25 - 29','30 - 34','35 - 39','40 - 44','45 - 49','50 - 54','55 - 59','60 - 64','65+']
-      const ai = AGE_ORDER.indexOf(a.age_category ?? ''), bi = AGE_ORDER.indexOf(b.age_category ?? '')
-      return sort === 'age_category-asc' ? ai - bi : bi - ai
+  // ── Global search ── every field below is included, normalized (lowercased,
+  // trimmed, safely stringified), and searched even when its column is hidden.
+  // Memoized per-athlete so this isn't rebuilt on every keystroke — only when
+  // the underlying data actually changes.
+  const searchableValues = useMemo(() => {
+    const map = new Map()
+    const STATUS_LABELS = {'Active':'active','Inactive':'inactive','On Leave':'on leave','In Competition':'in competition','In Training Camp':'in training camp','Injured':'injured','Under Medical Review':'under medical review','Suspended':'suspended','Retired':'retired'}
+    for (const a of athletes) {
+      const coach = coaches.find(c => c.id === a.coach_id)
+      const parts = [
+        a.name, a.name_ar, a.qss_number, a.id_number, a.career_profile,
+        a.sport_category, a.sport, a.classification, a.disability, a.statistics_disability,
+        a.nationality, a.gender, coach?.name, coach?.name_ar,
+        a.status, effectiveStatus(a), a.medical_status,
+        a.phone, a.email, a.passport_number, a.passport_expiry, a.id_expiry,
+        a.join_date, a.age_category, a.sport_age_category,
+      ]
+      const text = parts
+        .map(v => {
+          if (v === null || v === undefined) return ''
+          if (v instanceof Date) return isNaN(v.getTime()) ? '' : v.toISOString().slice(0, 10)
+          return String(v)
+        })
+        .join(' ')
+        .toLowerCase()
+        .trim()
+      map.set(a.id, text)
     }
-    if (sort === 'sport_age_category-asc' || sort === 'sport_age_category-desc') {
-      const SPORT_AGE_ORDER = ['براعم (8-10)','أشبال (11-13)','شبلات (11-13)','ناشئين (14-17)','ناشئات (14-17)','شباب (17-20)','شابات (17-20)','رجال (20+)','سيدات (20+)']
-      const ai = SPORT_AGE_ORDER.indexOf(a.sport_age_category ?? ''), bi = SPORT_AGE_ORDER.indexOf(b.sport_age_category ?? '')
-      return sort === 'sport_age_category-asc' ? ai - bi : bi - ai
-    }
-    if (sort === 'medals-desc')      return (b.medals_gold+b.medals_silver+b.medals_bronze)-(a.medals_gold+a.medals_silver+a.medals_bronze)
-    if (sort === 'gold-desc')        return b.medals_gold - a.medals_gold
-    if (sort === 'join_date-asc')    return new Date(a.join_date||0) - new Date(b.join_date||0)
-    if (sort === 'join_date-desc')   return new Date(b.join_date||0) - new Date(a.join_date||0)
-    if (sort === 'join-desc')        return new Date(b.join_date) - new Date(a.join_date)
-    if (sort === 'join-asc')         return new Date(a.join_date) - new Date(b.join_date)
-    return 0
-  })
+    return map
+  }, [athletes, coaches])
+
+  const filteredList = useMemo(() => {
+    const q = search.toLowerCase().trim()
+    return athletes.filter(a =>
+      (sport  === 'All sports'   || a.sport  === sport)  &&
+      (sportCategory === 'All categories' || a.sport_category === sportCategory) &&
+      (status === 'All statuses' || effectiveStatus(a) === status) &&
+      (gender === 'All genders'  || a.gender === gender) &&
+      a.name && // exclude blank names
+      (!q || (searchableValues.get(a.id) || '').includes(q)) &&
+      // column-level filters
+      (!colFilters.sport_category || colFilters.sport_category === 'All' || a.sport_category === colFilters.sport_category) &&
+      (!colFilters.sport        || colFilters.sport === 'All'        || a.sport === colFilters.sport) &&
+      (!colFilters.status       || colFilters.status === 'All'       || effectiveStatus(a) === colFilters.status) &&
+      (!colFilters.gender       || colFilters.gender === 'All'       || a.gender === colFilters.gender) &&
+      (!colFilters.nationality  || colFilters.nationality === 'All'  || a.nationality === colFilters.nationality) &&
+      (!colFilters.disability   || colFilters.disability === 'All'   || a.disability === colFilters.disability) &&
+      (!colFilters.statistics_disability || colFilters.statistics_disability === 'All' || a.statistics_disability === colFilters.statistics_disability) &&
+      (!colFilters.age_category || colFilters.age_category === 'All' || a.age_category === colFilters.age_category) &&
+      (!colFilters.sport_age_category || colFilters.sport_age_category === 'All' || a.sport_age_category === colFilters.sport_age_category) &&
+      (!colFilters.medical_status || colFilters.medical_status === 'All' || (colFilters.medical_status === 'None' ? !a.medical_status || a.medical_status === 'None' : a.medical_status === colFilters.medical_status)) &&
+      (!colFilters.coachName    || colFilters.coachName === 'All'    || coaches.find(c => c.id === a.coach_id)?.name === colFilters.coachName) &&
+      (!colFilters.documents    || colFilters.documents === 'All'    || (
+        colFilters.documents === 'Complete' ? athleteDocStatus(a.id, documents).key === 'complete' :
+        colFilters.documents === 'Missing'  ? athleteDocStatus(a.id, documents).key === 'missing'  :
+        colFilters.documents === 'None'     ? athleteDocStatus(a.id, documents).key === 'none'     : true
+      ))
+    )
+  }, [athletes, coaches, documents, search, sport, sportCategory, status, gender, colFilters, searchableValues])
+
+  // Locale-aware, case-insensitive text compare; empty values always sort
+  // last regardless of direction (per spec), by treating '' as "greater".
+  function textCompare(av, bv, desc) {
+    const a1 = (av ?? '').toString().trim()
+    const b1 = (bv ?? '').toString().trim()
+    if (!a1 && !b1) return 0
+    if (!a1) return 1
+    if (!b1) return -1
+    return desc ? b1.localeCompare(a1, undefined, { sensitivity: 'base' }) : a1.localeCompare(b1, undefined, { sensitivity: 'base' })
+  }
+  function dateCompare(av, bv, desc) {
+    const at = av ? new Date(av).getTime() : NaN
+    const bt = bv ? new Date(bv).getTime() : NaN
+    const aValid = !isNaN(at), bValid = !isNaN(bt)
+    if (!aValid && !bValid) return 0
+    if (!aValid) return 1
+    if (!bValid) return -1
+    return desc ? bt - at : at - bt
+  }
+  function numCompare(av, bv, desc) {
+    const an = av === null || av === undefined || av === '' ? NaN : Number(av)
+    const bn = bv === null || bv === undefined || bv === '' ? NaN : Number(bv)
+    const aValid = !isNaN(an), bValid = !isNaN(bn)
+    if (!aValid && !bValid) return 0
+    if (!aValid) return 1
+    if (!bValid) return -1
+    return desc ? bn - an : an - bn
+  }
+
+  const sortedList = useMemo(() => {
+    if (!sort) return filteredList
+    const [key, dir] = sort.split(/-(asc|desc)$/).filter(Boolean)
+    const desc = dir === 'desc'
+    const coachName = a => { const c = coaches.find(co => co.id === a.coach_id); return c ? c.name : '' }
+    const docsRank = a => { const ds = athleteDocStatus(a.id, documents); return ds.key === 'complete' ? 2 : ds.key === 'missing' ? 1 : 0 }
+    const AGE_ORDER = ['Under 5','5 - 9','10 - 14','15 - 19','20 - 24','25 - 29','30 - 34','35 - 39','40 - 44','45 - 49','50 - 54','55 - 59','60 - 64','65+']
+    const SPORT_AGE_ORDER = ['براعم (8-10)','أشبال (11-13)','شبلات (11-13)','ناشئين (14-17)','ناشئات (14-17)','شباب (17-20)','شابات (17-20)','رجال (20+)','سيدات (20+)']
+
+    return [...filteredList].sort((a, b) => {
+      switch (key) {
+        case 'name':                   return textCompare(a.name, b.name, desc)
+        case 'name_ar':                return textCompare(a.name_ar, b.name_ar, desc)
+        case 'qss_number':             return textCompare(a.qss_number, b.qss_number, desc)
+        case 'id_number':              return textCompare(a.id_number, b.id_number, desc)
+        case 'career_profile':         return textCompare(a.career_profile, b.career_profile, desc)
+        case 'sport_category':         return textCompare(a.sport_category, b.sport_category, desc)
+        case 'sport':                  return textCompare(a.sport, b.sport, desc)
+        case 'classification':         return textCompare(a.classification, b.classification, desc)
+        case 'disability':             return textCompare(a.disability, b.disability, desc)
+        case 'statistics_disability':  return textCompare(a.statistics_disability, b.statistics_disability, desc)
+        case 'nationality':            return textCompare(a.nationality, b.nationality, desc)
+        case 'gender':                 return textCompare(a.gender, b.gender, desc)
+        case 'dob':                    return dateCompare(a.dob, b.dob, desc)
+        case 'coach_id':                return textCompare(coachName(a), coachName(b), desc)
+        // Status sort uses effectiveStatus(), matching display/filter logic.
+        case 'status':                 return textCompare(effectiveStatus(a), effectiveStatus(b), desc)
+        case 'medical_status':         return textCompare(a.medical_status, b.medical_status, desc)
+        case 'phone':                  return textCompare(a.phone, b.phone, desc)
+        case 'email':                  return textCompare(a.email, b.email, desc)
+        case 'join_date':              return dateCompare(a.join_date, b.join_date, desc)
+        case 'passport_number':        return textCompare(a.passport_number, b.passport_number, desc)
+        case 'passport_expiry':        return dateCompare(a.passport_expiry, b.passport_expiry, desc)
+        case 'id_expiry':              return dateCompare(a.id_expiry, b.id_expiry, desc)
+        case 'medals':                 return numCompare((a.medals_gold||0)+(a.medals_silver||0)+(a.medals_bronze||0), (b.medals_gold||0)+(b.medals_silver||0)+(b.medals_bronze||0), desc)
+        case 'documents':              return numCompare(docsRank(a), docsRank(b), desc)
+        case 'missing_documents':      return numCompare(athleteDocStatus(a.id, documents).missing, athleteDocStatus(b.id, documents).missing, desc)
+        case 'age_category': {
+          const ai = AGE_ORDER.indexOf(a.age_category ?? ''), bi = AGE_ORDER.indexOf(b.age_category ?? '')
+          if (ai === -1 && bi === -1) return 0
+          if (ai === -1) return 1
+          if (bi === -1) return -1
+          return desc ? bi - ai : ai - bi
+        }
+        case 'sport_age_category': {
+          const ai = SPORT_AGE_ORDER.indexOf(a.sport_age_category ?? ''), bi = SPORT_AGE_ORDER.indexOf(b.sport_age_category ?? '')
+          if (ai === -1 && bi === -1) return 0
+          if (ai === -1) return 1
+          if (bi === -1) return -1
+          return desc ? bi - ai : ai - bi
+        }
+        default: return 0
+      }
+    })
+  }, [filteredList, sort, coaches, documents])
+
+  const list = sortedList
+
+  // ── Pagination ── clamp page to a valid range whenever the list size or
+  // page size changes, so a sort/filter that shrinks the result set can't
+  // strand the user on an empty page.
+  const totalPages = Math.max(1, Math.ceil(list.length / pageSize))
+  useEffect(() => { if (page > totalPages) setPage(totalPages) }, [totalPages, page])
+  const pagedList = useMemo(() => {
+    const start = (page - 1) * pageSize
+    return list.slice(start, start + pageSize)
+  }, [list, page, pageSize])
 
   async function handleSave(formData) {
     const isEdit = !!formData.id
@@ -1819,26 +1977,121 @@ ${myDocs.length > 0 ? `<div class="section">
 
   // ── LIST VIEW ──
   function startEdit() { setEditMode(true); setEdits({}) }
-  function cancelEdit() { setEditMode(false); setEdits({}) }
+  function cancelEdit() {
+    const changedCount = Object.keys(edits).length
+    if (changedCount > 0) {
+      const ok = window.confirm(
+        lang === 'ar'
+          ? `لديك ${changedCount} تغييرات غير محفوظة. هل تريد تجاهلها؟`
+          : `You have ${changedCount} unsaved change${changedCount > 1 ? 's' : ''}. Discard them?`
+      )
+      if (!ok) return
+    }
+    setEditMode(false); setEdits({})
+  }
   function setEdit(id, field, value) {
-    setEdits(prev => ({ ...prev, [id]: { ...prev[id], [field]: value } }))
+    setEdits(prev => {
+      const athlete = athletes.find(a => a.id === id)
+      // Only actually record a change if the new value differs from what's
+      // already stored — flipping a field back to its original value should
+      // remove it from the changed set, not leave a no-op update queued.
+      if (athlete && athlete[field] === value) {
+        const nextForId = { ...prev[id] }
+        delete nextForId[field]
+        if (Object.keys(nextForId).length === 0) {
+          const next = { ...prev }
+          delete next[id]
+          return next
+        }
+        return { ...prev, [id]: nextForId }
+      }
+      return { ...prev, [id]: { ...prev[id], [field]: value } }
+    })
   }
   function getVal(a, field) {
     return edits[a.id]?.[field] !== undefined ? edits[a.id][field] : a[field]
   }
 
   async function saveAllEdits() {
+    if (savingAll) return // prevent duplicate save clicks while a save is in flight
     const changed = Object.entries(edits)
     if (changed.length === 0) { setEditMode(false); return }
     setSavingAll(true)
     try {
-      await Promise.all(changed.map(([id, fields]) =>
+      const results = await Promise.allSettled(changed.map(([id, fields]) =>
         supabase.from('athletes').update(fields).eq('id', parseInt(id))
       ))
-      toast(`${changed.length} athlete${changed.length > 1 ? 's' : ''} updated`)
-      setEditMode(false); setEdits({}); await onRefresh()
-    } catch (err) { toast('Save failed: ' + err.message, 'error') }
-    finally { setSavingAll(false) }
+
+      const succeededIds = []
+      const failed = [] // { id, name, message }
+      results.forEach((res, i) => {
+        const [id] = changed[i]
+        const athlete = athletes.find(a => a.id === parseInt(id))
+        const name = athlete?.name || `#${id}`
+        if (res.status === 'rejected') {
+          failed.push({ id, name, message: res.reason?.message || 'Request failed' })
+        } else if (res.value?.error) {
+          failed.push({ id, name, message: res.value.error.message })
+        } else {
+          succeededIds.push(id)
+        }
+      })
+
+      if (succeededIds.length > 0) {
+        toast(
+          failed.length === 0
+            ? `${succeededIds.length} athlete${succeededIds.length > 1 ? 's' : ''} updated`
+            : `${succeededIds.length} updated, ${failed.length} failed`,
+          failed.length === 0 ? 'success' : 'error'
+        )
+      }
+      if (failed.length > 0) {
+        const names = failed.slice(0, 5).map(f => f.name).join(', ') + (failed.length > 5 ? `, +${failed.length - 5} more` : '')
+        toast(`Failed to update: ${names}`, 'error')
+      }
+
+      // One activity_log entry + one trusted-admin notification for the
+      // whole batch, not one per athlete — only for rows that actually
+      // succeeded, since a failed update never happened.
+      if (isTrustedAdmin(profile) && succeededIds.length > 0) {
+        const succeededNames = succeededIds.map(id => athletes.find(a => a.id === parseInt(id))?.name || `#${id}`)
+        const changedFieldsSet = new Set()
+        succeededIds.forEach(id => Object.keys(edits[id] || {}).forEach(f => changedFieldsSet.add(f)))
+        logAdminActivity({
+          actor: profile,
+          action: 'updated',
+          entityType: 'athlete',
+          entityId: succeededIds.length === 1 ? succeededIds[0] : null,
+          entityLabel: succeededIds.length === 1
+            ? succeededNames[0]
+            : `${succeededIds.length} athlete records`,
+          module: 'athletes',
+          metadata: {
+            via: 'edit_list',
+            athlete_ids: succeededIds,
+            athlete_names: succeededNames,
+            fields_changed: [...changedFieldsSet],
+          },
+        })
+      }
+
+      // Only clear edits for rows that actually succeeded — failed rows stay
+      // in the edit set (and edit mode stays on) so the user can retry
+      // without losing anything, per spec.
+      if (failed.length > 0) {
+        setEdits(prev => {
+          const next = { ...prev }
+          succeededIds.forEach(id => delete next[id])
+          return next
+        })
+      } else {
+        setEditMode(false)
+        setEdits({})
+      }
+      await onRefresh()
+    } finally {
+      setSavingAll(false)
+    }
   }
 
   // ── COLUMN DEFINITIONS ──
@@ -2050,56 +2303,57 @@ ${myDocs.length > 0 ? `<div class="section">
               <i className="ti ti-table-export" /> {tx('actions.exportExcel','Export Excel')}
             </button>
           )}
-          {!editMode && canEdit(profile) && (
-            <button className="btn" style={{ background:'#0085C7', opacity: generatingReport ? 0.7 : 1 }}
-              disabled={generatingReport}
-              onClick={async () => {
-                setGeneratingReport(true)
-                try {
-                  await generateStatisticsReport({ athletes, employees: employees||[], coaches, lang })
-                } catch (err) {
-                  toast(err.message || (lang==='ar' ? 'فشل إنشاء التقرير' : 'Failed to generate report'), 'error')
-                } finally {
-                  setGeneratingReport(false)
-                }
-              }}>
-              {generatingReport
-                ? <><i className="ti ti-loader-2" style={{ animation:'spin 0.6s linear infinite' }} /> {lang==='ar' ? 'جارٍ الإنشاء...' : 'Generating…'}</>
-                : <><i className="ti ti-file-text" /> {lang==='ar' ? 'إحصاءات وزارة التنمية' : 'Ministry Statistics'}</>}
-            </button>
-          )}
+          {/* Ministry Statistics button removed from this page per spec — the
+              generateStatisticsReport() logic (imported above) and the
+              generatingReport state are left in place, dormant, for a future
+              dedicated Reports & Statistics page to call directly. */}
 
           {/* COLUMN PICKER */}
           {!editMode && (
-            <div style={{ position:'relative' }}>
+            <div style={{ position:'relative' }} ref={colPickerRef}>
               <button className="action-btn action-btn-edit" style={{ padding:'8px 14px', fontSize:13 }} onClick={() => setColPickerOpen(o => !o)}>
                 <i className="ti ti-columns" /> {lang==='ar' ? 'أعمدة' : 'Columns'} {visibleCols.length !== ALL_COLS.length && `(${visibleCols.length})`}
               </button>
-              {colPickerOpen && (
-                <div style={{ position:'absolute', top:'calc(100% + 6px)', right:0, background:'var(--surface)', border:'1px solid var(--border)', borderRadius:12, padding:'12px 4px', zIndex:200, boxShadow:'0 8px 24px rgba(0,0,0,.12)', minWidth:200, maxHeight:420, overflowY:'auto' }}
-                  onMouseLeave={() => setColPickerOpen(false)}>
-                  <div style={{ fontSize:11, fontWeight:600, color:'var(--text3)', textTransform:'uppercase', letterSpacing:'.06em', padding:'0 12px 8px' }}>{tx('actions.columns','Show / hide columns')}</div>
-                  {ALL_COLS.map(col => (
-                    <label key={col.key} style={{ display:'flex', alignItems:'center', gap:10, padding:'7px 12px', cursor:col.key==='name'?'not-allowed':'pointer', borderRadius:8, transition:'background .1s' }}
-                      onMouseEnter={e => { if(col.key!=='name') e.currentTarget.style.background='var(--surface2)' }}
-                      onMouseLeave={e => { e.currentTarget.style.background='' }}>
-                      <input type="checkbox" checked={isVisible(col.key)} disabled={col.key==='name'} onChange={() => toggleCol(col.key)}
-                        style={{ width:14, height:14, cursor:col.key==='name'?'not-allowed':'pointer', accentColor:'#0085C7' }} />
-                      <span style={{ fontSize:13, color:col.key==='name'?'var(--text3)':'var(--text)' }}>{col.label}</span>
-                      {col.key==='name' && <span style={{ fontSize:10, color:'var(--text3)', marginLeft:'auto' }}>{tx('filters.always','always')}</span>}
-                    </label>
-                  ))}
-                  <div style={{ padding:'8px 12px 0', borderTop:'1px solid var(--border)', marginTop:4, display:'flex', gap:6, flexWrap:'wrap' }}>
-                    <button onClick={() => setVisibleCols(ALL_COLS.map(c=>c.key))} style={{ flex:1, padding:'5px', fontSize:11, background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:7, cursor:'pointer', color:'var(--text2)' }}>{tx('filters.all','All')}</button>
-                    <button onClick={() => setVisibleCols(
-                      profile?.role === 'coach'
-                        ? COACH_DEFAULT_COLS
-                        : ALL_COLS.filter(c=>c.default).map(c=>c.key)
-                    )} style={{ flex:1, padding:'5px', fontSize:11, background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:7, cursor:'pointer', color:'var(--text2)' }}>{tx('filters.default','Default')}</button>
-                    <button onClick={() => setVisibleCols(['name'])} style={{ flex:1, padding:'5px', fontSize:11, background:'#fef2f2', border:'1px solid #fca5a5', borderRadius:7, cursor:'pointer', color:'#dc2626' }}>{tx('filters.none','None')}</button>
+              {colPickerOpen && (() => {
+                const COL_GROUPS = [
+                  { label: lang==='ar' ? 'الهوية' : 'Identity', keys: ['name','name_ar','qss_number','id_number','career_profile'] },
+                  { label: lang==='ar' ? 'الرياضة' : 'Sport', keys: ['sport_category','sport','classification','disability','statistics_disability','coach_id'] },
+                  { label: lang==='ar' ? 'شخصي' : 'Personal', keys: ['nationality','gender','dob','age_category','sport_age_category','phone','email'] },
+                  { label: lang==='ar' ? 'الحالة' : 'Status', keys: ['status','medical_status','join_date'] },
+                  { label: lang==='ar' ? 'الوثائق' : 'Documents', keys: ['passport_number','passport_expiry','id_expiry','documents','missing_documents'] },
+                  { label: lang==='ar' ? 'الأداء' : 'Performance', keys: ['medals'] },
+                ]
+                return (
+                  <div style={{ position:'absolute', top:'calc(100% + 6px)', right:0, background:'var(--surface)', border:'1px solid var(--border)', borderRadius:12, padding:'12px 4px', zIndex:200, boxShadow:'0 8px 24px rgba(0,0,0,.12)', minWidth:220, maxHeight:420, overflowY:'auto' }}>
+                    {COL_GROUPS.map(group => (
+                      <div key={group.label}>
+                        <div style={{ fontSize:10.5, fontWeight:700, color:'var(--text3)', textTransform:'uppercase', letterSpacing:'.06em', padding:'8px 12px 4px' }}>{group.label}</div>
+                        {group.keys.map(key => {
+                          const col = ALL_COLS.find(c => c.key === key)
+                          if (!col) return null
+                          return (
+                            <label key={col.key} style={{ display:'flex', alignItems:'center', gap:10, padding:'6px 12px', cursor:col.key==='name'?'not-allowed':'pointer', borderRadius:8 }}>
+                              <input type="checkbox" checked={isVisible(col.key)} disabled={col.key==='name'} onChange={() => toggleCol(col.key)}
+                                style={{ width:14, height:14, cursor:col.key==='name'?'not-allowed':'pointer', accentColor:'#0085C7' }} />
+                              <span style={{ fontSize:13, color:col.key==='name'?'var(--text3)':'var(--text)' }}>{col.label}</span>
+                              {col.key==='name' && <span style={{ fontSize:10, color:'var(--text3)', marginLeft:'auto' }}>{tx('filters.always','always')}</span>}
+                            </label>
+                          )
+                        })}
+                      </div>
+                    ))}
+                    <div style={{ padding:'8px 12px 0', borderTop:'1px solid var(--border)', marginTop:4, display:'flex', gap:6, flexWrap:'wrap' }}>
+                      <button onClick={() => setVisibleCols(ALL_COLS.map(c=>c.key))} style={{ flex:1, padding:'5px', fontSize:11, background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:7, cursor:'pointer', color:'var(--text2)' }}>{tx('filters.all','All')}</button>
+                      <button onClick={() => setVisibleCols(
+                        profile?.role === 'coach'
+                          ? COACH_DEFAULT_COLS
+                          : ALL_COLS.filter(c=>c.default).map(c=>c.key)
+                      )} style={{ flex:1, padding:'5px', fontSize:11, background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:7, cursor:'pointer', color:'var(--text2)' }}>{tx('filters.default','Default')}</button>
+                      <button onClick={() => setVisibleCols(['name'])} style={{ flex:1, padding:'5px', fontSize:11, background:'#fef2f2', border:'1px solid #fca5a5', borderRadius:7, cursor:'pointer', color:'#dc2626' }}>{tx('filters.none','None')}</button>
+                    </div>
                   </div>
-                </div>
-              )}
+                )
+              })()}
             </div>
           )}
 
@@ -2111,7 +2365,7 @@ ${myDocs.length > 0 ? `<div class="section">
           {editMode && (
             <>
               <button className="btn-cancel" onClick={cancelEdit} style={{ padding:'8px 14px' }}>Cancel</button>
-              <button className="btn btn-blue" onClick={saveAllEdits} disabled={savingAll}>
+              <button className="btn btn-blue" onClick={saveAllEdits} disabled={savingAll || Object.keys(edits).length === 0}>
                 {savingAll
                   ? <><div style={{ width:14, height:14, border:'2px solid rgba(255,255,255,.4)', borderTopColor:'#fff', borderRadius:'50%', animation:'spin .7s linear infinite' }} /> Saving…</>
                   : <><i className="ti ti-device-floppy" /> Save {changedCount > 0 ? `${changedCount} change${changedCount>1?'s':''}` : 'all'}</>
@@ -2124,26 +2378,11 @@ ${myDocs.length > 0 ? `<div class="section">
               <i className="ti ti-file-upload" /> {lang==='ar' ? 'استيراد وثائق' : 'Import Documents'}
             </button>
           )}
-          {canEdit(profile) && !editMode && !exportSelectMode && (
-            <button className="action-btn action-btn-edit" style={{ padding:'8px 14px', fontSize:13 }}
-              onClick={() => { setExportSelectMode(true); setSelectedIds(new Set()) }}>
-              <i className="ti ti-file-zip" /> {lang==='ar' ? 'تصدير وثائق' : 'Export Documents'}
-            </button>
-          )}
-          {canEdit(profile) && !editMode && exportSelectMode && (
-            <>
-              <button className="action-btn action-btn-edit"
-                style={{ padding:'8px 14px', fontSize:13, opacity: selectedIds.size === 0 ? .5 : 1, cursor: selectedIds.size === 0 ? 'not-allowed' : 'pointer' }}
-                disabled={selectedIds.size === 0}
-                onClick={() => setBulkExportOpen(true)}>
-                <i className="ti ti-file-zip" /> {lang==='ar' ? `تصدير وثائق (${selectedIds.size})` : `Export Documents (${selectedIds.size})`}
-              </button>
-              <button className="action-btn" style={{ padding:'8px 14px', fontSize:13 }}
-                onClick={() => { setExportSelectMode(false); setSelectedIds(new Set()) }}>
-                <i className="ti ti-x" /> {lang==='ar' ? 'إلغاء' : 'Cancel'}
-              </button>
-            </>
-          )}
+          {/* Export Documents button removed from this page per spec. The
+              BulkExportDocsModal component, selection checkboxes, and
+              underlying export logic remain in this file, dormant (never
+              triggered since exportSelectMode can no longer be set to true
+              from here), for a future Reports & Statistics page to surface. */}
           {canEdit(profile) && !editMode && (
             <button className="btn btn-blue" onClick={() => setForm('new')}><i className="ti ti-plus" /> {tx('athletes.addAthlete','Add athlete')}</button>
           )}
@@ -2159,7 +2398,12 @@ ${myDocs.length > 0 ? `<div class="section">
       )}
 
       <div className="filters">
-        <div className="search-wrap"><i className="ti ti-search" /><input placeholder={tx('athletes.searchAthletes','Search by name, sport…')} value={search} onChange={e => setSearch(e.target.value)} /></div>
+        <div className="search-wrap"><i className="ti ti-search" /><input placeholder={tx('athletes.searchAthletes','Search athletes, IDs, sport, coach, nationality…')} value={search} onChange={e => setSearch(e.target.value)} /></div>
+        {activeFilterCount > 0 && (
+          <span style={{ fontSize:11, fontWeight:600, color:'#0085C7', background:'#0085C715', padding:'4px 10px', borderRadius:20, whiteSpace:'nowrap' }}>
+            {activeFilterCount} {lang==='ar' ? 'فلتر نشط' : activeFilterCount === 1 ? 'active filter' : 'active filters'}
+          </span>
+        )}
         {hasActiveFilters && (
           <button onClick={resetFilters}
             style={{ display:'flex', alignItems:'center', gap:5, padding:'8px 12px', borderRadius:9, border:'1px solid #fca5a5', background:'#fef2f2', color:'#dc2626', fontSize:12, cursor:'pointer', fontFamily:'DM Sans, sans-serif', whiteSpace:'nowrap' }}>
@@ -2168,9 +2412,9 @@ ${myDocs.length > 0 ? `<div class="section">
         )}
       </div>
 
-      <div className="tbl-wrap">
+      <div className="tbl-wrap" style={{ maxHeight:'calc(100vh - 320px)', overflowY:'auto' }}>
         <table>
-          <thead>
+          <thead style={{ position:'sticky', top:0, zIndex:20, background:'var(--surface)' }}>
             <tr>
               {canEdit(profile) && !editMode && exportSelectMode && (
                 <th style={{ width:32 }}>
@@ -2187,7 +2431,7 @@ ${myDocs.length > 0 ? `<div class="section">
                 </th>
               )}
               {ALL_COLS.filter(c => isVisible(c.key)).map(c => {
-                const isSortable = ['name','name_ar','sport_category','sport','classification','nationality','status','dob','join_date','age_category','sport_age_category','disability','statistics_disability','coach_id','gender'].includes(c.key)
+                const isSortable = ['name','name_ar','qss_number','id_number','career_profile','sport_category','sport','classification','disability','statistics_disability','nationality','gender','dob','age_category','sport_age_category','coach_id','status','medical_status','phone','email','join_date','passport_number','passport_expiry','id_expiry','medals','documents','missing_documents'].includes(c.key)
                 const isAsc  = sort === `${c.key}-asc`
                 const isDesc = sort === `${c.key}-desc`
                 const active = isAsc || isDesc
@@ -2282,7 +2526,7 @@ ${myDocs.length > 0 ? `<div class="section">
             )}
           </thead>
           <tbody>
-            {list.map(a => {
+            {pagedList.map(a => {
               const isChanged = !!edits[a.id]
               const cols = ALL_COLS.filter(c => isVisible(c.key))
               return (
@@ -2322,6 +2566,48 @@ ${myDocs.length > 0 ? `<div class="section">
           </tbody>
         </table>
       </div>
+
+      {list.length > 0 && (
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:10, marginTop:12, padding:'8px 4px' }}>
+          <div style={{ fontSize:12.5, color:'var(--text3)' }}>
+            {lang==='ar'
+              ? `عرض ${Math.min((page-1)*pageSize+1, list.length)}–${Math.min(page*pageSize, list.length)} من ${list.length} رياضي`
+              : `Showing ${Math.min((page-1)*pageSize+1, list.length)}–${Math.min(page*pageSize, list.length)} of ${list.length} athletes`}
+          </div>
+          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+            <select value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setPage(1) }}
+              style={{ fontSize:12, border:'1px solid var(--border)', borderRadius:7, padding:'5px 8px', background:'var(--surface)', color:'var(--text2)', cursor:'pointer' }}>
+              {[25, 50, 100].map(n => <option key={n} value={n}>{n} / {lang==='ar' ? 'صفحة' : 'page'}</option>)}
+            </select>
+            <div style={{ display:'flex', alignItems:'center', gap:4 }}>
+              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}
+                style={{ fontSize:12, padding:'5px 10px', borderRadius:7, border:'1px solid var(--border)', background:'var(--surface)', color: page<=1 ? 'var(--text3)' : 'var(--text2)', cursor: page<=1 ? 'default' : 'pointer' }}>
+                {lang==='ar' ? 'السابق' : 'Previous'}
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
+                .reduce((acc, p, i, arr) => {
+                  if (i > 0 && p - arr[i-1] > 1) acc.push('…')
+                  acc.push(p)
+                  return acc
+                }, [])
+                .map((p, i) => p === '…'
+                  ? <span key={`ellipsis-${i}`} style={{ fontSize:12, color:'var(--text3)', padding:'0 4px' }}>…</span>
+                  : (
+                    <button key={p} onClick={() => setPage(p)}
+                      style={{ fontSize:12, fontWeight: p===page?600:400, padding:'5px 10px', borderRadius:7, border:`1px solid ${p===page?'#0085C7':'var(--border)'}`, background: p===page?'#0085C7':'var(--surface)', color: p===page?'#fff':'var(--text2)', cursor:'pointer', minWidth:32 }}>
+                      {p}
+                    </button>
+                  ))}
+              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}
+                style={{ fontSize:12, padding:'5px 10px', borderRadius:7, border:'1px solid var(--border)', background:'var(--surface)', color: page>=totalPages ? 'var(--text3)' : 'var(--text2)', cursor: page>=totalPages ? 'default' : 'pointer' }}>
+                {lang==='ar' ? 'التالي' : 'Next'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
   )
