@@ -54,7 +54,19 @@ export function useAuth() {
         return
       }
 
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+      // TOKEN_REFRESHED fires routinely — including when the browser tab
+      // regains focus/visibility and Supabase's client checks whether the
+      // session token needs refreshing. It is NOT a new sign-in: the same
+      // user, same profile, same everything, just a refreshed token behind
+      // the scenes. Previously this branch cleared `profile` to null and
+      // set `loading` to true exactly as SIGNED_IN does, which made
+      // App.jsx's `if (authLoading) return (...)` swap in the loading
+      // screen and unmount every page underneath it — wiping all local
+      // component state (search, filters, sort, scroll position, edit
+      // mode, unsaved edits) just from switching tabs and back. Only a
+      // genuine SIGNED_IN should ever reset profile/loading; a token
+      // refresh only needs the (unchanged) user object kept in sync.
+      if (event === 'SIGNED_IN') {
         const u = session?.user ?? null
         // Clear old profile immediately so stale role never bleeds into new session
         if (mounted) { setProfile(null); setLoading(true) }
@@ -64,6 +76,15 @@ export function useAuth() {
           if (mounted) setProfile(p)
         }
         if (mounted) setLoading(false)
+        return
+      }
+
+      if (event === 'TOKEN_REFRESHED') {
+        // Same session, same user — just keep the user object current
+        // without touching profile/loading, so nothing above this hook
+        // re-renders into a loading/auth-gate state and no page remounts.
+        const u = session?.user ?? null
+        if (u) setUser(u)
       }
     })
 
