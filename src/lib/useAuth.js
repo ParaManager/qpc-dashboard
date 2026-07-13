@@ -1,10 +1,18 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from './supabase'
 
 export function useAuth() {
   const [user, setUser]         = useState(null)
   const [profile, setProfile]   = useState(null)
   const [loading, setLoading]   = useState(true)  // stays true until user+profile both resolved
+  // Tracks the currently-known signed-in user id in a ref (not state), so the
+  // onAuthStateChange closure below can always read the true latest value
+  // synchronously — some Supabase-js v2 versions re-emit SIGNED_IN (not just
+  // TOKEN_REFRESHED) purely as part of session-recovery on tab focus, for
+  // the SAME already-authenticated user. Comparing against this ref lets us
+  // tell "genuinely new sign-in" apart from "same user, re-emitted event",
+  // regardless of which exact event name the library happens to fire.
+  const knownUserIdRef = useRef(null)
 
   async function fetchProfile(userId) {
     const { data } = await supabase
@@ -32,6 +40,7 @@ export function useAuth() {
       if (!mounted) return
       const u = session?.user ?? null
       setUser(u)
+      knownUserIdRef.current = u?.id ?? null
       if (u) {
         const p = await fetchProfile(u.id)
         if (mounted) setProfile(p)
@@ -47,10 +56,15 @@ export function useAuth() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return
+      // Temporary diagnostic — remove once tab-focus state loss is confirmed
+      // fully resolved. Shows exactly which auth event fires and whether it
+      // was treated as a real change or a same-user no-op.
+      console.log('[useAuth] event:', event, 'incoming user id:', session?.user?.id, 'known user id:', knownUserIdRef.current)
 
       if (event === 'SIGNED_OUT') {
         setUser(null)
         setProfile(null)
+        knownUserIdRef.current = null
         return
       }
 
@@ -68,9 +82,20 @@ export function useAuth() {
       // refresh only needs the (unchanged) user object kept in sync.
       if (event === 'SIGNED_IN') {
         const u = session?.user ?? null
+        // Some Supabase-js v2 versions re-emit SIGNED_IN purely as part of
+        // session recovery when a tab regains focus/visibility — same user,
+        // same session, nothing has actually changed. Only treat this as a
+        // real sign-in (and reset profile/loading) if the user id is
+        // genuinely different from the one we already know about; otherwise
+        // just keep the user object current, exactly like TOKEN_REFRESHED.
+        if (u && u.id === knownUserIdRef.current) {
+          setUser(u)
+          return
+        }
         // Clear old profile immediately so stale role never bleeds into new session
         if (mounted) { setProfile(null); setLoading(true) }
         setUser(u)
+        knownUserIdRef.current = u?.id ?? null
         if (u) {
           const p = await fetchProfile(u.id)
           if (mounted) setProfile(p)
