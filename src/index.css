@@ -127,7 +127,20 @@ button, input, select, textarea { font-family: 'DM Sans', sans-serif; }
 .kpi-hint { font-size: 9.5px; color: var(--text3); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* TABLE */
-.tbl-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: auto; box-shadow: var(--shadow); max-width: 100%; }
+.tbl-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow-x: auto; overflow-y: visible; box-shadow: var(--shadow); max-width: 100%; }
+/* Split from a single `overflow: auto` on purpose: horizontal scroll is
+   still needed so a wide table (many columns) scrolls sideways and the
+   sticky-left first column has something real to stick against — but
+   `overflow-y: auto` on this element (even with no fixed height, so it
+   never actually develops a vertical scrollbar) still makes browsers
+   treat it as the nearest scroll container for `position: sticky`
+   purposes on the vertical axis, computing "stuck" position relative to
+   this element instead of the real page scroll container — which is
+   exactly why the sticky header/filter rows silently failed to stick
+   while sticky-left kept working. `overflow-y: visible` removes .tbl-wrap
+   from vertical scroll-container consideration entirely, letting sticky
+   rows resolve against the actual scrolling ancestor (#content / the
+   page) as intended. */
 table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 600px; }
 thead tr { background: var(--surface2); }
 th { padding: 11px 14px; text-align: left; font-weight: 500; font-size: 11.5px; color: var(--text2); border-bottom: 1px solid var(--border); white-space: nowrap; text-transform: uppercase; letter-spacing: .04em; }

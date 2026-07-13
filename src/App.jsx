@@ -501,6 +501,14 @@ export default function App() {
     return () => window.removeEventListener('navigate', handleNav)
   }, [goTo])
 
+  // Temporary diagnostic — remove once tab-focus state loss is confirmed
+  // fully resolved. Logs every time either loading gate changes value, so we
+  // can see directly in the console if/when they flip back to true after
+  // the initial load (which is what unmounts every page underneath).
+  useEffect(() => {
+    console.log('[App] authLoading:', authLoading, 'dataLoading:', dataLoading, 'page:', page)
+  }, [authLoading, dataLoading, page])
+
   const upcomingCount = events.filter(e => e.status === 'Upcoming' || e.status === 'Registration Open').length
 
   if (authLoading) return (
