@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import * as XLSX from 'xlsx'
 import { generateStatisticsReport } from '../lib/statisticsReport'
 import { Avatar, MedalDisplay, Badge, avColor, initials, DashRow, SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, SPORT_CATEGORY_NAMES_AR, SPORT_NAMES_AR, sportLabel, effectiveStatus } from '../lib/helpers'
@@ -679,6 +679,25 @@ function exportExcel(athletes, coaches, documents, visibleCols, allCols, lang) {
     }
     return d
   }
+  // Same map used for the Statistics Disability column/filter inside the
+  // component — exportExcel is a standalone function outside that scope, so
+  // it needs its own copy rather than referencing the component's tStatDis.
+  const STATS_DIS_AR = {
+    'Physical Disability':        'الإعاقات الجسدية / الحركية',
+    'Intellectual Disability':    'الإعاقة الذهنية',
+    'Visual Disability':          'الإعاقة البصرية',
+    'Hearing Disability':         'الإعاقة السمعية',
+    'Speech & Language Disorders':'اضطرابات النطق واللغة',
+    'Psychosocial Disability':    'الإعاقة النفسية والاجتماعية',
+    'Multiple Disability':        'الإعاقات المتعددة',
+    'Developmental Disability':   'الإعاقات النمائية',
+    'Down Syndrome':              'متلازمة داون',
+    'Autism':                     'اضطراب التوحد',
+  }
+  const tStatDis = d => {
+    if (!d) return ''
+    return ar ? (STATS_DIS_AR[d] || d) : d
+  }
   const COUNTRY_MAP = {'qatar':'قطر','egypt':'مصر','algeria':'الجزائر','morocco':'المغرب','jordan':'الأردن','saudi arabia':'المملكة العربية السعودية','uae':'الإمارات','kuwait':'الكويت','bahrain':'البحرين','oman':'عُمان','iraq':'العراق','syria':'سوريا','lebanon':'لبنان','palestine':'فلسطين','yemen':'اليمن','somalia':'الصومال','sudan':'السودان','libya':'ليبيا','tunisia':'تونس','pakistan':'باكستان','india':'الهند','iran':'إيران','turkey':'تركيا','ireland':'أيرلندا','france':'فرنسا','spain':'إسبانيا','germany':'ألمانيا','uk':'المملكة المتحدة','usa':'الولايات المتحدة','ksa':'المملكة العربية السعودية'}
   const tc = n => n ? (ar ? (COUNTRY_MAP[n.toLowerCase().trim()]||n) : n) : ''
 
@@ -996,11 +1015,6 @@ export default function Athletes({ athletes, coaches, employees, results, docume
   const photoInput = useRef(null)
   const docInput   = useRef(null)
   const [cropFile, setCropFile] = useState(null) // { athleteId, file } pending crop
-  // Pagination — client-side, resets to page 1 whenever search/filters/sort
-  // change the underlying result set.
-  const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(25)
-
   useEffect(() => {
     if (initAthleteId != null) setSelected(initAthleteId)
     if (initStatusFilter)      setStatus(initStatusFilter)
@@ -1048,7 +1062,6 @@ export default function Athletes({ athletes, coaches, employees, results, docume
     setGender('All genders')
     setSort('name-asc')
     setColFilters({})
-    setPage(1)
   }
 
   const hasActiveFilters = search || sport !== 'All sports' || sportCategory !== 'All categories' || status !== 'All statuses' || gender !== 'All genders' || sort !== 'name-asc' || Object.values(colFilters).some(v => v && v !== 'All')
@@ -1056,10 +1069,6 @@ export default function Athletes({ athletes, coaches, employees, results, docume
     sport !== 'All sports', sportCategory !== 'All categories', status !== 'All statuses', gender !== 'All genders',
     ...Object.values(colFilters).map(v => v && v !== 'All'),
   ].filter(Boolean).length
-
-  // Reset to page 1 whenever the underlying result set could have changed
-  // shape — search, any filter, or sort order.
-  useEffect(() => { setPage(1) }, [search, sport, sportCategory, status, gender, colFilters, sort])
 
   // Show every known sport (Paralympic + Special Olympics), not just ones currently
   // in use — so a sport with zero athletes today is still findable once someone new
@@ -1214,16 +1223,6 @@ export default function Athletes({ athletes, coaches, employees, results, docume
   }, [filteredList, sort, coaches, documents])
 
   const list = sortedList
-
-  // ── Pagination ── clamp page to a valid range whenever the list size or
-  // page size changes, so a sort/filter that shrinks the result set can't
-  // strand the user on an empty page.
-  const totalPages = Math.max(1, Math.ceil(list.length / pageSize))
-  useEffect(() => { if (page > totalPages) setPage(totalPages) }, [totalPages, page])
-  const pagedList = useMemo(() => {
-    const start = (page - 1) * pageSize
-    return list.slice(start, start + pageSize)
-  }, [list, page, pageSize])
 
   async function handleSave(formData) {
     const isEdit = !!formData.id
@@ -2412,7 +2411,7 @@ ${myDocs.length > 0 ? `<div class="section">
         )}
       </div>
 
-      <div className="tbl-wrap" style={{ maxHeight:'calc(100vh - 320px)', overflowY:'auto' }}>
+      <div className="tbl-wrap">
         <table>
           <thead style={{ position:'sticky', top:0, zIndex:20, background:'var(--surface)' }}>
             <tr>
@@ -2526,7 +2525,7 @@ ${myDocs.length > 0 ? `<div class="section">
             )}
           </thead>
           <tbody>
-            {pagedList.map(a => {
+            {list.map(a => {
               const isChanged = !!edits[a.id]
               const cols = ALL_COLS.filter(c => isVisible(c.key))
               return (
@@ -2566,47 +2565,6 @@ ${myDocs.length > 0 ? `<div class="section">
           </tbody>
         </table>
       </div>
-
-      {list.length > 0 && (
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:10, marginTop:12, padding:'8px 4px' }}>
-          <div style={{ fontSize:12.5, color:'var(--text3)' }}>
-            {lang==='ar'
-              ? `عرض ${Math.min((page-1)*pageSize+1, list.length)}–${Math.min(page*pageSize, list.length)} من ${list.length} رياضي`
-              : `Showing ${Math.min((page-1)*pageSize+1, list.length)}–${Math.min(page*pageSize, list.length)} of ${list.length} athletes`}
-          </div>
-          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-            <select value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setPage(1) }}
-              style={{ fontSize:12, border:'1px solid var(--border)', borderRadius:7, padding:'5px 8px', background:'var(--surface)', color:'var(--text2)', cursor:'pointer' }}>
-              {[25, 50, 100].map(n => <option key={n} value={n}>{n} / {lang==='ar' ? 'صفحة' : 'page'}</option>)}
-            </select>
-            <div style={{ display:'flex', alignItems:'center', gap:4 }}>
-              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}
-                style={{ fontSize:12, padding:'5px 10px', borderRadius:7, border:'1px solid var(--border)', background:'var(--surface)', color: page<=1 ? 'var(--text3)' : 'var(--text2)', cursor: page<=1 ? 'default' : 'pointer' }}>
-                {lang==='ar' ? 'السابق' : 'Previous'}
-              </button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1)
-                .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
-                .reduce((acc, p, i, arr) => {
-                  if (i > 0 && p - arr[i-1] > 1) acc.push('…')
-                  acc.push(p)
-                  return acc
-                }, [])
-                .map((p, i) => p === '…'
-                  ? <span key={`ellipsis-${i}`} style={{ fontSize:12, color:'var(--text3)', padding:'0 4px' }}>…</span>
-                  : (
-                    <button key={p} onClick={() => setPage(p)}
-                      style={{ fontSize:12, fontWeight: p===page?600:400, padding:'5px 10px', borderRadius:7, border:`1px solid ${p===page?'#0085C7':'var(--border)'}`, background: p===page?'#0085C7':'var(--surface)', color: p===page?'#fff':'var(--text2)', cursor:'pointer', minWidth:32 }}>
-                      {p}
-                    </button>
-                  ))}
-              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}
-                style={{ fontSize:12, padding:'5px 10px', borderRadius:7, border:'1px solid var(--border)', background:'var(--surface)', color: page>=totalPages ? 'var(--text3)' : 'var(--text2)', cursor: page>=totalPages ? 'default' : 'pointer' }}>
-                {lang==='ar' ? 'التالي' : 'Next'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
