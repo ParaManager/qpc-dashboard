@@ -199,10 +199,18 @@ export default function App() {
           const tomorrowStr = toLocalDateStr(tomorrowD)
           const todayStr = toLocalDateStr(todayD)
           const inserts = []
+          // Plain .upsert() here fails RLS: broadcasting to OTHER users'
+          // user_id requires satisfying the UPDATE policy on the ON CONFLICT
+          // path even when nothing is actually updated, and "Users can update
+          // own notifications" only allows user_id = auth.uid(). This RPC
+          // performs the same dedup-safe insert (insert, skip on existing
+          // user_id+dedup_key) as SECURITY DEFINER, so it isn't blocked by
+          // the caller's own row-level policy — it never updates existing
+          // rows, only conditionally inserts new ones.
           const upsertIgnoreConflict = async (rows, label) => {
             if (!rows.length) return
-            const { error } = await supabase.from('notifications').upsert(rows, { onConflict: 'user_id,dedup_key', ignoreDuplicates: true })
-            if (error) console.error(`[notifications] upsert failed for ${label}:`, error)
+            const { error } = await supabase.rpc('insert_notifications_ignore_duplicates', { rows })
+            if (error) console.error(`[notifications] insert failed for ${label}:`, error)
           }
 
           // 4. TASKS — due tomorrow / due today / overdue, once each, never
