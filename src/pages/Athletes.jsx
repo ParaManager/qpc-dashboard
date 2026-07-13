@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react'
 import * as XLSX from 'xlsx'
 import { generateStatisticsReport } from '../lib/statisticsReport'
 import { Avatar, MedalDisplay, Badge, avColor, initials, DashRow, SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, SPORT_CATEGORY_NAMES_AR, SPORT_NAMES_AR, sportLabel, effectiveStatus } from '../lib/helpers'
@@ -2133,6 +2133,28 @@ ${myDocs.length > 0 ? `<div class="section">
   const changedCount = Object.keys(edits).length
   const inlineInput  = { padding:'5px 8px', borderRadius:7, border:'1px solid var(--border)', fontSize:12, background:'var(--surface)', color:'var(--text)', outline:'none', width:'100%', fontFamily:'DM Sans, sans-serif' }
   const inlineSelect = { ...inlineInput, cursor:'pointer' }
+  // Fixed width for the sticky Athlete column (header + every cell) so its
+  // left:0 sticky offset never shifts based on content length, and matching
+  // header/body widths keep the column edges perfectly aligned.
+  const STICKY_NAME_COL_WIDTH = 220
+
+  // The sticky Athlete cell needs its own explicit background (so page
+  // content scrolled beneath it can't show through), which means the
+  // existing `tbody tr:hover` CSS rule can no longer reach it — inline
+  // styles always win over stylesheet rules. Tracked here instead so the
+  // sticky cell's background responds to hover the same way every other
+  // cell in the row already does via CSS.
+  const [hoveredRowId, setHoveredRowId] = useState(null)
+
+  // Measures the actual rendered height of the column-header row so the
+  // filter row beneath it can stick at exactly that offset — avoids a
+  // fragile hardcoded pixel guess that could drift with font size, zoom,
+  // or content changes.
+  const headerRowRef = useRef(null)
+  const [headerRowHeight, setHeaderRowHeight] = useState(0)
+  useLayoutEffect(() => {
+    if (headerRowRef.current) setHeaderRowHeight(headerRowRef.current.offsetHeight)
+  })
 
   // Render a cell value in view mode
   function renderCell(a, key) {
@@ -2413,10 +2435,10 @@ ${myDocs.length > 0 ? `<div class="section">
 
       <div className="tbl-wrap">
         <table>
-          <thead style={{ position:'sticky', top:0, zIndex:20, background:'var(--surface)' }}>
-            <tr>
+          <thead>
+            <tr ref={headerRowRef}>
               {canEdit(profile) && !editMode && exportSelectMode && (
-                <th style={{ width:32 }}>
+                <th style={{ width:32, position:'sticky', top:0, zIndex:22, background:'var(--surface)' }}>
                   <input type="checkbox"
                     checked={list.length > 0 && list.every(a => selectedIds.has(a.id))}
                     onChange={e => {
@@ -2429,15 +2451,25 @@ ${myDocs.length > 0 ? `<div class="section">
                     }} />
                 </th>
               )}
-              {ALL_COLS.filter(c => isVisible(c.key)).map(c => {
+              {ALL_COLS.filter(c => isVisible(c.key)).map((c, i) => {
                 const isSortable = ['name','name_ar','qss_number','id_number','career_profile','sport_category','sport','classification','disability','statistics_disability','nationality','gender','dob','age_category','sport_age_category','coach_id','status','medical_status','phone','email','join_date','passport_number','passport_expiry','id_expiry','medals','documents','missing_documents'].includes(c.key)
                 const isAsc  = sort === `${c.key}-asc`
                 const isDesc = sort === `${c.key}-desc`
                 const active = isAsc || isDesc
+                // The Athlete column (always first, always visible) stays
+                // pinned during horizontal scroll too — sticky on both axes
+                // at once, with its own solid background and a right-edge
+                // separator so it doesn't visually merge into whatever
+                // scrolls underneath it.
+                const isFirstCol = i === 0 && c.key === 'name'
                 return (
                   <th key={c.key}
                     onClick={() => isSortable && (isAsc ? setSort(`${c.key}-desc`) : setSort(`${c.key}-asc`))}
-                    style={{ cursor: isSortable ? 'pointer' : 'default', userSelect:'none', whiteSpace:'nowrap' }}>
+                    style={{
+                      cursor: isSortable ? 'pointer' : 'default', userSelect:'none', whiteSpace:'nowrap',
+                      position:'sticky', top:0, zIndex: isFirstCol ? 23 : 21, background:'var(--surface)',
+                      ...(isFirstCol ? { left:0, minWidth:STICKY_NAME_COL_WIDTH, boxShadow:'2px 0 4px rgba(0,0,0,.06)' } : {}),
+                    }}>
                     <div style={{ display:'flex', alignItems:'center', gap:4 }}>
                       {c.label}
                       {isSortable && (
@@ -2449,13 +2481,15 @@ ${myDocs.length > 0 ? `<div class="section">
                   </th>
                 )
               })}
-              {!editMode && <th />}
-              {editMode && <th style={{ color:'#0085C7' }}>Changed</th>}
+              {!editMode && <th style={{ position:'sticky', top:0, zIndex:21, background:'var(--surface)' }} />}
+              {editMode && <th style={{ color:'#0085C7', position:'sticky', top:0, zIndex:21, background:'var(--surface)' }}>Changed</th>}
             </tr>
-            {/* INLINE FILTER ROW */}
+            {/* INLINE FILTER ROW — sticks directly beneath the column-header
+                row, at the row's actual measured height (headerRowHeight),
+                so it can't overlap or gap depending on font/zoom. */}
             {!editMode && (
               <tr style={{ background:'#f8f9fb' }}>
-                {canEdit(profile) && !editMode && exportSelectMode && <th />}
+                {canEdit(profile) && !editMode && exportSelectMode && <th style={{ position:'sticky', top:headerRowHeight, zIndex:22, background:'#f8f9fb' }} />}
                 {ALL_COLS.filter(col => isVisible(col.key)).map(col => {
                   const activeCategory = colFilters.sport_category && colFilters.sport_category !== 'All' ? colFilters.sport_category : null
                   const sportsForFilter = activeCategory
@@ -2476,13 +2510,19 @@ ${myDocs.length > 0 ? `<div class="section">
                     documents: ['All', 'Complete', 'Missing', 'None'],
                   }
                   const opts = filterOpts[col.key]
-                  if (!opts) return <th key={col.key} />
+                  if (!opts) return (
+                    <th key={col.key}
+                      style={{
+                        position:'sticky', top:headerRowHeight, zIndex: col.key==='name' ? 22 : 20, background:'#f8f9fb',
+                        ...(col.key==='name' ? { left:0, minWidth:STICKY_NAME_COL_WIDTH, boxShadow:'2px 0 4px rgba(0,0,0,.06)' } : {}),
+                      }} />
+                  )
                   const filterKey = col.key === 'coach_id' ? 'coachName' : col.key
                   const filterVal = col.key === 'coach_id'
                     ? (colFilters.coachName || 'All')
                     : (colFilters[col.key] || 'All')
                   return (
-                    <th key={col.key} style={{ padding:'4px 8px' }}>
+                    <th key={col.key} style={{ padding:'4px 8px', position:'sticky', top:headerRowHeight, zIndex:20, background:'#f8f9fb' }}>
                       <select
                         value={filterVal}
                         onChange={e => {
@@ -2520,7 +2560,7 @@ ${myDocs.length > 0 ? `<div class="section">
                     </th>
                   )
                 })}
-                <th />
+                <th style={{ position:'sticky', top:headerRowHeight, zIndex:20, background:'#f8f9fb' }} />
               </tr>
             )}
           </thead>
@@ -2530,6 +2570,8 @@ ${myDocs.length > 0 ? `<div class="section">
               const cols = ALL_COLS.filter(c => isVisible(c.key))
               return (
                 <tr key={a.id} onClick={() => !editMode && setSelected(a.id)}
+                  onMouseEnter={() => setHoveredRowId(a.id)}
+                  onMouseLeave={() => setHoveredRowId(prev => prev === a.id ? null : prev)}
                   style={{ cursor:editMode?'default':'pointer', background:isChanged?'#f0f7ff':'' }}>
                   {canEdit(profile) && !editMode && exportSelectMode && (
                     <td onClick={e => e.stopPropagation()}>
@@ -2543,11 +2585,23 @@ ${myDocs.length > 0 ? `<div class="section">
                         }} />
                     </td>
                   )}
-                  {cols.map(c => (
-                    <td key={c.key}>
-                      {editMode ? renderEditCell(a, c.key) : renderCell(a, c.key)}
-                    </td>
-                  ))}
+                  {cols.map((c, i) => {
+                    const isFirstCol = i === 0 && c.key === 'name'
+                    // Matches the row's own background exactly (changed >
+                    // hovered > default), since this cell's inline
+                    // background would otherwise ignore both the
+                    // tr:hover CSS rule and the isChanged inline style above.
+                    const stickyCellBg = isChanged ? '#f0f7ff' : hoveredRowId === a.id ? 'var(--surface2)' : 'var(--surface)'
+                    return (
+                      <td key={c.key}
+                        style={isFirstCol ? {
+                          position:'sticky', left:0, zIndex:10, minWidth:STICKY_NAME_COL_WIDTH,
+                          background:stickyCellBg, boxShadow:'2px 0 4px rgba(0,0,0,.06)',
+                        } : undefined}>
+                        {editMode ? renderEditCell(a, c.key) : renderCell(a, c.key)}
+                      </td>
+                    )
+                  })}
                   {!editMode && <td><i className="ti ti-chevron-right" style={{ color:'#ccc', fontSize:16 }} /></td>}
                   {editMode && (
                     <td>{isChanged
