@@ -35,6 +35,58 @@ const DOC_TYPES  = [
 // Documents section itself tracks, minus the free-form 'Other' catch-all
 // which isn't a specific required document.
 const REQUIRED_DOC_TYPES = DOC_TYPES.filter(t => t !== 'Other')
+
+// ── Single source of truth for athlete form field ↔ database column
+// mapping. Previously handleSave's payload and the edit-record population
+// each maintained their own incomplete, hand-written field list, and had
+// drifted out of sync — sport_category, medical_status, career_profile,
+// and statistics_disability were silently dropped from one or both,
+// meaning they could never be saved via the modal and/or always showed
+// blank when reopening an existing athlete for editing. Both directions
+// now go through this one table instead of two separately-maintained lists.
+//
+// Every entry: [formFieldKey, dbColumnKey]. Only fields actually present in
+// the athletes table's real schema are listed here — nothing invented.
+const ATHLETE_FIELD_MAP = [
+  ['name', 'name'],
+  ['nameAr', 'name_ar'],
+  ['dob', 'dob'],
+  ['gender', 'gender'],
+  ['nationality', 'nationality'],
+  ['sportCategory', 'sport_category'],
+  ['sport', 'sport'],
+  ['classification', 'classification'],
+  ['disability', 'disability'],
+  ['statistics_disability', 'statistics_disability'],
+  ['coachId', 'coach_id'],
+  ['status', 'status'],
+  ['statusStart', 'status_start'],
+  ['statusEnd', 'status_end'],
+  ['phone', 'phone'],
+  ['email', 'email'],
+  ['joinDate', 'join_date'],
+  ['medicalStatus', 'medical_status'],
+  ['careerProfile', 'career_profile'],
+  ['club', 'club'],
+  ['designation', 'designation'],
+  ['residencyStatus', 'residency_status'],
+  ['qssNumber', 'qss_number'],
+  ['passportNumber', 'passport_number'],
+  ['passportExpiry', 'passport_expiry'],
+  ['idNumber', 'id_number'],
+  ['idExpiry', 'id_expiry'],
+]
+
+// athlete DB record → form field object, for populating the edit modal.
+// Derived directly from ATHLETE_FIELD_MAP above so the two directions can
+// never drift out of sync with each other again.
+function athleteToFormFields(a) {
+  const out = { id: a.id }
+  for (const [formKey, dbKey] of ATHLETE_FIELD_MAP) {
+    out[formKey] = (formKey === 'statusStart' || formKey === 'statusEnd') ? (a[dbKey] || '') : a[dbKey]
+  }
+  return out
+}
 function athleteDocStatus(athleteId, documents) {
   const myDocs = (documents || []).filter(d => d.athlete_id === athleteId)
   if (myDocs.length === 0) return { key: 'none', missing: REQUIRED_DOC_TYPES.length, missingTypes: REQUIRED_DOC_TYPES }
@@ -1224,6 +1276,19 @@ export default function Athletes({ athletes, coaches, employees, results, docume
 
   const list = sortedList
 
+  // Moved here from further down in the file, where they sat AFTER the
+  // `if (selected) return (...)` detail-view early return — meaning the
+  // list view executed these hooks but the detail view never did,
+  // violating the Rules of Hooks (React error #300: hook count/order must
+  // be identical on every render of the same component). All hooks must
+  // be unconditional, top-level, and reached on every render.
+  const [hoveredRowId, setHoveredRowId] = useState(null)
+  const headerRowRef = useRef(null)
+  const [headerRowHeight, setHeaderRowHeight] = useState(0)
+  useLayoutEffect(() => {
+    if (headerRowRef.current) setHeaderRowHeight(headerRowRef.current.offsetHeight)
+  })
+
   async function handleSave(formData) {
     const isEdit = !!formData.id
     // Rule 4: temporary status dates only make sense alongside a dated
@@ -1238,6 +1303,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
     const payload = {
       name: formData.name, name_ar: formData.nameAr, dob: formData.dob || null,
       gender: formData.gender, nationality: formData.nationality,
+      sport_category: formData.sportCategory || null,
       sport: formData.sport, classification: formData.classification,
       disability: formData.disability, statistics_disability: formData.statistics_disability || null, coach_id: formData.coachId || null,
       status: formData.status,
@@ -1245,6 +1311,12 @@ export default function Athletes({ athletes, coaches, employees, results, docume
       status_end:   isDatedStatus ? (formData.statusEnd||null)   : null,
       phone: formData.phone, email: formData.email,
       join_date: formData.joinDate || null,
+      medical_status: formData.medicalStatus || null,
+      career_profile: formData.careerProfile || null,
+      club: formData.club || null,
+      designation: formData.designation || null,
+      residency_status: formData.residencyStatus || null,
+      qss_number: formData.qssNumber || null,
       passport_number: formData.passportNumber || null,
       passport_expiry: formData.passportExpiry || null,
       id_number: formData.idNumber || null,
@@ -1575,17 +1647,7 @@ ${myDocs.length > 0 ? `<div class="section">
       <div>
         {form && (
           <FormModal type="athlete"
-            record={form==='edit' ? {
-              id:a.id, name:a.name, nameAr:a.name_ar, dob:a.dob,
-              gender:a.gender, nationality:a.nationality, sport:a.sport,
-              classification:a.classification, disability:a.disability,
-              coachId:a.coach_id, status:a.status, statusStart:a.status_start||'', statusEnd:a.status_end||'', phone:a.phone,
-              email:a.email, joinDate:a.join_date,
-              club:a.club, designation:a.designation,
-              residencyStatus:a.residency_status, qssNumber:a.qss_number,
-              passportNumber:a.passport_number, passportExpiry:a.passport_expiry,
-              idNumber:a.id_number, idExpiry:a.id_expiry,
-            } : null}
+            record={form==='edit' ? athleteToFormFields(a) : null}
             coaches={coaches} onSave={handleSave} onClose={() => setForm(null)} />
         )}
         {confirm && <ConfirmModal title="Delete athlete" message={`Delete ${a.name}? This cannot be undone.`} onConfirm={() => handleDelete(a.id, a.name)} onCancel={() => setConfirm(null)} />}
@@ -2137,24 +2199,6 @@ ${myDocs.length > 0 ? `<div class="section">
   // left:0 sticky offset never shifts based on content length, and matching
   // header/body widths keep the column edges perfectly aligned.
   const STICKY_NAME_COL_WIDTH = 220
-
-  // The sticky Athlete cell needs its own explicit background (so page
-  // content scrolled beneath it can't show through), which means the
-  // existing `tbody tr:hover` CSS rule can no longer reach it — inline
-  // styles always win over stylesheet rules. Tracked here instead so the
-  // sticky cell's background responds to hover the same way every other
-  // cell in the row already does via CSS.
-  const [hoveredRowId, setHoveredRowId] = useState(null)
-
-  // Measures the actual rendered height of the column-header row so the
-  // filter row beneath it can stick at exactly that offset — avoids a
-  // fragile hardcoded pixel guess that could drift with font size, zoom,
-  // or content changes.
-  const headerRowRef = useRef(null)
-  const [headerRowHeight, setHeaderRowHeight] = useState(0)
-  useLayoutEffect(() => {
-    if (headerRowRef.current) setHeaderRowHeight(headerRowRef.current.offsetHeight)
-  })
 
   // Render a cell value in view mode
   function renderCell(a, key) {
