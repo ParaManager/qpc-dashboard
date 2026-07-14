@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, SPORT_CATEGORY_NAMES_AR, sportLabel } from '../lib/helpers'
 import { useLang } from '../lib/LangContext.jsx'
 
@@ -53,29 +53,56 @@ const COUNTRIES_AR = {
   'Wales':'ويلز','Yemen':'اليمن','Zambia':'زامبيا','Zimbabwe':'زيمبابوي',
 }
 
-function Field({ label, name, type = 'text', placeholder, options, value, onChange }) {
+function Field({ label, name, type = 'text', placeholder, options, value, onChange, required, invalid }) {
   return (
-    <div className="form-group">
-      <label className="form-label">{label}</label>
+    <div className="form-group" data-field={name}>
+      <label className="form-label">
+        {label}{required && <span style={{ color:'#dc2626' }}> *</span>}
+      </label>
       {options ? (
-        <select className="form-input" value={value ?? ''} onChange={e => onChange(name, e.target.value)}>
+        <select className="form-input" value={value ?? ''} onChange={e => onChange(name, e.target.value)}
+          style={invalid ? { borderColor:'#dc2626' } : undefined}>
           {options.map(o => <option key={o.value ?? o} value={o.value ?? o}>{o.label ?? o}</option>)}
         </select>
       ) : (
-        <input className="form-input" type={type} placeholder={placeholder} value={value ?? ''} onChange={e => onChange(name, e.target.value)} />
+        <input className="form-input" type={type} placeholder={placeholder} value={value ?? ''} onChange={e => onChange(name, e.target.value)}
+          style={invalid ? { borderColor:'#dc2626' } : undefined} />
       )}
     </div>
   )
 }
 
 function Row({ children }) { return <div className="form-row">{children}</div> }
-function Section({ label }) { return <div className="form-section">{label}</div> }
+
+// Section now optionally collapses — only used that way for the athlete
+// form (the long single-page form the improvement request is about);
+// every other type keeps calling it with just `label`, which behaves
+// exactly as before (always expanded, no toggle affordance shown).
+function Section({ label, collapsible, open, onToggle }) {
+  if (!collapsible) return <div className="form-section">{label}</div>
+  return (
+    <div className="form-section" style={{ display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer' }} onClick={onToggle}>
+      <span>{label}</span>
+      <i className={`ti ti-chevron-${open ? 'up' : 'down'}`} style={{ fontSize:14 }} />
+    </div>
+  )
+}
 
 export default function FormModal({ type, record, coaches, athletes, onSave, onClose }) {
   const isEdit = !!record
   const { lang } = useLang()
   const ar = lang === 'ar'
   const [form, setForm] = useState({})
+  const [saving, setSaving] = useState(false)
+  const [invalidFields, setInvalidFields] = useState({})
+  // Which of the 4 athlete-form sections are currently expanded. Personal
+  // starts open (it's what you see first / most often need); the rest
+  // start collapsed to shrink the initial page height, matching the
+  // "compact collapsible sections" requirement — everything stays reachable
+  // via one click, nothing is hidden behind a multi-step wizard.
+  const [openSections, setOpenSections] = useState({ personal:true, sport:false, club:false, id:false })
+  function toggleSection(key) { setOpenSections(s => ({ ...s, [key]: !s[key] })) }
+  const modalBodyRef = useRef(null)
 
   // Country options
   const countryOpts = [
@@ -226,117 +253,124 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
           <button className="modal-close" onClick={onClose}><i className="ti ti-x" /></button>
         </div>
 
-        <div className="modal-body">
+        <div className="modal-body" ref={modalBodyRef} style={{ paddingBottom: 24 }}>
 
           {/* ── ATHLETE ── */}
           {type === 'athlete' && <>
-            <Section label={T.personalInfo} />
-            <Row>
-              <Field label={T.nameEn} placeholder={ar?"مثال: أحمد الأنصاري":"e.g. Ahmed Al-Ansari"} {...f('name')} />
-              <Field label={T.nameAr} placeholder="e.g. أحمد الأنصاري" {...f('nameAr')} />
-            </Row>
-            <Row>
-              <Field label={T.dob} type="date" {...f('dob')} />
-              <Field label={T.gender} options={genderOpts} {...f('gender')} />
-            </Row>
-            <Row>
-              <Field label={T.nationality} options={countryOpts} {...f('nationality')} />
-              <Field label={T.phone} placeholder="+974 XXXX XXXX" {...f('phone')} />
-            </Row>
-            <Row>
-              <Field label={T.email} type="email" placeholder={ar?"رياضي@qpc.qa":"athlete@qpc.qa"} {...f('email')} />
-              <Field label={T.joinDate} type="date" {...f('joinDate')} />
-            </Row>
+            <Section label={T.personalInfo} collapsible open={openSections.personal} onToggle={() => toggleSection('personal')} />
+            {openSections.personal && <>
+              <Row>
+                <Field label={T.nameEn} required invalid={invalidFields.name} placeholder={ar?"مثال: أحمد الأنصاري":"e.g. Ahmed Al-Ansari"} {...f('name')} />
+                <Field label={T.nameAr} placeholder="e.g. أحمد الأنصاري" {...f('nameAr')} />
+              </Row>
+              <Row>
+                <Field label={T.dob} type="date" {...f('dob')} />
+                <Field label={T.gender} required invalid={invalidFields.gender} options={genderOpts} {...f('gender')} />
+              </Row>
+              <Row>
+                <Field label={T.nationality} required invalid={invalidFields.nationality} options={countryOpts} {...f('nationality')} />
+                <Field label={T.phone} placeholder="+974 XXXX XXXX" {...f('phone')} />
+              </Row>
+              <Row>
+                <Field label={T.email} type="email" placeholder={ar?"رياضي@qpc.qa":"athlete@qpc.qa"} {...f('email')} />
+                <Field label={T.joinDate} type="date" {...f('joinDate')} />
+              </Row>
+            </>}
 
-            <Section label={T.sportClass} />
-            <Row>
-              <Field label={T.sportCategory} options={categoryOpts} {...f('sportCategory')} />
-              <Field label={T.sport} options={sportOpts} {...f('sport')} />
-            </Row>
-            <Row>
-              <Field label={T.classification} placeholder={ar?"مثال: T54, S6, BC2":"e.g. T54, S6, BC2"} {...f('classification')} />
-            </Row>
-            <Row>
-              <Field label={T.disability} placeholder={ar?"مثال: إصابة الحبل الشوكي":"e.g. Spinal Cord Injury"} {...f('disability')} />
-              <div className="form-group">
-                <label className="form-label">{ar ? 'الإعاقة الإحصائية' : 'Statistics Disability'}</label>
-                <select className="form-input" value={form.statistics_disability||''} onChange={e=>setForm(p=>({...p,statistics_disability:e.target.value||null}))}>
-                  <option value="">{ar ? '— اختر —' : '— Select —'}</option>
-                  {[
-                    ['Physical Disability',        'الإعاقات الجسدية / الحركية'],
-                    ['Intellectual Disability',    'الإعاقة الذهنية'],
-                    ['Visual Disability',          'الإعاقة البصرية'],
-                    ['Hearing Disability',         'الإعاقة السمعية'],
-                    ['Speech & Language Disorders','اضطرابات النطق واللغة'],
-                    ['Psychosocial Disability',    'الإعاقة النفسية والاجتماعية'],
-                    ['Multiple Disability',        'الإعاقات المتعددة'],
-                    ['Developmental Disability',   'الإعاقات النمائية'],
-                    ['Down Syndrome',              'متلازمة داون'],
-                    ['Autism',                     'اضطراب التوحد'],
-                  ].map(([en, arLabel]) => (
-                    <option key={en} value={en}>{ar ? arLabel : en}</option>
-                  ))}
-                </select>
-              </div>
-            </Row>
-            <Row>
-              <div className="form-group">
-                <label className="form-label">{T.ageCategory}</label>
-                <div style={{ fontSize: 12, color: 'var(--text3)', padding: '8px 10px', borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
-                  {ar ? 'تحسب تلقائياً من تاريخ الميلاد' : 'Auto-computed from date of birth'}
-                </div>
-              </div>
-            </Row>
-            <Row>
-              <div className="form-group">
-                <label className="form-label">{ar ? 'الفئة العمرية الرياضية' : 'Sport age category'}</label>
-                <div style={{ fontSize: 12, color: 'var(--text3)', padding: '8px 10px', borderRadius: 8, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
-                  {ar ? 'تحسب تلقائياً من تاريخ الميلاد والجنس' : 'Auto-computed from date of birth and gender'}
-                </div>
-              </div>
-            </Row>
-            <Row>
-              <Field label={T.coach} options={[{ value:'', label: T.unassigned }, ...(coaches||[]).map(c => ({ value: c.id, label: ar && c.name_ar ? c.name_ar : c.name }))]} {...f('coachId')} />
-              <Field label={T.status} options={statusOptsAthlete} {...f('status')} onChange={(name, v) => { set(name, v); if (!DATE_STATUSES.includes(v)) { set('statusStart', null); set('statusEnd', null) } }} />
-              {DATE_STATUSES.includes(form.status) && (
+            <Section label={T.sportClass} collapsible open={openSections.sport} onToggle={() => toggleSection('sport')} />
+            {openSections.sport && <>
+              <Row>
+                <Field label={T.sportCategory} required invalid={invalidFields.sportCategory} options={categoryOpts} {...f('sportCategory')}
+                  onChange={(name, v) => {
+                    // Changing category can invalidate the currently selected
+                    // sport (it may not exist in the new category's list) —
+                    // keep it only if still valid, otherwise fall back to
+                    // that category's first sport rather than silently
+                    // leaving a now-invalid value selected.
+                    const validSports = SPORTS_BY_CATEGORY[v] || SPORTS
+                    setForm(p => ({ ...p, sportCategory: v, sport: validSports.includes(p.sport) ? p.sport : (validSports[0] || '') }))
+                  }} />
+                <Field label={T.sport} required invalid={invalidFields.sport} options={sportOpts} {...f('sport')} />
+              </Row>
+              <Row>
+                <Field label={T.classification} placeholder={ar?"مثال: T54, S6, BC2":"e.g. T54, S6, BC2"} {...f('classification')} />
+              </Row>
+              <Row>
+                <Field label={T.disability} placeholder={ar?"مثال: إصابة الحبل الشوكي":"e.g. Spinal Cord Injury"} {...f('disability')} />
                 <div className="form-group">
-                  <label className="form-label">{ar ? 'تاريخ البداية' : 'Start date'}</label>
-                  <input type="date" className="form-input" value={form.statusStart||''} onChange={e=>setForm(p=>({...p,statusStart:e.target.value||null}))} />
+                  <label className="form-label">{ar ? 'الإعاقة الإحصائية' : 'Statistics Disability'}</label>
+                  <select className="form-input" value={form.statistics_disability||''} onChange={e=>setForm(p=>({...p,statistics_disability:e.target.value||null}))}>
+                    <option value="">{ar ? '— اختر —' : '— Select —'}</option>
+                    {[
+                      ['Physical Disability',        'الإعاقات الجسدية / الحركية'],
+                      ['Intellectual Disability',    'الإعاقة الذهنية'],
+                      ['Visual Disability',          'الإعاقة البصرية'],
+                      ['Hearing Disability',         'الإعاقة السمعية'],
+                      ['Speech & Language Disorders','اضطرابات النطق واللغة'],
+                      ['Psychosocial Disability',    'الإعاقة النفسية والاجتماعية'],
+                      ['Multiple Disability',        'الإعاقات المتعددة'],
+                      ['Developmental Disability',   'الإعاقات النمائية'],
+                      ['Down Syndrome',              'متلازمة داون'],
+                      ['Autism',                     'اضطراب التوحد'],
+                    ].map(([en, arLabel]) => (
+                      <option key={en} value={en}>{ar ? arLabel : en}</option>
+                    ))}
+                  </select>
                 </div>
-              )}
-              {DATE_STATUSES.includes(form.status) && (
-                <div className="form-group">
-                  <label className="form-label">{ar ? 'تاريخ الرجوع' : 'Return date'}</label>
-                  <input type="date" className="form-input" value={form.statusEnd||''} onChange={e=>setForm(p=>({...p,statusEnd:e.target.value||null}))} />
-                </div>
-              )}
-            </Row>
-            <Row>
-              <Field label={T.medicalStatus} placeholder={ar?"مثال: مكتمل":"e.g. Completed"} {...f('medicalStatus')} />
-              <Field label={T.careerProfile} placeholder="e.g. 12345" {...f('careerProfile')} />
-            </Row>
+              </Row>
+              {/* Age Category / Sport Age Category are auto-computed, read-only,
+                  and already shown on the detail page — kept here only as a
+                  single compact info line instead of two full-width rows, so
+                  they don't consume unnecessary vertical space in the form. */}
+              <div style={{ fontSize:11.5, color:'var(--text3)', background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:8, padding:'7px 10px', margin:'2px 0 14px', display:'flex', gap:14, flexWrap:'wrap' }}>
+                <span>{ar ? 'الفئة العمرية: تُحسب تلقائياً' : 'Age category: auto-computed'}</span>
+                <span>{ar ? 'الفئة العمرية الرياضية: تُحسب تلقائياً' : 'Sport age category: auto-computed'}</span>
+              </div>
+              <Row>
+                <Field label={T.coach} options={[{ value:'', label: T.unassigned }, ...(coaches||[]).map(c => ({ value: c.id, label: ar && c.name_ar ? c.name_ar : c.name }))]} {...f('coachId')} />
+                <Field label={T.status} required invalid={invalidFields.status} options={statusOptsAthlete} {...f('status')} onChange={(name, v) => { set(name, v); if (!DATE_STATUSES.includes(v)) { set('statusStart', null); set('statusEnd', null) } }} />
+                {DATE_STATUSES.includes(form.status) && (
+                  <div className="form-group">
+                    <label className="form-label">{ar ? 'تاريخ البداية' : 'Start date'}</label>
+                    <input type="date" className="form-input" value={form.statusStart||''} onChange={e=>setForm(p=>({...p,statusStart:e.target.value||null}))} />
+                  </div>
+                )}
+                {DATE_STATUSES.includes(form.status) && (
+                  <div className="form-group">
+                    <label className="form-label">{ar ? 'تاريخ الرجوع' : 'Return date'}</label>
+                    <input type="date" className="form-input" value={form.statusEnd||''} onChange={e=>setForm(p=>({...p,statusEnd:e.target.value||null}))} />
+                  </div>
+                )}
+              </Row>
+              <Row>
+                <Field label={T.medicalStatus} placeholder={ar?"مثال: مكتمل":"e.g. Completed"} {...f('medicalStatus')} />
+                <Field label={T.careerProfile} placeholder="e.g. 12345" {...f('careerProfile')} />
+              </Row>
+            </>}
 
-            <Section label={T.clubRole} />
-            <Row>
-              <Field label={`${T.club} (النادي)`} placeholder={ar?"مثال: نادي الوكرة":"e.g. Al Wakrah SC"} {...f('club')} />
-              <Field label={`${T.designation} (الوظيفة)`} options={athDesigOpts} {...f('designation')} />
-            </Row>
-            <Row>
-              <Field label={`${T.residency} (الصفة)`} options={residencyOpts} {...f('residencyStatus')} />
-              <Field label={T.qss} placeholder="e.g. 12345" {...f('qssNumber')} />
-            </Row>
+            <Section label={T.clubRole} collapsible open={openSections.club} onToggle={() => toggleSection('club')} />
+            {openSections.club && <>
+              <Row>
+                <Field label={T.club} placeholder={ar?"مثال: نادي الوكرة":"e.g. Al Wakrah SC"} {...f('club')} />
+                <Field label={T.designation} options={athDesigOpts} {...f('designation')} />
+              </Row>
+              <Row>
+                <Field label={T.residency} options={residencyOpts} {...f('residencyStatus')} />
+                <Field label={T.qss} placeholder="e.g. 12345" {...f('qssNumber')} />
+              </Row>
+            </>}
 
-            <Section label={T.passportID} />
-            <Row>
-              <Field label={T.passportNum} placeholder="e.g. A12345678" {...f('passportNumber')} />
-              <Field label={T.passportExp} type="date" {...f('passportExpiry')} />
-            </Row>
-            <Row>
-              <Field label={T.idNum} placeholder="e.g. 28412345678" {...f('idNumber')} />
-              <Field label={T.idExp} type="date" {...f('idExpiry')} />
-            </Row>
-
-
+            <Section label={T.passportID} collapsible open={openSections.id} onToggle={() => toggleSection('id')} />
+            {openSections.id && <>
+              <Row>
+                <Field label={T.passportNum} placeholder="e.g. A12345678" {...f('passportNumber')} />
+                <Field label={T.passportExp} type="date" {...f('passportExpiry')} />
+              </Row>
+              <Row>
+                <Field label={T.idNum} placeholder="e.g. 28412345678" {...f('idNumber')} />
+                <Field label={T.idExp} type="date" {...f('idExpiry')} />
+              </Row>
+            </>}
           </>}
 
           {/* ── COACH ── */}
@@ -357,7 +391,11 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
 
             <Section label={T.employment} />
             <Row>
-              <Field label={T.sportCategory} options={categoryOpts} {...f('sportCategory')} />
+              <Field label={T.sportCategory} options={categoryOpts} {...f('sportCategory')}
+                onChange={(name, v) => {
+                  const validSports = SPORTS_BY_CATEGORY[v] || SPORTS
+                  setForm(p => ({ ...p, sportCategory: v, sport: validSports.includes(p.sport) ? p.sport : (validSports[0] || '') }))
+                }} />
               <Field label={T.sport} options={sportOpts} {...f('sport')} />
             </Row>
             <Row>
@@ -432,11 +470,50 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
         </div>
 
         <div className="modal-footer">
-          <button className="btn-cancel" onClick={onClose}>{T.cancel}</button>
-          <button className="btn" style={{ background: COLORS[type] }} onClick={() => onSave(form)}>
+          <button className="btn-cancel" onClick={onClose} disabled={saving}>{T.cancel}</button>
+          <button className="btn" style={{ background: COLORS[type], opacity: saving ? .7 : 1, cursor: saving ? 'default' : 'pointer', display:'flex', alignItems:'center', gap:6 }}
+            disabled={saving}
+            onClick={async () => {
+              if (saving) return // prevent duplicate save clicks
+              // Only the athlete form currently has a defined required-field
+              // set (Full name, Gender, Nationality, Sport Category, Sport,
+              // Status) — every other type keeps its previous, unvalidated
+              // behavior rather than gaining new required-field enforcement
+              // it was never asked for.
+              if (type === 'athlete') {
+                const requiredMap = { name: form.name, gender: form.gender, nationality: form.nationality, sportCategory: form.sportCategory, sport: form.sport, status: form.status }
+                const bad = {}
+                for (const [key, val] of Object.entries(requiredMap)) { if (!val || !String(val).trim()) bad[key] = true }
+                setInvalidFields(bad)
+                const firstBadKey = Object.keys(bad)[0]
+                if (firstBadKey) {
+                  const el = modalBodyRef.current?.querySelector(`[data-field="${firstBadKey}"]`)
+                  if (el) {
+                    // The field's own section might be collapsed — open it
+                    // first so scrolling/focusing it actually lands somewhere
+                    // visible instead of a hidden collapsed section.
+                    if (['name','gender','nationality'].includes(firstBadKey)) setOpenSections(s => ({ ...s, personal: true }))
+                    if (['sportCategory','sport','status'].includes(firstBadKey)) setOpenSections(s => ({ ...s, sport: true }))
+                    setTimeout(() => {
+                      el.scrollIntoView({ behavior:'smooth', block:'center' })
+                      el.querySelector('input,select')?.focus()
+                    }, 50)
+                  }
+                  return
+                }
+              }
+              setSaving(true)
+              try {
+                await onSave(form)
+              } finally {
+                setSaving(false)
+              }
+            }}>
+            {saving && <span style={{ width:12, height:12, border:'2px solid rgba(255,255,255,.4)', borderTopColor:'#fff', borderRadius:'50%', display:'inline-block', animation:'spin .7s linear infinite' }} />}
             {isEdit ? T.save : T.add}
           </button>
         </div>
+        <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
       </div>
     </div>
   )
