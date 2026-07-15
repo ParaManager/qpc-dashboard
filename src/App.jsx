@@ -329,12 +329,19 @@ export default function App() {
                 title = lang==='ar' ? `${labelAr} — تنبيه 30 يوماً` : `${label} — 30-day warning`
                 body = lang==='ar' ? `${a2.name_ar || a2.name} — ${labelAr} ينتهي في ${exp}` : `${a2.name} — ${label} expires on ${exp}`
                 dedupKey = `document-warning-30-${a2.id}-${docType}-${exp}`
-              } else if (expired) {
-                const cycle = Math.floor((Math.abs(daysUntil) - 1) / 30)
+              } else if (expired && Math.abs(daysUntil) === 1) {
+                // Fires exactly once, the day after expiry. Previously this
+                // used a 30-day "cycle" number computed from today's gap to
+                // the expiry date — for a document that expired long ago,
+                // that cycle number is something the app has never seen
+                // before, so it inserted it as a brand-new notification the
+                // next time anyone opened the app, regardless of how old the
+                // expiry actually was. A fixed key with no cycle/date math
+                // means it can only ever fire on the single day it applies.
                 type = 'document_expired'
                 title = lang==='ar' ? `${labelAr} منتهي الصلاحية` : `${label} expired`
                 body = lang==='ar' ? `${a2.name_ar || a2.name} — ${labelAr} منتهي منذ ${exp}` : `${a2.name} — ${label} expired on ${exp}`
-                dedupKey = `document-expired-${a2.id}-${docType}-${cycle}-${exp}`
+                dedupKey = `document-expired-${a2.id}-${docType}-${exp}`
               } else {
                 continue // not one of the exact reminder days
               }
