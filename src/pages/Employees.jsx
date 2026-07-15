@@ -1201,7 +1201,7 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
             return (
               <div className="info-card">
                 <div className="info-title" style={{ marginBottom:10 }}>{lang==='ar'?'معلومات الموظف':'Employee Information'}</div>
-                <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(150px, 1fr))', gap:'6px 18px' }}>
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:'4px 16px' }}>
                   {fields.map(([k,v]) => (
                     <div key={k} className="detail-row" style={{ minWidth:0 }}>
                       <span className="dk">{k}</span>
