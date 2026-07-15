@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
 import { toast } from './Toast'
 import { canEdit } from '../lib/useAuth'
+import JSZip from 'jszip'
 
 const DOC_TYPES_AR = {
   'Passport':'جواز السفر', 'Qatar ID':'الرقم الشخصي',
@@ -16,6 +17,11 @@ const DOC_TYPES = [
   'Contract', 'Certificate', 'Medical Report',
   'Photo', 'Other'
 ]
+// The core documents an employee/coach record is expected to have on file.
+// Residence Permit, Certificate, Photo, and Other are treated as optional —
+// present if relevant, but not counted as "missing" in the compliance
+// checklist below.
+const REQUIRED_DOC_TYPES = ['Passport', 'Qatar ID', 'Contract', 'Medical Report']
 
 const DOC_ICONS  = {
   'Passport':         'ti-id',
@@ -62,12 +68,49 @@ async function downloadDoc(url, personName, docType, originalName) {
   } catch { window.open(url, '_blank') }
 }
 
+async function downloadAllDocuments(personName, myDocs, setDownloadingAll, ar) {
+  if (!myDocs.length) return
+  setDownloadingAll(true)
+  try {
+    const zip = new JSZip()
+    const usedNames = {}
+    for (const doc of myDocs) {
+      try {
+        const res = await fetch(doc.file_url)
+        const blob = await res.blob()
+        const ext = (doc.name.split('.').pop() || 'bin')
+        const folder = (doc.type || 'Other').replace(/[\\/:*?"<>|]/g, '_')
+        const base = `${personName.replace(/\s+/g,'_')}_${doc.type.replace(/\s+/g,'_')}`
+        const key = `${folder}/${base}`
+        usedNames[key] = (usedNames[key] || 0) + 1
+        const suffix = usedNames[key] > 1 ? `_${usedNames[key]}` : ''
+        zip.file(`${folder}/${base}${suffix}.${ext}`, blob)
+      } catch {
+        // skip this file, continue with the rest
+      }
+    }
+    const blob = await zip.generateAsync({ type: 'blob' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `${personName.replace(/\s+/g,'_')}_Documents.zip`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(a.href)
+  } catch (e) {
+    toast(ar ? 'فشل تنزيل الوثائق' : 'Failed to download documents', 'error')
+  } finally {
+    setDownloadingAll(false)
+  }
+}
+
 export default function PersonDocuments({ personId, personType, personName, docs, onRefresh, profile }) {
   const { tx, lang } = useLang()
   const [docType, setDocType]         = useState('')
   const [uploading, setUploading]     = useState(false)
   const [dropOpen, setDropOpen]       = useState(false)
   const [confirmDel, setConfirmDel]   = useState(null)
+  const [downloadingAll, setDownloadingAll] = useState(false)
   const docInput = useRef(null)
 
   useEffect(() => {
@@ -144,7 +187,52 @@ export default function PersonDocuments({ personId, personType, personName, docs
             {myDocs.length} {lang==='ar'?'ملف':`file${myDocs.length!==1?'s':''}`}
           </span>
         </div>
+        <button onClick={() => downloadAllDocuments(personName, myDocs, setDownloadingAll, lang==='ar')}
+          disabled={myDocs.length === 0 || downloadingAll}
+          style={{ display:'flex', alignItems:'center', gap:5, padding:'5px 10px', borderRadius:7, border:'1px solid var(--border)', background: myDocs.length===0 ? 'var(--surface2)' : 'var(--surface)', color: myDocs.length===0 ? 'var(--text3)' : 'var(--text2)', fontSize:11.5, cursor: myDocs.length===0||downloadingAll ? 'default' : 'pointer', opacity: downloadingAll ? .7 : 1 }}>
+          {downloadingAll
+            ? <><div style={{ width:11, height:11, border:'2px solid var(--text3)', borderTopColor:'transparent', borderRadius:'50%', animation:'spin .7s linear infinite' }} />{lang==='ar'?'جارٍ التحميل…':'Preparing…'}</>
+            : <><i className="ti ti-download" style={{ fontSize:13 }} />{lang==='ar'?'تحميل الكل':'Download all'}</>}
+        </button>
       </div>
+
+      {/* DOCUMENT COMPLIANCE — always useful, even with zero documents:
+          shows what's required and what's still missing at a glance,
+          instead of only appearing once files exist. */}
+      {(() => {
+        const uploadedTypes = new Set(myDocs.map(d => d.type))
+        const missing = REQUIRED_DOC_TYPES.filter(t => !uploadedTypes.has(t))
+        const total = REQUIRED_DOC_TYPES.length
+        const have = total - missing.length
+        const pct = total > 0 ? Math.round((have / total) * 100) : 100
+        return (
+          <div style={{ marginBottom:16, padding:'12px 14px', background:'var(--surface2)', borderRadius:10 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:14, marginBottom:10 }}>
+              <div style={{ fontSize:20, fontWeight:700, color: pct === 100 ? '#009F6B' : pct >= 50 ? '#f59e0b' : '#dc2626' }}>{pct}%</div>
+              <div style={{ flex:1 }}>
+                <div style={{ height:7, borderRadius:6, background:'var(--surface)', overflow:'hidden' }}>
+                  <div style={{ height:'100%', width:`${pct}%`, background: pct === 100 ? '#009F6B' : pct >= 50 ? '#f59e0b' : '#dc2626', transition:'width .2s' }} />
+                </div>
+                <div style={{ fontSize:11, color:'var(--text3)', marginTop:4 }}>
+                  {have}/{total} {lang==='ar' ? 'وثيقة مطلوبة مرفوعة' : 'required documents on file'}
+                </div>
+              </div>
+            </div>
+            <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+              {REQUIRED_DOC_TYPES.map(t => {
+                const has = uploadedTypes.has(t)
+                return (
+                  <div key={t} style={{ display:'flex', alignItems:'center', gap:6, fontSize:12 }}>
+                    <i className={`ti ${has ? 'ti-circle-check' : 'ti-alert-triangle'}`} style={{ fontSize:13, color: has ? '#009F6B' : '#d97706' }} />
+                    <span style={{ color: has ? 'var(--text)' : 'var(--text2)' }}>{lang==='ar'?(DOC_TYPES_AR[t]||t):t}</span>
+                    {!has && <span style={{ fontSize:10.5, color:'#d97706' }}>{lang==='ar'?'مفقود':'Missing'}</span>}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Upload row — admins only */}
       {canEdit(profile) && (
