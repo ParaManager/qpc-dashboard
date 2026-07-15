@@ -74,9 +74,7 @@ export default function Tasks({ profile, isMainAdmin, onNav }) {
   const [search, setSearch]     = useState('')
   const [viewScope, setViewScope] = useState('mine')
   const [assigneeFilter, setAssigneeFilter] = useState('all')
-  const [statusFilter, setStatusFilter] = useState('all')
   const [categoryFilter, setCategoryFilter] = useState('all')
-  const [dueFilter, setDueFilter] = useState('all')
 
   const [editing, setEditing]   = useState(null)
   const [confirmDel, setConfirmDel] = useState(null)
@@ -122,16 +120,8 @@ export default function Tasks({ profile, isMainAdmin, onNav }) {
 
   const filtered = scoped.filter(t => {
     if (search && !t.title.toLowerCase().includes(search.toLowerCase()) && !(t.notes||'').toLowerCase().includes(search.toLowerCase())) return false
-    if (isMainAdmin && assigneeFilter !== 'all' && t.assigned_to !== assigneeFilter) return false
-    if (statusFilter !== 'all' && t.status !== statusFilter) return false
+    if (isMainAdmin && viewScope === 'all' && assigneeFilter !== 'all' && t.assigned_to !== assigneeFilter) return false
     if (categoryFilter !== 'all' && (t.category || '') !== categoryFilter) return false
-    if (dueFilter !== 'all') {
-      if (dueFilter === 'overdue' && !isOverdue(t)) return false
-      if (dueFilter === 'today' && !isDueToday(t)) return false
-      if (dueFilter === 'soon' && !isDueSoon(t)) return false
-      if (dueFilter === 'later' && !(t.due_date && !isOverdue(t) && !isDueToday(t) && !isDueSoon(t))) return false
-      if (dueFilter === 'none' && t.due_date) return false
-    }
     return true
   })
 
@@ -249,8 +239,8 @@ export default function Tasks({ profile, isMainAdmin, onNav }) {
     await load()
   }
 
-  const hasActiveFilters = search || assigneeFilter !== 'all' || statusFilter !== 'all' || categoryFilter !== 'all' || dueFilter !== 'all'
-  function clearFilters() { setSearch(''); setAssigneeFilter('all'); setStatusFilter('all'); setCategoryFilter('all'); setDueFilter('all') }
+  const hasActiveFilters = search || (isMainAdmin && viewScope === 'all' && assigneeFilter !== 'all') || categoryFilter !== 'all'
+  function clearFilters() { setSearch(''); setAssigneeFilter('all'); setCategoryFilter('all') }
 
   return (
     <div>
@@ -365,7 +355,7 @@ export default function Tasks({ profile, isMainAdmin, onNav }) {
       {isMainAdmin && (
         <div style={{ display: 'flex', gap: 6, background: 'var(--surface2)', borderRadius: 10, padding: 4, marginBottom: 14, width: 'fit-content' }}>
           {[['mine', ar ? 'مهامي' : 'My Tasks'], ['all', ar ? 'كل المهام' : 'All Tasks']].map(([key, label]) => (
-            <button key={key} onClick={() => setViewScope(key)}
+            <button key={key} onClick={() => { setViewScope(key); if (key !== 'all') setAssigneeFilter('all') }}
               style={{ padding: '6px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600,
                 background: viewScope === key ? 'var(--surface)' : 'transparent',
                 color: viewScope === key ? 'var(--text)' : 'var(--text3)',
@@ -394,27 +384,15 @@ export default function Tasks({ profile, isMainAdmin, onNav }) {
 
       <div className="filters" style={{ flexWrap: 'wrap' }}>
         <div className="search-wrap"><i className="ti ti-search" /><input placeholder={ar ? 'بحث في المهام...' : 'Search tasks…'} value={search} onChange={e => setSearch(e.target.value)} /></div>
-        {isMainAdmin && (
+        {isMainAdmin && viewScope === 'all' && (
           <select className="form-input" style={{ width: 'auto' }} value={assigneeFilter} onChange={e => setAssigneeFilter(e.target.value)}>
             <option value="all">{ar ? 'كل المسؤولين' : 'All assignees'}</option>
             {eligible.map(p => <option key={p.id} value={p.id}>{p.id === profile?.id ? (ar ? 'نفسي' : 'Myself') : assigneeLabel(p)}</option>)}
           </select>
         )}
-        <select className="form-input" style={{ width: 'auto' }} value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
-          <option value="all">{ar ? 'كل الحالات' : 'All statuses'}</option>
-          {STATUSES.map(s => <option key={s} value={s}>{ar ? STATUS_META[s].ar : STATUS_META[s].en}</option>)}
-        </select>
         <select className="form-input" style={{ width: 'auto' }} value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}>
           <option value="all">{ar ? 'كل الفئات' : 'All categories'}</option>
           {Object.keys(CATEGORY_META).map(c => <option key={c} value={c}>{ar ? CATEGORY_META[c].ar : CATEGORY_META[c].en}</option>)}
-        </select>
-        <select className="form-input" style={{ width: 'auto' }} value={dueFilter} onChange={e => setDueFilter(e.target.value)}>
-          <option value="all">{ar ? 'كل تواريخ الاستحقاق' : 'All due dates'}</option>
-          <option value="overdue">{ar ? 'متأخرة' : 'Overdue'}</option>
-          <option value="today">{ar ? 'اليوم' : 'Due today'}</option>
-          <option value="soon">{ar ? 'خلال يومين' : 'Due soon (1–2d)'}</option>
-          <option value="later">{ar ? 'لاحقاً' : 'Later'}</option>
-          <option value="none">{ar ? 'بدون تاريخ' : 'No due date'}</option>
         </select>
         {hasActiveFilters && (
           <button onClick={clearFilters} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '8px 12px', borderRadius: 9, border: '1px solid #fca5a5', background: '#fef2f2', color: '#dc2626', fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap' }}>

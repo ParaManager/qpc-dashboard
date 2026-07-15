@@ -2,9 +2,6 @@ import { useState, useMemo } from 'react'
 import { useLang } from '../lib/LangContext.jsx'
 import { Avatar, Badge, statusClass, computeAwayPeople, AWAY_STATUSES } from '../lib/helpers'
 
-// Localized labels for the three away statuses and the three person types —
-// kept local to this page since nothing else needs them bundled together
-// like this.
 const STATUS_LABEL = {
   'On Leave':         { en: 'On Leave',         ar: 'في إجازة' },
   'In Competition':   { en: 'In Competition',   ar: 'في منافسة' },
@@ -23,11 +20,8 @@ export default function Away({ athletes, coaches, employees, onNav }) {
   const L = (en, arText) => ar ? arText : en
 
   const [search, setSearch]         = useState('')
-  const [typeFilter, setTypeFilter] = useState('All')
   const [statusFilter, setStatusFilter] = useState('All')
 
-  // Single source of truth — same computation the Dashboard Away KPI card
-  // uses, so this page's results can never drift from that number.
   const { allAway } = useMemo(
     () => computeAwayPeople(athletes, coaches, employees, lang),
     [athletes, coaches, employees, lang]
@@ -47,22 +41,24 @@ export default function Away({ athletes, coaches, employees, onNav }) {
   }
 
   const filtered = allAway.filter(p => {
-    if (typeFilter !== 'All') {
-      const type = p._isCoach ? 'Coach' : p._isEmployee ? 'Employee' : 'Athlete'
-      if (type !== typeFilter) return false
-    }
     if (statusFilter !== 'All' && p.status !== statusFilter) return false
     if (search) {
       const q = search.toLowerCase()
+      const type = p._isCoach ? 'Coach' : p._isEmployee ? 'Employee' : 'Athlete'
       const name = (p.name || '').toLowerCase()
       const nameAr = (p.name_ar || '').toLowerCase()
-      if (!name.includes(q) && !nameAr.includes(q)) return false
+      const typeEn = TYPE_LABEL[type].en.toLowerCase()
+      const typeAr = TYPE_LABEL[type].ar.toLowerCase()
+      const statusEn = (STATUS_LABEL[p.status]?.en || p.status || '').toLowerCase()
+      const statusAr = (STATUS_LABEL[p.status]?.ar || p.status || '').toLowerCase()
+      const matches = [name, nameAr, typeEn, typeAr, statusEn, statusAr].some(v => v.includes(q))
+      if (!matches) return false
     }
     return true
   })
 
-  const hasActiveFilters = search || typeFilter !== 'All' || statusFilter !== 'All'
-  function clearFilters() { setSearch(''); setTypeFilter('All'); setStatusFilter('All') }
+  const hasActiveFilters = search || statusFilter !== 'All'
+  function clearFilters() { setSearch(''); setStatusFilter('All') }
 
   function goToPerson(p) {
     if (p._isCoach)    onNav('coaches',   { coachId: p.id })
@@ -86,18 +82,11 @@ export default function Away({ athletes, coaches, employees, onNav }) {
         <div className="search-wrap">
           <i className="ti ti-search" />
           <input
-            placeholder={L('Search by name…', 'بحث بالاسم…')}
+            placeholder={L('Search by name, type, status…', 'بحث بالاسم أو النوع أو الحالة…')}
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
         </div>
-        <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)}
-          style={{ padding: '8px 10px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface)', fontSize: 13, color: typeFilter !== 'All' ? '#0085C7' : 'var(--text)', fontWeight: typeFilter !== 'All' ? 600 : 400, cursor: 'pointer', outline: 'none' }}>
-          <option value="All">{L('Person Type: All', 'نوع الشخص: الكل')}</option>
-          <option value="Athlete">{L('Athletes', 'الرياضيون')}</option>
-          <option value="Coach">{L('Coaches', 'المدربون')}</option>
-          <option value="Employee">{L('Employees', 'الموظفون')}</option>
-        </select>
         <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
           style={{ padding: '8px 10px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface)', fontSize: 13, color: statusFilter !== 'All' ? '#0085C7' : 'var(--text)', fontWeight: statusFilter !== 'All' ? 600 : 400, cursor: 'pointer', outline: 'none' }}>
           <option value="All">{L('Away Status: All', 'حالة الغياب: الكل')}</option>
@@ -124,7 +113,6 @@ export default function Away({ athletes, coaches, employees, onNav }) {
             <thead>
               <tr>
                 <th>{L('Name', 'الاسم')}</th>
-                <th>{L('Person Type', 'نوع الشخص')}</th>
                 <th>{L('Away Status', 'حالة الغياب')}</th>
                 <th>{L('Start Date', 'تاريخ البداية')}</th>
                 <th>{L('End Date', 'تاريخ النهاية')}</th>
@@ -146,7 +134,6 @@ export default function Away({ athletes, coaches, employees, onNav }) {
                         <span style={{ fontWeight: 500 }}>{displayName}</span>
                       </div>
                     </td>
-                    <td>{ar ? TYPE_LABEL[type].ar : TYPE_LABEL[type].en}</td>
                     <td><Badge label={ar ? STATUS_LABEL[p.status]?.ar || p.status : p.status} cls={statusClass(p.status)} /></td>
                     <td style={{ color: 'var(--text2)', fontSize: 12.5 }}>{p.status_start || '—'}</td>
                     <td style={{ color: 'var(--text2)', fontSize: 12.5 }}>{p.status_end || '—'}</td>
