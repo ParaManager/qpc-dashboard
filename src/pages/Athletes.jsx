@@ -1030,7 +1030,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
   // two can't drift apart.
   const COACH_DEFAULT_COLS = ['name','classification','nationality','status','medals','documents']
   const DEFAULT_COLS_ADMIN = ['name','sport','coach_id','status','medical_status','passport_expiry','id_expiry']
-  const COLS_STORAGE_KEY = 'qpc_athletes_visible_cols_v1'
+  const COLS_STORAGE_KEY = 'qpc_athletes_visible_cols_v2'
   function loadStoredCols(fallback) {
     try {
       const raw = localStorage.getItem(COLS_STORAGE_KEY)
