@@ -10,6 +10,8 @@ import { supabase } from '../lib/supabase'
 import JSZip from 'jszip'
 import { canEdit } from '../lib/useAuth'
 import { isTrustedAdmin } from '../lib/permissions'
+import { usePersonRoles, RoleBadges } from '../components/RoleBadges.jsx'
+import SharedDocuments from '../components/SharedDocuments.jsx'
 import { logAdminActivity } from '../lib/adminActivity'
 import CareerHistory from '../components/CareerHistory.jsx'
 import { useLang } from '../lib/LangContext.jsx'
@@ -1039,6 +1041,8 @@ export default function Athletes({ athletes, coaches, employees, results, docume
   const [gender, setGender]         = useState('All genders')
   const [sort, setSort]             = useState('name-asc')
   const [selected, setSelected]     = useState(initAthleteId ?? null)
+  const selectedAthleteForRoles = athletes.find(x => x.id === selected)
+  const { roles: personRolesAthlete } = usePersonRoles(selectedAthleteForRoles?.person_id)
   const [scrollToDocs, setScrollToDocs] = useState(false)
   useEffect(() => {
     if (selected && scrollToDocs) {
@@ -1795,6 +1799,7 @@ ${myDocs.length > 0 ? `<div class="section">
                 )}
                 <span className="badge badge-blue">{a.sport ? sportLabel(a.sport, a.sport_category, lang==='ar') : ''}</span>
               </div>
+              <RoleBadges roles={personRolesAthlete} lang={lang} excludeType="athlete" />
 
               {/* AGE & YEARS ACTIVE */}
               {(age || yearsActive) && (
@@ -2084,6 +2089,8 @@ ${myDocs.length > 0 ? `<div class="section">
             <CareerHistory personId={a.id} personType="athlete" personName={lang==='ar'&&a.name_ar?a.name_ar:a.name} />
 
             {/* DOCUMENTS */}
+            <SharedDocuments personId={a.person_id} profile={profile} />
+
             <div className="info-card" id="athlete-documents-section">
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: documentsExpanded ? 14 : 0 }}>
                 <div className="info-title" style={{ margin:0, cursor:'pointer' }} onClick={() => setDocumentsExpanded(v => !v)}>{lang==='ar'?'الوثائق':'Documents'} <span style={{ marginLeft:8, fontSize:11, fontWeight:400, color:'var(--text3)', textTransform:'none', letterSpacing:0 }}>{myDocs.length} {lang==='ar'?'ملف':`file${myDocs.length!==1?'s':''}`}</span></div>

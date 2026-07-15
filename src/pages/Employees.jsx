@@ -11,6 +11,9 @@ import PersonDocuments from '../components/PersonDocuments'
 import * as XLSX from 'xlsx'
 import EmployeeCardButton from '../components/EmployeeCard'
 import PhotoCropModal from '../components/PhotoCropModal'
+import { usePersonRoles, RoleBadges } from '../components/RoleBadges.jsx'
+import StatusScopeModal from '../components/StatusScopeModal.jsx'
+import SharedDocuments from '../components/SharedDocuments.jsx'
 
 const DESIGNATIONS = [
   'All designations',
@@ -903,9 +906,15 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
   const [sort, setSort]             = useState('name-asc')
   const [colFilters, setColFilters] = useState({})
   const [selected, setSelected]     = useState(initEmployeeId || null)
+  // Top-level (unconditional) — must not live inside the `if (selected)`
+  // branch below, since that would violate the Rules of Hooks (list view
+  // vs detail view would execute a different number of hooks).
+  const selectedEmpForRoles = employees.find(x => x.id === selected)
+  const { roles: personRoles } = usePersonRoles(selectedEmpForRoles?.person_id)
   const [confirm, setConfirm]       = useState(null)
   const [uploading, setUploading]   = useState(false)
   const [editForm, setEditForm]     = useState(null)
+  const [pendingStatusSave, setPendingStatusSave] = useState(null) // { formData, isEdit } awaiting scope confirmation
   const [addModal, setAddModal]     = useState(false)
   const photoInput = useRef(null)
   const [cropFile, setCropFile] = useState(null) // { empId, file } pending crop
@@ -1006,10 +1015,6 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
   }
 
   async function handleSave(formData, isEdit) {
-    // Rule 4: same authoritative write-side guard as Athletes.jsx/Coaches.jsx
-    // — status_start/status_end only make sense alongside a dated status,
-    // so force them to null whenever the saved status is anything else
-    // (typically a manual return to Active), regardless of stale form state.
     const DATE_STATUSES = ['On Leave', 'In Competition', 'In Training Camp']
     const finalStatus = formData.status || 'Active'
     const isDatedStatus = DATE_STATUSES.includes(finalStatus)
@@ -1025,6 +1030,35 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
       notes: formData.notes || null,
     }
     if (!payload.name) { toast('Name is required', 'error'); return }
+
+    // If this is an edit that changes status, and the person has more than
+    // one linked role, defer to the scope-confirmation modal instead of
+    // silently writing the new status — never auto-synchronize across roles.
+    if (isEdit) {
+      const existing = employees.find(e => e.id === formData.id)
+      if (existing && existing.status !== finalStatus && existing.person_id) {
+        const [aRes, cRes, eRes, rRes] = await Promise.all([
+          supabase.from('athletes').select('id, status, is_historical').eq('person_id', existing.person_id),
+          supabase.from('coaches').select('id, status, is_historical').eq('person_id', existing.person_id),
+          supabase.from('employees').select('id, status, is_historical').eq('person_id', existing.person_id),
+          supabase.from('referees').select('id, is_historical').eq('person_id', existing.person_id),
+        ])
+        const linkedRoles = []
+        ;(aRes.data||[]).forEach(x => linkedRoles.push({ type:'athlete', id:x.id, is_historical: !!x.is_historical }))
+        ;(cRes.data||[]).forEach(x => linkedRoles.push({ type:'coach', id:x.id, is_historical: !!x.is_historical }))
+        ;(eRes.data||[]).forEach(x => linkedRoles.push({ type:'employee', id:x.id, is_historical: !!x.is_historical }))
+        ;(rRes.data||[]).forEach(x => linkedRoles.push({ type:'referee', id:x.id, is_historical: !!x.is_historical }))
+        if (linkedRoles.length > 1) {
+          setPendingStatusSave({ formData, isEdit, payload, roles: linkedRoles, newStatus: finalStatus })
+          return
+        }
+      }
+    }
+
+    await commitSave(formData, isEdit, payload)
+  }
+
+  async function commitSave(formData, isEdit, payload) {
     const { error } = isEdit
       ? await supabase.from('employees').update(payload).eq('id', formData.id)
       : await supabase.from('employees').insert(payload)
@@ -1036,6 +1070,28 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
     setEditForm(null); setAddModal(false)
     await onRefresh()
     if (isEdit) setSelected(formData.id)
+  }
+
+  // Applies the confirmed status/date fields to whichever role types the
+  // admin selected in the scope modal — the employee row (this page's own
+  // role) always goes through commitSave's normal payload; any additional
+  // selected role types get only their status/date fields updated directly,
+  // never their unrelated role-specific data.
+  async function applyStatusToRoles(selectedTypes, pending) {
+    const { formData, isEdit, payload, roles } = pending
+    if (selectedTypes.includes('employee')) {
+      await commitSave(formData, isEdit, payload)
+    }
+    const statusFields = { status: payload.status, status_start: payload.status_start, status_end: payload.status_end }
+    for (const type of selectedTypes) {
+      if (type === 'employee') continue
+      const role = roles.find(r => r.type === type)
+      if (!role) continue
+      if (type === 'referee') continue // referees have no status field
+      await supabase.from(type === 'athlete' ? 'athletes' : 'coaches').update(statusFields).eq('id', role.id)
+    }
+    setPendingStatusSave(null)
+    await onRefresh()
   }
 
   async function handlePhotoUpload(empId, file) {
@@ -1099,6 +1155,15 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
     return (
       <div>
         {editForm && <EmpModal data={editForm} isEdit={true} onClose={() => setEditForm(null)} onSave={handleSave} customDesignations={customDesignations} onDesignationAdded={d => setCustomDesignations(p => [...p, d])} />}
+        {pendingStatusSave && (
+          <StatusScopeModal
+            roles={pendingStatusSave.roles}
+            currentRoleType="employee"
+            lang={lang}
+            onConfirm={(types) => applyStatusToRoles(types, pendingStatusSave)}
+            onCancel={() => setPendingStatusSave(null)}
+          />
+        )}
         {confirm && (
           <ConfirmModal title="Delete employee" message={`Delete ${emp.name}?`}
             onConfirm={() => handleDelete(emp.id, emp.name)} onCancel={() => setConfirm(null)} />
@@ -1174,6 +1239,7 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
                 </div>
               )
             })()}
+            <RoleBadges roles={personRoles} lang={lang} excludeType="employee" />
             <div className="detail-fields">
               {[
                 [tx('profile.nationality','Nationality'), tc(emp.nationality)],
@@ -1219,6 +1285,8 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
                 <p style={{ fontSize:13, color:'var(--text2)', lineHeight:1.6 }}>{emp.notes}</p>
               </div>
             )}
+
+            <SharedDocuments personId={emp.person_id} profile={profile} />
 
             <PersonDocuments
               personId={emp.id}

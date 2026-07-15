@@ -4,6 +4,8 @@ import { useLang } from '../lib/LangContext.jsx'
 import { Avatar, avColor, initials } from '../lib/helpers'
 import { toast, ConfirmModal } from '../components/Toast'
 import { canEdit } from '../lib/useAuth'
+import { usePersonRoles, RoleBadges } from '../components/RoleBadges.jsx'
+import SharedDocuments from '../components/SharedDocuments.jsx'
 import { isTrustedAdmin } from '../lib/permissions'
 import { logAdminActivity } from '../lib/adminActivity'
 import PhotoCropModal from '../components/PhotoCropModal'
@@ -64,6 +66,7 @@ function RefereeDetail({ r: initialR, ar, L, tcNat, profile, onBack, onEdit, onD
   const [cropFile, setCropFile] = useState(null) // pending photo awaiting crop
   const docInput     = useRef(null)
   const [r, setR]                     = useState(initialR)
+  const { roles: personRolesReferee } = usePersonRoles(r.person_id)
   const [uploading, setUploading]     = useState(false)
   const [docUploading, setDocUploading] = useState(false)
   const [docType, setDocType]         = useState('Qatar ID')
@@ -188,6 +191,7 @@ function RefereeDetail({ r: initialR, ar, L, tcNat, profile, onBack, onEdit, onD
             <div className="detail-name">{ar && r.name_ar ? r.name_ar : (r.name || '—')}</div>
             {r.name_ar && r.name && <div className="detail-sub">{ar ? r.name : r.name_ar}</div>}
             <div className="detail-sub">{tcNat(r.nationality)}</div>
+            <RoleBadges roles={personRolesReferee} lang={ar ? 'ar' : 'en'} excludeType="referee" />
 
             <div className="detail-fields" style={{ marginTop:16 }}>
               {[
@@ -206,6 +210,8 @@ function RefereeDetail({ r: initialR, ar, L, tcNat, profile, onBack, onEdit, onD
         </div>
 
         <div>
+          <SharedDocuments personId={r.person_id} profile={profile} />
+
           {/* Documents */}
           <div className="info-card">
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>

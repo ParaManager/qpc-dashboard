@@ -4,6 +4,8 @@ import FormModal from '../components/FormModal'
 import { ConfirmModal, toast } from '../components/Toast'
 import { supabase } from '../lib/supabase'
 import { canEdit } from '../lib/useAuth'
+import { usePersonRoles, RoleBadges } from '../components/RoleBadges.jsx'
+import SharedDocuments from '../components/SharedDocuments.jsx'
 import { isTrustedAdmin } from '../lib/permissions'
 import { logAdminActivity } from '../lib/adminActivity'
 import CareerHistory from '../components/CareerHistory.jsx'
@@ -215,6 +217,8 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
     </span>
   }
   const [selected, setSelected] = useState(initCoachId || null)
+  const selectedCoachForRoles = coaches.find(x => x.id === selected)
+  const { roles: personRolesCoach } = usePersonRoles(selectedCoachForRoles?.person_id)
   const [form, setForm]         = useState(null)
   const [confirm, setConfirm]   = useState(null)
   const [uploading, setUploading] = useState(false)
@@ -457,6 +461,7 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
                 <Badge label={[c.status_start, c.status_end].filter(Boolean).join(' → ')} />
               )}
             </div>
+            <RoleBadges roles={personRolesCoach} lang={lang} excludeType="coach" />
             <div className="detail-fields">
               {[
                 [lang==='ar'?'رقم الموظف':'Employee #', c.employee_number],
@@ -535,6 +540,8 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
         <FormerAthletes coachId={c.id} athletes={athletes} lang={lang} onNav={onNav} />
 
         {/* DOCUMENTS - full width below both columns */}
+        <SharedDocuments personId={c.person_id} profile={profile} />
+
         <PersonDocuments
           personId={c.id}
           personType="coach"
