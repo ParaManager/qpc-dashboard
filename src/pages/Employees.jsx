@@ -1124,24 +1124,27 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
           <EmployeeCardButton emp={emp} />
         </div>
 
-        {/* ── ROW 1 — compact profile card (left) + Employee Information (right) ── */}
+        {/* Matches the Athletes profile structure: left profile card in its
+            own column, right column stacks Employee Information → Notes →
+            Documents → Career History, all at the same width — nothing
+            breaks out to full width. */}
         <div className="detail-grid">
-          <div className="detail-profile" style={{ padding:'18px 16px' }}>
-            <div style={{ position:'relative', width:78, height:78, margin:'0 auto 12px' }}>
+          <div className="detail-profile">
+            <div style={{ position:'relative', width:90, height:90, margin:'0 auto 14px' }}>
               {emp.photo_url
-                ? <img src={emp.photo_url} alt={emp.name} style={{ width:78, height:78, borderRadius:'50%', objectFit:'cover', border:'3px solid var(--border)' }} />
-                : <div style={{ width:78, height:78, borderRadius:'50%', background:color, display:'flex', alignItems:'center', justifyContent:'center', fontSize:24, fontWeight:600, color:'#fff' }}>{initials(emp.name)}</div>
+                ? <img src={emp.photo_url} alt={emp.name} style={{ width:90, height:90, borderRadius:'50%', objectFit:'cover', border:'3px solid var(--border)' }} />
+                : <div style={{ width:90, height:90, borderRadius:'50%', background:color, display:'flex', alignItems:'center', justifyContent:'center', fontSize:28, fontWeight:600, color:'#fff' }}>{initials(emp.name)}</div>
               }
               {canEdit(profile) && (
                 <div style={{ position:'absolute', bottom:0, right:0, display:'flex', gap:3 }}>
                   <button onClick={() => photoInput.current.click()} disabled={uploading} title="Upload photo"
-                    style={{ width:24, height:24, borderRadius:'50%', background:color, border:'2px solid #fff', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'#fff' }}>
-                    {uploading ? <div style={{ width:9, height:9, border:'2px solid rgba(255,255,255,.4)', borderTopColor:'#fff', borderRadius:'50%', animation:'spin .7s linear infinite' }} /> : <i className="ti ti-camera" style={{ fontSize:11 }} />}
+                    style={{ width:26, height:26, borderRadius:'50%', background:color, border:'2px solid #fff', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'#fff' }}>
+                    {uploading ? <div style={{ width:10, height:10, border:'2px solid rgba(255,255,255,.4)', borderTopColor:'#fff', borderRadius:'50%', animation:'spin .7s linear infinite' }} /> : <i className="ti ti-camera" style={{ fontSize:12 }} />}
                   </button>
                   {emp.photo_url && (
                     <button onClick={async () => { await supabase.from('employees').update({ photo_url:null }).eq('id', emp.id); await onRefresh() }}
-                      style={{ width:24, height:24, borderRadius:'50%', background:'#dc2626', border:'2px solid #fff', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'#fff' }}>
-                      <i className="ti ti-x" style={{ fontSize:11 }} />
+                      style={{ width:26, height:26, borderRadius:'50%', background:'#dc2626', border:'2px solid #fff', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'#fff' }}>
+                      <i className="ti ti-x" style={{ fontSize:12 }} />
                     </button>
                   )}
                 </div>
@@ -1153,11 +1156,8 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
                 onCancel={() => setCropFile(null)}
                 onSave={(blob) => { setCropFile(null); handlePhotoUpload(emp.id, blob) }} />
             )}
-            <div className="detail-name" style={{ fontSize:16 }}>{lang==='ar' && emp.name_ar ? emp.name_ar : emp.name}</div>
-            {(lang==='ar' ? emp.name : emp.name_ar) && <div className="detail-sub" style={{ fontSize:12 }}>{lang==='ar' ? emp.name : emp.name_ar}</div>}
-            <div style={{ fontSize:12.5, color:'var(--text2)', margin:'6px 0 8px' }}>
-              {emp.designation_ar && lang==='ar' ? emp.designation_ar : (DESIG_LABELS[emp.designation] || emp.designation || '')}
-            </div>
+            <div className="detail-name">{lang==='ar' && emp.name_ar ? emp.name_ar : emp.name}</div>
+            {(lang==='ar' ? emp.name : emp.name_ar) && <div className="detail-sub">{lang==='ar' ? emp.name : emp.name_ar}</div>}
             {(() => {
               const src = employeeStatusSource(emp, coaches)
               const ds = effectiveStatus(src)
@@ -1166,7 +1166,7 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
                 : (ds||'—')
               const expired = src.status_end && new Date(src.status_end) < new Date(new Date().toDateString())
               return (
-                <div className="detail-badges" style={{ marginBottom:12, justifyContent:'center' }}>
+                <div className="detail-badges" style={{ margin:'10px 0' }}>
                   <span className={`badge ${statusClass(ds)}`}>{dl}</span>
                   {(src.status_start || src.status_end) && !expired && (
                     <span className="badge badge-gray">{[src.status_start, src.status_end].filter(Boolean).join(' → ')}</span>
@@ -1174,69 +1174,63 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
                 </div>
               )
             })()}
-            <div className="detail-fields" style={{ textAlign:'left' }}>
+            <div className="detail-fields">
               {[
-                [tx('profile.employeeNum','Employee #'), emp.employee_number],
-                [tx('profile.qssNumber','QSS #'), emp.qss_number],
+                [tx('profile.nationality','Nationality'), tc(emp.nationality)],
+                [tx('profile.phone','Phone'), emp.phone],
+                [tx('profile.email','Email'), emp.email],
               ].filter(([, v]) => v).map(([k,v]) => (
                 <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv" style={{ fontSize:12 }}>{v}</span></div>
               ))}
             </div>
           </div>
 
-          {/* EMPLOYEE INFORMATION — compact 2-3 column grid, only populated
-              fields shown; the whole card disappears if nothing to show. */}
-          {(() => {
-            const fields = [
-              [tx('form.designation','Designation'), emp.designation_ar && lang==='ar' ? emp.designation_ar : (DESIG_LABELS[emp.designation] || emp.designation)],
-              [tx('profile.employeeNum','Employee #'), emp.employee_number],
-              [tx('profile.qssNumber','QSS #'), emp.qss_number],
-              [lang==='ar'?'تاريخ الانضمام':'Join Date', formatFriendlyDate(emp.created_at, lang==='ar')],
-              [lang==='ar'?'سنوات الخدمة':'Years of Service', yearsOfService],
-              [tx('profile.nationality','Nationality'), tc(emp.nationality)],
-              [tx('profile.phone','Phone'), emp.phone],
-              [tx('profile.email','Email'), emp.email],
-            ].filter(([k, v]) => k && v)
-            if (fields.length === 0) return null
-            return (
-              <div className="info-card">
-                <div className="info-title" style={{ marginBottom:10 }}>{lang==='ar'?'معلومات الموظف':'Employee Information'}</div>
-                <div style={{ display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:'4px 16px' }}>
-                  {fields.map(([k,v]) => (
-                    <div key={k} className="detail-row" style={{ minWidth:0 }}>
-                      <span className="dk">{k}</span>
-                      <span className="dv" style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{v}</span>
-                    </div>
-                  ))}
+          <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+            {/* EMPLOYEE INFORMATION — only populated fields, card height
+                fits content (no fixed/min height), Employee #/QSS # live
+                here only, not duplicated on the profile card. */}
+            {(() => {
+              const fields = [
+                [tx('form.designation','Designation'), emp.designation_ar && lang==='ar' ? emp.designation_ar : (DESIG_LABELS[emp.designation] || emp.designation)],
+                [tx('profile.employeeNum','Employee #'), emp.employee_number],
+                [tx('profile.qssNumber','QSS #'), emp.qss_number],
+                [lang==='ar'?'تاريخ الانضمام':'Join Date', formatFriendlyDate(emp.created_at, lang==='ar')],
+                [lang==='ar'?'سنوات الخدمة':'Years of Service', yearsOfService],
+              ].filter(([k, v]) => k && v)
+              if (fields.length === 0) return null
+              return (
+                <div className="info-card">
+                  <div className="info-title" style={{ marginBottom:10 }}>{lang==='ar'?'معلومات الموظف':'Employee Information'}</div>
+                  <div style={{ display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:'4px 16px' }}>
+                    {fields.map(([k,v]) => (
+                      <div key={k} className="detail-row" style={{ minWidth:0 }}>
+                        <span className="dk">{k}</span>
+                        <span className="dv" style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{v}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
+              )
+            })()}
+
+            {emp.notes && (
+              <div className="info-card">
+                <div className="info-title">{tx('employees.notes','Notes')}</div>
+                <p style={{ fontSize:13, color:'var(--text2)', lineHeight:1.6 }}>{emp.notes}</p>
               </div>
-            )
-          })()}
-        </div>
+            )}
 
-        {/* Notes stays compact and only appears when there's content. */}
-        {emp.notes && (
-          <div className="info-card" style={{ marginTop:16 }}>
-            <div className="info-title">{tx('employees.notes','Notes')}</div>
-            <p style={{ fontSize:13, color:'var(--text2)', lineHeight:1.6 }}>{emp.notes}</p>
+            <PersonDocuments
+              personId={emp.id}
+              personType="employee"
+              personName={emp.name}
+              docs={personDocs}
+              onRefresh={onRefresh}
+              profile={profile}
+            />
+
+            <CareerHistory personId={emp.id} personType="employee" personName={emp.name} />
           </div>
-        )}
-
-        {/* ── ROW 2 — Document Compliance / upload, full width ── */}
-        <div style={{ marginTop:16 }}>
-          <PersonDocuments
-            personId={emp.id}
-            personType="employee"
-            personName={emp.name}
-            docs={personDocs}
-            onRefresh={onRefresh}
-            profile={profile}
-          />
-        </div>
-
-        {/* ── ROW 3 — Career History, full width, supporting section ── */}
-        <div style={{ marginTop:16 }}>
-          <CareerHistory personId={emp.id} personType="employee" personName={emp.name} />
         </div>
 
         <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
