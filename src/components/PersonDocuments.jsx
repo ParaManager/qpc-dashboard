@@ -17,9 +17,10 @@ const DOC_TYPES = [
   'Contract', 'Certificate', 'Medical Report',
   'Photo', 'Other'
 ]
-// Same pattern as Athletes: required documents are every type in the
-// dropdown source (DOC_TYPES) except the free-form "Other" catch-all —
-// never a hardcoded subset.
+// The core documents an employee/coach record is expected to have on file.
+// Residence Permit, Certificate, Photo, and Other are treated as optional —
+// present if relevant, but not counted as "missing" in the compliance
+// checklist below.
 const REQUIRED_DOC_TYPES = DOC_TYPES.filter(t => t !== 'Other')
 
 const DOC_ICONS  = {
@@ -195,40 +196,37 @@ export default function PersonDocuments({ personId, personType, personName, docs
         </button>
       </div>
 
-      {/* DOCUMENT COMPLIANCE — always useful, even with zero documents:
-          shows what's required and what's still missing at a glance,
-          instead of only appearing once files exist. */}
+      {/* DOCUMENT COMPLIANCE — same visual pattern as the Athletes Document
+          Status card: percentage + progress bar, then only the missing
+          types shown as compact pill/tag chips. */}
       {(() => {
         const uploadedTypes = new Set(myDocs.map(d => d.type))
-        const missing = REQUIRED_DOC_TYPES.filter(t => !uploadedTypes.has(t))
+        const missingTypes = REQUIRED_DOC_TYPES.filter(t => !uploadedTypes.has(t))
         const total = REQUIRED_DOC_TYPES.length
-        const have = total - missing.length
-        const pct = total > 0 ? Math.round((have / total) * 100) : 100
+        const uploaded = total - missingTypes.length
+        const pct = total > 0 ? Math.round((uploaded / total) * 100) : 100
         return (
-          <div style={{ marginBottom:16, padding:'12px 14px', background:'var(--surface2)', borderRadius:10 }}>
-            <div style={{ display:'flex', alignItems:'center', gap:14, marginBottom:10 }}>
-              <div style={{ fontSize:20, fontWeight:700, color: pct === 100 ? '#009F6B' : pct >= 50 ? '#f59e0b' : '#dc2626' }}>{pct}%</div>
+          <div style={{ marginBottom:16 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:14, marginBottom: missingTypes.length > 0 ? 10 : 0 }}>
+              <div style={{ fontSize:22, fontWeight:700, color: pct === 100 ? '#009F6B' : pct >= 50 ? '#f59e0b' : '#dc2626' }}>{pct}%</div>
               <div style={{ flex:1 }}>
-                <div style={{ height:7, borderRadius:6, background:'var(--surface)', overflow:'hidden' }}>
+                <div style={{ height:8, borderRadius:6, background:'var(--surface2)', overflow:'hidden' }}>
                   <div style={{ height:'100%', width:`${pct}%`, background: pct === 100 ? '#009F6B' : pct >= 50 ? '#f59e0b' : '#dc2626', transition:'width .2s' }} />
                 </div>
                 <div style={{ fontSize:11, color:'var(--text3)', marginTop:4 }}>
-                  {have}/{total} {lang==='ar' ? 'وثيقة مطلوبة مرفوعة' : 'required documents on file'}
+                  {uploaded}/{total} {lang==='ar' ? 'مطلوب مرفوع' : 'required uploaded'}
                 </div>
               </div>
             </div>
-            <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
-              {REQUIRED_DOC_TYPES.map(t => {
-                const has = uploadedTypes.has(t)
-                return (
-                  <div key={t} style={{ display:'flex', alignItems:'center', gap:6, fontSize:12 }}>
-                    <i className={`ti ${has ? 'ti-circle-check' : 'ti-alert-triangle'}`} style={{ fontSize:13, color: has ? '#009F6B' : '#d97706' }} />
-                    <span style={{ color: has ? 'var(--text)' : 'var(--text2)' }}>{lang==='ar'?(DOC_TYPES_AR[t]||t):t}</span>
-                    {!has && <span style={{ fontSize:10.5, color:'#d97706' }}>{lang==='ar'?'مفقود':'Missing'}</span>}
-                  </div>
-                )
-              })}
-            </div>
+            {missingTypes.length > 0 && (
+              <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+                {missingTypes.map(t => (
+                  <span key={t} className="badge" style={{ fontSize:10, background:'#fef2f2', color:'#dc2626' }}>
+                    {lang==='ar' ? (DOC_TYPES_AR[t]||t) : t}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         )
       })()}
