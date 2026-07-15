@@ -17,11 +17,10 @@ const DOC_TYPES = [
   'Contract', 'Certificate', 'Medical Report',
   'Photo', 'Other'
 ]
-// The core documents an employee/coach record is expected to have on file.
-// Residence Permit, Certificate, Photo, and Other are treated as optional —
-// present if relevant, but not counted as "missing" in the compliance
-// checklist below.
-const REQUIRED_DOC_TYPES = ['Passport', 'Qatar ID', 'Contract', 'Medical Report']
+// Same pattern as Athletes: required documents are every type in the
+// dropdown source (DOC_TYPES) except the free-form "Other" catch-all —
+// never a hardcoded subset.
+const REQUIRED_DOC_TYPES = DOC_TYPES.filter(t => t !== 'Other')
 
 const DOC_ICONS  = {
   'Passport':         'ti-id',
