@@ -1898,7 +1898,6 @@ ${myDocs.length > 0 ? `<div class="section">
                 [lang==='ar'?'الوظيفة':'Designation', a.designation ? (lang==='ar' ? (DESIG_AR[a.designation]||a.designation) : a.designation) : null],
                 [tx('form.residencyStatus','Residency status'), a.residency_status],
                 [tx('form.qssNumber','QSS number'), a.qss_number],
-                [coach ? (lang==='ar'?'المدرب':'Coach') : null, coach ? (lang==='ar'&&coach.name_ar?coach.name_ar:coach.name) : null],
                 [tx('athletes.joinedQPC','Joined QPC'), formatFriendlyDate(a.join_date, lang==='ar')],
                 [lang==='ar'?'فترة الحالة المؤقتة':'Temporary status dates', statusDates],
               ].filter(([k, v]) => k && v)
@@ -2086,10 +2085,9 @@ ${myDocs.length > 0 ? `<div class="section">
 
             {/* DOCUMENTS */}
             <div className="info-card" id="athlete-documents-section">
-              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: documentsExpanded ? 14 : 0, cursor:'pointer' }}
-                onClick={() => setDocumentsExpanded(v => !v)}>
-                <div className="info-title" style={{ margin:0 }}>{lang==='ar'?'الوثائق':'Documents'} <span style={{ marginLeft:8, fontSize:11, fontWeight:400, color:'var(--text3)', textTransform:'none', letterSpacing:0 }}>{myDocs.length} {lang==='ar'?'ملف':`file${myDocs.length!==1?'s':''}`}</span></div>
-                <div style={{ display:'flex', alignItems:'center', gap:10 }} onClick={e => e.stopPropagation()}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: documentsExpanded ? 14 : 0 }}>
+                <div className="info-title" style={{ margin:0, cursor:'pointer' }} onClick={() => setDocumentsExpanded(v => !v)}>{lang==='ar'?'الوثائق':'Documents'} <span style={{ marginLeft:8, fontSize:11, fontWeight:400, color:'var(--text3)', textTransform:'none', letterSpacing:0 }}>{myDocs.length} {lang==='ar'?'ملف':`file${myDocs.length!==1?'s':''}`}</span></div>
+                <div style={{ display:'flex', alignItems:'center', gap:10 }}>
                   <button onClick={() => downloadAllDocuments(a.name, myDocs, setDownloadingAll, lang==='ar', canEdit(profile))}
                     disabled={myDocs.length === 0 || downloadingAll}
                     style={{ display:'flex', alignItems:'center', gap:5, padding:'5px 10px', borderRadius:7, border:'1px solid var(--border)', background: myDocs.length===0 ? 'var(--surface2)' : 'var(--surface)', color: myDocs.length===0 ? 'var(--text3)' : 'var(--text2)', fontSize:11.5, cursor: myDocs.length===0||downloadingAll ? 'default' : 'pointer', opacity: downloadingAll ? .7 : 1 }}>
@@ -2097,7 +2095,7 @@ ${myDocs.length > 0 ? `<div class="section">
                       ? <><div style={{ width:11, height:11, border:'2px solid var(--text3)', borderTopColor:'transparent', borderRadius:'50%', animation:'spin .7s linear infinite' }} />{lang==='ar'?'جارٍ التحميل…':'Preparing…'}</>
                       : <><i className="ti ti-download" style={{ fontSize:13 }} />{lang==='ar'?'تحميل الكل':'Download all'}</>}
                   </button>
-                  <i className={`ti ti-chevron-${documentsExpanded ? 'up' : 'down'}`} style={{ fontSize:16, color:'var(--text3)' }} />
+                  <i className={`ti ti-chevron-${documentsExpanded ? 'up' : 'down'}`} style={{ fontSize:16, color:'var(--text3)', cursor:'pointer' }} onClick={() => setDocumentsExpanded(v => !v)} />
                 </div>
               </div>
               {documentsExpanded && canEdit(profile) && (
