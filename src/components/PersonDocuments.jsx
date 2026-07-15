@@ -64,7 +64,7 @@ async function downloadDoc(url, personName, docType, originalName) {
 
 export default function PersonDocuments({ personId, personType, personName, docs, onRefresh, profile }) {
   const { tx, lang } = useLang()
-  const [docType, setDocType]         = useState('Passport')
+  const [docType, setDocType]         = useState('')
   const [uploading, setUploading]     = useState(false)
   const [dropOpen, setDropOpen]       = useState(false)
   const [confirmDel, setConfirmDel]   = useState(null)
@@ -85,6 +85,7 @@ export default function PersonDocuments({ personId, personType, personName, docs
 
   async function handleUpload(file) {
     if (!file) return
+    if (!docType) { toast('Select a document type first', 'error'); return }
     if (file.size > 20 * 1024 * 1024) { toast('File must be under 20MB', 'error'); return }
     setUploading(true)
     try {
@@ -102,7 +103,7 @@ export default function PersonDocuments({ personId, personType, personName, docs
       if (dbErr) throw dbErr
       toast(`${docType} uploaded!`); await onRefresh()
     } catch (err) { toast(err.message || 'Upload failed', 'error') }
-    finally { setUploading(false); if (docInput.current) docInput.current.value = '' }
+    finally { setUploading(false); setDocType(''); if (docInput.current) docInput.current.value = '' }
   }
 
   async function handleDelete(doc) {
@@ -148,8 +149,8 @@ export default function PersonDocuments({ personId, personType, personName, docs
       {/* Upload row — admins only */}
       {canEdit(profile) && (
         <div style={{ display:'flex', gap:8, marginBottom:16, padding:'10px 12px', background:'var(--surface2)', borderRadius:10, alignItems:'center' }}>
-          <button onClick={() => docInput.current.click()} disabled={uploading}
-            style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', background:'#0085C7', color:'#fff', border:'none', borderRadius:8, fontSize:12, fontWeight:500, cursor:'pointer', flexShrink:0, fontFamily:'DM Sans, sans-serif' }}>
+          <button onClick={() => docInput.current.click()} disabled={uploading || !docType}
+            style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', background: !docType ? 'var(--text3)' : '#0085C7', color:'#fff', border:'none', borderRadius:8, fontSize:12, fontWeight:500, cursor: (uploading || !docType) ? 'default' : 'pointer', flexShrink:0, fontFamily:'DM Sans, sans-serif', opacity: !docType ? .6 : 1 }}>
             {uploading
               ? <><div style={{ width:12, height:12, border:'2px solid rgba(255,255,255,.4)', borderTopColor:'#fff', borderRadius:'50%', animation:'spin .7s linear infinite' }} />{lang==='ar'?'جارٍ الرفع…':'Uploading…'}</>
               : <><i className="ti ti-upload" style={{ fontSize:14 }} />{lang==='ar'?'رفع':'Upload'}</>
@@ -158,8 +159,8 @@ export default function PersonDocuments({ personId, personType, personName, docs
           {/* Custom dropdown - works in both LTR and RTL */}
           <div style={{ flex:1, position:'relative' }}>
             <button onClick={() => setDropOpen(v=>!v)}
-              style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'7px 10px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface)', fontSize:12, color:'var(--text)', cursor:'pointer', fontFamily:'DM Sans, sans-serif', direction: lang==='ar'?'rtl':'ltr' }}>
-              <span>{lang==='ar'?(DOC_TYPES_AR[docType]||docType):docType}</span>
+              style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'7px 10px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface)', fontSize:12, color: docType ? 'var(--text)' : 'var(--text3)', cursor:'pointer', fontFamily:'DM Sans, sans-serif', direction: lang==='ar'?'rtl':'ltr' }}>
+              <span>{docType ? (lang==='ar'?(DOC_TYPES_AR[docType]||docType):docType) : (lang==='ar'?'اختر نوع الوثيقة':'Select document type...')}</span>
               <i className="ti ti-chevron-down" style={{ fontSize:12, color:'var(--text3)', marginLeft:4 }} />
             </button>
             {dropOpen && (
@@ -201,7 +202,7 @@ export default function PersonDocuments({ personId, personType, personName, docs
       )}
 
       {myDocs.length === 0
-        ? <div className="empty" style={{ padding:'16px 0' }}>{lang==='ar'?'لم يتم رفع وثائق بعد.':'No documents uploaded yet.'}</div>
+        ? <div className="empty" style={{ padding:'8px 0', fontSize:12 }}>{lang==='ar'?'لم يتم رفع وثائق بعد.':'No documents uploaded yet.'}</div>
         : [...new Set([...DOC_TYPES, ...myDocs.map(d => d.type)])].map(type => {
             const typeDocs = myDocs.filter(d => d.type === type)
             if (!typeDocs || typeDocs.length === 0) return null
