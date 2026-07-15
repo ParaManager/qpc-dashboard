@@ -890,7 +890,7 @@ function employeeStatusSource(emp, coaches) {
   return coachRec || emp
 }
 
-export default function Employees({ employees, coaches, personDocs, onRefresh, onNav, initEmployeeId, navState, profile }) {
+export default function Employees({ employees, coaches, personDocs, onRefresh, onNav, initEmployeeId, navState, profile, isMyProfile }) {
   const [customDesignations, setCustomDesignations] = useState([])
   useEffect(() => {
     (async () => {
@@ -1087,6 +1087,15 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
       if (coach) { onNav('coaches', { coachId: coach.id, returnTo: 'employees' }); return null }
     }
     const color = DESIG_COLORS[emp.designation] || '#9aa3b2'
+    const yearsOfService = (() => {
+      if (!emp.created_at) return null
+      const start = new Date(emp.created_at)
+      const now = new Date()
+      const months = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth())
+      if (months < 12) return lang==='ar' ? `${months} شهر` : `${months} mo`
+      const y = Math.floor(months / 12), m = months % 12
+      return m > 0 ? `${y}y ${m}mo` : (lang==='ar' ? `${y} سنة` : `${y} yr${y!==1?'s':''}`)
+    })()
     return (
       <div>
         {editForm && <EmpModal data={editForm} isEdit={true} onClose={() => setEditForm(null)} onSave={handleSave} customDesignations={customDesignations} onDesignationAdded={d => setCustomDesignations(p => [...p, d])} />}
@@ -1096,37 +1105,43 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
         )}
         <button className="back-btn" onClick={() => setSelected(null)}><i className="ti ti-arrow-left" /> {tx('actions.back','Back')}</button>
         <div style={{ display:'flex', gap:10, marginBottom:16, flexWrap:'wrap' }}>
-          {canEdit(profile) && <>
+          {canEdit(profile) && (
             <button className="action-btn action-btn-edit" onClick={() => setEditForm({ ...emp })}><i className="ti ti-pencil" /> {tx('actions.edit','Edit')}</button>
+          )}
+          {/* Delete is only available from the Employees management page —
+              viewing your own record via My Profile never shows it, since
+              deleting yourself from there makes no sense. */}
+          {canEdit(profile) && !isMyProfile && (
             <button className="action-btn action-btn-delete" onClick={() => setConfirm(true)}><i className="ti ti-trash" /> {tx('actions.delete','Delete')}</button>
-          </>}
+          )}
           <button className="action-btn action-btn-edit"
             style={{ borderColor:'#009F6B', color:'#009F6B' }}
             onMouseEnter={e => e.currentTarget.style.background='#e6f4ee'}
             onMouseLeave={e => e.currentTarget.style.background=''}
             onClick={() => exportEmployeesPDF(emp, lang, coaches)}>
-            
             <i className="ti ti-printer" /> {tx('actions.exportPDF','Export PDF')}
           </button>
           <EmployeeCardButton emp={emp} />
         </div>
+
+        {/* ── ROW 1 — compact profile card (left) + Employee Information (right) ── */}
         <div className="detail-grid">
-          <div className="detail-profile">
-            <div style={{ position:'relative', width:90, height:90, margin:'0 auto 14px' }}>
+          <div className="detail-profile" style={{ padding:'18px 16px' }}>
+            <div style={{ position:'relative', width:78, height:78, margin:'0 auto 12px' }}>
               {emp.photo_url
-                ? <img src={emp.photo_url} alt={emp.name} style={{ width:90, height:90, borderRadius:'50%', objectFit:'cover', border:'3px solid var(--border)' }} />
-                : <div style={{ width:90, height:90, borderRadius:'50%', background:color, display:'flex', alignItems:'center', justifyContent:'center', fontSize:28, fontWeight:600, color:'#fff' }}>{initials(emp.name)}</div>
+                ? <img src={emp.photo_url} alt={emp.name} style={{ width:78, height:78, borderRadius:'50%', objectFit:'cover', border:'3px solid var(--border)' }} />
+                : <div style={{ width:78, height:78, borderRadius:'50%', background:color, display:'flex', alignItems:'center', justifyContent:'center', fontSize:24, fontWeight:600, color:'#fff' }}>{initials(emp.name)}</div>
               }
               {canEdit(profile) && (
                 <div style={{ position:'absolute', bottom:0, right:0, display:'flex', gap:3 }}>
                   <button onClick={() => photoInput.current.click()} disabled={uploading} title="Upload photo"
-                    style={{ width:26, height:26, borderRadius:'50%', background:color, border:'2px solid #fff', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'#fff' }}>
-                    {uploading ? <div style={{ width:10, height:10, border:'2px solid rgba(255,255,255,.4)', borderTopColor:'#fff', borderRadius:'50%', animation:'spin .7s linear infinite' }} /> : <i className="ti ti-camera" style={{ fontSize:12 }} />}
+                    style={{ width:24, height:24, borderRadius:'50%', background:color, border:'2px solid #fff', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'#fff' }}>
+                    {uploading ? <div style={{ width:9, height:9, border:'2px solid rgba(255,255,255,.4)', borderTopColor:'#fff', borderRadius:'50%', animation:'spin .7s linear infinite' }} /> : <i className="ti ti-camera" style={{ fontSize:11 }} />}
                   </button>
                   {emp.photo_url && (
                     <button onClick={async () => { await supabase.from('employees').update({ photo_url:null }).eq('id', emp.id); await onRefresh() }}
-                      style={{ width:26, height:26, borderRadius:'50%', background:'#dc2626', border:'2px solid #fff', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'#fff' }}>
-                      <i className="ti ti-x" style={{ fontSize:12 }} />
+                      style={{ width:24, height:24, borderRadius:'50%', background:'#dc2626', border:'2px solid #fff', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'#fff' }}>
+                      <i className="ti ti-x" style={{ fontSize:11 }} />
                     </button>
                   )}
                 </div>
@@ -1138,16 +1153,11 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
                 onCancel={() => setCropFile(null)}
                 onSave={(blob) => { setCropFile(null); handlePhotoUpload(emp.id, blob) }} />
             )}
-            <div className="detail-name">{lang==='ar' && emp.name_ar ? emp.name_ar : emp.name}</div>
-            {(lang==='ar' ? emp.name : emp.name_ar) && <div className="detail-sub">{lang==='ar' ? emp.name : emp.name_ar}</div>}
-            <div style={{ margin:'10px 0' }}><DesigBadge label={emp.designation} displayLabel={DESIG_LABELS[emp.designation]} /></div>
-            {emp.designation_ar && <div style={{ fontSize:13, color:'var(--text2)', marginBottom:8, direction:'rtl' }}>{emp.designation_ar}</div>}
-            {/* Rule 7: coach-type employees show the coaches table's own
-                status (same match already used in the list view), not the
-                employees table's — so this stays consistent whichever page
-                the person is viewed from. Rule 6: effectiveStatus() is the
-                single source of truth for what's displayed here. Rule 5:
-                the date-range badge only shows while still relevant. */}
+            <div className="detail-name" style={{ fontSize:16 }}>{lang==='ar' && emp.name_ar ? emp.name_ar : emp.name}</div>
+            {(lang==='ar' ? emp.name : emp.name_ar) && <div className="detail-sub" style={{ fontSize:12 }}>{lang==='ar' ? emp.name : emp.name_ar}</div>}
+            <div style={{ fontSize:12.5, color:'var(--text2)', margin:'6px 0 8px' }}>
+              {emp.designation_ar && lang==='ar' ? emp.designation_ar : (DESIG_LABELS[emp.designation] || emp.designation || '')}
+            </div>
             {(() => {
               const src = employeeStatusSource(emp, coaches)
               const ds = effectiveStatus(src)
@@ -1156,7 +1166,7 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
                 : (ds||'—')
               const expired = src.status_end && new Date(src.status_end) < new Date(new Date().toDateString())
               return (
-                <div className="detail-badges" style={{ marginBottom:10 }}>
+                <div className="detail-badges" style={{ marginBottom:12, justifyContent:'center' }}>
                   <span className={`badge ${statusClass(ds)}`}>{dl}</span>
                   {(src.status_start || src.status_end) && !expired && (
                     <span className="badge badge-gray">{[src.status_start, src.status_end].filter(Boolean).join(' → ')}</span>
@@ -1164,36 +1174,34 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
                 </div>
               )
             })()}
-            <div className="detail-fields">
+            <div className="detail-fields" style={{ textAlign:'left' }}>
               {[
-                [tx('profile.gender','Gender'), emp.gender],
-                [tx('profile.nationality','Nationality'), tc(emp.nationality)],
-                [tx('profile.phone','Phone'), emp.phone],
-                [tx('profile.email','Email'), emp.email],
+                [tx('profile.employeeNum','Employee #'), emp.employee_number],
+                [tx('profile.qssNumber','QSS #'), emp.qss_number],
               ].filter(([, v]) => v).map(([k,v]) => (
                 <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv" style={{ fontSize:12 }}>{v}</span></div>
               ))}
             </div>
           </div>
 
-          {/* PROFESSIONAL OVERVIEW — only shown fields that actually have a
-              value, so this card disappears entirely rather than showing a
-              mostly-blank card when little is on file. */}
+          {/* EMPLOYEE INFORMATION — compact 2-3 column grid, only populated
+              fields shown; the whole card disappears if nothing to show. */}
           {(() => {
             const fields = [
               [tx('form.designation','Designation'), emp.designation_ar && lang==='ar' ? emp.designation_ar : (DESIG_LABELS[emp.designation] || emp.designation)],
               [tx('profile.employeeNum','Employee #'), emp.employee_number],
               [tx('profile.qssNumber','QSS #'), emp.qss_number],
-              [lang==='ar'?'تاريخ الانضمام':'Joined', formatFriendlyDate(emp.created_at, lang==='ar')],
-              [lang==='ar'?'فترة الحالة المؤقتة':'Temporary status dates',
-                (emp.status_start || emp.status_end) && !(emp.status_end && new Date(emp.status_end) < new Date(new Date().toDateString()))
-                  ? [emp.status_start, emp.status_end].filter(Boolean).join(' → ') : null],
+              [lang==='ar'?'تاريخ الانضمام':'Join Date', formatFriendlyDate(emp.created_at, lang==='ar')],
+              [lang==='ar'?'سنوات الخدمة':'Years of Service', yearsOfService],
+              [tx('profile.nationality','Nationality'), tc(emp.nationality)],
+              [tx('profile.phone','Phone'), emp.phone],
+              [tx('profile.email','Email'), emp.email],
             ].filter(([k, v]) => k && v)
             if (fields.length === 0) return null
             return (
               <div className="info-card">
-                <div className="info-title" style={{ marginBottom:10 }}>{lang==='ar'?'نظرة عامة مهنية':'Professional overview'}</div>
-                <div style={{ display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:'4px 16px' }}>
+                <div className="info-title" style={{ marginBottom:10 }}>{lang==='ar'?'معلومات الموظف':'Employee Information'}</div>
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(150px, 1fr))', gap:'6px 18px' }}>
                   {fields.map(([k,v]) => (
                     <div key={k} className="detail-row" style={{ minWidth:0 }}>
                       <span className="dk">{k}</span>
@@ -1204,32 +1212,33 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
               </div>
             )
           })()}
-
-          {emp.notes && (
-            <div className="info-card">
-              <div className="info-title">{tx('employees.notes','Notes')}</div>
-              <p style={{ fontSize:13, color:'var(--text2)', lineHeight:1.6 }}>{emp.notes}</p>
-            </div>
-          )}
-
-          {/* CAREER HISTORY — placed directly after Professional Overview /
-              Notes for clearer hierarchy (career context grouped together),
-              with its own spacing separated from Documents below. */}
-          <div style={{ marginTop:4 }}>
-            <CareerHistory personId={emp.id} personType="employee" personName={emp.name} />
-          </div>
-
-          <div style={{ marginTop:12 }}>
-            <PersonDocuments
-              personId={emp.id}
-              personType="employee"
-              personName={emp.name}
-              docs={personDocs}
-              onRefresh={onRefresh}
-              profile={profile}
-            />
-          </div>
         </div>
+
+        {/* Notes stays compact and only appears when there's content. */}
+        {emp.notes && (
+          <div className="info-card" style={{ marginTop:16 }}>
+            <div className="info-title">{tx('employees.notes','Notes')}</div>
+            <p style={{ fontSize:13, color:'var(--text2)', lineHeight:1.6 }}>{emp.notes}</p>
+          </div>
+        )}
+
+        {/* ── ROW 2 — Document Compliance / upload, full width ── */}
+        <div style={{ marginTop:16 }}>
+          <PersonDocuments
+            personId={emp.id}
+            personType="employee"
+            personName={emp.name}
+            docs={personDocs}
+            onRefresh={onRefresh}
+            profile={profile}
+          />
+        </div>
+
+        {/* ── ROW 3 — Career History, full width, supporting section ── */}
+        <div style={{ marginTop:16 }}>
+          <CareerHistory personId={emp.id} personType="employee" personName={emp.name} />
+        </div>
+
         <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
       </div>
     )
