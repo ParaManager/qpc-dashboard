@@ -15,6 +15,7 @@ import Schedule       from './pages/Schedule'
 import UserManagement from './pages/UserManagement'
 import Referees       from './pages/Referees'
 import Profile        from './pages/Profile'
+import MyProfile      from './pages/MyProfile'
 import Settings          from './pages/Settings'
 import AthleteDashboard  from './pages/AthleteDashboard'
 import CoachDashboard    from './pages/CoachDashboard'
@@ -765,19 +766,15 @@ export default function App() {
               elsewhere (athlete / combined coach / employee), instead of a
               separate summary — falls back to the generic Profile page only
               when there's no matching record (e.g. guest accounts). */}
-          {page==='profile' && isAthlete && myAthlete && (
-            <Athletes athletes={[myAthlete]} coaches={coaches} employees={employees} results={results} documents={documents} events={events} registrations={registrations} onRefresh={fetchAll} onNav={goTo} initAthleteId={myAthlete.id} navState={navState} profile={profile} />
+          {/* Unified My Profile — aggregates every role linked to the
+              logged-in person's person_id into one page, instead of
+              routing to whichever single role page happened to match.
+              Falls back to the legacy generic Profile page only when the
+              account has no person_id linked yet (pre-migration data). */}
+          {page==='profile' && profile?.person_id && (
+            <MyProfile profile={profile} athletes={athletes} coaches={coaches} employees={employees} referees={referees} onNav={goTo} />
           )}
-          {page==='profile' && isCoach && myCoachRecord && (
-            <Coaches coaches={[myCoachRecord]} athletes={athletes.filter(a => a.coach_id === myCoachRecord.id)} employees={employees} personDocs={personDocs} onRefresh={fetchAll} onNav={goTo} initCoachId={myCoachRecord.id} navState={navState} profile={profile} />
-          )}
-          {page==='profile' && !isAthlete && !isCoach && myEmployeeAsCoach && (
-            <Coaches coaches={[myEmployeeAsCoach]} athletes={athletes.filter(a => a.coach_id === myEmployeeAsCoach.id)} employees={employees} personDocs={personDocs} onRefresh={fetchAll} onNav={goTo} initCoachId={myEmployeeAsCoach.id} navState={navState} profile={profile} />
-          )}
-          {page==='profile' && !isAthlete && !isCoach && !myEmployeeAsCoach && myEmployeeRecord && (
-            <Employees employees={[myEmployeeRecord]} coaches={coaches} personDocs={personDocs} onRefresh={fetchAll} onNav={goTo} initEmployeeId={myEmployeeRecord.id} navState={navState} profile={profile} isMyProfile={true} />
-          )}
-          {page==='profile' && !(isAthlete && myAthlete) && !(isCoach && myCoachRecord) && !myEmployeeAsCoach && !myEmployeeRecord && (
+          {page==='profile' && !profile?.person_id && (
             <Profile user={user} profile={profile} athletes={athletes} coaches={coaches} employees={employees} results={results} onNav={goTo} documents={documents} personDocs={personDocs} onRefresh={fetchAll} />
           )}
           {page==='notifications' && <Notifications profile={profile} onNav={goTo} />}
