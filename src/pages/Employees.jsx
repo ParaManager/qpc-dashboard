@@ -77,6 +77,13 @@ const DESIG_AR = {
   'Store Keeper':'أمين مخزن', 'Waiter':'نادل', 'Worker':'عامل', 'Driver':'سائق',
 }
 
+function formatFriendlyDate(dateStr, ar) {
+  if (!dateStr) return null
+  const d = new Date(dateStr)
+  if (isNaN(d.getTime())) return dateStr
+  return d.toLocaleDateString(ar ? 'ar-QA' : 'en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
 const DESIG_COLORS = {
   'Coach': '#009F6B', 'Assistant Coach': '#009F6B', 'Technical Expert': '#009F6B',
   'Physiotherapist': '#EE334E', 'Doctor': '#EE334E',
@@ -1158,26 +1165,70 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
               )
             })()}
             <div className="detail-fields">
-              {[[tx('profile.employeeNum','Employee #'),emp.employee_number],[tx('profile.qssNumber','QSS #'),emp.qss_number],[tx('profile.gender','Gender'),emp.gender],[tx('profile.nationality','Nationality'),tc(emp.nationality)],[tx('profile.phone','Phone'),emp.phone],[tx('profile.email','Email'),emp.email]].map(([k,v]) => (
-                <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv" style={{ fontSize:12 }}>{v||'—'}</span></div>
+              {[
+                [tx('profile.gender','Gender'), emp.gender],
+                [tx('profile.nationality','Nationality'), tc(emp.nationality)],
+                [tx('profile.phone','Phone'), emp.phone],
+                [tx('profile.email','Email'), emp.email],
+              ].filter(([, v]) => v).map(([k,v]) => (
+                <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv" style={{ fontSize:12 }}>{v}</span></div>
               ))}
             </div>
           </div>
+
+          {/* PROFESSIONAL OVERVIEW — only shown fields that actually have a
+              value, so this card disappears entirely rather than showing a
+              mostly-blank card when little is on file. */}
+          {(() => {
+            const fields = [
+              [tx('form.designation','Designation'), emp.designation_ar && lang==='ar' ? emp.designation_ar : (DESIG_LABELS[emp.designation] || emp.designation)],
+              [tx('profile.employeeNum','Employee #'), emp.employee_number],
+              [tx('profile.qssNumber','QSS #'), emp.qss_number],
+              [lang==='ar'?'تاريخ الانضمام':'Joined', formatFriendlyDate(emp.created_at, lang==='ar')],
+              [lang==='ar'?'فترة الحالة المؤقتة':'Temporary status dates',
+                (emp.status_start || emp.status_end) && !(emp.status_end && new Date(emp.status_end) < new Date(new Date().toDateString()))
+                  ? [emp.status_start, emp.status_end].filter(Boolean).join(' → ') : null],
+            ].filter(([k, v]) => k && v)
+            if (fields.length === 0) return null
+            return (
+              <div className="info-card">
+                <div className="info-title" style={{ marginBottom:10 }}>{lang==='ar'?'نظرة عامة مهنية':'Professional overview'}</div>
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:'4px 16px' }}>
+                  {fields.map(([k,v]) => (
+                    <div key={k} className="detail-row" style={{ minWidth:0 }}>
+                      <span className="dk">{k}</span>
+                      <span className="dv" style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{v}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          })()}
+
           {emp.notes && (
             <div className="info-card">
               <div className="info-title">{tx('employees.notes','Notes')}</div>
               <p style={{ fontSize:13, color:'var(--text2)', lineHeight:1.6 }}>{emp.notes}</p>
             </div>
           )}
-          <PersonDocuments
-            personId={emp.id}
-            personType="employee"
-            personName={emp.name}
-            docs={personDocs}
-            onRefresh={onRefresh}
-            profile={profile}
-          />
-          <CareerHistory personId={emp.id} personType="employee" personName={emp.name} />
+
+          {/* CAREER HISTORY — placed directly after Professional Overview /
+              Notes for clearer hierarchy (career context grouped together),
+              with its own spacing separated from Documents below. */}
+          <div style={{ marginTop:4 }}>
+            <CareerHistory personId={emp.id} personType="employee" personName={emp.name} />
+          </div>
+
+          <div style={{ marginTop:12 }}>
+            <PersonDocuments
+              personId={emp.id}
+              personType="employee"
+              personName={emp.name}
+              docs={personDocs}
+              onRefresh={onRefresh}
+              profile={profile}
+            />
+          </div>
         </div>
         <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
       </div>
