@@ -82,10 +82,26 @@ export default function Tasks({ profile, isMainAdmin, onNav }) {
 
   async function load() {
     setLoading(true)
-    const { data, error } = await supabase.from('tasks').select('*').order('created_at', { ascending: false })
+    const { data, error } = await supabase.from('tasks').select('*').eq('archived', false).order('created_at', { ascending: false })
     if (error) { toast(error.message, 'error'); setLoading(false); return }
     setTasks(data || [])
     setLoading(false)
+  }
+
+  async function archiveTask(id) {
+    const { error } = await supabase.from('tasks').update({ archived: true }).eq('id', id)
+    if (error) { toast(error.message, 'error'); return }
+    setTasks(prev => prev.filter(t => t.id !== id))
+    toast(ar ? 'تمت الأرشفة' : 'Archived')
+  }
+
+  async function archiveAllDone() {
+    const doneIds = scoped.filter(t => t.status === 'done').map(t => t.id)
+    if (doneIds.length === 0) return
+    const { error } = await supabase.from('tasks').update({ archived: true }).in('id', doneIds)
+    if (error) { toast(error.message, 'error'); return }
+    setTasks(prev => prev.filter(t => !doneIds.includes(t.id)))
+    toast(ar ? `تمت أرشفة ${doneIds.length}` : `Archived ${doneIds.length}`)
   }
 
   async function loadEligible() {
@@ -423,10 +439,17 @@ export default function Tasks({ profile, isMainAdmin, onNav }) {
         <div className="tasks-board">
           {STATUSES.map(status => (
             <div key={status}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, paddingBottom: 8, borderBottom: `2px solid ${STATUS_META[status].color}30` }}>
-                <span style={{ width: 8, height: 8, borderRadius: '50%', background: STATUS_META[status].color, flexShrink: 0 }} />
-                <span style={{ fontSize: 13, fontWeight: 700 }}>{ar ? STATUS_META[status].ar : STATUS_META[status].en}</span>
-                <span style={{ fontSize: 11, fontWeight: 600, padding: '1px 7px', borderRadius: 20, background: 'var(--surface2)', color: 'var(--text3)' }}>{byStatus[status].length}</span>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 12, paddingBottom: 8, borderBottom: `2px solid ${STATUS_META[status].color}30` }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: STATUS_META[status].color, flexShrink: 0 }} />
+                  <span style={{ fontSize: 13, fontWeight: 700 }}>{ar ? STATUS_META[status].ar : STATUS_META[status].en}</span>
+                </div>
+                {status === 'done' && byStatus[status].length > 0 && (
+                  <button onClick={archiveAllDone}
+                    style={{ fontSize: 10.5, fontWeight: 600, padding: '3px 8px', borderRadius: 20, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text2)', cursor: 'pointer' }}>
+                    {ar ? 'أرشفة الكل' : 'Archive All Done'}
+                  </button>
+                )}
               </div>
 
               {byStatus[status].length === 0 && (
@@ -496,13 +519,19 @@ export default function Tasks({ profile, isMainAdmin, onNav }) {
                           edit modal if truly needed, but shouldn't get a one-click
                           shortcut for work that isn't theirs. */}
                       {task.assigned_to === profile?.id && (
-                        <div style={{ display: 'flex', gap: 5, marginTop: 8 }} onClick={e => e.stopPropagation()}>
+                        <div style={{ display: 'flex', gap: 5, marginTop: 8, flexWrap: 'wrap' }} onClick={e => e.stopPropagation()}>
                           {STATUSES.filter(s => s !== status).map(s => (
                             <button key={s} onClick={() => setStatus(task, s)}
                               style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 20, border: `1px solid ${STATUS_META[s].color}40`, background: STATUS_META[s].color + '10', color: STATUS_META[s].color, cursor: 'pointer' }}>
                               → {ar ? STATUS_META[s].ar : STATUS_META[s].en}
                             </button>
                           ))}
+                          {status === 'done' && (
+                            <button onClick={() => archiveTask(task.id)}
+                              style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 20, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text3)', cursor: 'pointer' }}>
+                              <i className="ti ti-archive" style={{ fontSize: 10 }} /> {ar ? 'أرشفة' : 'Archive'}
+                            </button>
+                          )}
                         </div>
                       )}
                     </div>
