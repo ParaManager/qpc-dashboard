@@ -73,6 +73,9 @@ export default function Tasks({ profile, isMainAdmin, onNav }) {
   const [loading, setLoading]   = useState(true)
   const [search, setSearch]     = useState('')
   const [viewScope, setViewScope] = useState('mine')
+  const [archivedOpen, setArchivedOpen] = useState(false)
+  const [archivedTasks, setArchivedTasks] = useState([])
+  const [archivedLoading, setArchivedLoading] = useState(false)
   const [assigneeFilter, setAssigneeFilter] = useState('all')
   const [categoryFilter, setCategoryFilter] = useState('all')
 
@@ -102,6 +105,24 @@ export default function Tasks({ profile, isMainAdmin, onNav }) {
     if (error) { toast(error.message, 'error'); return }
     setTasks(prev => prev.filter(t => !doneIds.includes(t.id)))
     toast(ar ? `تمت أرشفة ${doneIds.length}` : `Archived ${doneIds.length}`)
+  }
+
+  async function loadArchived() {
+    setArchivedLoading(true)
+    let q = supabase.from('tasks').select('*').eq('archived', true).order('updated_at', { ascending: false })
+    if (!isMainAdmin) q = q.eq('assigned_to', profile?.id)
+    const { data, error } = await q
+    if (error) { toast(error.message, 'error'); setArchivedLoading(false); return }
+    setArchivedTasks(data || [])
+    setArchivedLoading(false)
+  }
+
+  async function unarchiveTask(id) {
+    const { error } = await supabase.from('tasks').update({ archived: false }).eq('id', id)
+    if (error) { toast(error.message, 'error'); return }
+    setArchivedTasks(prev => prev.filter(t => t.id !== id))
+    toast(ar ? 'تم إلغاء الأرشفة' : 'Unarchived')
+    await load()
   }
 
   async function loadEligible() {
@@ -368,17 +389,56 @@ export default function Tasks({ profile, isMainAdmin, onNav }) {
         </button>
       </div>
 
-      {isMainAdmin && (
-        <div style={{ display: 'flex', gap: 6, background: 'var(--surface2)', borderRadius: 10, padding: 4, marginBottom: 14, width: 'fit-content' }}>
-          {[['mine', ar ? 'مهامي' : 'My Tasks'], ['all', ar ? 'كل المهام' : 'All Tasks']].map(([key, label]) => (
-            <button key={key} onClick={() => { setViewScope(key); if (key !== 'all') setAssigneeFilter('all') }}
-              style={{ padding: '6px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600,
-                background: viewScope === key ? 'var(--surface)' : 'transparent',
-                color: viewScope === key ? 'var(--text)' : 'var(--text3)',
-                boxShadow: viewScope === key ? '0 1px 3px rgba(0,0,0,.1)' : 'none' }}>
-              {label}
-            </button>
-          ))}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+        {isMainAdmin && (
+          <div style={{ display: 'flex', gap: 6, background: 'var(--surface2)', borderRadius: 10, padding: 4, width: 'fit-content' }}>
+            {[['mine', ar ? 'مهامي' : 'My Tasks'], ['all', ar ? 'كل المهام' : 'All Tasks']].map(([key, label]) => (
+              <button key={key} onClick={() => { setViewScope(key); if (key !== 'all') setAssigneeFilter('all') }}
+                style={{ padding: '6px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600,
+                  background: viewScope === key ? 'var(--surface)' : 'transparent',
+                  color: viewScope === key ? 'var(--text)' : 'var(--text3)',
+                  boxShadow: viewScope === key ? '0 1px 3px rgba(0,0,0,.1)' : 'none' }}>
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+        <button onClick={() => { setArchivedOpen(true); loadArchived() }}
+          style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 14px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text2)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+          <i className="ti ti-archive" style={{ fontSize: 13 }} /> {ar ? 'الأرشيف' : 'Archived'}
+        </button>
+      </div>
+
+      {archivedOpen && (
+        <div className="modal-overlay" onMouseDown={e => { if (e.target === e.currentTarget) setArchivedOpen(false) }}>
+          <div className="modal-box" style={{ width: 560 }}>
+            <div className="modal-header">
+              <div className="modal-title">{ar ? 'المهام المؤرشفة' : 'Archived Tasks'}</div>
+              <button className="modal-close" onClick={() => setArchivedOpen(false)}><i className="ti ti-x" /></button>
+            </div>
+            <div className="modal-body">
+              {archivedLoading ? (
+                <div style={{ padding: 20, textAlign: 'center', color: 'var(--text3)', fontSize: 13 }}>{ar ? 'جارٍ التحميل…' : 'Loading…'}</div>
+              ) : archivedTasks.length === 0 ? (
+                <div style={{ padding: 20, textAlign: 'center', color: 'var(--text3)', fontSize: 13 }}>{ar ? 'لا توجد مهام مؤرشفة' : 'No archived tasks'}</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {archivedTasks.map(task => (
+                    <div key={task.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 9 }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 12.5, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.title}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text3)' }}>{task.category || ''}</div>
+                      </div>
+                      <button onClick={() => unarchiveTask(task.id)}
+                        style={{ flexShrink: 0, fontSize: 11.5, fontWeight: 600, padding: '5px 12px', borderRadius: 20, border: '1px solid #0085C7', background: 'rgba(0,133,199,.08)', color: '#0085C7', cursor: 'pointer' }}>
+                        {ar ? 'إلغاء الأرشفة' : 'Unarchive'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
