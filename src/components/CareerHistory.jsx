@@ -15,6 +15,7 @@ export default function CareerHistory({ personId, personType, personName, readOn
   const [loading, setLoading]   = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editData, setEditData] = useState(null)
+  const [forceExpanded, setForceExpanded] = useState(false)
 
   useEffect(() => { if (personId) load() }, [personId])
 
@@ -67,6 +68,29 @@ export default function CareerHistory({ personId, personType, personName, readOn
     silver: s.silver + (e.medals_silver || 0),
     bronze: s.bronze + (e.medals_bronze || 0),
   }), { gold: 0, silver: 0, bronze: 0 })
+
+  const isEmpty = !loading && entries.length === 0
+  const collapsed = isEmpty && !forceExpanded && !showForm
+
+  if (collapsed) {
+    return (
+      <div className="info-card" style={{ marginTop: 0, padding: '12px 16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text3)' }}>
+            <i className="ti ti-timeline" />
+            {L('Career History', 'السيرة المهنية')}
+            <span style={{ fontStyle: 'italic' }}>— {L('none yet', 'لا يوجد بعد')}</span>
+          </div>
+          {!readOnly && (
+            <button className="btn" style={{ background: '#0085C7', fontSize: 12, padding: '5px 12px', flexShrink: 0 }}
+              onClick={() => { setEditData(null); setShowForm(true); setForceExpanded(true) }}>
+              <i className="ti ti-plus" /> {L('Add entry', 'إضافة')}
+            </button>
+          )}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="info-card" style={{ marginTop: 0 }}>

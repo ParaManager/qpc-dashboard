@@ -178,7 +178,7 @@ export default function AthleteCardButton({ athlete }) {
       onMouseEnter={e => { e.currentTarget.style.background='#fef2f2' }}
       onMouseLeave={e => { e.currentTarget.style.background='' }}>
       <i className="ti ti-id-badge" style={{ fontSize:14 }} />
-      <span>{ar ? 'إنشاء البطاقة' : 'Generate Card'}</span>
+      <span>{ar ? 'بطاقة QSS' : 'QSS Card'}</span>
     </button>
   )
 }
