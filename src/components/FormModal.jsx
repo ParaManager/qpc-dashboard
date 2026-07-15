@@ -246,8 +246,8 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
   }))
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-box" onClick={e => e.stopPropagation()}>
+    <div className="modal-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="modal-box">
         <div className="modal-header">
           <div className="modal-title">{isEdit ? (ar?'تعديل':'Edit') : (ar?'إضافة':'New')} {typeLabel[type]}</div>
           <button className="modal-close" onClick={onClose}><i className="ti ti-x" /></button>
