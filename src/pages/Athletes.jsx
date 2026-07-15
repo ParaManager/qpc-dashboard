@@ -827,6 +827,43 @@ function exportExcel(athletes, coaches, documents, visibleCols, allCols, lang) {
   XLSX.writeFile(wb, `QPC_${ar?'الرياضيون':'Athletes'}_${date}.xlsx`)
 }
 
+async function downloadAllDocuments(athleteName, myDocs, setDownloadingAll, ar, canSeeMissionPassport) {
+  if (!myDocs.length) return
+  setDownloadingAll(true)
+  try {
+    const zip = new JSZip()
+    const usedNames = {}
+    for (const doc of myDocs) {
+      if (doc.type === 'Mission Passport' && !canSeeMissionPassport) continue
+      try {
+        const res = await fetch(doc.file_url)
+        const blob = await res.blob()
+        const ext = (doc.name.split('.').pop() || 'bin')
+        const folder = (doc.type || 'Other').replace(/[\\/:*?"<>|]/g, '_')
+        const base = `${athleteName.replace(/\s+/g,'_')}_${doc.type.replace(/\s+/g,'_')}`
+        const key = `${folder}/${base}`
+        usedNames[key] = (usedNames[key] || 0) + 1
+        const suffix = usedNames[key] > 1 ? `_${usedNames[key]}` : ''
+        zip.file(`${folder}/${base}${suffix}.${ext}`, blob)
+      } catch {
+        // skip this file, continue with the rest
+      }
+    }
+    const blob = await zip.generateAsync({ type: 'blob' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `${athleteName.replace(/\s+/g,'_')}_Documents.zip`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(a.href)
+  } catch (e) {
+    toast(ar ? 'فشل تنزيل الوثائق' : 'Failed to download documents', 'error')
+  } finally {
+    setDownloadingAll(false)
+  }
+}
+
 async function downloadDoc(url, athleteName, docType, originalName) {
   try {
     const res  = await fetch(url)
@@ -843,6 +880,13 @@ async function downloadDoc(url, athleteName, docType, originalName) {
   } catch (e) {
     window.open(url, '_blank')
   }
+}
+
+function formatFriendlyDate(dateStr, ar) {
+  if (!dateStr) return null
+  const d = new Date(dateStr)
+  if (isNaN(d.getTime())) return dateStr
+  return d.toLocaleDateString(ar ? 'ar-QA' : 'en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
 function calcAge(dob) {
@@ -1012,11 +1056,16 @@ export default function Athletes({ athletes, coaches, employees, results, docume
   const [selectedIds, setSelectedIds] = useState(new Set())
   const [bulkExportOpen, setBulkExportOpen] = useState(false)
   const [exportSelectMode, setExportSelectMode] = useState(false)
-  const [docType, setDocType]       = useState('Original Passport')
+  const [docType, setDocType]       = useState('')
+  const [documentsExpanded, setDocumentsExpanded] = useState(true)
+  const [competitionExpanded, setCompetitionExpanded] = useState(true)
+  const [careerExpanded, setCareerExpanded] = useState(true)
+  const [downloadingAll, setDownloadingAll] = useState(false)
   const [docDropOpen, setDocDropOpen] = useState(false)
   const [docConfirm, setDocConfirm] = useState(null)
   const [notes, setNotes]           = useState('')
   const [savingNotes, setSavingNotes] = useState(false)
+  const [notesSavedAt, setNotesSavedAt] = useState(null)
   const [notesChanged, setNotesChanged] = useState(false)
   const [editMode, setEditMode]     = useState(false)
   const [edits, setEdits]           = useState({})
@@ -1402,6 +1451,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
 
   async function handleDocUpload(athleteId, file) {
     if (!file) return
+    if (!docType) { toast('Select a document type first', 'error'); return }
     if (file.size > 20 * 1024 * 1024) { toast('File must be under 20MB', 'error'); return }
     setDocUploading(true)
     try {
@@ -1422,7 +1472,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
       }
       await onRefresh()
     } catch (err) { toast(err.message || 'Upload failed', 'error') }
-    finally { setDocUploading(false); if (docInput.current) docInput.current.value = '' }
+    finally { setDocUploading(false); setDocType(''); if (docInput.current) docInput.current.value = '' }
   }
 
   async function handleDocDelete(doc) {
@@ -1441,7 +1491,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
     setSavingNotes(true)
     const { error } = await supabase.from('athletes').update({ notes }).eq('id', athleteId)
     if (error) { toast(error.message, 'error') }
-    else { toast('Notes saved'); setNotesChanged(false); await onRefresh() }
+    else { toast('Notes saved'); setNotesChanged(false); setNotesSavedAt(Date.now()); await onRefresh() }
     setSavingNotes(false)
   }
 
@@ -1762,8 +1812,14 @@ ${myDocs.length > 0 ? `<div class="section">
               )}
 
               <div className="detail-fields">
-                {[[tx('profile.dateOfBirth','Date of birth'),a.dob],[tx('profile.gender','Gender'), a.gender ? (lang==='ar' ? (a.gender==='Male'?'ذكر':'أنثى') : a.gender) : null],[tx('profile.nationality','Nationality'),tc(a.nationality)],[tx('profile.phone','Phone'),a.phone],[tx('profile.email','Email'),a.email],[tx('athletes.joinedQPC','Joined QPC'),a.join_date]].map(([k,v]) => (
-                  <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv">{v||'—'}</span></div>
+                {[
+                  [tx('profile.dateOfBirth','Date of birth'), formatFriendlyDate(a.dob, lang==='ar')],
+                  [tx('profile.gender','Gender'), a.gender ? (lang==='ar' ? (a.gender==='Male'?'ذكر':'أنثى') : a.gender) : null],
+                  [tx('profile.nationality','Nationality'), tc(a.nationality)],
+                  [tx('profile.phone','Phone'), a.phone],
+                  [tx('profile.email','Email'), a.email],
+                ].filter(([, v]) => v).map(([k,v]) => (
+                  <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv">{v}</span></div>
                 ))}
               </div>
             </div>
@@ -1792,13 +1848,76 @@ ${myDocs.length > 0 ? `<div class="section">
           </div>
 
           <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
-            {/* SPORT */}
-            <div className="info-card">
-              <div className="info-title">{lang==='ar'?'الرياضة والتصنيف':'Sport & classification'}</div>
-              {[[tx('form.sport','Sport'),a.sport ? sportLabel(a.sport, a.sport_category, lang==='ar') : ''],[tx('form.classification','Classification'),a.classification],[tx('form.disability','Disability type'), tDis(a.disability)],[tx('form.club','Club'),a.club],[lang==='ar'?'الوظيفة':'Designation', {'Player':'لاعب','Female Player':'لاعبة','Coach':'مدرب','Female Coach':'مدربة','Referee':'حكم','Admin Staff':'جهاز إداري','Technical Staff':'جهاز في','Medical Staff':'جهاز طبي'}[a.designation]||a.designation],[tx('form.residencyStatus','Residency status'),a.residency_status]].map(([k,v]) => (
-                <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv">{v||'—'}</span></div>
-              ))}
-            </div>
+            {/* DOCUMENT STATUS */}
+            {(() => {
+              const ds = athleteDocStatus(a.id, documents)
+              const total = REQUIRED_DOC_TYPES.length
+              const uploaded = total - ds.missing
+              const pct = total > 0 ? Math.round((uploaded / total) * 100) : 100
+              return (
+                <div className="info-card">
+                  <div className="info-title" style={{ marginBottom:10 }}>{lang==='ar'?'حالة الوثائق':'Document status'}</div>
+                  <div style={{ display:'flex', alignItems:'center', gap:14, marginBottom: ds.missing > 0 ? 10 : 0 }}>
+                    <div style={{ fontSize:22, fontWeight:700, color: pct === 100 ? '#009F6B' : pct >= 50 ? '#f59e0b' : '#dc2626' }}>{pct}%</div>
+                    <div style={{ flex:1 }}>
+                      <div style={{ height:8, borderRadius:6, background:'var(--surface2)', overflow:'hidden' }}>
+                        <div style={{ height:'100%', width:`${pct}%`, background: pct === 100 ? '#009F6B' : pct >= 50 ? '#f59e0b' : '#dc2626', transition:'width .2s' }} />
+                      </div>
+                      <div style={{ fontSize:11, color:'var(--text3)', marginTop:4 }}>
+                        {uploaded}/{total} {lang==='ar' ? 'مطلوب مرفوع' : 'required uploaded'}
+                      </div>
+                    </div>
+                  </div>
+                  {ds.missing > 0 && (
+                    <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+                      {ds.missingTypes.map(t => (
+                        <span key={t} className="badge" style={{ fontSize:10, background:'#fef2f2', color:'#dc2626' }}>
+                          {lang==='ar' ? (DOC_TYPES_AR[t]||t) : t}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
+
+            {/* ATHLETE OVERVIEW */}
+            {(() => {
+              const DESIG_AR = {'Player':'لاعب','Female Player':'لاعبة','Coach':'مدرب','Female Coach':'مدربة','Referee':'حكم','Admin Staff':'جهاز إداري','Technical Staff':'جهاز فني','Medical Staff':'جهاز طبي'}
+              const statusDates = (a.status_start || a.status_end) && !(a.status_end && new Date(a.status_end) < new Date(new Date().toDateString()))
+                ? [a.status_start, a.status_end].filter(Boolean).join(' → ') : null
+              const fields = [
+                [lang==='ar'?'فئة الرياضة':'Sport category', a.sport_category ? (lang==='ar' ? (SPORT_CATEGORY_NAMES_AR[a.sport_category]||a.sport_category) : a.sport_category) : null],
+                [tx('form.sport','Sport'), a.sport ? sportLabel(a.sport, a.sport_category, lang==='ar') : null],
+                [tx('form.classification','Classification'), a.classification],
+                [tx('form.disability','Disability type'), tDis(a.disability)],
+                [lang==='ar'?'الإعاقة الإحصائية':'Statistics disability', tStatDis(a.statistics_disability)],
+                [tx('athletes.medicalStatus','Medical Status'), a.medical_status],
+                [tx('athletes.careerProfile','Career Profile #'), a.career_profile],
+                [tx('form.club','Club'), a.club],
+                [lang==='ar'?'الوظيفة':'Designation', a.designation ? (lang==='ar' ? (DESIG_AR[a.designation]||a.designation) : a.designation) : null],
+                [tx('form.residencyStatus','Residency status'), a.residency_status],
+                [tx('form.qssNumber','QSS number'), a.qss_number],
+                [coach ? (lang==='ar'?'المدرب':'Coach') : null, coach ? (lang==='ar'&&coach.name_ar?coach.name_ar:coach.name) : null],
+                [tx('athletes.joinedQPC','Joined QPC'), formatFriendlyDate(a.join_date, lang==='ar')],
+                [lang==='ar'?'فترة الحالة المؤقتة':'Temporary status dates', statusDates],
+              ].filter(([k, v]) => k && v)
+
+              if (fields.length === 0) return null
+              return (
+                <div className="info-card">
+                  <div className="info-title" style={{ marginBottom:10 }}>{lang==='ar'?'نظرة عامة على الرياضي':'Athlete overview'}</div>
+                  <div style={{ display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:'4px 16px' }}>
+                    {fields.map(([k,v]) => (
+                      <div key={k} className="detail-row" style={{ minWidth:0 }}>
+                        <span className="dk">{k}</span>
+                        <span className="dv" style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{v}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            })()}
 
             {/* COACH */}
             <div className="info-card">
@@ -1812,36 +1931,46 @@ ${myDocs.length > 0 ? `<div class="section">
               <AthleteCoachHistory athleteId={String(a.id)} coaches={coaches} employees={employees} lang={lang} />
             </div>
 
-            {/* PASSPORT & ID */}
-            {(a.passport_number || a.id_number) && (
+            {/* PASSPORT & ID — gated to admin visibility; blank expiry rows
+                are hidden entirely, but an expired date is always shown and
+                clearly marked. */}
+            {canEdit(profile) && (a.passport_number || a.id_number) && (
               <div className="info-card">
                 <div className="info-title">{tx('profile.passportID','Passport & ID')}</div>
-                {a.passport_number && (
-                  <>
-                    {[[tx('form.passportNumber','Passport number'), a.passport_number], [tx('form.passportExpiry','Passport expiry'), a.passport_expiry]].map(([k,v]) => (
-                      <div key={k} className="detail-row">
-                        <span className="dk">{k}</span>
-                        <span className="dv" style={{ color: v && new Date(v) < new Date() ? '#dc2626' : 'inherit' }}>
-                          {v || '—'}
-                          {v && new Date(v) < new Date() && <span style={{ marginLeft:6, fontSize:10, color:'#dc2626' }}>{lang==='ar'?'منتهية':'EXPIRED'}</span>}
-                        </span>
-                      </div>
-                    ))}
-                  </>
-                )}
-                {a.id_number && (
-                  <>
-                    {[[lang==='ar'?'الرقم الشخصي':'Qatar ID number', a.id_number], [lang==='ar'?'انتهاء الهوية':'ID expiry', a.id_expiry]].map(([k,v]) => (
-                      <div key={k} className="detail-row">
-                        <span className="dk">{k}</span>
-                        <span className="dv" style={{ color: v && new Date(v) < new Date() ? '#dc2626' : 'inherit' }}>
-                          {v || '—'}
-                          {v && new Date(v) < new Date() && <span style={{ marginLeft:6, fontSize:10, color:'#dc2626' }}>{lang==='ar'?'منتهية':'EXPIRED'}</span>}
-                        </span>
-                      </div>
-                    ))}
-                  </>
-                )}
+                {a.passport_number && (() => {
+                  const expired = a.passport_expiry && new Date(a.passport_expiry) < new Date()
+                  return (
+                    <>
+                      <div className="detail-row"><span className="dk">{tx('form.passportNumber','Passport number')}</span><span className="dv">{a.passport_number}</span></div>
+                      {a.passport_expiry && (
+                        <div className="detail-row">
+                          <span className="dk">{tx('form.passportExpiry','Passport expiry')}</span>
+                          <span className="dv" style={{ color: expired ? '#dc2626' : 'inherit' }}>
+                            {formatFriendlyDate(a.passport_expiry, lang==='ar')}
+                            {expired && <span style={{ marginLeft:6, fontSize:10, color:'#dc2626', fontWeight:600 }}>{lang==='ar'?'منتهية':'EXPIRED'}</span>}
+                          </span>
+                        </div>
+                      )}
+                    </>
+                  )
+                })()}
+                {a.id_number && (() => {
+                  const expired = a.id_expiry && new Date(a.id_expiry) < new Date()
+                  return (
+                    <>
+                      <div className="detail-row"><span className="dk">{lang==='ar'?'الرقم الشخصي':'Qatar ID number'}</span><span className="dv">{a.id_number}</span></div>
+                      {a.id_expiry && (
+                        <div className="detail-row">
+                          <span className="dk">{lang==='ar'?'انتهاء الهوية':'ID expiry'}</span>
+                          <span className="dv" style={{ color: expired ? '#dc2626' : 'inherit' }}>
+                            {formatFriendlyDate(a.id_expiry, lang==='ar')}
+                            {expired && <span style={{ marginLeft:6, fontSize:10, color:'#dc2626', fontWeight:600 }}>{lang==='ar'?'منتهية':'EXPIRED'}</span>}
+                          </span>
+                        </div>
+                      )}
+                    </>
+                  )
+                })()}
               </div>
             )}
 
@@ -1862,15 +1991,28 @@ ${myDocs.length > 0 ? `<div class="section">
               </div>
             )}
 
-            {/* COMPETITION HISTORY */}
-            <div className="info-card">
-              <div className="info-title" style={{ marginBottom:14 }}>
-                {lang==='ar'?'سجل المنافسات':'Competition history'}
-                <span style={{ marginLeft:8, fontSize:11, fontWeight:400, color:'var(--text3)', textTransform:'none', letterSpacing:0 }}>{myEvents.length}</span>
+            {/* COMPETITION HISTORY — collapses to a compact single line
+                when empty instead of a large empty card. */}
+            {myEvents.length === 0 ? (
+              <div className="info-card" style={{ padding:'12px 16px' }}>
+                <div style={{ display:'flex', alignItems:'center', gap:8, fontSize:13, color:'var(--text3)' }}>
+                  <i className="ti ti-trophy" />
+                  {lang==='ar'?'سجل المنافسات':'Competition history'}
+                  <span style={{ fontStyle:'italic' }}>— {lang==='ar'?'لا يوجد تسجيل بعد':'not registered yet'}</span>
+                </div>
               </div>
-              {myEvents.length === 0
-                ? <div className="empty" style={{ padding:'16px 0' }}>{lang==='ar'?'لم يتم التسجيل في أي فعاليات بعد.':'Not registered in any events yet.'}</div>
-                : <div style={{ position:'relative' }}>
+            ) : (
+            <div className="info-card">
+              <div className="info-title" style={{ marginBottom: competitionExpanded ? 14 : 0, cursor:'pointer', display:'flex', justifyContent:'space-between', alignItems:'center' }}
+                onClick={() => setCompetitionExpanded(v => !v)}>
+                <span>
+                  {lang==='ar'?'سجل المنافسات':'Competition history'}
+                  <span style={{ marginLeft:8, fontSize:11, fontWeight:400, color:'var(--text3)', textTransform:'none', letterSpacing:0 }}>{myEvents.length}</span>
+                </span>
+                <i className={`ti ti-chevron-${competitionExpanded ? 'up' : 'down'}`} style={{ fontSize:16, color:'var(--text3)' }} />
+              </div>
+              {competitionExpanded && (
+                <div style={{ position:'relative' }}>
                     <div style={{ position:'absolute', left:15, top:6, bottom:6, width:2, background:'var(--border)', borderRadius:2 }} />
                     {myEvents.map(ev => {
                       const evResults = (results||[]).filter(r => r.athlete_id === a.id && r.event_name === ev.name)
@@ -1900,8 +2042,9 @@ ${myDocs.length > 0 ? `<div class="section">
                       )
                     })}
                   </div>
-              }
+              )}
             </div>
+            )}
 
             {/* NOTES */}
             <div className="info-card">
@@ -1910,11 +2053,17 @@ ${myDocs.length > 0 ? `<div class="section">
                   {lang==='ar'?'ملاحظات':'Notes'}
                   <span style={{ marginLeft:6, fontSize:10, fontWeight:400, color:'var(--text3)', textTransform:'none', letterSpacing:0 }}>— {lang==='ar'?'خاص، يظهر للمسؤولين فقط':'private, visible to admins only'}</span>
                 </div>
-                {notesChanged && canEdit(profile) && (
-                  <button onClick={() => saveNotes(a.id)} disabled={savingNotes}
-                    style={{ padding:'4px 12px', background:'#0085C7', color:'#fff', border:'none', borderRadius:7, fontSize:12, fontWeight:500, cursor:'pointer', display:'flex', alignItems:'center', gap:5, fontFamily:'DM Sans, sans-serif' }}>
-                    {savingNotes ? (lang==='ar'?'جارٍ الحفظ…':'Saving…') : <><i className="ti ti-device-floppy" style={{ fontSize:13 }} /> {lang==='ar'?'حفظ':'Save'}</>}
-                  </button>
+                {canEdit(profile) && (
+                  notesChanged ? (
+                    <button onClick={() => saveNotes(a.id)} disabled={savingNotes}
+                      style={{ padding:'4px 12px', background:'#0085C7', color:'#fff', border:'none', borderRadius:7, fontSize:12, fontWeight:500, cursor:'pointer', display:'flex', alignItems:'center', gap:5, fontFamily:'DM Sans, sans-serif' }}>
+                      {savingNotes ? (lang==='ar'?'جارٍ الحفظ…':'Saving…') : <><i className="ti ti-device-floppy" style={{ fontSize:13 }} /> {lang==='ar'?'حفظ':'Save'}</>}
+                    </button>
+                  ) : notesSavedAt ? (
+                    <span style={{ fontSize:11, color:'#009F6B', display:'flex', alignItems:'center', gap:4 }}>
+                      <i className="ti ti-circle-check" style={{ fontSize:13 }} /> {lang==='ar'?'تم الحفظ':'Saved'}
+                    </span>
+                  ) : null
                 )}
               </div>
               {canEdit(profile)
@@ -1937,15 +2086,26 @@ ${myDocs.length > 0 ? `<div class="section">
 
             {/* DOCUMENTS */}
             <div className="info-card" id="athlete-documents-section">
-              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: documentsExpanded ? 14 : 0, cursor:'pointer' }}
+                onClick={() => setDocumentsExpanded(v => !v)}>
                 <div className="info-title" style={{ margin:0 }}>{lang==='ar'?'الوثائق':'Documents'} <span style={{ marginLeft:8, fontSize:11, fontWeight:400, color:'var(--text3)', textTransform:'none', letterSpacing:0 }}>{myDocs.length} {lang==='ar'?'ملف':`file${myDocs.length!==1?'s':''}`}</span></div>
+                <div style={{ display:'flex', alignItems:'center', gap:10 }} onClick={e => e.stopPropagation()}>
+                  <button onClick={() => downloadAllDocuments(a.name, myDocs, setDownloadingAll, lang==='ar', canEdit(profile))}
+                    disabled={myDocs.length === 0 || downloadingAll}
+                    style={{ display:'flex', alignItems:'center', gap:5, padding:'5px 10px', borderRadius:7, border:'1px solid var(--border)', background: myDocs.length===0 ? 'var(--surface2)' : 'var(--surface)', color: myDocs.length===0 ? 'var(--text3)' : 'var(--text2)', fontSize:11.5, cursor: myDocs.length===0||downloadingAll ? 'default' : 'pointer', opacity: downloadingAll ? .7 : 1 }}>
+                    {downloadingAll
+                      ? <><div style={{ width:11, height:11, border:'2px solid var(--text3)', borderTopColor:'transparent', borderRadius:'50%', animation:'spin .7s linear infinite' }} />{lang==='ar'?'جارٍ التحميل…':'Preparing…'}</>
+                      : <><i className="ti ti-download" style={{ fontSize:13 }} />{lang==='ar'?'تحميل الكل':'Download all'}</>}
+                  </button>
+                  <i className={`ti ti-chevron-${documentsExpanded ? 'up' : 'down'}`} style={{ fontSize:16, color:'var(--text3)' }} />
+                </div>
               </div>
-              {canEdit(profile) && (
+              {documentsExpanded && canEdit(profile) && (
                 <div style={{ display:'flex', gap:8, marginBottom:16, padding:'10px 12px', background:'var(--surface2)', borderRadius:10, alignItems:'center', direction:'ltr' }}>
                   <div style={{ flex:1, position:'relative' }}>
                     <button onClick={() => setDocDropOpen(v=>!v)}
-                      style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'7px 10px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface)', fontSize:12, color:'var(--text)', cursor:'pointer', fontFamily:'DM Sans, sans-serif', direction: lang==='ar'?'rtl':'ltr' }}>
-                      <span>{lang==='ar'?(DOC_TYPES_AR[docType]||docType):docType}</span>
+                      style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'7px 10px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface)', fontSize:12, color: docType ? 'var(--text)' : 'var(--text3)', cursor:'pointer', fontFamily:'DM Sans, sans-serif', direction: lang==='ar'?'rtl':'ltr' }}>
+                      <span>{docType ? (lang==='ar'?(DOC_TYPES_AR[docType]||docType):docType) : (lang==='ar'?'اختر نوع الوثيقة':'Select document type')}</span>
                       <i className="ti ti-chevron-down" style={{ fontSize:12, color:'var(--text3)' }} />
                     </button>
                     {docDropOpen && (
@@ -1977,14 +2137,14 @@ ${myDocs.length > 0 ? `<div class="section">
                       </div>
                     )}
                   </div>
-                  <button onClick={() => docInput.current.click()} disabled={docUploading}
-                    style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', background:'#0085C7', color:'#fff', border:'none', borderRadius:8, fontSize:12, fontWeight:500, cursor:'pointer', flexShrink:0, fontFamily:'DM Sans, sans-serif' }}>
+                  <button onClick={() => docInput.current.click()} disabled={docUploading || !docType}
+                    style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', background: !docType ? 'var(--text3)' : '#0085C7', color:'#fff', border:'none', borderRadius:8, fontSize:12, fontWeight:500, cursor: (docUploading || !docType) ? 'default' : 'pointer', flexShrink:0, fontFamily:'DM Sans, sans-serif', opacity: !docType ? .6 : 1 }}>
                     {docUploading ? <><div style={{ width:12, height:12, border:'2px solid rgba(255,255,255,.4)', borderTopColor:'#fff', borderRadius:'50%', animation:'spin .7s linear infinite' }} />{lang==='ar'?'جارٍ الرفع…':'Uploading…'}</> : <><i className="ti ti-upload" style={{ fontSize:14 }} />{lang==='ar'?'رفع':'Upload'}</>}
                   </button>
                   <input ref={docInput} type="file" style={{ display:'none' }} accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={e => { if(e.target.files[0]) handleDocUpload(a.id, e.target.files[0]) }} />
                 </div>
               )}
-              {myDocs.length === 0
+              {!documentsExpanded ? null : myDocs.length === 0
                 ? <div className="empty" style={{ padding:'20px 0' }}>{lang==='ar'?'لم يتم رفع وثائق بعد.':'No documents uploaded yet.'}</div>
                 : DOC_TYPES.map(type => {
                     const typeDocs = docsByType[type]
