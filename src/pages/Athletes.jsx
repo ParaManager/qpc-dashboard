@@ -1376,16 +1376,27 @@ export default function Athletes({ athletes, coaches, employees, results, docume
     }
     const DATE_STATUSES_SCOPE = ['On Leave', 'In Competition', 'In Training Camp']
     const isDated = DATE_STATUSES_SCOPE.includes(formData.status)
-    const statusFields = {
-      status: formData.status,
-      status_start: isDated ? (formData.statusStart||null) : null,
-      status_end: isDated ? (formData.statusEnd||null) : null,
+    // Athlete-only statuses (Injured, Under Medical Review, Suspended,
+    // Retired) don't exist as options in the Coach/Employee status dropdown
+    // — writing one of these raw into those tables previously left a value
+    // the target role's own edit modal couldn't display (the <select> has
+    // no matching <option>, so browsers silently fall back to showing the
+    // first option, "Active", even though the stored value was genuinely
+    // something else). Map anything not valid for Coach/Employee down to
+    // the closest real equivalent instead of copying the raw string.
+    const NON_ATHLETE_VALID_STATUSES = ['Active', 'On Leave', 'In Competition', 'In Training Camp', 'Inactive']
+    const sanitizedStatus = NON_ATHLETE_VALID_STATUSES.includes(formData.status) ? formData.status : 'Inactive'
+    const sanitizedIsDated = DATE_STATUSES_SCOPE.includes(sanitizedStatus)
+    const statusFieldsForOtherRoles = {
+      status: sanitizedStatus,
+      status_start: sanitizedIsDated ? (formData.statusStart||null) : null,
+      status_end: sanitizedIsDated ? (formData.statusEnd||null) : null,
     }
     for (const type of selectedTypes) {
       if (type === 'athlete' || type === 'referee') continue
       const role = roles.find(r => r.type === type)
       if (!role) continue
-      await supabase.from(type === 'coach' ? 'coaches' : 'employees').update(statusFields).eq('id', role.id)
+      await supabase.from(type === 'coach' ? 'coaches' : 'employees').update(statusFieldsForOtherRoles).eq('id', role.id)
     }
     setPendingStatusSave(null)
     await onRefresh()
