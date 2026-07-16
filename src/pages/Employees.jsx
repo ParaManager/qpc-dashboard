@@ -119,7 +119,7 @@ function exportEmployeesPDF(emp, lang, coaches) {
   }
   const color = DESIG_COLORS[emp.designation] || '#9aa3b2'
   const DESIG_AR_MAP = {'Coach':'مدرب','Assistant Coach':'مدرب مساعد','Technical Expert':'خبير تقني','Physiotherapist':'معالج فيزيائي','Doctor':'طبيب','Secretary General':'الأمين العام','Executive Manager':'مدير تنفيذي','Administration Secretary':'سكرتير إداري','Secretary Assistant':'مساعد سكرتير','Administrative National Team':'إداري الفريق الوطني','Administrative Youth Team':'إداري فريق الشباب','Administrative Center & Development':'إداري المركز والتطوير','Accountant':'محاسب','Public Relation Officer':'مسؤول علاقات عامة','Receptionist':'موظف استقبال','Board Member':'عضو مجلس إدارة','Official':'مسؤول','Delegate':'مندوب','Employee':'موظف','Store Keeper':'أمين مخزن','Waiter':'نادل','Worker':'عامل','Driver':'سائق'}
-  const STATUS_AR = {'Active':'نشط','Inactive':'غير نشط','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي'}
+  const STATUS_AR = {'Active':'نشط','Inactive':'غير نشط','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي','Retired':'متقاعد'}
   const COUNTRY_AR = {'Qatar':'قطر','Egypt':'مصر','Algeria':'الجزائر','Jordan':'الأردن','Tunisia':'تونس','Morocco':'المغرب','Saudi Arabia':'المملكة العربية السعودية','Somalia':'الصومال','Ireland':'أيرلندا','Spain':'إسبانيا','France':'فرنسا','UK':'المملكة المتحدة','USA':'الولايات المتحدة','Sudan':'السودان','Libya':'ليبيا','Pakistan':'باكستان','India':'الهند'}
 
   const html = `<!DOCTYPE html>
@@ -678,7 +678,7 @@ function exportIDCard(emp) {
 
 function exportEmployeesExcel(list, lang, coaches) {
   const ar = lang === 'ar'
-  const STATUS_AR = {'Active':'نشط','Inactive':'غير نشط','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي'}
+  const STATUS_AR = {'Active':'نشط','Inactive':'غير نشط','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي','Retired':'متقاعد'}
   const DESIG_AR_MAP = {'Coach':'مدرب','Assistant Coach':'مدرب مساعد','Technical Expert':'خبير تقني','Physiotherapist':'معالج فيزيائي','Doctor':'طبيب','Secretary General':'الأمين العام','Executive Manager':'مدير تنفيذي','Administration Secretary':'سكرتير إداري','Secretary Assistant':'مساعد سكرتير','Administrative National Team':'إداري الفريق الوطني','Administrative Youth Team':'إداري فريق الشباب','Administrative Center & Development':'إداري المركز والتطوير','Accountant':'محاسب','Public Relation Officer':'مسؤول علاقات عامة','Receptionist':'موظف استقبال','Board Member':'عضو مجلس إدارة','Official':'مسؤول','Delegate':'مندوب','Employee':'موظف','Store Keeper':'أمين مخزن','Waiter':'نادل','Worker':'عامل','Driver':'سائق'}
   const COUNTRY_MAP = {'qatar':'قطر','egypt':'مصر','algeria':'الجزائر','morocco':'المغرب','jordan':'الأردن','saudi arabia':'المملكة العربية السعودية','uae':'الإمارات','kuwait':'الكويت','bahrain':'البحرين','oman':'عُمان','iraq':'العراق','syria':'سوريا','lebanon':'لبنان','yemen':'اليمن','somalia':'الصومال','sudan':'السودان','libya':'ليبيا','tunisia':'تونس','pakistan':'باكستان','india':'الهند','iran':'إيران','turkey':'تركيا','ireland':'أيرلندا','france':'فرنسا','spain':'إسبانيا','germany':'ألمانيا','uk':'المملكة المتحدة','usa':'الولايات المتحدة'}
   const tc = n => n ? (ar ? (COUNTRY_MAP[n.toLowerCase().trim()]||n) : n) : ''
@@ -773,6 +773,7 @@ function EmpModal({ data, isEdit, onClose, onSave, customDesignations = [], onDe
     { value:'In Competition',    label: ar?'في منافسة':'In Competition' },
     { value:'In Training Camp',  label: ar?'في معسكر تدريبي':'In Training Camp' },
     { value:'Inactive',          label: ar?'غير نشط':'Inactive' },
+    { value:'Retired',           label: ar?'متقاعد':'Retired' },
   ]
   // Rule 4: clear the temporary dates in form state as soon as the status
   // is changed away from a dated one, so stale values can't linger even
@@ -973,7 +974,7 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
   }
   const COL_FILTER_LABELS = {
     gender: { 'All':tx('filters.all','All'), 'Male':tx('form.male','Male'), 'Female':tx('form.female','Female') },
-    status: { 'All':tx('filters.all','All'), 'Active':tx('status.active','Active'), 'On Leave':tx('status.onLeave','On Leave'), 'In Competition': lang==='ar' ? 'في منافسة' : 'In Competition', 'In Training Camp': lang==='ar' ? 'في معسكر تدريبي' : 'In Training Camp', 'Inactive':tx('status.inactive','Inactive') },
+    status: { 'All':tx('filters.all','All'), 'Active':tx('status.active','Active'), 'On Leave':tx('status.onLeave','On Leave'), 'In Competition': lang==='ar' ? 'في منافسة' : 'In Competition', 'In Training Camp': lang==='ar' ? 'في معسكر تدريبي' : 'In Training Camp', 'Inactive':tx('status.inactive','Inactive'), 'Retired': lang==='ar' ? 'متقاعد' : 'Retired' },
   }
 
   let list = employees.filter(e =>

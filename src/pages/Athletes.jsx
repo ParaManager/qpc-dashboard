@@ -1375,17 +1375,13 @@ export default function Athletes({ athletes, coaches, employees, results, docume
       await commitSaveAthlete(formData)
     }
     const DATE_STATUSES_SCOPE = ['On Leave', 'In Competition', 'In Training Camp']
-    const isDated = DATE_STATUSES_SCOPE.includes(formData.status)
-    // Athlete-only statuses (Injured, Under Medical Review, Suspended,
-    // Retired) don't exist as options in the Coach/Employee status dropdown
-    // — writing one of these raw into those tables previously left a value
-    // the target role's own edit modal couldn't display (the <select> has
-    // no matching <option>, so browsers silently fall back to showing the
-    // first option, "Active", even though the stored value was genuinely
-    // something else). Map anything not valid for Coach/Employee down to
-    // the closest real equivalent instead of copying the raw string.
-    const NON_ATHLETE_VALID_STATUSES = ['Active', 'On Leave', 'In Competition', 'In Training Camp', 'Inactive']
-    const sanitizedStatus = NON_ATHLETE_VALID_STATUSES.includes(formData.status) ? formData.status : 'Inactive'
+    // Retired is now a valid, shared status across Athlete, Employee, and
+    // Coach — it must pass through unchanged. Only the genuinely
+    // athlete-specific statuses (Injured, Under Medical Review, Suspended),
+    // which have no equivalent concept for Coach/Employee, map down to
+    // Inactive when cross-applied.
+    const ATHLETE_ONLY_NO_EQUIVALENT = ['Injured', 'Under Medical Review', 'Suspended']
+    const sanitizedStatus = ATHLETE_ONLY_NO_EQUIVALENT.includes(formData.status) ? 'Inactive' : formData.status
     const sanitizedIsDated = DATE_STATUSES_SCOPE.includes(sanitizedStatus)
     const statusFieldsForOtherRoles = {
       status: sanitizedStatus,
