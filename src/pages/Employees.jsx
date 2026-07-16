@@ -1312,6 +1312,15 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
       {(addModal || editForm) && (
         <EmpModal data={editForm||{}} isEdit={!!editForm} onClose={() => { setAddModal(false); setEditForm(null) }} onSave={handleSave} customDesignations={customDesignations} onDesignationAdded={d => setCustomDesignations(p => [...p, d])} />
       )}
+      {pendingStatusSave && (
+        <StatusScopeModal
+          roles={pendingStatusSave.roles}
+          currentRoleType="employee"
+          lang={lang}
+          onConfirm={(types) => applyStatusToRoles(types, pendingStatusSave)}
+          onCancel={() => setPendingStatusSave(null)}
+        />
+      )}
       <div className="page-header">
         <div><div className="page-title">{tx('pages.employees','Employees')}</div><div className="page-sub">{list.length} {tx('employees.ofEmployees','of')} {employees.length} {tx('pages.employees','employees')}</div></div>
         <div style={{ display:'flex', gap:8 }}>

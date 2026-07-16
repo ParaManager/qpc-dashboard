@@ -1,7 +1,54 @@
+import { useState, useEffect } from 'react'
 import { useLang } from '../lib/LangContext.jsx'
 import { usePersonRoles, RoleBadges } from '../components/RoleBadges.jsx'
 import SharedDocuments from '../components/SharedDocuments.jsx'
 import { effectiveStatus, statusClass, Avatar } from '../lib/helpers'
+import { supabase } from '../lib/supabase'
+
+// Compact read-only list of a person's role-specific documents (not the
+// shared identity ones, which live in SharedDocuments). Only shown when at
+// least one document actually exists — no empty-state clutter here since
+// this is a secondary aggregation view, not the primary place to manage
+// these documents (that stays on each role's own detail page).
+// Types already promoted to person_shared_documents (Passport/QID/Photo
+// equivalents) — excluded here so a document doesn't visually appear
+// twice, once under Shared Documents and again under a role's own list.
+const SHARED_TYPE_EQUIVALENTS = ['Original Passport', 'Qatar ID', 'Photo']
+
+function RoleDocumentsList({ title, table, filterCol, filterVal, personType, lang }) {
+  const ar = lang === 'ar'
+  const [docs, setDocs] = useState([])
+  useEffect(() => {
+    let cancelled = false
+    let q = supabase.from(table).select('*').eq(filterCol, filterVal)
+    if (personType) q = q.eq('person_type', personType)
+    q.order('uploaded_at', { ascending: false })
+      .then(({ data }) => { if (!cancelled) setDocs((data || []).filter(d => !SHARED_TYPE_EQUIVALENTS.includes(d.type))) })
+    return () => { cancelled = true }
+  }, [table, filterCol, filterVal, personType])
+
+  if (docs.length === 0) return null
+  return (
+    <div className="info-card">
+      <div className="info-title" style={{ marginBottom: 10 }}>
+        {title} <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 400, color: 'var(--text3)', textTransform: 'none', letterSpacing: 0 }}>{docs.length} {ar ? 'ملف' : `file${docs.length !== 1 ? 's' : ''}`}</span>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {docs.map(doc => (
+          <div key={doc.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+              <i className="ti ti-file-text" style={{ fontSize: 14, color: '#0085C7' }} />
+              <div style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.name}</div>
+            </div>
+            <a href={doc.file_url} target="_blank" rel="noreferrer" style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: 6, border: '1px solid var(--border)', color: 'var(--text2)' }}>
+              <i className="ti ti-download" style={{ fontSize: 12 }} />
+            </a>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
 
 // Real, combined "My Profile" — one page showing every role linked to the
 // logged-in person's person_id, instead of routing to whichever single
@@ -84,6 +131,9 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
               </button>
             </div>
           )}
+          {myEmployee && (
+            <RoleDocumentsList title={ar ? 'وثائق الموظف' : 'Employee Documents'} table="person_documents" filterCol="person_id" filterVal={myEmployee.id} personType="employee" lang={lang} />
+          )}
 
           {myAthlete && (
             <div className="info-card">
@@ -104,6 +154,9 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
               </button>
             </div>
           )}
+          {myAthlete && (
+            <RoleDocumentsList title={ar ? 'وثائق الرياضي' : 'Athlete Documents'} table="athlete_documents" filterCol="athlete_id" filterVal={myAthlete.id} lang={lang} />
+          )}
 
           {myCoach && (
             <div className="info-card">
@@ -121,6 +174,9 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
               </button>
             </div>
           )}
+          {myCoach && (
+            <RoleDocumentsList title={ar ? 'وثائق المدرب' : 'Coach Documents'} table="person_documents" filterCol="person_id" filterVal={myCoach.id} personType="coach" lang={lang} />
+          )}
 
           {myReferee && (
             <div className="info-card">
@@ -129,6 +185,9 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
                 {ar ? 'عرض التفاصيل الكاملة ←' : 'View full details →'}
               </button>
             </div>
+          )}
+          {myReferee && (
+            <RoleDocumentsList title={ar ? 'وثائق الحكم' : 'Referee Documents'} table="referee_documents" filterCol="referee_id" filterVal={myReferee.id} lang={lang} />
           )}
         </div>
       </div>

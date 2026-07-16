@@ -5,6 +5,7 @@ import { ConfirmModal, toast } from '../components/Toast'
 import { supabase } from '../lib/supabase'
 import { canEdit } from '../lib/useAuth'
 import { usePersonRoles, RoleBadges } from '../components/RoleBadges.jsx'
+import StatusScopeModal from '../components/StatusScopeModal.jsx'
 import SharedDocuments from '../components/SharedDocuments.jsx'
 import { isTrustedAdmin } from '../lib/permissions'
 import { logAdminActivity } from '../lib/adminActivity'
@@ -217,6 +218,7 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
     </span>
   }
   const [selected, setSelected] = useState(initCoachId || null)
+  const [pendingStatusSave, setPendingStatusSave] = useState(null)
   const selectedCoachForRoles = coaches.find(x => x.id === selected)
   const { roles: personRolesCoach } = usePersonRoles(selectedCoachForRoles?.person_id)
   const [form, setForm]         = useState(null)
@@ -279,6 +281,53 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
   })
 
   async function handleSave(formData) {
+    const isEdit = !!formData.id
+    if (isEdit) {
+      const existing = coaches.find(c => c.id === formData.id)
+      if (existing && existing.status !== formData.status && existing.person_id) {
+        const [aRes, cRes, eRes, rRes] = await Promise.all([
+          supabase.from('athletes').select('id, is_historical').eq('person_id', existing.person_id),
+          supabase.from('coaches').select('id, is_historical').eq('person_id', existing.person_id),
+          supabase.from('employees').select('id, is_historical').eq('person_id', existing.person_id),
+          supabase.from('referees').select('id, is_historical').eq('person_id', existing.person_id),
+        ])
+        const linkedRoles = []
+        ;(aRes.data||[]).forEach(x => linkedRoles.push({ type:'athlete', id:x.id, is_historical: !!x.is_historical }))
+        ;(cRes.data||[]).forEach(x => linkedRoles.push({ type:'coach', id:x.id, is_historical: !!x.is_historical }))
+        ;(eRes.data||[]).forEach(x => linkedRoles.push({ type:'employee', id:x.id, is_historical: !!x.is_historical }))
+        ;(rRes.data||[]).forEach(x => linkedRoles.push({ type:'referee', id:x.id, is_historical: !!x.is_historical }))
+        if (linkedRoles.length > 1) {
+          setPendingStatusSave({ formData, roles: linkedRoles })
+          return
+        }
+      }
+    }
+    await commitSaveCoach(formData)
+  }
+
+  async function applyStatusToRolesCoach(selectedTypes, pending) {
+    const { formData, roles } = pending
+    if (selectedTypes.includes('coach')) {
+      await commitSaveCoach(formData)
+    }
+    const DATE_STATUSES_SCOPE = ['On Leave', 'In Competition', 'In Training Camp']
+    const isDated = DATE_STATUSES_SCOPE.includes(formData.status)
+    const statusFields = {
+      status: formData.status,
+      status_start: isDated ? (formData.statusStart||null) : null,
+      status_end: isDated ? (formData.statusEnd||null) : null,
+    }
+    for (const type of selectedTypes) {
+      if (type === 'coach' || type === 'referee') continue
+      const role = roles.find(r => r.type === type)
+      if (!role) continue
+      await supabase.from(type === 'athlete' ? 'athletes' : 'employees').update(statusFields).eq('id', role.id)
+    }
+    setPendingStatusSave(null)
+    await onRefresh()
+  }
+
+  async function commitSaveCoach(formData) {
     const isEdit = !!formData.id
     // Rule 4: same guard as Athletes.jsx — a status_start/status_end pair
     // only makes sense alongside a dated status, so clear both whenever the
@@ -385,6 +434,15 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
               idNumber:c.id_number, idExpiry:c.id_expiry,
             } : null}
             coaches={coaches} athletes={athletes} onSave={handleSave} onClose={() => setForm(null)} />
+        )}
+        {pendingStatusSave && (
+          <StatusScopeModal
+            roles={pendingStatusSave.roles}
+            currentRoleType="coach"
+            lang={lang}
+            onConfirm={(types) => applyStatusToRolesCoach(types, pendingStatusSave)}
+            onCancel={() => setPendingStatusSave(null)}
+          />
         )}
         {confirm && (
           <ConfirmModal title="Delete coach" message={`Delete ${c.name}? Athletes will be unassigned.`}
@@ -561,6 +619,15 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
   return (
     <div>
       {form && <FormModal type="coach" record={null} coaches={coaches} athletes={athletes} onSave={handleSave} onClose={() => setForm(null)} />}
+      {pendingStatusSave && (
+        <StatusScopeModal
+          roles={pendingStatusSave.roles}
+          currentRoleType="coach"
+          lang={lang}
+          onConfirm={(types) => applyStatusToRolesCoach(types, pendingStatusSave)}
+          onCancel={() => setPendingStatusSave(null)}
+        />
+      )}
       <div className="page-header">
         <div><div className="page-title">{tx('pages.coaches','Coaches')}</div><div className="page-sub">{list.length} {tx('coaches.ofCoaches','of')} {coaches.length} {tx('pages.coaches','coaches')}</div></div>
         <div style={{ display:'flex', gap:8 }}>

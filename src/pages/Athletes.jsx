@@ -11,6 +11,7 @@ import JSZip from 'jszip'
 import { canEdit } from '../lib/useAuth'
 import { isTrustedAdmin } from '../lib/permissions'
 import { usePersonRoles, RoleBadges } from '../components/RoleBadges.jsx'
+import StatusScopeModal from '../components/StatusScopeModal.jsx'
 import SharedDocuments from '../components/SharedDocuments.jsx'
 import { logAdminActivity } from '../lib/adminActivity'
 import CareerHistory from '../components/CareerHistory.jsx'
@@ -1041,6 +1042,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
   const [gender, setGender]         = useState('All genders')
   const [sort, setSort]             = useState('name-asc')
   const [selected, setSelected]     = useState(initAthleteId ?? null)
+  const [pendingStatusSave, setPendingStatusSave] = useState(null)
   const selectedAthleteForRoles = athletes.find(x => x.id === selected)
   const { roles: personRolesAthlete } = usePersonRoles(selectedAthleteForRoles?.person_id)
   const [scrollToDocs, setScrollToDocs] = useState(false)
@@ -1343,6 +1345,53 @@ export default function Athletes({ athletes, coaches, employees, results, docume
   })
 
   async function handleSave(formData) {
+    const isEdit = !!formData.id
+    if (isEdit) {
+      const existing = athletes.find(a => a.id === formData.id)
+      if (existing && existing.status !== formData.status && existing.person_id) {
+        const [aRes, cRes, eRes, rRes] = await Promise.all([
+          supabase.from('athletes').select('id, is_historical').eq('person_id', existing.person_id),
+          supabase.from('coaches').select('id, is_historical').eq('person_id', existing.person_id),
+          supabase.from('employees').select('id, is_historical').eq('person_id', existing.person_id),
+          supabase.from('referees').select('id, is_historical').eq('person_id', existing.person_id),
+        ])
+        const linkedRoles = []
+        ;(aRes.data||[]).forEach(x => linkedRoles.push({ type:'athlete', id:x.id, is_historical: !!x.is_historical }))
+        ;(cRes.data||[]).forEach(x => linkedRoles.push({ type:'coach', id:x.id, is_historical: !!x.is_historical }))
+        ;(eRes.data||[]).forEach(x => linkedRoles.push({ type:'employee', id:x.id, is_historical: !!x.is_historical }))
+        ;(rRes.data||[]).forEach(x => linkedRoles.push({ type:'referee', id:x.id, is_historical: !!x.is_historical }))
+        if (linkedRoles.length > 1) {
+          setPendingStatusSave({ formData, roles: linkedRoles })
+          return
+        }
+      }
+    }
+    await commitSaveAthlete(formData)
+  }
+
+  async function applyStatusToRolesAthlete(selectedTypes, pending) {
+    const { formData, roles } = pending
+    if (selectedTypes.includes('athlete')) {
+      await commitSaveAthlete(formData)
+    }
+    const DATE_STATUSES_SCOPE = ['On Leave', 'In Competition', 'In Training Camp']
+    const isDated = DATE_STATUSES_SCOPE.includes(formData.status)
+    const statusFields = {
+      status: formData.status,
+      status_start: isDated ? (formData.statusStart||null) : null,
+      status_end: isDated ? (formData.statusEnd||null) : null,
+    }
+    for (const type of selectedTypes) {
+      if (type === 'athlete' || type === 'referee') continue
+      const role = roles.find(r => r.type === type)
+      if (!role) continue
+      await supabase.from(type === 'coach' ? 'coaches' : 'employees').update(statusFields).eq('id', role.id)
+    }
+    setPendingStatusSave(null)
+    await onRefresh()
+  }
+
+  async function commitSaveAthlete(formData) {
     const isEdit = !!formData.id
     // Rule 4: temporary status dates only make sense alongside a dated
     // status (On Leave / In Competition / In Training Camp). If the person
@@ -1705,6 +1754,15 @@ ${myDocs.length > 0 ? `<div class="section">
             coaches={coaches} onSave={handleSave} onClose={() => setForm(null)} />
         )}
         {confirm && <ConfirmModal title="Delete athlete" message={`Delete ${a.name}? This cannot be undone.`} onConfirm={() => handleDelete(a.id, a.name)} onCancel={() => setConfirm(null)} />}
+        {pendingStatusSave && (
+          <StatusScopeModal
+            roles={pendingStatusSave.roles}
+            currentRoleType="athlete"
+            lang={lang}
+            onConfirm={(types) => applyStatusToRolesAthlete(types, pendingStatusSave)}
+            onCancel={() => setPendingStatusSave(null)}
+          />
+        )}
         {docConfirm && <ConfirmModal title="Delete document" message={`Delete "${docConfirm.name}"?`} onConfirm={() => handleDocDelete(docConfirm)} onCancel={() => setDocConfirm(null)} />}
         {medalModal && (
           <div className="modal-overlay" onClick={() => setMedalModal(null)}>
@@ -2506,6 +2564,15 @@ ${myDocs.length > 0 ? `<div class="section">
   return (
     <div>
       {form && <FormModal type="athlete" record={null} coaches={coaches} onSave={handleSave} onClose={() => setForm(null)} />}
+      {pendingStatusSave && (
+        <StatusScopeModal
+          roles={pendingStatusSave.roles}
+          currentRoleType="athlete"
+          lang={lang}
+          onConfirm={(types) => applyStatusToRolesAthlete(types, pendingStatusSave)}
+          onCancel={() => setPendingStatusSave(null)}
+        />
+      )}
       {bulkOpen && canEdit(profile) && (
         <BulkImportDocsModal
           athletes={athletes}
