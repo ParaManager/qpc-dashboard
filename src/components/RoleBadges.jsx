@@ -42,27 +42,32 @@ const ROLE_LABEL = {
   referee:  { en: 'Referee',  ar: 'حكم' },
 }
 
-// Renders "Athlete • Employee" / "Employee • Former Coach" etc. Historical
-// roles get a "Former " prefix (English) / محل مناسب (Arabic) and a muted
-// style so the current role(s) still read as primary.
+// Renders "Athlete • Employee" / "Employee • Former Coach" etc. A role
+// shows as "Former" when it's explicitly is_historical=true, OR when its
+// own status is "Retired" — Retired is a real, shared status now (not
+// converted to Inactive), so a retired role must visually read the same
+// as an is_historical one even though the underlying flag differs.
 export function RoleBadges({ roles, lang, excludeType }) {
   const ar = lang === 'ar'
   const visible = (roles || []).filter(r => r.type !== excludeType)
   if (visible.length === 0) return null
   return (
     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'center', margin: '6px 0' }}>
-      {visible.map(r => (
-        <span key={`${r.type}-${r.id}`}
-          className="badge"
-          style={{
-            fontSize: 10.5,
-            background: r.is_historical ? 'var(--surface2)' : '#0085C715',
-            color: r.is_historical ? 'var(--text3)' : '#0085C7',
-            fontStyle: r.is_historical ? 'italic' : 'normal',
-          }}>
-          {r.is_historical ? (ar ? 'سابق ' : 'Former ') : ''}{ar ? ROLE_LABEL[r.type].ar : ROLE_LABEL[r.type].en}
-        </span>
-      ))}
+      {visible.map(r => {
+        const isFormer = r.is_historical || r.status === 'Retired'
+        return (
+          <span key={`${r.type}-${r.id}`}
+            className="badge"
+            style={{
+              fontSize: 10.5,
+              background: isFormer ? 'var(--surface2)' : '#0085C715',
+              color: isFormer ? 'var(--text3)' : '#0085C7',
+              fontStyle: isFormer ? 'italic' : 'normal',
+            }}>
+            {isFormer ? (ar ? 'سابق ' : 'Former ') : ''}{ar ? ROLE_LABEL[r.type].ar : ROLE_LABEL[r.type].en}
+          </span>
+        )
+      })}
     </div>
   )
 }

@@ -233,8 +233,8 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
     label: s === '' ? '' : ar ? {'Active':'نشط','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي','Inactive':'غير نشط','Injured':'مصاب','Under Medical Review':'تحت المراجعة الطبية','Suspended':'موقوف','Retired':'متقاعد'}[s]||s : s
   }))
 
-  const statusOptsCoach = ['Active','On Leave','In Competition','In Training Camp','Inactive'].map(s => ({
-    value: s, label: ar ? {'Active':'نشط','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي','Inactive':'غير نشط'}[s]||s : s
+  const statusOptsCoach = ['Active','On Leave','In Competition','In Training Camp','Inactive','Retired'].map(s => ({
+    value: s, label: ar ? {'Active':'نشط','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي','Inactive':'غير نشط','Retired':'متقاعد'}[s]||s : s
   }))
 
   const statusOptsEvent = ['Planning','Registration Open','Upcoming','Completed'].map(s => ({
