@@ -12,7 +12,7 @@ import { canEdit } from '../lib/useAuth'
 import { isTrustedAdmin } from '../lib/permissions'
 import { usePersonRoles, RoleBadges } from '../components/RoleBadges.jsx'
 import StatusScopeModal from '../components/StatusScopeModal.jsx'
-import SharedDocuments from '../components/SharedDocuments.jsx'
+import { classifyAthleteType, getAthleteDocumentRules, mergeDocuments, computeCompletion, SHARED_TYPES } from '../lib/documentEngine'
 import { logAdminActivity } from '../lib/adminActivity'
 import CareerHistory from '../components/CareerHistory.jsx'
 import { useLang } from '../lib/LangContext.jsx'
@@ -1053,6 +1053,18 @@ export default function Athletes({ athletes, coaches, employees, results, docume
       setScrollToDocs(false)
     }
   }, [selected, scrollToDocs])
+
+  // Fetches this athlete's shared identity documents (Photo/Original
+  // Passport/Qatar ID) from person_shared_documents — merged into the
+  // normal Documents section below via mergeDocuments(), never shown as a
+  // separate card.
+  useEffect(() => {
+    if (!selectedAthleteForRoles?.person_id) { setSharedDocs([]); return }
+    let cancelled = false
+    supabase.from('person_shared_documents').select('*').eq('person_id', selectedAthleteForRoles.person_id)
+      .then(({ data }) => { if (!cancelled) setSharedDocs(data || []) })
+    return () => { cancelled = true }
+  }, [selectedAthleteForRoles?.person_id])
   const [form, setForm]             = useState(null)
   const [confirm, setConfirm]       = useState(null)
   const [medalModal, setMedalModal] = useState(null)
@@ -1063,6 +1075,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
   const [bulkExportOpen, setBulkExportOpen] = useState(false)
   const [exportSelectMode, setExportSelectMode] = useState(false)
   const [docType, setDocType]       = useState('')
+  const [sharedDocs, setSharedDocs] = useState([])
   const [documentsExpanded, setDocumentsExpanded] = useState(true)
   const [competitionExpanded, setCompetitionExpanded] = useState(true)
   const [careerExpanded, setCareerExpanded] = useState(true)
@@ -1513,6 +1526,11 @@ export default function Athletes({ athletes, coaches, employees, results, docume
     if (!file) return
     if (!docType) { toast('Select a document type first', 'error'); return }
     if (file.size > 20 * 1024 * 1024) { toast('File must be under 20MB', 'error'); return }
+    const athlete = athletes.find(a => a.id === athleteId)
+    const isSharedType = SHARED_TYPES.includes(docType)
+    if (isSharedType && !athlete?.person_id) {
+      toast('This athlete has no linked person record yet', 'error'); return
+    }
     setDocUploading(true)
     try {
       const ext  = file.name.split('.').pop()
@@ -1520,14 +1538,29 @@ export default function Athletes({ athletes, coaches, employees, results, docume
       const { error: upErr } = await supabase.storage.from('athlete-documents').upload(path, file)
       if (upErr) throw upErr
       const { data } = supabase.storage.from('athlete-documents').getPublicUrl(path)
-      const { error: dbErr } = await supabase.from('athlete_documents').insert({
-        athlete_id: athleteId, name: file.name, type: docType,
-        file_url: data.publicUrl, file_path: path, file_size: file.size,
-      })
-      if (dbErr) throw dbErr
+
+      if (isSharedType) {
+        // Photo / Original Passport / Qatar ID go to person_shared_documents,
+        // once per person — the unique index on (person_id, type, name)
+        // prevents a duplicate row for the same file+type.
+        const dup = sharedDocs.find(d => d.type === docType && d.name === file.name)
+        if (dup) { toast(lang==='ar' ? 'هذا الملف موجود بالفعل' : 'This document already exists', 'error'); await supabase.storage.from('athlete-documents').remove([path]); setDocUploading(false); return }
+        const { error: dbErr } = await supabase.from('person_shared_documents').insert({
+          person_id: athlete.person_id, name: file.name, type: docType,
+          file_url: data.publicUrl, file_path: path, file_size: file.size,
+        })
+        if (dbErr) throw dbErr
+        setSharedDocs(prev => [...prev, { person_id: athlete.person_id, name: file.name, type: docType, file_url: data.publicUrl, file_path: path, file_size: file.size, uploaded_at: new Date().toISOString() }])
+      } else {
+        const { error: dbErr } = await supabase.from('athlete_documents').insert({
+          athlete_id: athleteId, name: file.name, type: docType,
+          file_url: data.publicUrl, file_path: path, file_size: file.size,
+        })
+        if (dbErr) throw dbErr
+      }
       toast(`${docType} uploaded!`)
       if (isTrustedAdmin(profile)) {
-        const athleteName = athletes.find(a => a.id === athleteId)?.name || String(athleteId)
+        const athleteName = athlete?.name || String(athleteId)
         logAdminActivity({ actor: profile, action: 'created', entityType: 'document', entityId: athleteId, entityLabel: `${docType} for ${athleteName}`, module: 'athletes' })
       }
       await onRefresh()
@@ -1537,12 +1570,19 @@ export default function Athletes({ athletes, coaches, employees, results, docume
 
   async function handleDocDelete(doc) {
     await supabase.storage.from('athlete-documents').remove([doc.file_path])
-    const { error } = await supabase.from('athlete_documents').delete().eq('id', doc.id)
-    if (error) { toast(error.message, 'error'); return }
+    if (doc._source === 'shared') {
+      const { error } = await supabase.from('person_shared_documents').delete().eq('person_id', doc.person_id).eq('type', doc.type).eq('name', doc.name)
+      if (error) { toast(error.message, 'error'); return }
+      setSharedDocs(prev => prev.filter(d => !(d.type === doc.type && d.name === doc.name && d.person_id === doc.person_id)))
+    } else {
+      const { error } = await supabase.from('athlete_documents').delete().eq('id', doc.id)
+      if (error) { toast(error.message, 'error'); return }
+    }
     toast('Document deleted')
     if (isTrustedAdmin(profile)) {
-      const athleteName = athletes.find(a => a.id === doc.athlete_id)?.name || String(doc.athlete_id)
-      logAdminActivity({ actor: profile, action: 'deleted', entityType: 'document', entityId: doc.athlete_id, entityLabel: `${doc.type || 'document'} for ${athleteName}`, module: 'athletes' })
+      const athleteId = doc.athlete_id || selected
+      const athleteName = athletes.find(a => a.id === athleteId)?.name || String(athleteId)
+      logAdminActivity({ actor: profile, action: 'deleted', entityType: 'document', entityId: athleteId, entityLabel: `${doc.type || 'document'} for ${athleteName}`, module: 'athletes' })
     }
     setDocConfirm(null); await onRefresh()
   }
@@ -1745,10 +1785,30 @@ ${myDocs.length > 0 ? `<div class="section">
     if (!a) { setSelected(null); return null }
     const coach      = coaches.find(c => c.id === a.coach_id)
     const myResults  = (results || []).filter(r => r.athlete_id === a.id)
-    const myDocs     = (documents || []).filter(d => d.athlete_id === a.id)
+    const myAthleteDocs = (documents || []).filter(d => d.athlete_id === a.id)
     const myEventIds = (registrations || []).filter(r => r.athlete_id === a.id).map(r => r.event_id)
     const myEvents   = (events || []).filter(e => myEventIds.includes(e.id)).sort((a,b) => new Date(b.start_date) - new Date(a.start_date))
-    const docsByType = DOC_TYPES.reduce((acc, t) => { acc[t] = myDocs.filter(d => d.type === t); return acc }, {})
+
+    // Document engine: classify by nationality + sport_category only —
+    // Mission Passport presence (not a stored type) is what moves MDF/IPC/
+    // SDMS between Required and Not Applicable, checked against whatever is
+    // actually on file right now so uploading/deleting it updates the rules
+    // live, not against some cached prior state.
+    const athleteType = classifyAthleteType(a)
+    const hasMissionPassportDoc = myAthleteDocs.some(d => d.type === 'Mission Passport')
+    const docRules = getAthleteDocumentRules(athleteType, hasMissionPassportDoc)
+    // Dropdown/upload only offers Required + Optional types — Not
+    // Applicable types can't be newly uploaded under this athlete's current
+    // classification. But an ALREADY-uploaded document of a now-Not-
+    // Applicable type (e.g. IPC/SDMS from before Mission Passport was
+    // removed) is still displayed and downloadable — nothing is ever hidden
+    // or deleted just because the rules changed; it simply stops counting
+    // toward completion and stops being offered for new uploads.
+    const uploadableAthleteTypes = [...docRules.required, ...docRules.optional]
+    const displayedAthleteTypes = [...new Set([...uploadableAthleteTypes, ...myAthleteDocs.map(d => d.type), ...sharedDocs.map(d => d.type)])]
+    const myDocs = mergeDocuments(sharedDocs, myAthleteDocs, displayedAthleteTypes)
+    const completion = computeCompletion(myDocs, docRules)
+    const docsByType = displayedAthleteTypes.reduce((acc, t) => { acc[t] = myDocs.filter(d => d.type === t); return acc }, {})
     const bests      = getPersonalBests(myResults)
     const age        = calcAge(a.dob)
     const yearsActive = calcYearsActive(a.join_date)
@@ -1918,38 +1978,33 @@ ${myDocs.length > 0 ? `<div class="section">
           </div>
 
           <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
-            {/* DOCUMENT STATUS */}
-            {(() => {
-              const ds = athleteDocStatus(a.id, documents)
-              const total = REQUIRED_DOC_TYPES.length
-              const uploaded = total - ds.missing
-              const pct = total > 0 ? Math.round((uploaded / total) * 100) : 100
-              return (
-                <div className="info-card">
-                  <div className="info-title" style={{ marginBottom:10 }}>{lang==='ar'?'حالة الوثائق':'Document status'}</div>
-                  <div style={{ display:'flex', alignItems:'center', gap:14, marginBottom: ds.missing > 0 ? 10 : 0 }}>
-                    <div style={{ fontSize:22, fontWeight:700, color: pct === 100 ? '#009F6B' : pct >= 50 ? '#f59e0b' : '#dc2626' }}>{pct}%</div>
-                    <div style={{ flex:1 }}>
-                      <div style={{ height:8, borderRadius:6, background:'var(--surface2)', overflow:'hidden' }}>
-                        <div style={{ height:'100%', width:`${pct}%`, background: pct === 100 ? '#009F6B' : pct >= 50 ? '#f59e0b' : '#dc2626', transition:'width .2s' }} />
-                      </div>
-                      <div style={{ fontSize:11, color:'var(--text3)', marginTop:4 }}>
-                        {uploaded}/{total} {lang==='ar' ? 'مطلوب مرفوع' : 'required uploaded'}
-                      </div>
-                    </div>
+            {/* DOCUMENT STATUS — driven by the engine's completion() over
+                only this athlete's actual required set (athlete type +
+                live Mission Passport presence), never optional/not-
+                applicable types, never double-counting shared docs. */}
+            <div className="info-card">
+              <div className="info-title" style={{ marginBottom:10 }}>{lang==='ar'?'حالة الوثائق':'Document status'}</div>
+              <div style={{ display:'flex', alignItems:'center', gap:14, marginBottom: completion.missingTypes.length > 0 ? 10 : 0 }}>
+                <div style={{ fontSize:22, fontWeight:700, color: completion.percent === 100 ? '#009F6B' : completion.percent >= 50 ? '#f59e0b' : '#dc2626' }}>{completion.percent}%</div>
+                <div style={{ flex:1 }}>
+                  <div style={{ height:8, borderRadius:6, background:'var(--surface2)', overflow:'hidden' }}>
+                    <div style={{ height:'100%', width:`${completion.percent}%`, background: completion.percent === 100 ? '#009F6B' : completion.percent >= 50 ? '#f59e0b' : '#dc2626', transition:'width .2s' }} />
                   </div>
-                  {ds.missing > 0 && (
-                    <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
-                      {ds.missingTypes.map(t => (
-                        <span key={t} className="badge" style={{ fontSize:10, background:'#fef2f2', color:'#dc2626' }}>
-                          {lang==='ar' ? (DOC_TYPES_AR[t]||t) : t}
-                        </span>
-                      ))}
-                    </div>
-                  )}
+                  <div style={{ fontSize:11, color:'var(--text3)', marginTop:4 }}>
+                    {completion.uploaded}/{completion.total} {lang==='ar' ? 'مطلوب مرفوع' : 'required uploaded'}
+                  </div>
                 </div>
-              )
-            })()}
+              </div>
+              {completion.missingTypes.length > 0 && (
+                <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+                  {completion.missingTypes.map(t => (
+                    <span key={t} className="badge" style={{ fontSize:10, background:'#fef2f2', color:'#dc2626' }}>
+                      {lang==='ar' ? (DOC_TYPES_AR[t]||t) : t}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
 
             {/* ATHLETE OVERVIEW */}
             {(() => {
@@ -2153,9 +2208,11 @@ ${myDocs.length > 0 ? `<div class="section">
             {/* CAREER HISTORY */}
             <CareerHistory personId={a.id} personType="athlete" personName={lang==='ar'&&a.name_ar?a.name_ar:a.name} />
 
-            {/* DOCUMENTS */}
-            <SharedDocuments personId={a.person_id} profile={profile} />
-
+            {/* DOCUMENTS — one merged section per athlete: shared identity
+                documents (Photo/Original Passport/Qatar ID, from
+                person_shared_documents) plus athlete-specific documents,
+                deduplicated by mergeDocuments() above. No separate Shared
+                Documents card. */}
             <div className="info-card" id="athlete-documents-section">
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: documentsExpanded ? 14 : 0 }}>
                 <div className="info-title" style={{ margin:0, cursor:'pointer' }} onClick={() => setDocumentsExpanded(v => !v)}>{lang==='ar'?'الوثائق':'Documents'} <span style={{ marginLeft:8, fontSize:11, fontWeight:400, color:'var(--text3)', textTransform:'none', letterSpacing:0 }}>{myDocs.length} {lang==='ar'?'ملف':`file${myDocs.length!==1?'s':''}`}</span></div>
@@ -2186,7 +2243,7 @@ ${myDocs.length > 0 ? `<div class="section">
                             const rect = btn?.getBoundingClientRect()
                             if (rect) {
                               const spaceBelow = window.innerHeight - rect.bottom
-                              const dropH = Math.min(280, DOC_TYPES.length * 38)
+                              const dropH = Math.min(280, uploadableAthleteTypes.length * 38)
                               if (spaceBelow < dropH + 8) {
                                 el.style.top = 'auto'; el.style.bottom = (window.innerHeight - rect.top + 4) + 'px'
                               } else {
@@ -2196,7 +2253,7 @@ ${myDocs.length > 0 ? `<div class="section">
                             }
                           }
                         }}>
-                        {DOC_TYPES.map(t => (
+                        {uploadableAthleteTypes.map(t => (
                           <div key={t} onClick={() => { setDocType(t); setDocDropOpen(false) }}
                             style={{ padding:'9px 14px', fontSize:12, cursor:'pointer', background: t===docType?'var(--surface2)':'transparent', fontWeight: t===docType?600:400, color: t===docType?'#0085C7':'var(--text)' }}
                             onMouseEnter={e => e.currentTarget.style.background='var(--surface2)'}
@@ -2216,7 +2273,7 @@ ${myDocs.length > 0 ? `<div class="section">
               )}
               {!documentsExpanded ? null : myDocs.length === 0
                 ? <div className="empty" style={{ padding:'20px 0' }}>{lang==='ar'?'لم يتم رفع وثائق بعد.':'No documents uploaded yet.'}</div>
-                : DOC_TYPES.map(type => {
+                : displayedAthleteTypes.map(type => {
                     const typeDocs = docsByType[type]
                     if (typeDocs.length === 0) return null
                     if (!canEdit(profile) && type === 'Mission Passport') return null
@@ -2229,7 +2286,7 @@ ${myDocs.length > 0 ? `<div class="section">
                           <span style={{ fontSize:11, fontWeight:600, color }}>{lang==='ar' ? (DOC_TYPES_AR[type]||type) : type}</span>
                         </div>
                         {typeDocs.map(doc => (
-                          <div key={doc.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 10px', background:'var(--surface2)', borderRadius:9, marginBottom:6, border:'1px solid var(--border)' }}>
+                          <div key={`${doc._source}-${doc.id}`} style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 10px', background:'var(--surface2)', borderRadius:9, marginBottom:6, border:'1px solid var(--border)' }}>
                             <div style={{ width:34, height:34, borderRadius:8, background:color+'15', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
                               <i className={`ti ${icon}`} style={{ fontSize:16, color }} />
                             </div>
