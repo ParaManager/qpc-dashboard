@@ -11,6 +11,7 @@ import JSZip from 'jszip'
 import { canEdit } from '../lib/useAuth'
 import { isTrustedAdmin } from '../lib/permissions'
 import { usePersonRoles, RoleBadges } from '../components/RoleBadges.jsx'
+import MultiSelectFilter from '../components/MultiSelectFilter.jsx'
 import StatusScopeModal from '../components/StatusScopeModal.jsx'
 import { classifyAthleteType, getAthleteDocumentRules, mergeDocuments, computeCompletion, SHARED_TYPES } from '../lib/documentEngine'
 import { logAdminActivity } from '../lib/adminActivity'
@@ -1184,10 +1185,10 @@ export default function Athletes({ athletes, coaches, employees, results, docume
     setColFilters({})
   }
 
-  const hasActiveFilters = search || sport !== 'All sports' || sportCategory !== 'All categories' || status !== 'All statuses' || gender !== 'All genders' || sort !== 'name-asc' || Object.values(colFilters).some(v => v && v !== 'All')
+  const hasActiveFilters = search || sport !== 'All sports' || sportCategory !== 'All categories' || status !== 'All statuses' || gender !== 'All genders' || sort !== 'name-asc' || Object.values(colFilters).some(v => Array.isArray(v) && v.length > 0)
   const activeFilterCount = [
     sport !== 'All sports', sportCategory !== 'All categories', status !== 'All statuses', gender !== 'All genders',
-    ...Object.values(colFilters).map(v => v && v !== 'All'),
+    ...Object.values(colFilters).map(v => Array.isArray(v) && v.length > 0),
   ].filter(Boolean).length
 
   // Show every known sport (Paralympic + Special Olympics), not just ones currently
@@ -1228,6 +1229,14 @@ export default function Athletes({ athletes, coaches, employees, results, docume
     return map
   }, [athletes, coaches])
 
+  // Matches a field against an array of selected filter values (OR'd) —
+  // empty/missing array means "no filter, everything matches". "Blank"
+  // matches falsy field values and can appear alongside real values.
+  function matchMulti(selectedValues, fieldValue) {
+    if (!selectedValues || selectedValues.length === 0) return true
+    return selectedValues.some(v => v === 'Blank' ? !fieldValue : fieldValue === v)
+  }
+
   const filteredList = useMemo(() => {
     const q = search.toLowerCase().trim()
     return athletes.filter(a =>
@@ -1238,22 +1247,24 @@ export default function Athletes({ athletes, coaches, employees, results, docume
       a.name && // exclude blank names
       (!q || (searchableValues.get(a.id) || '').includes(q)) &&
       // column-level filters
-      (!colFilters.sport_category || colFilters.sport_category === 'All' || (colFilters.sport_category === 'Blank' ? !a.sport_category : a.sport_category === colFilters.sport_category)) &&
-      (!colFilters.sport        || colFilters.sport === 'All'        || (colFilters.sport === 'Blank' ? !a.sport : a.sport === colFilters.sport)) &&
-      (!colFilters.status       || colFilters.status === 'All'       || effectiveStatus(a) === colFilters.status) &&
-      (!colFilters.gender       || colFilters.gender === 'All'       || (colFilters.gender === 'Blank' ? !a.gender : a.gender === colFilters.gender)) &&
-      (!colFilters.nationality  || colFilters.nationality === 'All'  || (colFilters.nationality === 'Blank' ? !a.nationality : a.nationality === colFilters.nationality)) &&
-      (!colFilters.disability   || colFilters.disability === 'All'   || (colFilters.disability === 'Blank' ? !a.disability : a.disability === colFilters.disability)) &&
-      (!colFilters.statistics_disability || colFilters.statistics_disability === 'All' || (colFilters.statistics_disability === 'Blank' ? !a.statistics_disability : a.statistics_disability === colFilters.statistics_disability)) &&
-      (!colFilters.age_category || colFilters.age_category === 'All' || (colFilters.age_category === 'Blank' ? !a.age_category : a.age_category === colFilters.age_category)) &&
-      (!colFilters.sport_age_category || colFilters.sport_age_category === 'All' || (colFilters.sport_age_category === 'Blank' ? !a.sport_age_category : a.sport_age_category === colFilters.sport_age_category)) &&
-      (!colFilters.medical_status || colFilters.medical_status === 'All' || (colFilters.medical_status === 'None' ? !a.medical_status || a.medical_status === 'None' : a.medical_status === colFilters.medical_status)) &&
-      (!colFilters.coachName    || colFilters.coachName === 'All'    || (colFilters.coachName === 'Blank' ? !a.coach_id : coaches.find(c => c.id === a.coach_id)?.name === colFilters.coachName)) &&
-      (!colFilters.documents    || colFilters.documents === 'All'    || (
-        colFilters.documents === 'Complete' ? athleteDocStatus(a.id, documents).key === 'complete' :
-        colFilters.documents === 'Missing'  ? athleteDocStatus(a.id, documents).key === 'missing'  :
-        colFilters.documents === 'None'     ? athleteDocStatus(a.id, documents).key === 'none'     : true
-      ))
+      // Every colFilters[key] is now an array of selected values (multi-
+      // select, OR'd together) — empty array means no filter for that
+      // column. "Blank" can appear alongside real values in the same array.
+      matchMulti(colFilters.sport_category, a.sport_category) &&
+      matchMulti(colFilters.sport, a.sport) &&
+      matchMulti(colFilters.status, effectiveStatus(a)) &&
+      matchMulti(colFilters.gender, a.gender) &&
+      matchMulti(colFilters.nationality, a.nationality) &&
+      matchMulti(colFilters.disability, a.disability) &&
+      matchMulti(colFilters.statistics_disability, a.statistics_disability) &&
+      matchMulti(colFilters.age_category, a.age_category) &&
+      matchMulti(colFilters.sport_age_category, a.sport_age_category) &&
+      (!colFilters.medical_status?.length || colFilters.medical_status.some(v => v === 'None' ? (!a.medical_status || a.medical_status === 'None') : a.medical_status === v)) &&
+      (!colFilters.coachName?.length || colFilters.coachName.some(v => v === 'Blank' ? !a.coach_id : coaches.find(c => c.id === a.coach_id)?.name === v)) &&
+      (!colFilters.documents?.length || colFilters.documents.some(v => {
+        const ds = athleteDocStatus(a.id, documents).key
+        return v === 'Complete' ? ds === 'complete' : v === 'Missing' ? ds === 'missing' : v === 'None' ? ds === 'none' : true
+      }))
     )
   }, [athletes, coaches, documents, search, sport, sportCategory, status, gender, colFilters, searchableValues])
 
@@ -2826,78 +2837,85 @@ ${myDocs.length > 0 ? `<div class="section">
               <tr style={{ background:'#f8f9fb' }}>
                 {canEdit(profile) && !editMode && exportSelectMode && <th style={{ position:'sticky', top:headerRowHeight, zIndex:22, background:'#f8f9fb' }} />}
                 {ALL_COLS.filter(col => isVisible(col.key)).map(col => {
-                  const activeCategory = colFilters.sport_category && colFilters.sport_category !== 'All' ? colFilters.sport_category : null
-                  const sportsForFilter = activeCategory
-                    ? (SPORTS_BY_CATEGORY[activeCategory] || sports.filter(s => s !== 'All sports'))
+                  const activeCategories = colFilters.sport_category || []
+                  const sportsForFilter = activeCategories.length > 0
+                    ? [...new Set(activeCategories.flatMap(cat => SPORTS_BY_CATEGORY[cat] || []))]
                     : sports.filter(s => s !== 'All sports')
-                  // "Blank" is appended (never inserted before "All") to
-                  // every filter whose underlying field can genuinely be
-                  // empty/null — selecting it shows only rows where that
-                  // field has no value. Fields that are always populated
-                  // (documents status, medical status's own "None" option,
-                  // which already means something different) are left as-is.
-                  const filterOpts = {
-                    sport_category: ['All', 'Blank', ...SPORT_CATEGORIES],
-                    sport:          sportsForFilter.length ? ['All', 'Blank', ...new Set(sportsForFilter)] : ['All', 'Blank'],
-                    status:         ['All','Active','On Leave','In Competition','In Training Camp','Inactive','Injured','Under Medical Review','Suspended','Retired'],
-                    gender:         ['All','Blank','Male','Female'],
-                    nationality:    ['All', 'Blank', ...['Afghanistan', 'Algeria', 'Argentina', 'Armenia', 'Australia', 'Austria', 'Azerbaijan', 'Bahrain', 'Bangladesh', 'Belarus', 'Belgium', 'Brazil', 'Cameroon', 'Canada', 'Chile', 'China', 'Colombia', 'Croatia', 'Czech Republic', 'Denmark', 'Egypt', 'Eritrea', 'Ethiopia', 'Finland', 'France', 'Georgia', 'Germany', 'Ghana', 'Greece', 'Guinea', 'Hungary', 'India', 'Indonesia', 'Iran', 'Iraq', 'Ireland', 'Italy', 'Japan', 'Jordan', 'Kazakhstan', 'Kenya', 'Kuwait', 'Kyrgyzstan', 'Lebanon', 'Libya', 'Malaysia', 'Mali', 'Mauritania', 'Mexico', 'Mongolia', 'Morocco', 'Myanmar', 'Nepal', 'Netherlands', 'New Zealand', 'Nigeria', 'Norway', 'Oman', 'Pakistan', 'Palestine', 'Peru', 'Philippines', 'Poland', 'Portugal', 'Qatar', 'Romania', 'Russia', 'Rwanda', 'Saudi Arabia', 'Scotland', 'Senegal', 'Serbia', 'Singapore', 'Slovakia', 'Somalia', 'South Africa', 'South Korea', 'Spain', 'Sri Lanka', 'Sudan', 'Sweden', 'Syria', 'Tajikistan', 'Tanzania', 'Thailand', 'Tunisia', 'Turkey', 'Turkmenistan', 'UAE', 'Uganda', 'UK', 'Ukraine', 'USA', 'Uzbekistan', 'Venezuela', 'Vietnam', 'Wales', 'Yemen', 'Zambia', 'Zimbabwe']],
-                    coach_id:       ['All', 'Blank', ...coaches.map(co => co.name)],
-                    disability:            ['All', 'Blank', ...new Set(athletes.map(a => a.disability).filter(Boolean))],
-                    statistics_disability: ['All', 'Blank', ...STATS_DIS_OPTIONS],
-                    age_category:         ['All', 'Blank', 'Under 5', '5 - 9', '10 - 14', '15 - 19', '20 - 24', '25 - 29', '30 - 34', '35 - 39', '40 - 44', '45 - 49', '50 - 54', '55 - 59', '60 - 64', '65+'],
-                    sport_age_category:   ['All', 'Blank', 'براعم (8-10)', 'أشبال (11-13)', 'شبلات (11-13)', 'ناشئين (14-17)', 'ناشئات (14-17)', 'شباب (17-20)', 'شابات (17-20)', 'رجال (20+)', 'سيدات (20+)'],
-                    medical_status: ['All', 'None', 'Screening', 'Medical Certificate'],
-                    documents: ['All', 'Complete', 'Missing', 'None'],
+                  // Real values only — "Blank" is appended separately below
+                  // as just another selectable value in the checkbox list.
+                  const rawOpts = {
+                    sport_category: SPORT_CATEGORIES,
+                    sport:          sportsForFilter.length ? [...new Set(sportsForFilter)] : [],
+                    gender:         ['Male','Female'],
+                    nationality:    ['Afghanistan', 'Algeria', 'Argentina', 'Armenia', 'Australia', 'Austria', 'Azerbaijan', 'Bahrain', 'Bangladesh', 'Belarus', 'Belgium', 'Brazil', 'Cameroon', 'Canada', 'Chile', 'China', 'Colombia', 'Croatia', 'Czech Republic', 'Denmark', 'Egypt', 'Eritrea', 'Ethiopia', 'Finland', 'France', 'Georgia', 'Germany', 'Ghana', 'Greece', 'Guinea', 'Hungary', 'India', 'Indonesia', 'Iran', 'Iraq', 'Ireland', 'Italy', 'Japan', 'Jordan', 'Kazakhstan', 'Kenya', 'Kuwait', 'Kyrgyzstan', 'Lebanon', 'Libya', 'Malaysia', 'Mali', 'Mauritania', 'Mexico', 'Mongolia', 'Morocco', 'Myanmar', 'Nepal', 'Netherlands', 'New Zealand', 'Nigeria', 'Norway', 'Oman', 'Pakistan', 'Palestine', 'Peru', 'Philippines', 'Poland', 'Portugal', 'Qatar', 'Romania', 'Russia', 'Rwanda', 'Saudi Arabia', 'Scotland', 'Senegal', 'Serbia', 'Singapore', 'Slovakia', 'Somalia', 'South Africa', 'South Korea', 'Spain', 'Sri Lanka', 'Sudan', 'Sweden', 'Syria', 'Tajikistan', 'Tanzania', 'Thailand', 'Tunisia', 'Turkey', 'Turkmenistan', 'UAE', 'Uganda', 'UK', 'Ukraine', 'USA', 'Uzbekistan', 'Venezuela', 'Vietnam', 'Wales', 'Yemen', 'Zambia', 'Zimbabwe'],
+                    coach_id:       coaches.map(co => co.name),
+                    disability:            [...new Set(athletes.map(a => a.disability).filter(Boolean))],
+                    statistics_disability: STATS_DIS_OPTIONS,
+                    age_category:         ['Under 5', '5 - 9', '10 - 14', '15 - 19', '20 - 24', '25 - 29', '30 - 34', '35 - 39', '40 - 44', '45 - 49', '50 - 54', '55 - 59', '60 - 64', '65+'],
+                    sport_age_category:   ['براعم (8-10)', 'أشبال (11-13)', 'شبلات (11-13)', 'ناشئين (14-17)', 'ناشئات (14-17)', 'شباب (17-20)', 'شابات (17-20)', 'رجال (20+)', 'سيدات (20+)'],
                   }
-                  const opts = filterOpts[col.key]
-                  if (!opts) return (
+                  // status/medical_status/documents keep no "Blank" (never
+                  // truly null — status defaults to Active, medical_status's
+                  // "None" already IS the blank state, documents is derived).
+                  const NO_BLANK = new Set(['status', 'medical_status', 'documents'])
+                  const opts = rawOpts[col.key]
+                  const hasStatusOpts = col.key === 'status'
+                  const hasMedicalOpts = col.key === 'medical_status'
+                  const hasDocOpts = col.key === 'documents'
+                  if (!opts && !hasStatusOpts && !hasMedicalOpts && !hasDocOpts) return (
                     <th key={col.key}
                       style={{
                         position:'sticky', top:headerRowHeight, zIndex: col.key==='name' ? 22 : 20, background:'#f8f9fb',
                         ...(col.key==='name' ? { left:0, minWidth:STICKY_NAME_COL_WIDTH, boxShadow:'2px 0 4px rgba(0,0,0,.06)' } : {}),
                       }} />
                   )
+
+                  const allLabel = lang==='ar' ? 'الكل' : 'All'
+                  const blankLabel = lang==='ar' ? 'فارغ' : 'Blank'
+                  const LABEL_FNS = {
+                    sport:       s => sportLabel(s, null, lang==='ar'),
+                    status:      s => ({ 'Active':tx('status.active','Active'), 'On Leave':lang==='ar'?'في إجازة':'On Leave', 'In Competition':lang==='ar'?'في منافسة':'In Competition', 'In Training Camp':lang==='ar'?'في معسكر تدريبي':'In Training Camp', 'Inactive':tx('status.inactive','Inactive'), 'Injured':lang==='ar'?'مصاب':'Injured', 'Under Medical Review':lang==='ar'?'تحت المراجعة الطبية':'Under Medical Review', 'Suspended':lang==='ar'?'موقوف':'Suspended', 'Retired':lang==='ar'?'متقاعد':'Retired' }[s] || s),
+                    gender:      s => ({ 'Male':tx('form.male','Male'), 'Female':tx('form.female','Female') }[s] || s),
+                    nationality: s => tc(s),
+                    disability:  s => (lang==='ar' ? (tDis(s)||s) : s),
+                    statistics_disability: s => tStatDis(s),
+                    coach_id:    s => (coaches.find(c => c.name === s)?.[lang==='ar' ? 'name_ar' : 'name'] || s),
+                    sport_category: s => (lang==='ar' ? (SPORT_CATEGORY_NAMES_AR[s]||s) : s),
+                    medical_status: s => ({ 'None': lang==='ar'?'بدون':'None', 'Screening': lang==='ar'?'الفحص':'Screening', 'Medical Certificate': lang==='ar'?'شهادة طبية':'Medical Certificate' }[s] || s),
+                    documents: s => ({ 'Complete': lang==='ar'?'مكتمل':'Complete', 'Missing': lang==='ar'?'ناقص':'Missing Documents', 'None': lang==='ar'?'لا يوجد وثائق':'No Documents' }[s] || s),
+                  }
+                  const labelFn = LABEL_FNS[col.key] || (s => s)
+                  const rawList = hasStatusOpts
+                    ? ['Active','On Leave','In Competition','In Training Camp','Inactive','Injured','Under Medical Review','Suspended','Retired']
+                    : hasMedicalOpts
+                    ? ['None','Screening','Medical Certificate']
+                    : hasDocOpts
+                    ? ['Complete','Missing','None']
+                    : (opts || [])
+                  const dropdownOptions = [
+                    ...rawList.map(v => ({ value: v, label: labelFn(v) })),
+                    ...(NO_BLANK.has(col.key) ? [] : [{ value: 'Blank', label: blankLabel }]),
+                  ]
                   const filterKey = col.key === 'coach_id' ? 'coachName' : col.key
-                  const filterVal = col.key === 'coach_id'
-                    ? (colFilters.coachName || 'All')
-                    : (colFilters[col.key] || 'All')
+                  const selectedValues = colFilters[filterKey] || []
                   return (
                     <th key={col.key} style={{ padding:'4px 8px', position:'sticky', top:headerRowHeight, zIndex:20, background:'#f8f9fb' }}>
-                      <select
-                        value={filterVal}
-                        onChange={e => {
-                          const val = e.target.value
-                          if (col.key === 'coach_id') {
-                            setColFilters(f => ({ ...f, coachName: val }))
-                          } else if (col.key === 'sport_category') {
-                            // Changing category can invalidate the current sport
-                            // selection (e.g. "Goalball" doesn't exist under Special
-                            // Olympics), so clear it rather than leave a stale filter.
-                            setColFilters(f => ({ ...f, sport_category: val, sport: 'All' }))
+                      <MultiSelectFilter
+                        options={dropdownOptions}
+                        selected={selectedValues}
+                        allLabel={allLabel}
+                        onChange={vals => {
+                          if (col.key === 'sport_category') {
+                            // Changing category can invalidate previously-
+                            // selected sports (e.g. "Goalball" doesn't exist
+                            // under Special Olympics), so clear the sport
+                            // filter rather than leave a stale selection.
+                            setColFilters(f => ({ ...f, sport_category: vals, sport: [] }))
                           } else {
-                            setColFilters(f => ({ ...f, [col.key]: val }))
+                            setColFilters(f => ({ ...f, [filterKey]: vals }))
                           }
                         }}
-                        style={{ fontSize:11, border:'1px solid var(--border)', borderRadius:6, padding:'3px 4px', background:'var(--surface)', color: filterVal !== 'All' ? '#0085C7' : 'var(--text3)', cursor:'pointer', outline:'none', fontWeight: filterVal !== 'All' ? 600 : 400, maxWidth:120 }}>
-                        {opts.map(o => {
-                          const allLabel = lang==='ar' ? 'الكل' : 'All'
-                          const LABELS = {
-                            sport:       { 'All':allLabel, ...Object.fromEntries(filterOpts.sport.filter(s=>s!=='All').map(s => [s, sportLabel(s, colFilters.sport_category, lang==='ar')])) },
-                            status:      { 'All':allLabel, 'Active':tx('status.active','Active'), 'On Leave':lang==='ar'?'في إجازة':'On Leave', 'In Competition':lang==='ar'?'في منافسة':'In Competition', 'In Training Camp':lang==='ar'?'في معسكر تدريبي':'In Training Camp', 'Inactive':tx('status.inactive','Inactive'), 'Injured':lang==='ar'?'مصاب':'Injured', 'Under Medical Review':lang==='ar'?'تحت المراجعة الطبية':'Under Medical Review', 'Suspended':lang==='ar'?'موقوف':'Suspended', 'Retired':lang==='ar'?'متقاعد':'Retired' },
-                            gender:      { 'All':allLabel, 'Male':tx('form.male','Male'), 'Female':tx('form.female','Female') },
-                            nationality: { 'All':allLabel, ...Object.fromEntries(['Afghanistan','Algeria','Argentina','Armenia','Australia','Austria','Azerbaijan','Bahrain','Bangladesh','Belarus','Belgium','Brazil','Cameroon','Canada','Chile','China','Colombia','Croatia','Czech Republic','Denmark','Egypt','Eritrea','Ethiopia','Finland','France','Georgia','Germany','Ghana','Greece','Guinea','Hungary','India','Indonesia','Iran','Iraq','Ireland','Italy','Japan','Jordan','Kazakhstan','Kenya','Kuwait','Kyrgyzstan','Lebanon','Libya','Malaysia','Mali','Mauritania','Mexico','Mongolia','Morocco','Myanmar','Nepal','Netherlands','New Zealand','Nigeria','Norway','Oman','Pakistan','Palestine','Peru','Philippines','Poland','Portugal','Qatar','Romania','Russia','Rwanda','Saudi Arabia','Scotland','Senegal','Serbia','Singapore','Slovakia','Somalia','South Africa','South Korea','Spain','Sri Lanka','Sudan','Sweden','Syria','Tajikistan','Tanzania','Thailand','Tunisia','Turkey','Turkmenistan','UAE','Uganda','UK','Ukraine','USA','Uzbekistan','Venezuela','Vietnam','Wales','Yemen','Zambia','Zimbabwe'].map(n => [n, tc(n)])) },
-                            disability:            { 'All':allLabel, ...Object.fromEntries(athletes.map(a=>a.disability).filter(Boolean).map(d=>[d, lang==='ar' ? (tDis(d)||d) : d])) },
-                            statistics_disability: { 'All':allLabel, ...Object.fromEntries(STATS_DIS_OPTIONS.map(o=>[o, tStatDis(o)])) },
-                            coach_id:    { 'All':allLabel, ...Object.fromEntries(coaches.map(co => [co.name, lang==='ar' && co.name_ar ? co.name_ar : co.name])) },
-                            sport_category: { 'All':allLabel, ...Object.fromEntries(SPORT_CATEGORIES.map(c => [c, lang==='ar' ? (SPORT_CATEGORY_NAMES_AR[c]||c) : c])) },
-                            age_category:       { 'All':allLabel },
-                            sport_age_category: { 'All':allLabel },
-                            documents: { 'All':allLabel, 'Complete': lang==='ar'?'مكتمل':'Complete', 'Missing': lang==='ar'?'ناقص':'Missing Documents', 'None': lang==='ar'?'لا يوجد وثائق':'No Documents' },
-                          }
-                          return <option key={o} value={o}>{o === 'Blank' ? (lang==='ar'?'فارغ':'Blank') : (LABELS[col.key]?.[o] || o)}</option>
-                        })}
-                      </select>
+                      />
                     </th>
                   )
                 })}
