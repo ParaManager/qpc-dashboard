@@ -104,6 +104,19 @@ export default function Login({ onRequestSent, onSigningUpChange }) {
     // Only create profile if one doesn't already exist
     const { data: existing } = await supabase.from('profiles').select('id,status').eq('id', data.user.id).maybeSingle()
     if (!existing) {
+      // If the selected athlete/coach record is already linked to a
+      // person_id (multi-role person), carry that link onto the new
+      // profile too — otherwise the account only ever shows the single
+      // role it was created against, even though the underlying person
+      // has other linked roles (Athlete/Coach/Employee/Referee).
+      let personId = null
+      if (form.athleteId) {
+        const { data: a } = await supabase.from('athletes').select('person_id').eq('id', form.athleteId).maybeSingle()
+        personId = a?.person_id || null
+      } else if (form.coachId) {
+        const { data: c } = await supabase.from('coaches').select('person_id').eq('id', form.coachId).maybeSingle()
+        personId = c?.person_id || null
+      }
       await supabase.from('profiles').insert({
         id: data.user.id,
         full_name: form.fullName,
@@ -113,6 +126,7 @@ export default function Login({ onRequestSent, onSigningUpChange }) {
         status: 'pending',
         coach_id: form.coachId || null,
         athlete_id: form.athleteId || null,
+        person_id: personId,
         requested_at: new Date().toISOString(),
       })
     }
