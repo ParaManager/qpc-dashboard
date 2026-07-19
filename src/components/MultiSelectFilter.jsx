@@ -46,19 +46,23 @@ export default function MultiSelectFilter({ options, selected, onChange, allLabe
       : `${selected.length} selected`
 
   return (
-    <div ref={ref} style={{ position: 'relative', ...style }}>
+    <div ref={ref} className="filter-multiselect" style={{ position: 'relative', ...style }}>
       <button
         type="button"
         onClick={() => setOpen(v => !v)}
         style={{
-          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4,
-          fontSize: 11, border: '1px solid var(--border)', borderRadius: 6, padding: '3px 6px',
-          background: 'var(--surface)', color: selected.length > 0 ? '#0085C7' : 'var(--text3)',
-          cursor: 'pointer', outline: 'none', fontWeight: selected.length > 0 ? 600 : 400,
+          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6,
+          // Matches the plain select.filter styling used everywhere else
+          // (page-level "All categories" / "All sports" / "All statuses"
+          // dropdowns) — same box, same 13px text, same padding — so this
+          // reads as an ordinary dropdown, not a dense inline-table filter.
+          fontSize: 13, border: '1px solid var(--border)', borderRadius: 9, padding: '8px 12px',
+          background: 'var(--surface)', color: 'var(--text)',
+          cursor: 'pointer', outline: 'none', fontWeight: 400,
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>
-        <i className="ti ti-chevron-down" style={{ fontSize: 11, flexShrink: 0 }} />
+        <i className="ti ti-chevron-down" style={{ fontSize: 13, flexShrink: 0, color: 'var(--text3)' }} />
       </button>
       {open && (
         <div
