@@ -1797,18 +1797,13 @@ ${myDocs.length > 0 ? `<div class="section">
     const athleteType = classifyAthleteType(a)
     const hasMissionPassportDoc = myAthleteDocs.some(d => d.type === 'Mission Passport')
     const docRules = getAthleteDocumentRules(athleteType, hasMissionPassportDoc)
-    // Dropdown/upload only offers Required + Optional types — Not
-    // Applicable types can't be newly uploaded under this athlete's current
-    // classification. But an ALREADY-uploaded document of a now-Not-
-    // Applicable type (e.g. IPC/SDMS from before Mission Passport was
-    // removed) is still displayed and downloadable — nothing is ever hidden
-    // or deleted just because the rules changed; it simply stops counting
-    // toward completion and stops being offered for new uploads.
-    const uploadableAthleteTypes = [...docRules.required, ...docRules.optional]
-    const displayedAthleteTypes = [...new Set([...uploadableAthleteTypes, ...myAthleteDocs.map(d => d.type), ...sharedDocs.map(d => d.type)])]
-    const myDocs = mergeDocuments(sharedDocs, myAthleteDocs, displayedAthleteTypes)
+    // Every document type stays visible in the dropdown and in the list
+    // regardless of Required/Optional/Not Applicable — the engine is used
+    // only for completion %/missing chips below, never to filter what can
+    // be uploaded or what's shown.
+    const myDocs = mergeDocuments(sharedDocs, myAthleteDocs, DOC_TYPES)
     const completion = computeCompletion(myDocs, docRules)
-    const docsByType = displayedAthleteTypes.reduce((acc, t) => { acc[t] = myDocs.filter(d => d.type === t); return acc }, {})
+    const docsByType = DOC_TYPES.reduce((acc, t) => { acc[t] = myDocs.filter(d => d.type === t); return acc }, {})
     const bests      = getPersonalBests(myResults)
     const age        = calcAge(a.dob)
     const yearsActive = calcYearsActive(a.join_date)
@@ -2243,7 +2238,7 @@ ${myDocs.length > 0 ? `<div class="section">
                             const rect = btn?.getBoundingClientRect()
                             if (rect) {
                               const spaceBelow = window.innerHeight - rect.bottom
-                              const dropH = Math.min(280, uploadableAthleteTypes.length * 38)
+                              const dropH = Math.min(280, DOC_TYPES.length * 38)
                               if (spaceBelow < dropH + 8) {
                                 el.style.top = 'auto'; el.style.bottom = (window.innerHeight - rect.top + 4) + 'px'
                               } else {
@@ -2253,7 +2248,7 @@ ${myDocs.length > 0 ? `<div class="section">
                             }
                           }
                         }}>
-                        {uploadableAthleteTypes.map(t => (
+                        {DOC_TYPES.map(t => (
                           <div key={t} onClick={() => { setDocType(t); setDocDropOpen(false) }}
                             style={{ padding:'9px 14px', fontSize:12, cursor:'pointer', background: t===docType?'var(--surface2)':'transparent', fontWeight: t===docType?600:400, color: t===docType?'#0085C7':'var(--text)' }}
                             onMouseEnter={e => e.currentTarget.style.background='var(--surface2)'}
@@ -2273,7 +2268,7 @@ ${myDocs.length > 0 ? `<div class="section">
               )}
               {!documentsExpanded ? null : myDocs.length === 0
                 ? <div className="empty" style={{ padding:'20px 0' }}>{lang==='ar'?'لم يتم رفع وثائق بعد.':'No documents uploaded yet.'}</div>
-                : displayedAthleteTypes.map(type => {
+                : DOC_TYPES.map(type => {
                     const typeDocs = docsByType[type]
                     if (typeDocs.length === 0) return null
                     if (!canEdit(profile) && type === 'Mission Passport') return null

@@ -6,7 +6,6 @@ import { supabase } from '../lib/supabase'
 import { canEdit } from '../lib/useAuth'
 import { usePersonRoles, RoleBadges } from '../components/RoleBadges.jsx'
 import StatusScopeModal from '../components/StatusScopeModal.jsx'
-import SharedDocuments from '../components/SharedDocuments.jsx'
 import { isTrustedAdmin } from '../lib/permissions'
 import { logAdminActivity } from '../lib/adminActivity'
 import CareerHistory from '../components/CareerHistory.jsx'
@@ -597,9 +596,9 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
         {/* FORMER ATHLETES */}
         <FormerAthletes coachId={c.id} athletes={athletes} lang={lang} onNav={onNav} />
 
-        {/* DOCUMENTS - full width below both columns */}
-        <SharedDocuments personId={c.person_id} profile={profile} />
-
+        {/* DOCUMENTS - full width below both columns; shared identity
+            documents (Photo/Original Passport/Qatar ID) merged in via
+            sharedPersonId, no separate card. */}
         <PersonDocuments
           personId={c.id}
           personType="coach"
@@ -607,6 +606,7 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
           docs={personDocs}
           onRefresh={onRefresh}
           profile={profile}
+          sharedPersonId={c.person_id}
         />
       <CareerHistory personId={c.id} personType="coach" personName={c.name} />
 

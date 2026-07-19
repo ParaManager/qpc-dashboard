@@ -1,20 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useLang } from '../lib/LangContext.jsx'
 import { usePersonRoles, RoleBadges } from '../components/RoleBadges.jsx'
-import SharedDocuments from '../components/SharedDocuments.jsx'
 import { effectiveStatus, statusClass, Avatar } from '../lib/helpers'
 import { supabase } from '../lib/supabase'
 
-// Compact read-only list of a person's role-specific documents (not the
-// shared identity ones, which live in SharedDocuments). Only shown when at
-// least one document actually exists — no empty-state clutter here since
-// this is a secondary aggregation view, not the primary place to manage
-// these documents (that stays on each role's own detail page).
-// Types already promoted to person_shared_documents (Passport/QID/Photo
-// equivalents) — excluded here so a document doesn't visually appear
-// twice, once under Shared Documents and again under a role's own list.
-const SHARED_TYPE_EQUIVALENTS = ['Original Passport', 'Qatar ID', 'Photo']
-
+// Compact read-only list of a person's documents for one role. Shared
+// identity documents (Photo/Original Passport/Qatar ID) are shown once,
+// in their own card (below), not repeated inside every role card — this
+// list only ever shows that role's own role-specific documents.
 function RoleDocumentsList({ title, table, filterCol, filterVal, personType, lang }) {
   const ar = lang === 'ar'
   const [docs, setDocs] = useState([])
@@ -23,7 +16,7 @@ function RoleDocumentsList({ title, table, filterCol, filterVal, personType, lan
     let q = supabase.from(table).select('*').eq(filterCol, filterVal)
     if (personType) q = q.eq('person_type', personType)
     q.order('uploaded_at', { ascending: false })
-      .then(({ data }) => { if (!cancelled) setDocs((data || []).filter(d => !SHARED_TYPE_EQUIVALENTS.includes(d.type))) })
+      .then(({ data }) => { if (!cancelled) setDocs(data || []) })
     return () => { cancelled = true }
   }, [table, filterCol, filterVal, personType])
 
@@ -60,6 +53,14 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
   const personId = profile?.person_id
 
   const { roles, loading } = usePersonRoles(personId)
+  const [sharedDocs, setSharedDocs] = useState([])
+  useEffect(() => {
+    if (!personId) { setSharedDocs([]); return }
+    let cancelled = false
+    supabase.from('person_shared_documents').select('*').eq('person_id', personId)
+      .then(({ data }) => { if (!cancelled) setSharedDocs(data || []) })
+    return () => { cancelled = true }
+  }, [personId])
 
   const myAthlete  = athletes.find(a => a.person_id === personId)
   const myCoach    = coaches.find(c => c.person_id === personId)
@@ -109,7 +110,26 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <SharedDocuments personId={personId} profile={profile} />
+          {sharedDocs.length > 0 && (
+            <div className="info-card">
+              <div className="info-title" style={{ marginBottom: 10 }}>
+                {ar ? 'الوثائق المشتركة' : 'Shared Documents'} <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 400, color: 'var(--text3)', textTransform: 'none', letterSpacing: 0 }}>{sharedDocs.length} {ar ? 'ملف' : `file${sharedDocs.length !== 1 ? 's' : ''}`}</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {sharedDocs.map(doc => (
+                  <div key={doc.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                      <i className="ti ti-file-text" style={{ fontSize: 14, color: '#0085C7' }} />
+                      <div style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.name}</div>
+                    </div>
+                    <a href={doc.file_url} target="_blank" rel="noreferrer" style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: 6, border: '1px solid var(--border)', color: 'var(--text2)' }}>
+                      <i className="ti ti-download" style={{ fontSize: 12 }} />
+                    </a>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {myEmployee && (
             <div className="info-card">

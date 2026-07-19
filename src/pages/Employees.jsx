@@ -13,7 +13,6 @@ import EmployeeCardButton from '../components/EmployeeCard'
 import PhotoCropModal from '../components/PhotoCropModal'
 import { usePersonRoles, RoleBadges } from '../components/RoleBadges.jsx'
 import StatusScopeModal from '../components/StatusScopeModal.jsx'
-import SharedDocuments from '../components/SharedDocuments.jsx'
 
 const DESIGNATIONS = [
   'All designations',
@@ -1287,8 +1286,6 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
               </div>
             )}
 
-            <SharedDocuments personId={emp.person_id} profile={profile} />
-
             <PersonDocuments
               personId={emp.id}
               personType="employee"
@@ -1296,6 +1293,7 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
               docs={personDocs}
               onRefresh={onRefresh}
               profile={profile}
+              sharedPersonId={emp.person_id}
             />
 
             <CareerHistory personId={emp.id} personType="employee" personName={emp.name} />

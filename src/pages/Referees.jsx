@@ -5,7 +5,7 @@ import { Avatar, avColor, initials } from '../lib/helpers'
 import { toast, ConfirmModal } from '../components/Toast'
 import { canEdit } from '../lib/useAuth'
 import { usePersonRoles, RoleBadges } from '../components/RoleBadges.jsx'
-import SharedDocuments from '../components/SharedDocuments.jsx'
+import { SHARED_TYPES, mergeDocuments } from '../lib/documentEngine'
 import { isTrustedAdmin } from '../lib/permissions'
 import { logAdminActivity } from '../lib/adminActivity'
 import PhotoCropModal from '../components/PhotoCropModal'
@@ -71,6 +71,7 @@ function RefereeDetail({ r: initialR, ar, L, tcNat, profile, onBack, onEdit, onD
   const [docUploading, setDocUploading] = useState(false)
   const [docType, setDocType]         = useState('Qatar ID')
   const [docs, setDocs]               = useState([])
+  const [sharedDocs, setSharedDocs]   = useState([])
   const [docConfirm, setDocConfirm]   = useState(null)
 
   const DOC_TYPES = ['Photo', 'Qatar ID']
@@ -79,6 +80,14 @@ function RefereeDetail({ r: initialR, ar, L, tcNat, profile, onBack, onEdit, onD
   const DOC_ICONS  = { 'Photo':'ti-photo', 'Qatar ID':'ti-id-badge' }
 
   useEffect(() => { loadDocs(); refreshReferee() }, [initialR.id])
+  useEffect(() => {
+    if (!r.person_id) { setSharedDocs([]); return }
+    let cancelled = false
+    supabase.from('person_shared_documents').select('*').eq('person_id', r.person_id)
+      .then(({ data }) => { if (!cancelled) setSharedDocs(data || []) })
+    return () => { cancelled = true }
+  }, [r.person_id])
+  const mergedDocs = mergeDocuments(sharedDocs, docs, DOC_TYPES)
 
   async function refreshReferee() {
     const { data } = await supabase.from('referees').select('*').eq('id', initialR.id).maybeSingle()
@@ -116,6 +125,8 @@ function RefereeDetail({ r: initialR, ar, L, tcNat, profile, onBack, onEdit, onD
 
   async function handleDocUpload(file) {
     if (file.size > 20*1024*1024) { toast(L('File must be under 20MB','الملف يجب أن يكون أقل من 20MB'), 'error'); return }
+    const isSharedType = SHARED_TYPES.includes(docType)
+    if (isSharedType && !r.person_id) { toast(L('No linked person record yet','لا يوجد سجل شخصي مرتبط بعد'), 'error'); return }
     setDocUploading(true)
     try {
       const ext  = file.name.split('.').pop()
@@ -123,19 +134,36 @@ function RefereeDetail({ r: initialR, ar, L, tcNat, profile, onBack, onEdit, onD
       const { error: upErr } = await supabase.storage.from('athlete-documents').upload(path, file)
       if (upErr) throw upErr
       const { data } = supabase.storage.from('athlete-documents').getPublicUrl(path)
-      await supabase.from('referee_documents').insert({
-        referee_id: r.id, name: file.name, type: docType,
-        file_url: data.publicUrl, file_path: path, file_size: file.size,
-      })
-      toast(L(`${docType} uploaded!`,`تم رفع ${DOC_TYPES_AR[docType]}!`)); loadDocs()
+      if (isSharedType) {
+        const dup = sharedDocs.find(d => d.type === docType && d.name === file.name)
+        if (dup) { toast(L('This document already exists','هذا الملف موجود بالفعل'), 'error'); await supabase.storage.from('athlete-documents').remove([path]); setDocUploading(false); return }
+        await supabase.from('person_shared_documents').insert({
+          person_id: r.person_id, name: file.name, type: docType,
+          file_url: data.publicUrl, file_path: path, file_size: file.size,
+        })
+        setSharedDocs(prev => [...prev, { person_id: r.person_id, name: file.name, type: docType, file_url: data.publicUrl, file_path: path, file_size: file.size, uploaded_at: new Date().toISOString() }])
+      } else {
+        await supabase.from('referee_documents').insert({
+          referee_id: r.id, name: file.name, type: docType,
+          file_url: data.publicUrl, file_path: path, file_size: file.size,
+        })
+        loadDocs()
+      }
+      toast(L(`${docType} uploaded!`,`تم رفع ${DOC_TYPES_AR[docType]}!`))
     } catch(err) { toast(err.message, 'error') }
     finally { setDocUploading(false); if (docInput.current) docInput.current.value = '' }
   }
 
   async function handleDocDelete(doc) {
     await supabase.storage.from('athlete-documents').remove([doc.file_path])
-    await supabase.from('referee_documents').delete().eq('id', doc.id)
-    toast(L('Document deleted','تم حذف الوثيقة')); setDocConfirm(null); loadDocs()
+    if (doc._source === 'shared') {
+      await supabase.from('person_shared_documents').delete().eq('person_id', doc.person_id).eq('type', doc.type).eq('name', doc.name)
+      setSharedDocs(prev => prev.filter(d => !(d.type === doc.type && d.name === doc.name && d.person_id === doc.person_id)))
+    } else {
+      await supabase.from('referee_documents').delete().eq('id', doc.id)
+      loadDocs()
+    }
+    toast(L('Document deleted','تم حذف الوثيقة')); setDocConfirm(null)
   }
 
   function formatSize(bytes) {
@@ -210,14 +238,13 @@ function RefereeDetail({ r: initialR, ar, L, tcNat, profile, onBack, onEdit, onD
         </div>
 
         <div>
-          <SharedDocuments personId={r.person_id} profile={profile} />
-
-          {/* Documents */}
+          {/* Documents — shared (Photo/Qatar ID) merged with referee-specific
+              via mergedDocs, no separate Shared Documents card. */}
           <div className="info-card">
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
               <div className="info-title" style={{ margin:0 }}>
                 {L('Documents','الوثائق')}
-                <span style={{ marginLeft:8, fontSize:11, fontWeight:400, color:'var(--text3)', textTransform:'none', letterSpacing:0 }}>{docs.length} {L('file','ملف')}{docs.length !== 1 ? (ar?'':' files') : ''}</span>
+                <span style={{ marginLeft:8, fontSize:11, fontWeight:400, color:'var(--text3)', textTransform:'none', letterSpacing:0 }}>{mergedDocs.length} {L('file','ملف')}{mergedDocs.length !== 1 ? (ar?'':' files') : ''}</span>
               </div>
             </div>
 
@@ -237,10 +264,10 @@ function RefereeDetail({ r: initialR, ar, L, tcNat, profile, onBack, onEdit, onD
               </div>
             )}
 
-            {docs.length === 0
+            {mergedDocs.length === 0
               ? <div className="empty" style={{ padding:'20px 0' }}>{L('No documents uploaded yet.','لم يتم رفع وثائق بعد.')}</div>
               : DOC_TYPES.map(type => {
-                  const typeDocs = docs.filter(d => d.type === type)
+                  const typeDocs = mergedDocs.filter(d => d.type === type)
                   if (typeDocs.length === 0) return null
                   const color = DOC_COLORS[type]
                   const icon  = DOC_ICONS[type]
@@ -251,7 +278,7 @@ function RefereeDetail({ r: initialR, ar, L, tcNat, profile, onBack, onEdit, onD
                         <span style={{ fontSize:11, fontWeight:600, color }}>{ar?(DOC_TYPES_AR[type]||type):type}</span>
                       </div>
                       {typeDocs.map(doc => (
-                        <div key={doc.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 10px', background:'var(--surface2)', borderRadius:9, marginBottom:6, border:'1px solid var(--border)' }}>
+                        <div key={`${doc._source}-${doc.id}`} style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 10px', background:'var(--surface2)', borderRadius:9, marginBottom:6, border:'1px solid var(--border)' }}>
                           <div style={{ width:34, height:34, borderRadius:8, background:color+'15', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
                             <i className={`ti ${icon}`} style={{ fontSize:16, color }} />
                           </div>
