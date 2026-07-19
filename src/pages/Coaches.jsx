@@ -206,8 +206,8 @@ function FormerAthletes({ coachId, athletes, lang, onNav }) {
 
 export default function Coaches({ coaches, athletes, employees, personDocs, onRefresh, onNav, initCoachId, navState, profile }) {
   const [search, setSearch]     = useState('')
-  const [sport, setSport]       = useState('All sports')
-  const [sportCategory, setSportCategory] = useState('All categories')
+  const [sport, setSport]       = useState([])
+  const [sportCategory, setSportCategory] = useState([])
   const [status, setStatus]     = useState([])
   const [sort, setSort]         = useState('name-asc')
   const sortBtn = (key, label) => {
@@ -238,8 +238,8 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
     if (navState?.reset && initCoachId == null) {
       setSelected(null)
       setSearch('')
-      setSport('All sports')
-      setSportCategory('All categories')
+      setSport([])
+      setSportCategory([])
       setStatus([])
       setSort('name-asc')
     }
@@ -251,15 +251,15 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
   // doesn't still show Paralympic-only sports like Goalball or Wheelchair Basketball.
   const coachSportsInData = new Set(coaches.map(c => c.sport).filter(Boolean))
   const fullSportsList = [...SPORTS, ...[...coachSportsInData].filter(s => !SPORTS.includes(s))]
-  const sportsRaw = sportCategory !== 'All categories'
-    ? ['All sports', ...new Set(SPORTS_BY_CATEGORY[sportCategory] || fullSportsList)]
-    : ['All sports', ...fullSportsList]
-  const categoriesRaw = ['All categories', ...SPORT_CATEGORIES]
-  const hasFilters = search || sport !== 'All sports' || sportCategory !== 'All categories' || status.length > 0
+  const sportsRaw = sportCategory.length > 0
+    ? [...new Set(sportCategory.flatMap(cat => SPORTS_BY_CATEGORY[cat] || []))]
+    : [...fullSportsList]
+  const categoriesRaw = [...SPORT_CATEGORIES]
+  const hasFilters = search || sport.length > 0 || sportCategory.length > 0 || status.length > 0
 
   let list = coaches.filter(c =>
-    (sport  === 'All sports'   || c.sport  === sport)  &&
-    (sportCategory === 'All categories' || c.sport_category === sportCategory) &&
+    (sport.length === 0 || sport.some(v => v === 'Blank' ? !c.sport : c.sport === v)) &&
+    (sportCategory.length === 0 || sportCategory.some(v => v === 'Blank' ? !c.sport_category : c.sport_category === v)) &&
     (status.length === 0 || status.includes(c.status)) &&
     (!search || c.name.toLowerCase().includes(search.toLowerCase()) || (c.name_ar||'').toLowerCase().includes(search.toLowerCase()) || (c.sport||'').toLowerCase().includes(search.toLowerCase()))
   )
@@ -633,7 +633,7 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
         <div><div className="page-title">{tx('pages.coaches','Coaches')}</div><div className="page-sub">{list.length} {tx('coaches.ofCoaches','of')} {coaches.length} {tx('pages.coaches','coaches')}</div></div>
         <div style={{ display:'flex', gap:8 }}>
           {hasFilters && (
-            <button onClick={() => { setSearch(''); setSport('All sports'); setSportCategory('All categories'); setStatus([]) }}
+            <button onClick={() => { setSearch(''); setSport([]); setSportCategory([]); setStatus([]) }}
               style={{ display:'flex', alignItems:'center', gap:5, padding:'8px 12px', borderRadius:9, border:'1px solid #fca5a5', background:'#fef2f2', color:'#dc2626', fontSize:12, cursor:'pointer', fontFamily:'DM Sans, sans-serif' }}>
               <i className="ti ti-x" style={{ fontSize:13 }} /> {tx('actions.resetFilters','Reset filters')}
             </button>
@@ -645,8 +645,26 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
       </div>
       <div className="filters">
         <div className="search-wrap"><i className="ti ti-search" /><input placeholder={tx("coaches.searchCoaches","Search by name, sport…")} value={search} onChange={e => setSearch(e.target.value)} /></div>
-        <select className="filter" value={sportCategory} onChange={e => { setSportCategory(e.target.value); setSport('All sports') }}>{categoriesRaw.map(c => <option key={c} value={c}>{c === 'All categories' ? tx('filters.allCategories','All categories') : (lang==='ar' ? (SPORT_CATEGORY_NAMES_AR[c]||c) : c)}</option>)}</select>
-        <select className="filter" value={sport} onChange={e => setSport(e.target.value)}>{sportsRaw.map(s => <option key={s} value={s}>{s === 'All sports' ? tx('filters.allSports','All sports') : sportLabel(s, sportCategory === 'All categories' ? null : sportCategory, lang==='ar')}</option>)}</select>
+        <MultiSelectFilter
+          options={[
+            ...categoriesRaw.map(c => ({ value: c, label: lang==='ar' ? (SPORT_CATEGORY_NAMES_AR[c]||c) : c })),
+            { value: 'Blank', label: lang==='ar'?'فارغ':'Blank' },
+          ]}
+          selected={sportCategory}
+          allLabel={tx('filters.allCategories','All categories')}
+          onChange={vals => { setSportCategory(vals); setSport([]) }}
+          style={{ width:'auto', minWidth:140 }}
+        />
+        <MultiSelectFilter
+          options={[
+            ...sportsRaw.map(s => ({ value: s, label: sportLabel(s, sportCategory.length === 1 ? sportCategory[0] : null, lang==='ar') })),
+            { value: 'Blank', label: lang==='ar'?'فارغ':'Blank' },
+          ]}
+          selected={sport}
+          allLabel={tx('filters.allSports','All sports')}
+          onChange={setSport}
+          style={{ width:'auto', minWidth:140 }}
+        />
         <MultiSelectFilter
           options={[
             { value:'Active', label:tx('status.active','Active') },
