@@ -11,34 +11,45 @@ import { supabase } from '../lib/supabase'
 function RoleDocumentsList({ title, table, filterCol, filterVal, personType, lang }) {
   const ar = lang === 'ar'
   const [docs, setDocs] = useState([])
+  const [loaded, setLoaded] = useState(false)
   useEffect(() => {
     let cancelled = false
+    setLoaded(false)
     let q = supabase.from(table).select('*').eq(filterCol, filterVal)
     if (personType) q = q.eq('person_type', personType)
     q.order('uploaded_at', { ascending: false })
-      .then(({ data }) => { if (!cancelled) setDocs(data || []) })
+      .then(({ data }) => { if (!cancelled) { setDocs(data || []); setLoaded(true) } })
     return () => { cancelled = true }
   }, [table, filterCol, filterVal, personType])
 
-  if (docs.length === 0) return null
+  // Previously this returned null on zero documents, which made an empty
+  // section indistinguishable from a broken/never-fetched one — every
+  // other page's Documents section shows an explicit empty state instead
+  // of disappearing entirely, so this now matches that.
   return (
     <div className="info-card">
       <div className="info-title" style={{ marginBottom: 10 }}>
         {title} <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 400, color: 'var(--text3)', textTransform: 'none', letterSpacing: 0 }}>{docs.length} {ar ? 'ملف' : `file${docs.length !== 1 ? 's' : ''}`}</span>
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {docs.map(doc => (
-          <div key={doc.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 8 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-              <i className="ti ti-file-text" style={{ fontSize: 14, color: '#0085C7' }} />
-              <div style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.name}</div>
+      {!loaded ? (
+        <div style={{ fontSize: 12, color: 'var(--text3)' }}>{ar ? 'جارٍ التحميل…' : 'Loading…'}</div>
+      ) : docs.length === 0 ? (
+        <div className="empty" style={{ padding: '8px 0', fontSize: 12 }}>{ar ? 'لا توجد وثائق.' : 'No documents.'}</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {docs.map(doc => (
+            <div key={doc.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                <i className="ti ti-file-text" style={{ fontSize: 14, color: '#0085C7' }} />
+                <div style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.name}</div>
+              </div>
+              <a href={doc.file_url} target="_blank" rel="noreferrer" style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: 6, border: '1px solid var(--border)', color: 'var(--text2)' }}>
+                <i className="ti ti-download" style={{ fontSize: 12 }} />
+              </a>
             </div>
-            <a href={doc.file_url} target="_blank" rel="noreferrer" style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: 6, border: '1px solid var(--border)', color: 'var(--text2)' }}>
-              <i className="ti ti-download" style={{ fontSize: 12 }} />
-            </a>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -110,11 +121,13 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {sharedDocs.length > 0 && (
-            <div className="info-card">
-              <div className="info-title" style={{ marginBottom: 10 }}>
-                {ar ? 'الوثائق المشتركة' : 'Shared Documents'} <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 400, color: 'var(--text3)', textTransform: 'none', letterSpacing: 0 }}>{sharedDocs.length} {ar ? 'ملف' : `file${sharedDocs.length !== 1 ? 's' : ''}`}</span>
-              </div>
+          <div className="info-card">
+            <div className="info-title" style={{ marginBottom: 10 }}>
+              {ar ? 'الوثائق الشخصية' : 'Personal Documents'} <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 400, color: 'var(--text3)', textTransform: 'none', letterSpacing: 0 }}>{sharedDocs.length} {ar ? 'ملف' : `file${sharedDocs.length !== 1 ? 's' : ''}`}</span>
+            </div>
+            {sharedDocs.length === 0 ? (
+              <div className="empty" style={{ padding: '8px 0', fontSize: 12 }}>{ar ? 'لا توجد وثائق.' : 'No documents.'}</div>
+            ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {sharedDocs.map(doc => (
                   <div key={doc.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 8 }}>
@@ -128,8 +141,8 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
                   </div>
                 ))}
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
           {myEmployee && (
             <div className="info-card">
