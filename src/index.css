@@ -425,7 +425,7 @@ body { overscroll-behavior: none; }
   /* Filters wrap */
   .filters { flex-wrap: wrap; gap: 8px; }
   .filters .search-wrap { min-width: 100%; }
-  .filters .filter { flex: 1; min-width: 120px; }
+  .filters .filter, .filters .filter-multiselect { flex: 1; min-width: 120px; }
 
   /* Table scrolls horizontally */
   .tbl-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
