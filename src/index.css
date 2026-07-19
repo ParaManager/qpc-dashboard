@@ -392,6 +392,7 @@ body { overscroll-behavior: none; }
 
   /* Content padding */
   #content { padding: 14px 12px; padding-bottom: calc(14px + env(safe-area-inset-bottom)); }
+  #content { overflow-x: hidden; }
 
   /* Page header stacks vertically */
   .page-header { flex-direction: column; align-items: flex-start; gap: 8px; }
@@ -423,6 +424,15 @@ body { overscroll-behavior: none; }
 
   /* Detail grid stacks */
   .detail-grid { grid-template-columns: 1fr; }
+  /* Grid items don't shrink below their content's intrinsic width by
+     default — a single long badge/line inside a child forces that child,
+     and therefore the whole single-column grid, wider than the viewport,
+     causing page-level horizontal scroll on mobile. min-width: 0 lets
+     children shrink to the column width and wrap/truncate their own
+     content instead. No layout, spacing, or column change — purely fixes
+     the overflow. */
+  .detail-grid > * { min-width: 0; }
+  .detail-grid .info-card, .detail-grid .detail-profile { max-width: 100%; overflow-x: hidden; }
 
   /* Coach grid 1 col */
   .coach-grid { grid-template-columns: 1fr; }
