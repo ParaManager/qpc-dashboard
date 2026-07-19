@@ -326,6 +326,29 @@ body { overscroll-behavior: none; }
 }
 
 @media (max-width: 768px) {
+  /* Detail-row values (labels/values in every info-card) — allow long text
+     to wrap onto a second line instead of being ellipsis/break-all
+     truncated. Rows stay aligned via flex-wrap on the row itself; the
+     value column can grow past 60% since there's no longer a sibling to
+     compete with once wrapped below the label on narrow screens. Desktop
+     keeps the original max-width:60% / break-all behavior untouched —
+     this only applies inside the existing 768px breakpoint. */
+  .detail-row { flex-wrap: wrap; }
+  .detail-row .dv { max-width: 100%; word-break: normal; overflow-wrap: break-word; white-space: normal; text-align: left; }
+  [dir="rtl"] .detail-row .dv { text-align: right; }
+  .detail-row .dk { white-space: normal; }
+
+  /* Athlete Overview grid specifically uses an inline ellipsis/nowrap
+     style (needed on desktop for its 2-column layout) — !important is
+     required here since inline styles otherwise always win, but this is
+     scoped to .athlete-overview-value and only active under 768px. */
+  .athlete-overview-value {
+    overflow: visible !important;
+    text-overflow: clip !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+  }
+
   /* Athlete detail page only — shrinks the profile header (photo, name,
      age/years block) to match the more compact height of the Employee/
      Coach/Referee detail pages on phones. Desktop is untouched since this
