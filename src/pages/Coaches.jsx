@@ -5,6 +5,7 @@ import { ConfirmModal, toast } from '../components/Toast'
 import { supabase } from '../lib/supabase'
 import { canEdit } from '../lib/useAuth'
 import { usePersonRoles, RoleBadges } from '../components/RoleBadges.jsx'
+import MultiSelectFilter from '../components/MultiSelectFilter.jsx'
 import StatusScopeModal from '../components/StatusScopeModal.jsx'
 import { isTrustedAdmin } from '../lib/permissions'
 import { logAdminActivity } from '../lib/adminActivity'
@@ -207,7 +208,7 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
   const [search, setSearch]     = useState('')
   const [sport, setSport]       = useState('All sports')
   const [sportCategory, setSportCategory] = useState('All categories')
-  const [status, setStatus]     = useState('All statuses')
+  const [status, setStatus]     = useState([])
   const [sort, setSort]         = useState('name-asc')
   const sortBtn = (key, label) => {
     const isAsc = sort === `${key}-asc`
@@ -239,7 +240,7 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
       setSearch('')
       setSport('All sports')
       setSportCategory('All categories')
-      setStatus('All statuses')
+      setStatus([])
       setSort('name-asc')
     }
   }, [navState, initCoachId])
@@ -254,12 +255,12 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
     ? ['All sports', ...new Set(SPORTS_BY_CATEGORY[sportCategory] || fullSportsList)]
     : ['All sports', ...fullSportsList]
   const categoriesRaw = ['All categories', ...SPORT_CATEGORIES]
-  const hasFilters = search || sport !== 'All sports' || sportCategory !== 'All categories' || status !== 'All statuses'
+  const hasFilters = search || sport !== 'All sports' || sportCategory !== 'All categories' || status.length > 0
 
   let list = coaches.filter(c =>
     (sport  === 'All sports'   || c.sport  === sport)  &&
     (sportCategory === 'All categories' || c.sport_category === sportCategory) &&
-    (status === 'All statuses' || c.status === status) &&
+    (status.length === 0 || status.includes(c.status)) &&
     (!search || c.name.toLowerCase().includes(search.toLowerCase()) || (c.name_ar||'').toLowerCase().includes(search.toLowerCase()) || (c.sport||'').toLowerCase().includes(search.toLowerCase()))
   )
   list = [...list].sort((a, b) => {
@@ -632,7 +633,7 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
         <div><div className="page-title">{tx('pages.coaches','Coaches')}</div><div className="page-sub">{list.length} {tx('coaches.ofCoaches','of')} {coaches.length} {tx('pages.coaches','coaches')}</div></div>
         <div style={{ display:'flex', gap:8 }}>
           {hasFilters && (
-            <button onClick={() => { setSearch(''); setSport('All sports'); setSportCategory('All categories'); setStatus('All statuses') }}
+            <button onClick={() => { setSearch(''); setSport('All sports'); setSportCategory('All categories'); setStatus([]) }}
               style={{ display:'flex', alignItems:'center', gap:5, padding:'8px 12px', borderRadius:9, border:'1px solid #fca5a5', background:'#fef2f2', color:'#dc2626', fontSize:12, cursor:'pointer', fontFamily:'DM Sans, sans-serif' }}>
               <i className="ti ti-x" style={{ fontSize:13 }} /> {tx('actions.resetFilters','Reset filters')}
             </button>
@@ -646,7 +647,20 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
         <div className="search-wrap"><i className="ti ti-search" /><input placeholder={tx("coaches.searchCoaches","Search by name, sport…")} value={search} onChange={e => setSearch(e.target.value)} /></div>
         <select className="filter" value={sportCategory} onChange={e => { setSportCategory(e.target.value); setSport('All sports') }}>{categoriesRaw.map(c => <option key={c} value={c}>{c === 'All categories' ? tx('filters.allCategories','All categories') : (lang==='ar' ? (SPORT_CATEGORY_NAMES_AR[c]||c) : c)}</option>)}</select>
         <select className="filter" value={sport} onChange={e => setSport(e.target.value)}>{sportsRaw.map(s => <option key={s} value={s}>{s === 'All sports' ? tx('filters.allSports','All sports') : sportLabel(s, sportCategory === 'All categories' ? null : sportCategory, lang==='ar')}</option>)}</select>
-        <select className="filter" value={status} onChange={e => setStatus(e.target.value)}>{[['All statuses',tx('filters.allStatuses','All statuses')],['Active',tx('status.active','Active')],['On Leave',lang==='ar'?'في إجازة':'On Leave'],['In Competition',lang==='ar'?'في منافسة':'In Competition'],['In Training Camp',lang==='ar'?'في معسكر تدريبي':'In Training Camp'],['Inactive',tx('status.inactive','Inactive')],['Retired',lang==='ar'?'متقاعد':'Retired']].map(([val,lbl]) => <option key={val} value={val}>{lbl}</option>)}</select>
+        <MultiSelectFilter
+          options={[
+            { value:'Active', label:tx('status.active','Active') },
+            { value:'On Leave', label:lang==='ar'?'في إجازة':'On Leave' },
+            { value:'In Competition', label:lang==='ar'?'في منافسة':'In Competition' },
+            { value:'In Training Camp', label:lang==='ar'?'في معسكر تدريبي':'In Training Camp' },
+            { value:'Inactive', label:tx('status.inactive','Inactive') },
+            { value:'Retired', label:lang==='ar'?'متقاعد':'Retired' },
+          ]}
+          selected={status}
+          allLabel={tx('filters.allStatuses','All statuses')}
+          onChange={setStatus}
+          style={{ width:'auto', minWidth:140 }}
+        />
         <select className="filter" value={sort} onChange={e => setSort(e.target.value)}>
           <option value="name-asc">{tx('filters.nameAZ','Name A→Z')}</option>
           <option value="name-desc">{tx('filters.nameZA','Name Z→A')}</option>

@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useLang } from '../lib/LangContext.jsx'
 import { Avatar, Badge, statusClass, computeAwayPeople, AWAY_STATUSES } from '../lib/helpers'
+import MultiSelectFilter from '../components/MultiSelectFilter.jsx'
 
 const STATUS_LABEL = {
   'On Leave':         { en: 'On Leave',         ar: 'في إجازة' },
@@ -20,7 +21,7 @@ export default function Away({ athletes, coaches, employees, onNav }) {
   const L = (en, arText) => ar ? arText : en
 
   const [search, setSearch]         = useState('')
-  const [statusFilter, setStatusFilter] = useState('All')
+  const [statusFilter, setStatusFilter] = useState([])
 
   const { allAway } = useMemo(
     () => computeAwayPeople(athletes, coaches, employees, lang),
@@ -41,7 +42,7 @@ export default function Away({ athletes, coaches, employees, onNav }) {
   }
 
   const filtered = allAway.filter(p => {
-    if (statusFilter !== 'All' && p.status !== statusFilter) return false
+    if (statusFilter.length > 0 && !statusFilter.includes(p.status)) return false
     if (search) {
       const q = search.toLowerCase()
       const type = p._isCoach ? 'Coach' : p._isEmployee ? 'Employee' : 'Athlete'
@@ -57,8 +58,8 @@ export default function Away({ athletes, coaches, employees, onNav }) {
     return true
   })
 
-  const hasActiveFilters = search || statusFilter !== 'All'
-  function clearFilters() { setSearch(''); setStatusFilter('All') }
+  const hasActiveFilters = search || statusFilter.length > 0
+  function clearFilters() { setSearch(''); setStatusFilter([]) }
 
   function goToPerson(p) {
     if (p._isCoach)    onNav('coaches',   { coachId: p.id })
@@ -87,13 +88,12 @@ export default function Away({ athletes, coaches, employees, onNav }) {
             onChange={e => setSearch(e.target.value)}
           />
         </div>
-        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-          style={{ padding: '8px 10px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface)', fontSize: 13, color: statusFilter !== 'All' ? '#0085C7' : 'var(--text)', fontWeight: statusFilter !== 'All' ? 600 : 400, cursor: 'pointer', outline: 'none' }}>
-          <option value="All">{L('Away Status: All', 'حالة الغياب: الكل')}</option>
-          {AWAY_STATUSES.map(s => (
-            <option key={s} value={s}>{ar ? STATUS_LABEL[s].ar : STATUS_LABEL[s].en}</option>
-          ))}
-        </select>
+        <MultiSelectFilter
+          options={AWAY_STATUSES.map(s => ({ value: s, label: ar ? STATUS_LABEL[s].ar : STATUS_LABEL[s].en }))}
+          selected={statusFilter}
+          allLabel={L('Away Status: All', 'حالة الغياب: الكل')}
+          onChange={setStatusFilter}
+        />
         {hasActiveFilters && (
           <button onClick={clearFilters}
             style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '8px 12px', borderRadius: 9, border: '1px solid #fca5a5', background: '#fef2f2', color: '#dc2626', fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap' }}>
