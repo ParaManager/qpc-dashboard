@@ -326,6 +326,22 @@ body { overscroll-behavior: none; }
 }
 
 @media (max-width: 768px) {
+  /* Athlete detail page only — shrinks the profile header (photo, name,
+     age/years block) to match the more compact height of the Employee/
+     Coach/Referee detail pages on phones. Desktop is untouched since this
+     only applies inside the 768px breakpoint, and scoped to
+     .athlete-detail-profile so the shared .detail-profile class used by
+     the other three pages is unaffected. */
+  .athlete-detail-profile { padding: 14px 12px; }
+  .athlete-detail-profile .athlete-photo-wrap { width: 64px !important; height: 64px !important; margin: 0 auto 8px !important; }
+  .athlete-detail-profile .athlete-photo-wrap img,
+  .athlete-detail-profile .athlete-photo-wrap > div:first-child { width: 64px !important; height: 64px !important; font-size: 20px !important; }
+  .athlete-detail-profile .detail-name { font-size: 14px; margin-top: 2px; }
+  .athlete-detail-profile .detail-sub { font-size: 11.5px; margin-top: 1px; }
+  .athlete-detail-profile .detail-badges { margin-top: 8px; gap: 4px; }
+  .athlete-detail-profile .athlete-age-block { margin: 8px 0 !important; padding: 6px !important; gap: 10px !important; }
+  .athlete-detail-profile .athlete-age-block > div > div:first-child { font-size: 15px !important; }
+
   /* Show hamburger */
   .menu-btn { display: flex; }
 
