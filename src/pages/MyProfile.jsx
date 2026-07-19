@@ -4,56 +4,6 @@ import { usePersonRoles, RoleBadges } from '../components/RoleBadges.jsx'
 import { effectiveStatus, statusClass, Avatar } from '../lib/helpers'
 import { supabase } from '../lib/supabase'
 
-// Compact read-only list of a person's documents for one role. Shared
-// identity documents (Photo/Original Passport/Qatar ID) are shown once,
-// in their own card (below), not repeated inside every role card — this
-// list only ever shows that role's own role-specific documents.
-function RoleDocumentsList({ title, table, filterCol, filterVal, personType, lang }) {
-  const ar = lang === 'ar'
-  const [docs, setDocs] = useState([])
-  const [loaded, setLoaded] = useState(false)
-  useEffect(() => {
-    let cancelled = false
-    setLoaded(false)
-    let q = supabase.from(table).select('*').eq(filterCol, filterVal)
-    if (personType) q = q.eq('person_type', personType)
-    q.order('uploaded_at', { ascending: false })
-      .then(({ data }) => { if (!cancelled) { setDocs(data || []); setLoaded(true) } })
-    return () => { cancelled = true }
-  }, [table, filterCol, filterVal, personType])
-
-  // Previously this returned null on zero documents, which made an empty
-  // section indistinguishable from a broken/never-fetched one — every
-  // other page's Documents section shows an explicit empty state instead
-  // of disappearing entirely, so this now matches that.
-  return (
-    <div className="info-card">
-      <div className="info-title" style={{ marginBottom: 10 }}>
-        {title} <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 400, color: 'var(--text3)', textTransform: 'none', letterSpacing: 0 }}>{docs.length} {ar ? 'ملف' : `file${docs.length !== 1 ? 's' : ''}`}</span>
-      </div>
-      {!loaded ? (
-        <div style={{ fontSize: 12, color: 'var(--text3)' }}>{ar ? 'جارٍ التحميل…' : 'Loading…'}</div>
-      ) : docs.length === 0 ? (
-        <div className="empty" style={{ padding: '8px 0', fontSize: 12 }}>{ar ? 'لا توجد وثائق.' : 'No documents.'}</div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {docs.map(doc => (
-            <div key={doc.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 8 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                <i className="ti ti-file-text" style={{ fontSize: 14, color: '#0085C7' }} />
-                <div style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.name}</div>
-              </div>
-              <a href={doc.file_url} target="_blank" rel="noreferrer" style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: 6, border: '1px solid var(--border)', color: 'var(--text2)' }}>
-                <i className="ti ti-download" style={{ fontSize: 12 }} />
-              </a>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
 // Real, combined "My Profile" — one page showing every role linked to the
 // logged-in person's person_id, instead of routing to whichever single
 // role page happened to match first. Falls back gracefully (renders
@@ -64,19 +14,50 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
   const personId = profile?.person_id
 
   const { roles, loading } = usePersonRoles(personId)
-  const [sharedDocs, setSharedDocs] = useState([])
-  useEffect(() => {
-    if (!personId) { setSharedDocs([]); return }
-    let cancelled = false
-    supabase.from('person_shared_documents').select('*').eq('person_id', personId)
-      .then(({ data }) => { if (!cancelled) setSharedDocs(data || []) })
-    return () => { cancelled = true }
-  }, [personId])
 
   const myAthlete  = athletes.find(a => a.person_id === personId)
   const myCoach    = coaches.find(c => c.person_id === personId)
   const myEmployee = employees.find(e => e.person_id === personId)
   const myReferee  = (referees || []).find(r => r.person_id === personId)
+
+  // One combined Documents list — every role linked to this person_id
+  // contributes its documents into a single fetch/list, deduplicated by
+  // file path so a shared document referenced from multiple places never
+  // appears twice.
+  const [allDocs, setAllDocs] = useState([])
+  const [docsLoaded, setDocsLoaded] = useState(false)
+  useEffect(() => {
+    if (!personId) { setAllDocs([]); setDocsLoaded(true); return }
+    let cancelled = false
+    setDocsLoaded(false)
+
+    const queries = [
+      supabase.from('person_shared_documents').select('*').eq('person_id', personId),
+    ]
+    if (myAthlete)  queries.push(supabase.from('athlete_documents').select('*').eq('athlete_id', myAthlete.id))
+    if (myEmployee) queries.push(supabase.from('person_documents').select('*').eq('person_id', myEmployee.id).eq('person_type', 'employee'))
+    if (myCoach)    queries.push(supabase.from('person_documents').select('*').eq('person_id', myCoach.id).eq('person_type', 'coach'))
+    if (myReferee)  queries.push(supabase.from('referee_documents').select('*').eq('referee_id', myReferee.id))
+
+    Promise.all(queries).then(results => {
+      if (cancelled) return
+      const merged = results.flatMap(r => r.data || [])
+      // Dedupe by file_path (the actual underlying file) — a shared
+      // document can legitimately be referenced once from
+      // person_shared_documents; nothing else points at the same path.
+      const seen = new Set()
+      const deduped = merged.filter(d => {
+        const key = d.file_path || `${d.type}-${d.name}`
+        if (seen.has(key)) return false
+        seen.add(key)
+        return true
+      })
+      deduped.sort((a, b) => new Date(b.uploaded_at || 0) - new Date(a.uploaded_at || 0))
+      setAllDocs(deduped)
+      setDocsLoaded(true)
+    })
+    return () => { cancelled = true }
+  }, [personId, myAthlete?.id, myEmployee?.id, myCoach?.id, myReferee?.id])
 
   if (!personId) {
     return (
@@ -121,29 +102,6 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div className="info-card">
-            <div className="info-title" style={{ marginBottom: 10 }}>
-              {ar ? 'الوثائق الشخصية' : 'Personal Documents'} <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 400, color: 'var(--text3)', textTransform: 'none', letterSpacing: 0 }}>{sharedDocs.length} {ar ? 'ملف' : `file${sharedDocs.length !== 1 ? 's' : ''}`}</span>
-            </div>
-            {sharedDocs.length === 0 ? (
-              <div className="empty" style={{ padding: '8px 0', fontSize: 12 }}>{ar ? 'لا توجد وثائق.' : 'No documents.'}</div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {sharedDocs.map(doc => (
-                  <div key={doc.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 8 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                      <i className="ti ti-file-text" style={{ fontSize: 14, color: '#0085C7' }} />
-                      <div style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.name}</div>
-                    </div>
-                    <a href={doc.file_url} target="_blank" rel="noreferrer" style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: 6, border: '1px solid var(--border)', color: 'var(--text2)' }}>
-                      <i className="ti ti-download" style={{ fontSize: 12 }} />
-                    </a>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
           {myEmployee && (
             <div className="info-card">
               <div className="info-title" style={{ marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -163,9 +121,6 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
                 {ar ? 'عرض التفاصيل الكاملة ←' : 'View full details →'}
               </button>
             </div>
-          )}
-          {myEmployee && (
-            <RoleDocumentsList title={ar ? 'وثائق الموظف' : 'Employee Documents'} table="person_documents" filterCol="person_id" filterVal={myEmployee.id} personType="employee" lang={lang} />
           )}
 
           {myAthlete && (
@@ -187,9 +142,6 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
               </button>
             </div>
           )}
-          {myAthlete && (
-            <RoleDocumentsList title={ar ? 'وثائق الرياضي' : 'Athlete Documents'} table="athlete_documents" filterCol="athlete_id" filterVal={myAthlete.id} lang={lang} />
-          )}
 
           {myCoach && (
             <div className="info-card">
@@ -207,9 +159,6 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
               </button>
             </div>
           )}
-          {myCoach && (
-            <RoleDocumentsList title={ar ? 'وثائق المدرب' : 'Coach Documents'} table="person_documents" filterCol="person_id" filterVal={myCoach.id} personType="coach" lang={lang} />
-          )}
 
           {myReferee && (
             <div className="info-card">
@@ -219,9 +168,38 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
               </button>
             </div>
           )}
-          {myReferee && (
-            <RoleDocumentsList title={ar ? 'وثائق الحكم' : 'Referee Documents'} table="referee_documents" filterCol="referee_id" filterVal={myReferee.id} lang={lang} />
-          )}
+
+          {/* ONE combined Documents card — merges person_shared_documents
+              with every linked role's own documents, deduplicated. No
+              completion %/missing chips here (those stay on each role's
+              own detail page). */}
+          <div className="info-card">
+            <div className="info-title" style={{ marginBottom: 10 }}>
+              {ar ? 'الوثائق' : 'Documents'} <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 400, color: 'var(--text3)', textTransform: 'none', letterSpacing: 0 }}>{allDocs.length} {ar ? 'ملف' : `file${allDocs.length !== 1 ? 's' : ''}`}</span>
+            </div>
+            {!docsLoaded ? (
+              <div style={{ fontSize: 12, color: 'var(--text3)' }}>{ar ? 'جارٍ التحميل…' : 'Loading…'}</div>
+            ) : allDocs.length === 0 ? (
+              <div className="empty" style={{ padding: '8px 0', fontSize: 12 }}>{ar ? 'لا توجد وثائق.' : 'No documents.'}</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {allDocs.map(doc => (
+                  <div key={doc.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                      <i className="ti ti-file-text" style={{ fontSize: 14, color: '#0085C7' }} />
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.name}</div>
+                        <div style={{ fontSize: 10.5, color: 'var(--text3)' }}>{doc.type}</div>
+                      </div>
+                    </div>
+                    <a href={doc.file_url} target="_blank" rel="noreferrer" style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: 6, border: '1px solid var(--border)', color: 'var(--text2)' }}>
+                      <i className="ti ti-download" style={{ fontSize: 12 }} />
+                    </a>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
