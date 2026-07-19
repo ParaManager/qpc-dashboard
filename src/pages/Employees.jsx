@@ -12,6 +12,7 @@ import * as XLSX from 'xlsx'
 import EmployeeCardButton from '../components/EmployeeCard'
 import PhotoCropModal from '../components/PhotoCropModal'
 import { usePersonRoles, RoleBadges } from '../components/RoleBadges.jsx'
+import MultiSelectFilter from '../components/MultiSelectFilter.jsx'
 import StatusScopeModal from '../components/StatusScopeModal.jsx'
 
 const DESIGNATIONS = [
@@ -966,14 +967,19 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
   }
 
   const COL_FILTERS = {
-    designation: ['All', 'Blank', ...[...new Set([...DESIGNATIONS.slice(1), ...customDesignations.map(d => d.label)])]],
-    nationality: ['All', 'Blank', ...['Afghanistan', 'Algeria', 'Argentina', 'Armenia', 'Australia', 'Austria', 'Azerbaijan', 'Bahrain', 'Bangladesh', 'Belarus', 'Belgium', 'Brazil', 'Cameroon', 'Canada', 'Chile', 'China', 'Colombia', 'Croatia', 'Czech Republic', 'Denmark', 'Egypt', 'Eritrea', 'Ethiopia', 'Finland', 'France', 'Georgia', 'Germany', 'Ghana', 'Greece', 'Guinea', 'Hungary', 'India', 'Indonesia', 'Iran', 'Iraq', 'Ireland', 'Italy', 'Japan', 'Jordan', 'Kazakhstan', 'Kenya', 'Kuwait', 'Kyrgyzstan', 'Lebanon', 'Libya', 'Malaysia', 'Mali', 'Mauritania', 'Mexico', 'Mongolia', 'Morocco', 'Myanmar', 'Nepal', 'Netherlands', 'New Zealand', 'Nigeria', 'Norway', 'Oman', 'Pakistan', 'Palestine', 'Peru', 'Philippines', 'Poland', 'Portugal', 'Qatar', 'Romania', 'Russia', 'Rwanda', 'Saudi Arabia', 'Scotland', 'Senegal', 'Serbia', 'Singapore', 'Slovakia', 'Somalia', 'South Africa', 'South Korea', 'Spain', 'Sri Lanka', 'Sudan', 'Sweden', 'Syria', 'Tajikistan', 'Tanzania', 'Thailand', 'Tunisia', 'Turkey', 'Turkmenistan', 'UAE', 'Uganda', 'UK', 'Ukraine', 'USA', 'Uzbekistan', 'Venezuela', 'Vietnam', 'Wales', 'Yemen', 'Zambia', 'Zimbabwe']],
-    gender:      ['All','Blank','Male','Female'],
-    status:      ['All','Active','On Leave','In Competition','In Training Camp','Inactive','Retired'],
+    designation: [...new Set([...DESIGNATIONS.slice(1), ...customDesignations.map(d => d.label)])],
+    nationality: ['Afghanistan', 'Algeria', 'Argentina', 'Armenia', 'Australia', 'Austria', 'Azerbaijan', 'Bahrain', 'Bangladesh', 'Belarus', 'Belgium', 'Brazil', 'Cameroon', 'Canada', 'Chile', 'China', 'Colombia', 'Croatia', 'Czech Republic', 'Denmark', 'Egypt', 'Eritrea', 'Ethiopia', 'Finland', 'France', 'Georgia', 'Germany', 'Ghana', 'Greece', 'Guinea', 'Hungary', 'India', 'Indonesia', 'Iran', 'Iraq', 'Ireland', 'Italy', 'Japan', 'Jordan', 'Kazakhstan', 'Kenya', 'Kuwait', 'Kyrgyzstan', 'Lebanon', 'Libya', 'Malaysia', 'Mali', 'Mauritania', 'Mexico', 'Mongolia', 'Morocco', 'Myanmar', 'Nepal', 'Netherlands', 'New Zealand', 'Nigeria', 'Norway', 'Oman', 'Pakistan', 'Palestine', 'Peru', 'Philippines', 'Poland', 'Portugal', 'Qatar', 'Romania', 'Russia', 'Rwanda', 'Saudi Arabia', 'Scotland', 'Senegal', 'Serbia', 'Singapore', 'Slovakia', 'Somalia', 'South Africa', 'South Korea', 'Spain', 'Sri Lanka', 'Sudan', 'Sweden', 'Syria', 'Tajikistan', 'Tanzania', 'Thailand', 'Tunisia', 'Turkey', 'Turkmenistan', 'UAE', 'Uganda', 'UK', 'Ukraine', 'USA', 'Uzbekistan', 'Venezuela', 'Vietnam', 'Wales', 'Yemen', 'Zambia', 'Zimbabwe'],
+    gender:      ['Male','Female'],
+    status:      ['Active','On Leave','In Competition','In Training Camp','Inactive','Retired'],
   }
   const COL_FILTER_LABELS = {
-    gender: { 'All':tx('filters.all','All'), 'Male':tx('form.male','Male'), 'Female':tx('form.female','Female') },
-    status: { 'All':tx('filters.all','All'), 'Active':tx('status.active','Active'), 'On Leave':tx('status.onLeave','On Leave'), 'In Competition': lang==='ar' ? 'في منافسة' : 'In Competition', 'In Training Camp': lang==='ar' ? 'في معسكر تدريبي' : 'In Training Camp', 'Inactive':tx('status.inactive','Inactive'), 'Retired': lang==='ar' ? 'متقاعد' : 'Retired' },
+    gender: { 'Male':tx('form.male','Male'), 'Female':tx('form.female','Female') },
+    status: { 'Active':tx('status.active','Active'), 'On Leave':tx('status.onLeave','On Leave'), 'In Competition': lang==='ar' ? 'في منافسة' : 'In Competition', 'In Training Camp': lang==='ar' ? 'في معسكر تدريبي' : 'In Training Camp', 'Inactive':tx('status.inactive','Inactive'), 'Retired': lang==='ar' ? 'متقاعد' : 'Retired' },
+  }
+
+  function matchMulti(selectedValues, fieldValue) {
+    if (!selectedValues || selectedValues.length === 0) return true
+    return selectedValues.some(v => v === 'Blank' ? !fieldValue : fieldValue === v)
   }
 
   let list = employees.filter(e =>
@@ -981,10 +987,10 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
                (e.name_ar||'').toLowerCase().includes(search.toLowerCase()) ||
                (e.designation||'').toLowerCase().includes(search.toLowerCase()) ||
                (e.designation_ar||'').toLowerCase().includes(search.toLowerCase())) &&
-    (!colFilters.designation || colFilters.designation === 'All' || (colFilters.designation === 'Blank' ? !e.designation : e.designation === colFilters.designation)) &&
-    (!colFilters.nationality || colFilters.nationality === 'All' || (colFilters.nationality === 'Blank' ? !e.nationality : e.nationality === colFilters.nationality)) &&
-    (!colFilters.gender      || colFilters.gender === 'All'      || (colFilters.gender === 'Blank' ? !e.gender : e.gender === colFilters.gender)) &&
-    (!colFilters.status      || colFilters.status === 'All'      || effectiveStatus(employeeStatusSource(e, coaches)) === colFilters.status)
+    matchMulti(colFilters.designation, e.designation) &&
+    matchMulti(colFilters.nationality, e.nationality) &&
+    matchMulti(colFilters.gender, e.gender) &&
+    (!colFilters.status?.length || colFilters.status.includes(effectiveStatus(employeeStatusSource(e, coaches))))
   )
   list = [...list].sort((a, b) => {
     if (sort === 'name-asc')   return a.name.localeCompare(b.name)
@@ -1372,18 +1378,22 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
               ].map(({ key }, i) => (
                 <th key={i} style={{ padding:'4px 8px' }}>
                   {key && COL_FILTERS[key] ? (
-                    <select
-                      value={colFilters[key] || 'All'}
-                      onChange={e => setColFilters(f => ({ ...f, [key]: e.target.value }))}
-                      style={{ fontSize:11, border:'1px solid var(--border)', borderRadius:6, padding:'3px 4px', background:'var(--surface)', color:(colFilters[key]&&colFilters[key]!=='All')?'#0085C7':'var(--text3)', cursor:'pointer', outline:'none', fontWeight:(colFilters[key]&&colFilters[key]!=='All')?600:400, maxWidth:130 }}>
-                      {COL_FILTERS[key].map(o => <option key={o} value={o}>{
-                o==='Blank' ? (lang==='ar'?'فارغ':'Blank') :
-                key==='designation' ? (DESIG_LABELS[o]||o) :
-                key==='nationality' ? (o==='All' ? (lang==='ar'?'الكل':'All') : tc(o)) :
-                key==='gender' ? ({'All':lang==='ar'?'الكل':'All','Male':lang==='ar'?'ذكر':'Male','Female':lang==='ar'?'أنثى':'Female'}[o]||o) :
-                (COL_FILTER_LABELS[key]?.[o]||o)
-              }</option>)}
-                    </select>
+                    <MultiSelectFilter
+                      options={[
+                        ...COL_FILTERS[key].map(o => ({
+                          value: o,
+                          label: key==='designation' ? (DESIG_LABELS[o]||o)
+                            : key==='nationality' ? tc(o)
+                            : key==='gender' ? ({'Male':lang==='ar'?'ذكر':'Male','Female':lang==='ar'?'أنثى':'Female'}[o]||o)
+                            : (COL_FILTER_LABELS[key]?.[o]||o),
+                        })),
+                        ...(key==='status' ? [] : [{ value: 'Blank', label: lang==='ar'?'فارغ':'Blank' }]),
+                      ]}
+                      selected={colFilters[key] || []}
+                      allLabel={lang==='ar'?'الكل':'All'}
+                      onChange={vals => setColFilters(f => ({ ...f, [key]: vals }))}
+                      style={{ maxWidth: 130 }}
+                    />
                   ) : null}
                 </th>
               ))}

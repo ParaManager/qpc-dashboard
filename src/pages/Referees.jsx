@@ -5,6 +5,7 @@ import { Avatar, avColor, initials } from '../lib/helpers'
 import { toast, ConfirmModal } from '../components/Toast'
 import { canEdit } from '../lib/useAuth'
 import { usePersonRoles, RoleBadges } from '../components/RoleBadges.jsx'
+import MultiSelectFilter from '../components/MultiSelectFilter.jsx'
 import { SHARED_TYPES, mergeDocuments } from '../lib/documentEngine'
 import { isTrustedAdmin } from '../lib/permissions'
 import { logAdminActivity } from '../lib/adminActivity'
@@ -318,8 +319,8 @@ export default function Referees({ referees, onRefresh, profile }) {
   const L = (en, a) => ar ? a : en
 
   const [search, setSearch]     = useState('')
-  const [natF, setNatF]         = useState('All')
-  const [genderF, setGenderF]   = useState('All')
+  const [natF, setNatF]         = useState([])
+  const [genderF, setGenderF]   = useState([])
   const [sort, setSort]         = useState('name-asc')
   const [selected, setSelected] = useState(null)
   const [showForm, setShowForm] = useState(false)
@@ -337,8 +338,8 @@ export default function Referees({ referees, onRefresh, profile }) {
         (r.nationality||'').toLowerCase().includes(q)
       )
     }
-    if (natF !== 'All')    d = natF === 'Blank' ? d.filter(r => !r.nationality) : d.filter(r => r.nationality?.toLowerCase() === natF.toLowerCase())
-    if (genderF !== 'All') d = genderF === 'Blank' ? d.filter(r => !r.gender) : d.filter(r => r.gender === genderF)
+    if (natF.length > 0)    d = d.filter(r => natF.some(v => v === 'Blank' ? !r.nationality : r.nationality?.toLowerCase() === v.toLowerCase()))
+    if (genderF.length > 0) d = d.filter(r => genderF.some(v => v === 'Blank' ? !r.gender : r.gender === v))
     d.sort((a,b) => {
       if (sort==='name-asc')  return (a.name||'').localeCompare(b.name||'')
       if (sort==='name-desc') return (b.name||'').localeCompare(a.name||'')
@@ -500,8 +501,8 @@ export default function Referees({ referees, onRefresh, profile }) {
           <i className="ti ti-search" />
           <input placeholder={L('Search by name, ID…','بحث بالاسم أو الهوية…')} value={search} onChange={e=>setSearch(e.target.value)} />
         </div>
-        {(natF !== 'All' || genderF !== 'All') && (
-          <button onClick={() => { setNatF('All'); setGenderF('All') }}
+        {(natF.length > 0 || genderF.length > 0) && (
+          <button onClick={() => { setNatF([]); setGenderF([]) }}
             style={{ display:'flex', alignItems:'center', gap:5, padding:'8px 12px', borderRadius:9, border:'1px solid #fca5a5', background:'#fef2f2', color:'#dc2626', fontSize:12, cursor:'pointer', fontFamily:'DM Sans, sans-serif', whiteSpace:'nowrap' }}>
             <i className="ti ti-x" style={{ fontSize:13 }} /> {L('Reset filters','إعادة تعيين')}
           </button>
@@ -524,21 +525,28 @@ export default function Referees({ referees, onRefresh, profile }) {
             <tr style={{ background:'#f8f9fb' }}>
               <th colSpan={2} />
               <th style={{ padding:'4px 8px' }}>
-                <select value={natF} onChange={e=>setNatF(e.target.value)}
-                  style={{ fontSize:11, border:'1px solid var(--border)', borderRadius:6, padding:'3px 4px', background:'var(--surface)', color: natF!=='All'?'#0085C7':'var(--text3)', cursor:'pointer', outline:'none', fontWeight: natF!=='All'?600:400, maxWidth:120 }}>
-                  <option value="All">{L('All','الكل')}</option>
-                  <option value="Blank">{L('Blank','فارغ')}</option>
-                  {COUNTRIES_EN.map(c=><option key={c} value={c}>{ar?(COUNTRY_AR[c]||c):c}</option>)}
-                </select>
+                <MultiSelectFilter
+                  options={[
+                    ...COUNTRIES_EN.map(c => ({ value: c, label: ar?(COUNTRY_AR[c]||c):c })),
+                    { value: 'Blank', label: L('Blank','فارغ') },
+                  ]}
+                  selected={natF}
+                  allLabel={L('All','الكل')}
+                  onChange={setNatF}
+                  style={{ maxWidth: 120 }}
+                />
               </th>
               <th style={{ padding:'4px 8px' }}>
-                <select value={genderF} onChange={e=>setGenderF(e.target.value)}
-                  style={{ fontSize:11, border:'1px solid var(--border)', borderRadius:6, padding:'3px 4px', background:'var(--surface)', color: genderF!=='All'?'#0085C7':'var(--text3)', cursor:'pointer', outline:'none', fontWeight: genderF!=='All'?600:400 }}>
-                  <option value="All">{L('All','الكل')}</option>
-                  <option value="Blank">{L('Blank','فارغ')}</option>
-                  <option value="Male">{L('Male','ذكر')}</option>
-                  <option value="Female">{L('Female','أنثى')}</option>
-                </select>
+                <MultiSelectFilter
+                  options={[
+                    { value: 'Male', label: L('Male','ذكر') },
+                    { value: 'Female', label: L('Female','أنثى') },
+                    { value: 'Blank', label: L('Blank','فارغ') },
+                  ]}
+                  selected={genderF}
+                  allLabel={L('All','الكل')}
+                  onChange={setGenderF}
+                />
               </th>
               <th colSpan={3} />
             </tr>

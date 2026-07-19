@@ -4,6 +4,7 @@ import { useLang } from '../lib/LangContext.jsx'
 import { toast, ConfirmModal } from '../components/Toast'
 import { Avatar, initials } from '../lib/helpers'
 import { isMainAdminEmail } from '../lib/permissions'
+import MultiSelectFilter from '../components/MultiSelectFilter.jsx'
 
 const STATUSES = ['todo', 'in_progress', 'done']
 const STATUS_META = {
@@ -76,8 +77,8 @@ export default function Tasks({ profile, isMainAdmin, onNav }) {
   const [archivedOpen, setArchivedOpen] = useState(false)
   const [archivedTasks, setArchivedTasks] = useState([])
   const [archivedLoading, setArchivedLoading] = useState(false)
-  const [assigneeFilter, setAssigneeFilter] = useState('all')
-  const [categoryFilter, setCategoryFilter] = useState('all')
+  const [assigneeFilter, setAssigneeFilter] = useState([])
+  const [categoryFilter, setCategoryFilter] = useState([])
 
   const [editing, setEditing]   = useState(null)
   const [confirmDel, setConfirmDel] = useState(null)
@@ -157,8 +158,8 @@ export default function Tasks({ profile, isMainAdmin, onNav }) {
 
   const filtered = scoped.filter(t => {
     if (search && !t.title.toLowerCase().includes(search.toLowerCase()) && !(t.notes||'').toLowerCase().includes(search.toLowerCase())) return false
-    if (isMainAdmin && viewScope === 'all' && assigneeFilter !== 'all' && t.assigned_to !== assigneeFilter) return false
-    if (categoryFilter !== 'all' && (categoryFilter === 'blank' ? !!t.category : (t.category || '') !== categoryFilter)) return false
+    if (isMainAdmin && viewScope === 'all' && assigneeFilter.length > 0 && !assigneeFilter.includes(t.assigned_to)) return false
+    if (categoryFilter.length > 0 && !categoryFilter.some(v => v === 'blank' ? !t.category : (t.category || '') === v)) return false
     return true
   })
 
@@ -276,8 +277,8 @@ export default function Tasks({ profile, isMainAdmin, onNav }) {
     await load()
   }
 
-  const hasActiveFilters = search || (isMainAdmin && viewScope === 'all' && assigneeFilter !== 'all') || categoryFilter !== 'all'
-  function clearFilters() { setSearch(''); setAssigneeFilter('all'); setCategoryFilter('all') }
+  const hasActiveFilters = search || (isMainAdmin && viewScope === 'all' && assigneeFilter.length > 0) || categoryFilter.length > 0
+  function clearFilters() { setSearch(''); setAssigneeFilter([]); setCategoryFilter([]) }
 
   return (
     <div>
@@ -393,7 +394,7 @@ export default function Tasks({ profile, isMainAdmin, onNav }) {
         {isMainAdmin && (
           <div style={{ display: 'flex', gap: 6, background: 'var(--surface2)', borderRadius: 10, padding: 4, width: 'fit-content' }}>
             {[['mine', ar ? 'مهامي' : 'My Tasks'], ['all', ar ? 'كل المهام' : 'All Tasks']].map(([key, label]) => (
-              <button key={key} onClick={() => { setViewScope(key); if (key !== 'all') setAssigneeFilter('all') }}
+              <button key={key} onClick={() => { setViewScope(key); if (key !== 'all') setAssigneeFilter([]) }}
                 style={{ padding: '6px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600,
                   background: viewScope === key ? 'var(--surface)' : 'transparent',
                   color: viewScope === key ? 'var(--text)' : 'var(--text3)',
@@ -461,16 +462,24 @@ export default function Tasks({ profile, isMainAdmin, onNav }) {
       <div className="filters" style={{ flexWrap: 'wrap' }}>
         <div className="search-wrap"><i className="ti ti-search" /><input placeholder={ar ? 'بحث في المهام...' : 'Search tasks…'} value={search} onChange={e => setSearch(e.target.value)} /></div>
         {isMainAdmin && viewScope === 'all' && (
-          <select className="form-input" style={{ width: 'auto' }} value={assigneeFilter} onChange={e => setAssigneeFilter(e.target.value)}>
-            <option value="all">{ar ? 'كل المسؤولين' : 'All assignees'}</option>
-            {eligible.map(p => <option key={p.id} value={p.id}>{p.id === profile?.id ? (ar ? 'نفسي' : 'Myself') : assigneeLabel(p)}</option>)}
-          </select>
+          <MultiSelectFilter
+            options={eligible.map(p => ({ value: p.id, label: p.id === profile?.id ? (ar ? 'نفسي' : 'Myself') : assigneeLabel(p) }))}
+            selected={assigneeFilter}
+            allLabel={ar ? 'كل المسؤولين' : 'All assignees'}
+            onChange={setAssigneeFilter}
+            style={{ width: 'auto', minWidth: 140 }}
+          />
         )}
-        <select className="form-input" style={{ width: 'auto' }} value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}>
-          <option value="all">{ar ? 'كل الفئات' : 'All categories'}</option>
-          <option value="blank">{ar ? 'فارغ' : 'Blank'}</option>
-          {Object.keys(CATEGORY_META).map(c => <option key={c} value={c}>{ar ? CATEGORY_META[c].ar : CATEGORY_META[c].en}</option>)}
-        </select>
+        <MultiSelectFilter
+          options={[
+            ...Object.keys(CATEGORY_META).map(c => ({ value: c, label: ar ? CATEGORY_META[c].ar : CATEGORY_META[c].en })),
+            { value: 'blank', label: ar ? 'فارغ' : 'Blank' },
+          ]}
+          selected={categoryFilter}
+          allLabel={ar ? 'كل الفئات' : 'All categories'}
+          onChange={setCategoryFilter}
+          style={{ width: 'auto', minWidth: 140 }}
+        />
         {hasActiveFilters && (
           <button onClick={clearFilters} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '8px 12px', borderRadius: 9, border: '1px solid #fca5a5', background: '#fef2f2', color: '#dc2626', fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap' }}>
             <i className="ti ti-x" style={{ fontSize: 13 }} /> {ar ? 'مسح الفلاتر' : 'Clear Filters'}
