@@ -966,9 +966,9 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
   }
 
   const COL_FILTERS = {
-    designation: ['All', ...[...new Set([...DESIGNATIONS.slice(1), ...customDesignations.map(d => d.label)])]],
-    nationality: ['All', ...['Afghanistan', 'Algeria', 'Argentina', 'Armenia', 'Australia', 'Austria', 'Azerbaijan', 'Bahrain', 'Bangladesh', 'Belarus', 'Belgium', 'Brazil', 'Cameroon', 'Canada', 'Chile', 'China', 'Colombia', 'Croatia', 'Czech Republic', 'Denmark', 'Egypt', 'Eritrea', 'Ethiopia', 'Finland', 'France', 'Georgia', 'Germany', 'Ghana', 'Greece', 'Guinea', 'Hungary', 'India', 'Indonesia', 'Iran', 'Iraq', 'Ireland', 'Italy', 'Japan', 'Jordan', 'Kazakhstan', 'Kenya', 'Kuwait', 'Kyrgyzstan', 'Lebanon', 'Libya', 'Malaysia', 'Mali', 'Mauritania', 'Mexico', 'Mongolia', 'Morocco', 'Myanmar', 'Nepal', 'Netherlands', 'New Zealand', 'Nigeria', 'Norway', 'Oman', 'Pakistan', 'Palestine', 'Peru', 'Philippines', 'Poland', 'Portugal', 'Qatar', 'Romania', 'Russia', 'Rwanda', 'Saudi Arabia', 'Scotland', 'Senegal', 'Serbia', 'Singapore', 'Slovakia', 'Somalia', 'South Africa', 'South Korea', 'Spain', 'Sri Lanka', 'Sudan', 'Sweden', 'Syria', 'Tajikistan', 'Tanzania', 'Thailand', 'Tunisia', 'Turkey', 'Turkmenistan', 'UAE', 'Uganda', 'UK', 'Ukraine', 'USA', 'Uzbekistan', 'Venezuela', 'Vietnam', 'Wales', 'Yemen', 'Zambia', 'Zimbabwe']],
-    gender:      ['All','Male','Female'],
+    designation: ['All', ...[...new Set([...DESIGNATIONS.slice(1), ...customDesignations.map(d => d.label)])], 'Blank'],
+    nationality: ['All', ...['Afghanistan', 'Algeria', 'Argentina', 'Armenia', 'Australia', 'Austria', 'Azerbaijan', 'Bahrain', 'Bangladesh', 'Belarus', 'Belgium', 'Brazil', 'Cameroon', 'Canada', 'Chile', 'China', 'Colombia', 'Croatia', 'Czech Republic', 'Denmark', 'Egypt', 'Eritrea', 'Ethiopia', 'Finland', 'France', 'Georgia', 'Germany', 'Ghana', 'Greece', 'Guinea', 'Hungary', 'India', 'Indonesia', 'Iran', 'Iraq', 'Ireland', 'Italy', 'Japan', 'Jordan', 'Kazakhstan', 'Kenya', 'Kuwait', 'Kyrgyzstan', 'Lebanon', 'Libya', 'Malaysia', 'Mali', 'Mauritania', 'Mexico', 'Mongolia', 'Morocco', 'Myanmar', 'Nepal', 'Netherlands', 'New Zealand', 'Nigeria', 'Norway', 'Oman', 'Pakistan', 'Palestine', 'Peru', 'Philippines', 'Poland', 'Portugal', 'Qatar', 'Romania', 'Russia', 'Rwanda', 'Saudi Arabia', 'Scotland', 'Senegal', 'Serbia', 'Singapore', 'Slovakia', 'Somalia', 'South Africa', 'South Korea', 'Spain', 'Sri Lanka', 'Sudan', 'Sweden', 'Syria', 'Tajikistan', 'Tanzania', 'Thailand', 'Tunisia', 'Turkey', 'Turkmenistan', 'UAE', 'Uganda', 'UK', 'Ukraine', 'USA', 'Uzbekistan', 'Venezuela', 'Vietnam', 'Wales', 'Yemen', 'Zambia', 'Zimbabwe'], 'Blank'],
+    gender:      ['All','Male','Female','Blank'],
     status:      ['All','Active','On Leave','In Competition','In Training Camp','Inactive','Retired'],
   }
   const COL_FILTER_LABELS = {
@@ -981,9 +981,9 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
                (e.name_ar||'').toLowerCase().includes(search.toLowerCase()) ||
                (e.designation||'').toLowerCase().includes(search.toLowerCase()) ||
                (e.designation_ar||'').toLowerCase().includes(search.toLowerCase())) &&
-    (!colFilters.designation || colFilters.designation === 'All' || e.designation === colFilters.designation) &&
-    (!colFilters.nationality || colFilters.nationality === 'All' || e.nationality === colFilters.nationality) &&
-    (!colFilters.gender      || colFilters.gender === 'All'      || e.gender === colFilters.gender) &&
+    (!colFilters.designation || colFilters.designation === 'All' || (colFilters.designation === 'Blank' ? !e.designation : e.designation === colFilters.designation)) &&
+    (!colFilters.nationality || colFilters.nationality === 'All' || (colFilters.nationality === 'Blank' ? !e.nationality : e.nationality === colFilters.nationality)) &&
+    (!colFilters.gender      || colFilters.gender === 'All'      || (colFilters.gender === 'Blank' ? !e.gender : e.gender === colFilters.gender)) &&
     (!colFilters.status      || colFilters.status === 'All'      || effectiveStatus(employeeStatusSource(e, coaches)) === colFilters.status)
   )
   list = [...list].sort((a, b) => {
@@ -1377,6 +1377,7 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
                       onChange={e => setColFilters(f => ({ ...f, [key]: e.target.value }))}
                       style={{ fontSize:11, border:'1px solid var(--border)', borderRadius:6, padding:'3px 4px', background:'var(--surface)', color:(colFilters[key]&&colFilters[key]!=='All')?'#0085C7':'var(--text3)', cursor:'pointer', outline:'none', fontWeight:(colFilters[key]&&colFilters[key]!=='All')?600:400, maxWidth:130 }}>
                       {COL_FILTERS[key].map(o => <option key={o} value={o}>{
+                o==='Blank' ? (lang==='ar'?'فارغ':'Blank') :
                 key==='designation' ? (DESIG_LABELS[o]||o) :
                 key==='nationality' ? (o==='All' ? (lang==='ar'?'الكل':'All') : tc(o)) :
                 key==='gender' ? ({'All':lang==='ar'?'الكل':'All','Male':lang==='ar'?'ذكر':'Male','Female':lang==='ar'?'أنثى':'Female'}[o]||o) :

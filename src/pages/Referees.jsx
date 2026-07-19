@@ -337,8 +337,8 @@ export default function Referees({ referees, onRefresh, profile }) {
         (r.nationality||'').toLowerCase().includes(q)
       )
     }
-    if (natF !== 'All')    d = d.filter(r => r.nationality?.toLowerCase() === natF.toLowerCase())
-    if (genderF !== 'All') d = d.filter(r => r.gender === genderF)
+    if (natF !== 'All')    d = natF === 'Blank' ? d.filter(r => !r.nationality) : d.filter(r => r.nationality?.toLowerCase() === natF.toLowerCase())
+    if (genderF !== 'All') d = genderF === 'Blank' ? d.filter(r => !r.gender) : d.filter(r => r.gender === genderF)
     d.sort((a,b) => {
       if (sort==='name-asc')  return (a.name||'').localeCompare(b.name||'')
       if (sort==='name-desc') return (b.name||'').localeCompare(a.name||'')
@@ -528,6 +528,7 @@ export default function Referees({ referees, onRefresh, profile }) {
                   style={{ fontSize:11, border:'1px solid var(--border)', borderRadius:6, padding:'3px 4px', background:'var(--surface)', color: natF!=='All'?'#0085C7':'var(--text3)', cursor:'pointer', outline:'none', fontWeight: natF!=='All'?600:400, maxWidth:120 }}>
                   <option value="All">{L('All','الكل')}</option>
                   {COUNTRIES_EN.map(c=><option key={c} value={c}>{ar?(COUNTRY_AR[c]||c):c}</option>)}
+                  <option value="Blank">{L('Blank','فارغ')}</option>
                 </select>
               </th>
               <th style={{ padding:'4px 8px' }}>
@@ -536,6 +537,7 @@ export default function Referees({ referees, onRefresh, profile }) {
                   <option value="All">{L('All','الكل')}</option>
                   <option value="Male">{L('Male','ذكر')}</option>
                   <option value="Female">{L('Female','أنثى')}</option>
+                  <option value="Blank">{L('Blank','فارغ')}</option>
                 </select>
               </th>
               <th colSpan={3} />

@@ -158,7 +158,7 @@ export default function Tasks({ profile, isMainAdmin, onNav }) {
   const filtered = scoped.filter(t => {
     if (search && !t.title.toLowerCase().includes(search.toLowerCase()) && !(t.notes||'').toLowerCase().includes(search.toLowerCase())) return false
     if (isMainAdmin && viewScope === 'all' && assigneeFilter !== 'all' && t.assigned_to !== assigneeFilter) return false
-    if (categoryFilter !== 'all' && (t.category || '') !== categoryFilter) return false
+    if (categoryFilter !== 'all' && (categoryFilter === 'blank' ? !!t.category : (t.category || '') !== categoryFilter)) return false
     return true
   })
 
@@ -469,6 +469,7 @@ export default function Tasks({ profile, isMainAdmin, onNav }) {
         <select className="form-input" style={{ width: 'auto' }} value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}>
           <option value="all">{ar ? 'كل الفئات' : 'All categories'}</option>
           {Object.keys(CATEGORY_META).map(c => <option key={c} value={c}>{ar ? CATEGORY_META[c].ar : CATEGORY_META[c].en}</option>)}
+          <option value="blank">{ar ? 'فارغ' : 'Blank'}</option>
         </select>
         {hasActiveFilters && (
           <button onClick={clearFilters} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '8px 12px', borderRadius: 9, border: '1px solid #fca5a5', background: '#fef2f2', color: '#dc2626', fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap' }}>
