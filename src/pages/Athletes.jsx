@@ -1876,8 +1876,8 @@ ${myDocs.length > 0 ? `<div class="section">
         <div className="detail-grid">
           <div>
             {/* PROFILE CARD */}
-            <div className="detail-profile">
-              <div style={{ position:'relative', width:90, height:90, margin:'0 auto 14px' }}>
+            <div className="detail-profile athlete-detail-profile">
+              <div className="athlete-photo-wrap" style={{ position:'relative', width:90, height:90, margin:'0 auto 14px' }}>
                 {a.photo_url
                   ? <img src={a.photo_url} alt={a.name} style={{ width:90, height:90, borderRadius:'50%', objectFit:'cover', border:'3px solid var(--border)' }} />
                   : <div style={{ width:90, height:90, borderRadius:'50%', background:avColor(a.id), display:'flex', alignItems:'center', justifyContent:'center', fontSize:28, fontWeight:600, color:'#fff' }}>{initials(a.name)}</div>
@@ -1923,7 +1923,7 @@ ${myDocs.length > 0 ? `<div class="section">
 
               {/* AGE & YEARS ACTIVE */}
               {(age || yearsActive) && (
-                <div style={{ display:'flex', justifyContent:'center', gap:16, margin:'12px 0', padding:'10px', background:'var(--surface2)', borderRadius:10 }}>
+                <div className="athlete-age-block" style={{ display:'flex', justifyContent:'center', gap:16, margin:'12px 0', padding:'10px', background:'var(--surface2)', borderRadius:10 }}>
                   {age && <div style={{ textAlign:'center' }}>
                     <div style={{ fontSize:20, fontWeight:600, color:'#0085C7' }}>{age}</div>
                     <div style={{ fontSize:10, color:'var(--text3)' }}>{lang==='ar'?'سنة':'years old'}</div>
