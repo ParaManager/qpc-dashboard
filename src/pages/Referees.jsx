@@ -527,17 +527,17 @@ export default function Referees({ referees, onRefresh, profile }) {
                 <select value={natF} onChange={e=>setNatF(e.target.value)}
                   style={{ fontSize:11, border:'1px solid var(--border)', borderRadius:6, padding:'3px 4px', background:'var(--surface)', color: natF!=='All'?'#0085C7':'var(--text3)', cursor:'pointer', outline:'none', fontWeight: natF!=='All'?600:400, maxWidth:120 }}>
                   <option value="All">{L('All','الكل')}</option>
-                  {COUNTRIES_EN.map(c=><option key={c} value={c}>{ar?(COUNTRY_AR[c]||c):c}</option>)}
                   <option value="Blank">{L('Blank','فارغ')}</option>
+                  {COUNTRIES_EN.map(c=><option key={c} value={c}>{ar?(COUNTRY_AR[c]||c):c}</option>)}
                 </select>
               </th>
               <th style={{ padding:'4px 8px' }}>
                 <select value={genderF} onChange={e=>setGenderF(e.target.value)}
                   style={{ fontSize:11, border:'1px solid var(--border)', borderRadius:6, padding:'3px 4px', background:'var(--surface)', color: genderF!=='All'?'#0085C7':'var(--text3)', cursor:'pointer', outline:'none', fontWeight: genderF!=='All'?600:400 }}>
                   <option value="All">{L('All','الكل')}</option>
+                  <option value="Blank">{L('Blank','فارغ')}</option>
                   <option value="Male">{L('Male','ذكر')}</option>
                   <option value="Female">{L('Female','أنثى')}</option>
-                  <option value="Blank">{L('Blank','فارغ')}</option>
                 </select>
               </th>
               <th colSpan={3} />
