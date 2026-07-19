@@ -2030,7 +2030,7 @@ ${myDocs.length > 0 ? `<div class="section">
                     {fields.map(([k,v]) => (
                       <div key={k} className="detail-row" style={{ minWidth:0 }}>
                         <span className="dk">{k}</span>
-                        <span className="dv" style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{v}</span>
+                        <span className="dv athlete-overview-value" style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{v}</span>
                       </div>
                     ))}
                   </div>
