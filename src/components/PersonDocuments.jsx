@@ -4,27 +4,26 @@ import { useLang } from '../lib/LangContext.jsx'
 import { toast } from './Toast'
 import { canEdit } from '../lib/useAuth'
 import JSZip from 'jszip'
+import { SHARED_TYPES, getNonAthleteDocumentRules, mergeDocuments, computeCompletion, normalizeType } from '../lib/documentEngine'
 
 const DOC_TYPES_AR = {
-  'Passport':'جواز السفر', 'Qatar ID':'الرقم الشخصي',
+  'Original Passport':'جواز السفر', 'Qatar ID':'الرقم الشخصي',
   'Residence Permit':'تصريح الإقامة', 'Contract':'العقد',
   'Certificate':'الشهادة', 'Medical Report':'التقرير الطبي',
   'Photo':'صورة', 'Other':'أخرى',
 }
 
+// 'Original Passport' matches Athletes.jsx/documentEngine's canonical name
+// (was 'Passport' here before — normalized so shared-document merging
+// across roles works off one consistent vocabulary).
 const DOC_TYPES = [
-  'Passport', 'Qatar ID', 'Residence Permit',
+  'Original Passport', 'Qatar ID', 'Residence Permit',
   'Contract', 'Certificate', 'Medical Report',
   'Photo', 'Other'
 ]
-// The core documents an employee/coach record is expected to have on file.
-// Residence Permit, Certificate, Photo, and Other are treated as optional —
-// present if relevant, but not counted as "missing" in the compliance
-// checklist below.
-const REQUIRED_DOC_TYPES = DOC_TYPES.filter(t => t !== 'Other')
 
 const DOC_ICONS  = {
-  'Passport':         'ti-id',
+  'Original Passport':'ti-id',
   'Qatar ID':         'ti-id-badge',
   'Residence Permit': 'ti-home',
   'Contract':         'ti-file-text',
@@ -35,7 +34,7 @@ const DOC_ICONS  = {
 }
 
 const DOC_COLORS = {
-  'Passport':         '#0085C7',
+  'Original Passport':'#0085C7',
   'Qatar ID':         '#009F6B',
   'Residence Permit': '#16a085',
   'Contract':         '#8b5cf6',
@@ -104,13 +103,20 @@ async function downloadAllDocuments(personName, myDocs, setDownloadingAll, ar) {
   }
 }
 
-export default function PersonDocuments({ personId, personType, personName, docs, onRefresh, profile }) {
+// personId here is the role table's own numeric id (coach.id / employee.id)
+// used for person_documents rows. `sharedPersonId` is the people.id (uuid)
+// used for person_shared_documents — may be null if this role isn't linked
+// to a person yet, in which case shared-type uploads are blocked with a
+// clear message rather than silently going nowhere.
+export default function PersonDocuments({ personId, personType, personName, docs, onRefresh, profile, sharedPersonId }) {
   const { tx, lang } = useLang()
+  const ar = lang === 'ar'
   const [docType, setDocType]         = useState('')
   const [uploading, setUploading]     = useState(false)
   const [dropOpen, setDropOpen]       = useState(false)
   const [confirmDel, setConfirmDel]   = useState(null)
   const [downloadingAll, setDownloadingAll] = useState(false)
+  const [sharedDocs, setSharedDocs]   = useState([])
   const docInput = useRef(null)
 
   useEffect(() => {
@@ -120,16 +126,33 @@ export default function PersonDocuments({ personId, personType, personName, docs
     return () => document.removeEventListener('mousedown', close)
   }, [dropOpen])
 
-  const myDocs = (docs || []).filter(d => String(d.person_id) === String(personId) && d.person_type === personType)
+  useEffect(() => {
+    if (!sharedPersonId) { setSharedDocs([]); return }
+    let cancelled = false
+    supabase.from('person_shared_documents').select('*').eq('person_id', sharedPersonId)
+      .then(({ data }) => { if (!cancelled) setSharedDocs(data || []) })
+    return () => { cancelled = true }
+  }, [sharedPersonId])
+
+  const myOwnDocs = (docs || []).filter(d => String(d.person_id) === String(personId) && d.person_type === personType)
+  // Merge shared (Photo/Original Passport/Qatar ID) with role-specific docs
+  // — every type stays visible/uploadable, engine only used for completion.
+  const myDocs = mergeDocuments(sharedDocs, myOwnDocs, DOC_TYPES)
   const docsByType = DOC_TYPES.reduce((acc, t) => {
     acc[t] = myDocs.filter(d => d.type === t)
     return acc
   }, {})
+  const rules = getNonAthleteDocumentRules()
+  const completion = computeCompletion(myDocs, rules)
 
   async function handleUpload(file) {
     if (!file) return
     if (!docType) { toast('Select a document type first', 'error'); return }
     if (file.size > 20 * 1024 * 1024) { toast('File must be under 20MB', 'error'); return }
+    const isSharedType = SHARED_TYPES.includes(docType)
+    if (isSharedType && !sharedPersonId) {
+      toast(ar ? 'لا يوجد سجل شخصي مرتبط بعد' : 'No linked person record yet', 'error'); return
+    }
     setUploading(true)
     try {
       const ext  = file.name.split('.').pop()
@@ -137,27 +160,43 @@ export default function PersonDocuments({ personId, personType, personName, docs
       const { error: upErr } = await supabase.storage.from('athlete-documents').upload(path, file)
       if (upErr) throw upErr
       const { data } = supabase.storage.from('athlete-documents').getPublicUrl(path)
-      const { error: dbErr } = await supabase.from('person_documents').insert({
-        person_id: personId, person_type: personType,
-        name: file.name, type: docType,
-        file_url: data.publicUrl, file_path: path,
-        file_size: file.size,
-      })
-      if (dbErr) throw dbErr
+
+      if (isSharedType) {
+        const dup = sharedDocs.find(d => d.type === docType && d.name === file.name)
+        if (dup) { toast(ar ? 'هذا الملف موجود بالفعل' : 'This document already exists', 'error'); await supabase.storage.from('athlete-documents').remove([path]); setUploading(false); return }
+        const { error: dbErr } = await supabase.from('person_shared_documents').insert({
+          person_id: sharedPersonId, name: file.name, type: docType,
+          file_url: data.publicUrl, file_path: path, file_size: file.size,
+        })
+        if (dbErr) throw dbErr
+        setSharedDocs(prev => [...prev, { person_id: sharedPersonId, name: file.name, type: docType, file_url: data.publicUrl, file_path: path, file_size: file.size, uploaded_at: new Date().toISOString() }])
+      } else {
+        const { error: dbErr } = await supabase.from('person_documents').insert({
+          person_id: personId, person_type: personType,
+          name: file.name, type: docType,
+          file_url: data.publicUrl, file_path: path,
+          file_size: file.size,
+        })
+        if (dbErr) throw dbErr
+      }
       toast(`${docType} uploaded!`); await onRefresh()
     } catch (err) { toast(err.message || 'Upload failed', 'error') }
     finally { setUploading(false); setDocType(''); if (docInput.current) docInput.current.value = '' }
   }
 
   async function handleDelete(doc) {
-    // Remove from storage (best effort — don't block on error)
     if (doc.file_path) {
       const { error: storageErr } = await supabase.storage.from('athlete-documents').remove([doc.file_path])
       if (storageErr) console.warn('Storage delete error:', storageErr.message)
     }
-    // Remove from DB
-    const { error } = await supabase.from('person_documents').delete().eq('id', doc.id)
-    if (error) { toast(error.message, 'error'); return }
+    if (doc._source === 'shared') {
+      const { error } = await supabase.from('person_shared_documents').delete().eq('person_id', doc.person_id).eq('type', doc.type).eq('name', doc.name)
+      if (error) { toast(error.message, 'error'); return }
+      setSharedDocs(prev => prev.filter(d => !(d.type === doc.type && d.name === doc.name && d.person_id === doc.person_id)))
+    } else {
+      const { error } = await supabase.from('person_documents').delete().eq('id', doc.id)
+      if (error) { toast(error.message, 'error'); return }
+    }
     toast(lang === 'ar' ? 'تم حذف الملف' : 'Document deleted')
     setConfirmDel(null)
     await onRefresh()
@@ -165,7 +204,6 @@ export default function PersonDocuments({ personId, personType, personName, docs
 
   return (
     <div className="info-card" style={{ marginTop:12 }}>
-      {/* Delete confirm */}
       {confirmDel && (
         <div className="modal-overlay" onClick={() => setConfirmDel(null)}>
           <div className="confirm-box" onClick={e => e.stopPropagation()}>
@@ -196,42 +234,29 @@ export default function PersonDocuments({ personId, personType, personName, docs
         </button>
       </div>
 
-      {/* DOCUMENT COMPLIANCE — same visual pattern as the Athletes Document
-          Status card: percentage + progress bar, then only the missing
-          types shown as compact pill/tag chips. */}
-      {(() => {
-        const uploadedTypes = new Set(myDocs.map(d => d.type))
-        const missingTypes = REQUIRED_DOC_TYPES.filter(t => !uploadedTypes.has(t))
-        const total = REQUIRED_DOC_TYPES.length
-        const uploaded = total - missingTypes.length
-        const pct = total > 0 ? Math.round((uploaded / total) * 100) : 100
-        return (
-          <div style={{ marginBottom:16 }}>
-            <div style={{ display:'flex', alignItems:'center', gap:14, marginBottom: missingTypes.length > 0 ? 10 : 0 }}>
-              <div style={{ fontSize:22, fontWeight:700, color: pct === 100 ? '#009F6B' : pct >= 50 ? '#f59e0b' : '#dc2626' }}>{pct}%</div>
-              <div style={{ flex:1 }}>
-                <div style={{ height:8, borderRadius:6, background:'var(--surface2)', overflow:'hidden' }}>
-                  <div style={{ height:'100%', width:`${pct}%`, background: pct === 100 ? '#009F6B' : pct >= 50 ? '#f59e0b' : '#dc2626', transition:'width .2s' }} />
-                </div>
-                <div style={{ fontSize:11, color:'var(--text3)', marginTop:4 }}>
-                  {uploaded}/{total} {lang==='ar' ? 'مطلوب مرفوع' : 'required uploaded'}
-                </div>
-              </div>
+      <div style={{ marginBottom:16 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:14, marginBottom: completion.missingTypes.length > 0 ? 10 : 0 }}>
+          <div style={{ fontSize:22, fontWeight:700, color: completion.percent === 100 ? '#009F6B' : completion.percent >= 50 ? '#f59e0b' : '#dc2626' }}>{completion.percent}%</div>
+          <div style={{ flex:1 }}>
+            <div style={{ height:8, borderRadius:6, background:'var(--surface2)', overflow:'hidden' }}>
+              <div style={{ height:'100%', width:`${completion.percent}%`, background: completion.percent === 100 ? '#009F6B' : completion.percent >= 50 ? '#f59e0b' : '#dc2626', transition:'width .2s' }} />
             </div>
-            {missingTypes.length > 0 && (
-              <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
-                {missingTypes.map(t => (
-                  <span key={t} className="badge" style={{ fontSize:10, background:'#fef2f2', color:'#dc2626' }}>
-                    {lang==='ar' ? (DOC_TYPES_AR[t]||t) : t}
-                  </span>
-                ))}
-              </div>
-            )}
+            <div style={{ fontSize:11, color:'var(--text3)', marginTop:4 }}>
+              {completion.uploaded}/{completion.total} {lang==='ar' ? 'مطلوب مرفوع' : 'required uploaded'}
+            </div>
           </div>
-        )
-      })()}
+        </div>
+        {completion.missingTypes.length > 0 && (
+          <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+            {completion.missingTypes.map(t => (
+              <span key={t} className="badge" style={{ fontSize:10, background:'#fef2f2', color:'#dc2626' }}>
+                {lang==='ar' ? (DOC_TYPES_AR[t]||t) : t}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
 
-      {/* Upload row — admins only */}
       {canEdit(profile) && (
         <div style={{ display:'flex', gap:8, marginBottom:16, padding:'10px 12px', background:'var(--surface2)', borderRadius:10, alignItems:'center' }}>
           <button onClick={() => docInput.current.click()} disabled={uploading || !docType}
@@ -241,7 +266,6 @@ export default function PersonDocuments({ personId, personType, personName, docs
               : <><i className="ti ti-upload" style={{ fontSize:14 }} />{lang==='ar'?'رفع':'Upload'}</>
             }
           </button>
-          {/* Custom dropdown - works in both LTR and RTL */}
           <div style={{ flex:1, position:'relative' }}>
             <button onClick={() => setDropOpen(v=>!v)}
               style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'7px 10px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface)', fontSize:12, color: docType ? 'var(--text)' : 'var(--text3)', cursor:'pointer', fontFamily:'DM Sans, sans-serif', direction: lang==='ar'?'rtl':'ltr' }}>
@@ -288,8 +312,8 @@ export default function PersonDocuments({ personId, personType, personName, docs
 
       {myDocs.length === 0
         ? <div className="empty" style={{ padding:'8px 0', fontSize:12 }}>{lang==='ar'?'لم يتم رفع وثائق بعد.':'No documents uploaded yet.'}</div>
-        : [...new Set([...DOC_TYPES, ...myDocs.map(d => d.type)])].map(type => {
-            const typeDocs = myDocs.filter(d => d.type === type)
+        : DOC_TYPES.map(type => {
+            const typeDocs = docsByType[type]
             if (!typeDocs || typeDocs.length === 0) return null
 
             const color = DOC_COLORS[type]
@@ -301,7 +325,7 @@ export default function PersonDocuments({ personId, personType, personName, docs
                   <span style={{ fontSize:11, fontWeight:600, color }}>{lang==='ar'?(DOC_TYPES_AR[type]||type):type}</span>
                 </div>
                 {typeDocs.map(doc => (
-                  <div key={doc.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 10px', background:'var(--surface2)', borderRadius:9, marginBottom:6, border:'1px solid var(--border)' }}>
+                  <div key={`${doc._source}-${doc.id}`} style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 10px', background:'var(--surface2)', borderRadius:9, marginBottom:6, border:'1px solid var(--border)' }}>
                     <div style={{ width:34, height:34, borderRadius:8, background:color+'15', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
                       <i className={`ti ${icon}`} style={{ fontSize:16, color }} />
                     </div>
