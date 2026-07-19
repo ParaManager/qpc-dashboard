@@ -1,57 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
+import NationalitySelect from './NationalitySelect.jsx'
 import { SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, SPORT_CATEGORY_NAMES_AR, sportLabel } from '../lib/helpers'
 import { useLang } from '../lib/LangContext.jsx'
 
 const COLORS = { athlete: '#0085C7', coach: '#009F6B', event: '#EE334E', result: '#8b5cf6' }
 
-const COUNTRIES_EN = [
-  'Afghanistan','Algeria','Argentina','Armenia','Australia','Austria','Azerbaijan',
-  'Bahrain','Bangladesh','Belarus','Belgium','Brazil','Cameroon','Canada','Chile',
-  'China','Colombia','Croatia','Czech Republic','Denmark','Egypt','Eritrea',
-  'Ethiopia','Finland','France','Georgia','Germany','Ghana','Greece','Guinea',
-  'Hungary','India','Indonesia','Iran','Iraq','Ireland','Italy','Japan','Jordan',
-  'Kazakhstan','Kenya','Kuwait','Kyrgyzstan','Lebanon','Libya','Malaysia','Mali',
-  'Mauritania','Mexico','Mongolia','Morocco','Myanmar','Nepal','Netherlands',
-  'New Zealand','Nigeria','Norway','Oman','Pakistan','Palestine','Peru',
-  'Philippines','Poland','Portugal','Qatar','Romania','Russia','Rwanda',
-  'Saudi Arabia','Scotland','Senegal','Serbia','Singapore','Slovakia',
-  'Somalia','South Africa','South Korea','Spain','Sri Lanka','Sudan','Sweden',
-  'Syria','Tajikistan','Tanzania','Thailand','Tunisia','Turkey','Turkmenistan',
-  'UAE','Uganda','UK','Ukraine','USA','Uzbekistan','Venezuela','Vietnam',
-  'Wales','Yemen','Zambia','Zimbabwe',
-]
-
-const COUNTRIES_AR = {
-  'Afghanistan':'أفغانستان','Algeria':'الجزائر','Argentina':'الأرجنتين',
-  'Armenia':'أرمينيا','Australia':'أستراليا','Austria':'النمسا',
-  'Azerbaijan':'أذربيجان','Bahrain':'البحرين','Bangladesh':'بنغلاديش',
-  'Belarus':'بيلاروسيا','Belgium':'بلجيكا','Brazil':'البرازيل',
-  'Cameroon':'الكاميرون','Canada':'كندا','Chile':'تشيلي','China':'الصين',
-  'Colombia':'كولومبيا','Croatia':'كرواتيا','Czech Republic':'التشيك',
-  'Denmark':'الدنمارك','Egypt':'مصر','Eritrea':'إريتريا','Ethiopia':'إثيوبيا',
-  'Finland':'فنلندا','France':'فرنسا','Georgia':'جورجيا','Germany':'ألمانيا',
-  'Ghana':'غانا','Greece':'اليونان','Guinea':'غينيا','Hungary':'المجر',
-  'India':'الهند','Indonesia':'إندونيسيا','Iran':'إيران','Iraq':'العراق',
-  'Ireland':'أيرلندا','Italy':'إيطاليا','Japan':'اليابان','Jordan':'الأردن',
-  'Kazakhstan':'كازاخستان','Kenya':'كينيا','Kuwait':'الكويت',
-  'Kyrgyzstan':'قيرغيزستان','Lebanon':'لبنان','Libya':'ليبيا',
-  'Malaysia':'ماليزيا','Mali':'مالي','Mauritania':'موريتانيا','Mexico':'المكسيك',
-  'Mongolia':'منغوليا','Morocco':'المغرب','Myanmar':'ميانمار','Nepal':'نيبال',
-  'Netherlands':'هولندا','New Zealand':'نيوزيلندا','Nigeria':'نيجيريا',
-  'Norway':'النرويج','Oman':'عُمان','Pakistan':'باكستان','Palestine':'فلسطين',
-  'Peru':'بيرو','Philippines':'الفلبين','Poland':'بولندا','Portugal':'البرتغال',
-  'Qatar':'قطر','Romania':'رومانيا','Russia':'روسيا','Rwanda':'رواندا',
-  'Saudi Arabia':'المملكة العربية السعودية','Scotland':'اسكتلندا',
-  'Senegal':'السنغال','Serbia':'صربيا','Singapore':'سنغافورة',
-  'Slovakia':'سلوفاكيا','Somalia':'الصومال','South Africa':'جنوب أفريقيا',
-  'South Korea':'كوريا الجنوبية','Spain':'إسبانيا','Sri Lanka':'سريلانكا',
-  'Sudan':'السودان','Sweden':'السويد','Syria':'سوريا','Tajikistan':'طاجيكستان',
-  'Tanzania':'تنزانيا','Thailand':'تايلاند','Tunisia':'تونس','Turkey':'تركيا',
-  'Turkmenistan':'تركمانستان','UAE':'الإمارات','Uganda':'أوغندا',
-  'UK':'المملكة المتحدة','Ukraine':'أوكرانيا','USA':'الولايات المتحدة',
-  'Uzbekistan':'أوزبكستان','Venezuela':'فنزويلا','Vietnam':'فيتنام',
-  'Wales':'ويلز','Yemen':'اليمن','Zambia':'زامبيا','Zimbabwe':'زيمبابوي',
-}
+// Nationality data now lives entirely in the shared nationalities table (see NationalitySelect.jsx / useNationalities.js) — no hardcoded country list.
 
 function Field({ label, name, type = 'text', placeholder, options, value, onChange, required, invalid }) {
   return (
@@ -104,11 +58,7 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
   function toggleSection(key) { setOpenSections(s => ({ ...s, [key]: !s[key] })) }
   const modalBodyRef = useRef(null)
 
-  // Country options
-  const countryOpts = [
-    { value:'', label:'' },
-    ...COUNTRIES_EN.map(c => ({ value: c, label: ar ? (COUNTRIES_AR[c]||c) : c }))
-  ]
+  // Nationality now comes entirely from the shared nationalities table via NationalitySelect — no hardcoded country list here.
 
   // Category options (Paralympic / Special Olympics)
   const categoryOpts = SPORT_CATEGORIES.map(c => ({
@@ -268,7 +218,10 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
                 <Field label={T.gender} required invalid={invalidFields.gender} options={genderOpts} {...f('gender')} />
               </Row>
               <Row>
-                <Field label={T.nationality} required invalid={invalidFields.nationality} options={countryOpts} {...f('nationality')} />
+                <div className="form-group">
+                <label className="form-label">{T.nationality}<span style={{ color:'#dc2626' }}> *</span></label>
+                <NationalitySelect value={form.nationality} onChange={v => set('nationality', v)} lang={lang} />
+              </div>
                 <Field label={T.phone} placeholder="+974 XXXX XXXX" {...f('phone')} />
               </Row>
               <Row>
@@ -381,7 +334,10 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
               <Field label={T.nameAr} placeholder="e.g. كارلوس مينديز" {...f('nameAr')} />
             </Row>
             <Row>
-              <Field label={T.nationality} options={countryOpts} {...f('nationality')} />
+              <div className="form-group">
+                <label className="form-label">{T.nationality}</label>
+                <NationalitySelect value={form.nationality} onChange={v => set('nationality', v)} lang={lang} />
+              </div>
               <Field label={T.gender} options={genderOptsEmpty} {...f('gender')} />
             </Row>
             <Row>
