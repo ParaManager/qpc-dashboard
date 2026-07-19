@@ -94,24 +94,18 @@ export default function MultiSelectFilter({ options, selected, onChange, allLabe
             </div>
           )}
 
-          {/* Pinned rows: All (clears + disables filtering), Select All
-              (selects every real value), then Blank if the caller supplied
-              one — always in this order, never affected by search. */}
+          {/* Pinned rows: Select All (selects every real value), then
+              Blank if the caller supplied one — always in this order,
+              never affected by search. The old separate "All" row is
+              removed; unchecking every value (including via this Select
+              All checkbox) is how filtering gets disabled now. */}
           <div style={{ padding: 4, borderBottom: '1px solid var(--border)' }}>
-            <label
-              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', fontSize: 12, cursor: 'pointer', borderRadius: 6, fontWeight: selected.length === 0 ? 600 : 400 }}
-              onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
-              onMouseLeave={e => e.currentTarget.style.background = ''}
-              onClick={clearAll}>
-              <input type="radio" checked={selected.length === 0} onChange={clearAll} />
-              <span>{allLabel}</span>
-            </label>
             <label
               style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', fontSize: 12, cursor: allValues.length === 0 ? 'default' : 'pointer', borderRadius: 6, fontWeight: allSelected ? 600 : 400, opacity: allValues.length === 0 ? 0.5 : 1 }}
               onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
               onMouseLeave={e => e.currentTarget.style.background = ''}
-              onClick={allValues.length === 0 ? undefined : selectAll}>
-              <input type="checkbox" checked={allSelected} disabled={allValues.length === 0} onChange={selectAll} />
+              onClick={allValues.length === 0 ? undefined : (allSelected ? clearAll : selectAll)}>
+              <input type="checkbox" checked={allSelected} disabled={allValues.length === 0} onChange={allSelected ? clearAll : selectAll} />
               <span>Select All</span>
             </label>
             {blankOption && blankMatchesSearch && (
