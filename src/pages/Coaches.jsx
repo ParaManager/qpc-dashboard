@@ -653,7 +653,6 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
           selected={sportCategory}
           allLabel={tx('filters.allCategories','All categories')}
           onChange={vals => { setSportCategory(vals); setSport([]) }}
-          style={{ width:'auto', minWidth:140 }}
         />
         <MultiSelectFilter
           options={[
@@ -663,7 +662,6 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
           selected={sport}
           allLabel={tx('filters.allSports','All sports')}
           onChange={setSport}
-          style={{ width:'auto', minWidth:140 }}
         />
         <MultiSelectFilter
           options={[
@@ -677,7 +675,6 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
           selected={status}
           allLabel={tx('filters.allStatuses','All statuses')}
           onChange={setStatus}
-          style={{ width:'auto', minWidth:140 }}
         />
         <select className="filter" value={sort} onChange={e => setSort(e.target.value)}>
           <option value="name-asc">{tx('filters.nameAZ','Name A→Z')}</option>
