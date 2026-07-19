@@ -2,10 +2,10 @@ import { useState, useRef, useEffect } from 'react'
 
 // Searchable multi-select checkbox dropdown for inline table filters.
 // `selected` is an array of chosen values (empty array = no filter / "All").
-// `options` is an array of { value, label } (values are the raw filter
-// values used for matching; "Blank" is just another value in this list,
-// selectable alongside anything else — combining it with other values
-// works automatically since selection is OR'd downstream by the caller).
+// `options` is an array of { value, label } — "Blank" (if the caller
+// includes it) is treated as just another real value for OR-matching
+// purposes, but is always displayed directly below the pinned "All" /
+// "Select All" rows regardless of where it appears in the passed-in list.
 export default function MultiSelectFilter({ options, selected, onChange, allLabel, style }) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
@@ -25,9 +25,19 @@ export default function MultiSelectFilter({ options, selected, onChange, allLabe
     onChange(next)
   }
 
-  const filteredOptions = search
-    ? options.filter(o => o.label.toLowerCase().includes(search.toLowerCase()))
-    : options
+  const blankOption = options.find(o => o.value === 'Blank' || o.value === 'blank')
+  const regularOptions = options.filter(o => o !== blankOption)
+
+  const filteredRegular = search
+    ? regularOptions.filter(o => o.label.toLowerCase().includes(search.toLowerCase()))
+    : regularOptions
+  const blankMatchesSearch = !search || (blankOption && blankOption.label.toLowerCase().includes(search.toLowerCase()))
+
+  const allValues = regularOptions.map(o => o.value)
+  const allSelected = allValues.length > 0 && allValues.every(v => selected.includes(v))
+
+  function selectAll() { onChange(allValues) }
+  function clearAll() { onChange([]) }
 
   const label = selected.length === 0
     ? allLabel
@@ -55,7 +65,7 @@ export default function MultiSelectFilter({ options, selected, onChange, allLabe
           onMouseDown={e => e.stopPropagation()}
           style={{
             position: 'fixed', zIndex: 9999, background: 'var(--surface)', border: '1px solid var(--border)',
-            borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,.15)', minWidth: 180, maxWidth: 260, maxHeight: 320,
+            borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,.15)', minWidth: 180, maxWidth: 260, maxHeight: 360,
             display: 'flex', flexDirection: 'column',
           }}
           ref={el => {
@@ -64,7 +74,7 @@ export default function MultiSelectFilter({ options, selected, onChange, allLabe
             const rect = btn?.getBoundingClientRect()
             if (!rect) return
             const spaceBelow = window.innerHeight - rect.bottom
-            const dropH = Math.min(320, options.length * 30 + 44)
+            const dropH = Math.min(360, options.length * 30 + 90)
             if (spaceBelow < dropH + 8) {
               el.style.top = 'auto'; el.style.bottom = (window.innerHeight - rect.top + 4) + 'px'
             } else {
@@ -83,10 +93,42 @@ export default function MultiSelectFilter({ options, selected, onChange, allLabe
                 style={{ width: '100%', fontSize: 12, padding: '5px 8px', borderRadius: 6, border: '1px solid var(--border)', outline: 'none', background: 'var(--surface2)' }} />
             </div>
           )}
+
+          {/* Pinned rows: All (clears + disables filtering), Select All
+              (selects every real value), then Blank if the caller supplied
+              one — always in this order, never affected by search. */}
+          <div style={{ padding: 4, borderBottom: '1px solid var(--border)' }}>
+            <label
+              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', fontSize: 12, cursor: 'pointer', borderRadius: 6, fontWeight: selected.length === 0 ? 600 : 400 }}
+              onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
+              onMouseLeave={e => e.currentTarget.style.background = ''}
+              onClick={clearAll}>
+              <input type="radio" checked={selected.length === 0} onChange={clearAll} />
+              <span>{allLabel}</span>
+            </label>
+            <label
+              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', fontSize: 12, cursor: allValues.length === 0 ? 'default' : 'pointer', borderRadius: 6, fontWeight: allSelected ? 600 : 400, opacity: allValues.length === 0 ? 0.5 : 1 }}
+              onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
+              onMouseLeave={e => e.currentTarget.style.background = ''}
+              onClick={allValues.length === 0 ? undefined : selectAll}>
+              <input type="checkbox" checked={allSelected} disabled={allValues.length === 0} onChange={selectAll} />
+              <span>Select All</span>
+            </label>
+            {blankOption && blankMatchesSearch && (
+              <label key={blankOption.value}
+                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', fontSize: 12, cursor: 'pointer', borderRadius: 6 }}
+                onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
+                onMouseLeave={e => e.currentTarget.style.background = ''}>
+                <input type="checkbox" checked={selected.includes(blankOption.value)} onChange={() => toggle(blankOption.value)} />
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{blankOption.label}</span>
+              </label>
+            )}
+          </div>
+
           <div style={{ overflowY: 'auto', padding: 4 }}>
-            {filteredOptions.length === 0 ? (
+            {filteredRegular.length === 0 ? (
               <div style={{ padding: '8px 10px', fontSize: 12, color: 'var(--text3)' }}>No matches</div>
-            ) : filteredOptions.map(o => (
+            ) : filteredRegular.map(o => (
               <label key={o.value}
                 style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', fontSize: 12, cursor: 'pointer', borderRadius: 6 }}
                 onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
@@ -96,14 +138,6 @@ export default function MultiSelectFilter({ options, selected, onChange, allLabe
               </label>
             ))}
           </div>
-          {selected.length > 0 && (
-            <div style={{ borderTop: '1px solid var(--border)', padding: 6 }}>
-              <button type="button" onClick={() => onChange([])}
-                style={{ width: '100%', fontSize: 11, padding: '5px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface2)', cursor: 'pointer', color: 'var(--text2)' }}>
-                Clear
-              </button>
-            </div>
-          )}
         </div>
       )}
     </div>
