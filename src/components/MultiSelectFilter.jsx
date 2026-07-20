@@ -6,7 +6,7 @@ import { useState, useRef, useEffect } from 'react'
 // includes it) is treated as just another real value for OR-matching
 // purposes, but is always displayed directly below the pinned "All" /
 // "Select All" rows regardless of where it appears in the passed-in list.
-export default function MultiSelectFilter({ options, selected, onChange, allLabel, style }) {
+export default function MultiSelectFilter({ options, selected, onChange, allLabel, style, counts }) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const ref = useRef(null)
@@ -118,7 +118,8 @@ export default function MultiSelectFilter({ options, selected, onChange, allLabe
                 onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
                 onMouseLeave={e => e.currentTarget.style.background = ''}>
                 <input type="checkbox" checked={selected.includes(blankOption.value)} onChange={() => toggle(blankOption.value)} />
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{blankOption.label}</span>
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{blankOption.label}</span>
+                {counts && <span style={{ fontSize: 11, color: 'var(--text3)', flexShrink: 0 }}>({counts[blankOption.value] ?? 0})</span>}
               </label>
             )}
           </div>
@@ -132,7 +133,8 @@ export default function MultiSelectFilter({ options, selected, onChange, allLabe
                 onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
                 onMouseLeave={e => e.currentTarget.style.background = ''}>
                 <input type="checkbox" checked={selected.includes(o.value)} onChange={() => toggle(o.value)} />
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.label}</span>
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{o.label}</span>
+                {counts && <span style={{ fontSize: 11, color: 'var(--text3)', flexShrink: 0 }}>({counts[o.value] ?? 0})</span>}
               </label>
             ))}
           </div>
