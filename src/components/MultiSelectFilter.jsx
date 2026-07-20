@@ -77,6 +77,9 @@ export default function MultiSelectFilter({ options, selected, onChange, allLabe
             const btn = el.previousSibling
             const rect = btn?.getBoundingClientRect()
             if (!rect) return
+
+            // Vertical: flip above the trigger if there isn't enough room
+            // below (unchanged from before).
             const spaceBelow = window.innerHeight - rect.bottom
             const dropH = Math.min(360, options.length * 30 + 90)
             if (spaceBelow < dropH + 8) {
@@ -84,8 +87,26 @@ export default function MultiSelectFilter({ options, selected, onChange, allLabe
             } else {
               el.style.top = (rect.bottom + 4) + 'px'; el.style.bottom = 'auto'
             }
-            el.style.left = rect.left + 'px'
-            el.style.width = Math.max(rect.width, 180) + 'px'
+
+            // Horizontal: keep the current width (or the trigger's own
+            // width, whichever is larger) but never let it render off the
+            // right edge of the viewport. If left-aligning to the trigger
+            // would overflow, right-align to the trigger's right edge
+            // instead (opens to the left) — re-checked on every open since
+            // the trigger's position can change (window resize, scroll,
+            // sidebar toggle, RTL layout, etc).
+            const dropWidth = Math.max(rect.width, 180)
+            const viewportW = window.innerWidth
+            const margin = 8
+            let left = rect.left
+            if (left + dropWidth > viewportW - margin) {
+              left = rect.right - dropWidth
+            }
+            // Still clamp fully on-screen even if the trigger itself is
+            // wider than the viewport or sits very close to an edge.
+            left = Math.max(margin, Math.min(left, viewportW - dropWidth - margin))
+            el.style.left = left + 'px'
+            el.style.width = dropWidth + 'px'
           }}>
           {options.length > 8 && (
             <div style={{ padding: 6, borderBottom: '1px solid var(--border)' }}>
