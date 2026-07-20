@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from './lib/supabase'
 import { useAuth, canEdit } from './lib/useAuth'
 import { isTrustedAdmin, isMainAdmin as isMainAdminCheck, isTrustedAdminEmail } from './lib/permissions'
-import { getCurrentSeason } from './lib/helpers'
+import { getCurrentSeason, effectiveStatus } from './lib/helpers'
 import { ToastContainer } from './components/Toast'
 import Login     from './pages/Login'
 import Dashboard from './pages/Dashboard'
@@ -307,9 +307,17 @@ export default function App() {
           // and a later renewal (expiry date pushed forward) naturally
           // produces a fresh, different dedup_key instead of being silently
           // suppressed forever.
-          const { data: athletesForExpiry } = await supabase.from('athletes').select('id,name,name_ar,passport_expiry,id_expiry')
+          const { data: athletesForExpiry } = await supabase.from('athletes').select('id,name,name_ar,passport_expiry,id_expiry,status,status_start,status_end')
           const expiryInserts = []
+          // Expiry alerts (passport, Qatar ID, and any future document type)
+          // are only relevant for people who are actually still around —
+          // Inactive and Retired are permanent/long-term exits, unlike every
+          // other status (Active, Suspended, On Leave, In Competition, In
+          // Training Camp, Injured, Under Medical Review, etc.), which all
+          // still warrant a heads-up about an expiring document.
+          const EXPIRY_EXCLUDED_STATUSES = ['Inactive', 'Retired']
           for (const a2 of (athletesForExpiry || [])) {
+            if (EXPIRY_EXCLUDED_STATUSES.includes(effectiveStatus(a2))) continue
             for (const [field, docType, label, labelAr] of [['passport_expiry','passport','Passport','جواز السفر'], ['id_expiry','id','Qatar ID','الرقم الشخصي']]) {
               const exp = a2[field]
               if (!exp) continue
@@ -346,6 +354,23 @@ export default function App() {
             }
           }
           const expandedExpiry = expiryInserts.flatMap(row => adminIds.map(uid => ({ ...row, user_id: uid, dedup_key: `${row.dedup_key}-${uid}` })))
+
+          // Existing unread expiry alerts for people who are now Inactive or
+          // Retired must stop appearing too — not just future generation.
+          // Scoped strictly to expiry types (document_expiring/expired) and
+          // to athlete IDs currently in the excluded-status set, so task/
+          // request/other notifications are never touched.
+          const excludedAthleteIds = (athletesForExpiry || [])
+            .filter(a2 => EXPIRY_EXCLUDED_STATUSES.includes(effectiveStatus(a2)))
+            .map(a2 => String(a2.id))
+          if (excludedAthleteIds.length > 0) {
+            await supabase.from('notifications')
+              .update({ read: true })
+              .in('type', ['document_expiring', 'document_expired'])
+              .eq('related_entity_type', 'athlete')
+              .in('related_entity_id', excludedAthleteIds)
+              .eq('read', false)
+          }
 
           await upsertIgnoreConflict(nonAwayInserts, 'tasks')
           await upsertIgnoreConflict(expandedAway, 'away')
