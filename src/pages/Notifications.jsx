@@ -128,6 +128,19 @@ export default function Notifications({ profile, onNav }) {
   const visible = (filter === 'unread' ? notifs.filter(n => !n.read) : notifs)
     .filter(n => catFilter === 'All' || (n.category || TYPE_META[n.type]?.category || 'System') === catFilter)
 
+  // Same pattern as the Resources page's category counts: each tab shows
+  // its own total under the current all/unread mode, ignoring only the
+  // active category filter itself (so every tab's count stays visible and
+  // meaningful regardless of which one is currently selected). `notifs`
+  // already reflects whatever this user is permitted to see.
+  const filterScopedNotifs = filter === 'unread' ? notifs.filter(n => !n.read) : notifs
+  const categoryCounts = CATEGORIES.reduce((acc, cat) => {
+    acc[cat] = filterScopedNotifs.filter(n =>
+      cat === 'All' || (n.category || TYPE_META[n.type]?.category || 'System') === cat
+    ).length
+    return acc
+  }, {})
+
   // Group needs_attendance into one row, since these can pile up to one-per-session
   // and shouldn't clutter the list individually.
   const GROUPED_TYPES = ['needs_attendance']
@@ -192,7 +205,7 @@ export default function Notifications({ profile, onNav }) {
               border: `1.5px solid ${catFilter===cat ? '#0085C7' : 'var(--border)'}`,
               background: catFilter===cat ? '#0085C7' : 'transparent',
               color: catFilter===cat ? 'white' : 'var(--text2)' }}>
-            {cat === 'All' ? L('All categories','كل الفئات') : cat}
+            {cat === 'All' ? L('All categories','كل الفئات') : cat} ({categoryCounts[cat] || 0})
           </button>
         ))}
       </div>
