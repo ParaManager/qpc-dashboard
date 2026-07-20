@@ -221,30 +221,38 @@ export default function App() {
           // relevant one remains — a task that's now overdue shouldn't still
           // show a stale "due tomorrow"/"due today" alongside it.
           const { data: liveTasks } = await supabase.from('tasks').select('*').neq('status', 'done')
+          const nowMs = Date.now()
           for (const t of (liveTasks || [])) {
             if (!t.due_date) continue
             const ownerId = t.assigned_to || t.created_by
             if (!ownerId) continue
+            // A due_time (new field) can make a task due "today" already
+            // overdue once that time has passed — not just once the date
+            // itself rolls over. Tasks with no due_time keep the previous
+            // date-only behavior (treated as end-of-day).
+            const dueDateTimeMs = new Date(`${t.due_date}T${t.due_time || '23:59:59'}`).getTime()
+            const isPastDueTime = t.due_date === todayStr && t.due_time && dueDateTimeMs < nowMs
+            const timeSuffix = t.due_time ? ` ${t.due_time.slice(0,5)}` : ''
             const base = { user_id: ownerId, category: 'Tasks', target_path: 'tasks', related_entity_type: 'task', related_entity_id: t.id, read: false }
             if (t.due_date === tomorrowStr) {
               inserts.push({ ...base, type: 'task_due_tomorrow',
-                title: lang==='ar' ? 'مهمة مستحقة غداً' : 'Task due tomorrow', body: t.title,
+                title: lang==='ar' ? 'مهمة مستحقة غداً' : 'Task due tomorrow', body: `${t.title}${timeSuffix}`,
                 dedup_key: `task-due-tomorrow-${t.id}` })
-            } else if (t.due_date === todayStr) {
+            } else if (t.due_date === todayStr && !isPastDueTime) {
               const { error } = await supabase.from('notifications').delete()
                 .eq('related_entity_type', 'task').eq('related_entity_id', t.id).eq('dedup_key', `task-due-tomorrow-${t.id}`)
               if (error) console.error('[notifications] failed clearing due-tomorrow on transition to due-today:', error)
               inserts.push({ ...base, type: 'task_due_today',
-                title: lang==='ar' ? 'مهمة مستحقة اليوم' : 'Task due today', body: t.title,
+                title: lang==='ar' ? 'مهمة مستحقة اليوم' : 'Task due today', body: `${t.title}${timeSuffix}`,
                 dedup_key: `task-due-today-${t.id}-${todayStr}` })
-            } else if (t.due_date < todayStr) {
+            } else if (t.due_date < todayStr || isPastDueTime) {
               const { error } = await supabase.from('notifications').delete()
                 .eq('related_entity_type', 'task').eq('related_entity_id', t.id)
                 .in('type', ['task_due_tomorrow', 'task_due_today'])
               if (error) console.error('[notifications] failed clearing due-tomorrow/due-today on transition to overdue:', error)
               inserts.push({ ...base, type: 'task_overdue',
-                title: lang==='ar' ? 'مهمة متأخرة' : 'Task overdue', body: t.title,
-                dedup_key: `task-overdue-${t.id}` })
+                title: lang==='ar' ? 'مهمة متأخرة' : 'Task overdue', body: `${t.title}${timeSuffix}`,
+                dedup_key: `task-overdue-${t.id}${isPastDueTime ? '-' + t.due_time : ''}` })
             }
           }
 
