@@ -33,15 +33,60 @@ const CATEGORY_META = {
 function localDateStr(d) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
 }
+
+const REPEAT_TYPES = ['None', 'Daily', 'Weekly', 'Monthly', 'Yearly', 'Custom']
+const CUSTOM_INTERVAL_UNITS = ['days', 'weeks', 'months', 'years']
+const REPEAT_END_TYPES = ['Never', 'OnDate', 'AfterCount']
+
+// Computes the next occurrence's due_date from a completed task's own
+// repeat settings. Returns null for 'None' (not recurring) or once the
+// end condition (OnDate / AfterCount) has been reached.
+function computeNextDueDate(task) {
+  if (!task.due_date || task.repeat_type === 'None' || !task.repeat_type) return null
+  const current = new Date(task.due_date + 'T00:00:00')
+  const next = new Date(current)
+  if (task.repeat_type === 'Daily') next.setDate(next.getDate() + 1)
+  else if (task.repeat_type === 'Weekly') next.setDate(next.getDate() + 7)
+  else if (task.repeat_type === 'Monthly') next.setMonth(next.getMonth() + 1)
+  else if (task.repeat_type === 'Yearly') next.setFullYear(next.getFullYear() + 1)
+  else if (task.repeat_type === 'Custom') {
+    const n = Math.max(1, task.custom_interval_value || 1)
+    if (task.custom_interval_unit === 'days') next.setDate(next.getDate() + n)
+    else if (task.custom_interval_unit === 'weeks') next.setDate(next.getDate() + n * 7)
+    else if (task.custom_interval_unit === 'months') next.setMonth(next.getMonth() + n)
+    else if (task.custom_interval_unit === 'years') next.setFullYear(next.getFullYear() + n)
+    else return null // custom selected but no unit configured — nothing to compute
+  } else {
+    return null
+  }
+
+  if (task.repeat_end_type === 'OnDate' && task.repeat_end_date) {
+    if (localDateStr(next) > task.repeat_end_date) return null
+  }
+  if (task.repeat_end_type === 'AfterCount' && task.repeat_end_count) {
+    const currentOccurrence = task.occurrence_number || 1
+    if (currentOccurrence >= task.repeat_end_count) return null
+  }
+  return localDateStr(next)
+}
 function daysUntilDue(task) {
   if (!task.due_date) return null
   const today = new Date(); today.setHours(0,0,0,0)
   const due = new Date(task.due_date); due.setHours(0,0,0,0)
   return Math.round((due - today) / 86400000)
 }
+// Combines due_date + optional due_time into a real Date for overdue
+// checks. Tasks without a time keep the previous date-only behavior
+// (treated as end-of-day, i.e. only overdue once the day itself has
+// fully passed) — existing tasks with no due_time are unaffected.
+function dueDateTime(task) {
+  if (!task.due_date) return null
+  return new Date(`${task.due_date}T${task.due_time || '23:59:59'}`)
+}
 function isOverdue(task) {
   if (!task.due_date || task.status === 'done') return false
-  return task.due_date < localDateStr(new Date())
+  const dt = dueDateTime(task)
+  return dt ? dt.getTime() < Date.now() : false
 }
 function isDueToday(task) {
   if (!task.due_date || task.status === 'done') return false
@@ -57,6 +102,18 @@ function formatDue(dateStr, ar) {
   if (!dateStr) return ''
   const d = new Date(dateStr + 'T00:00:00')
   return d.toLocaleDateString(ar ? 'ar-QA' : 'en-GB', { day: 'numeric', month: 'short' })
+}
+
+// 12/24-hour formatting follows the browser/OS locale convention (this app
+// has no dedicated settings page yet, so it uses the same locale-driven
+// approach already used for date formatting elsewhere) — Arabic locale
+// defaults to 12-hour with AM/PM markers, matching regional convention;
+// English uses the browser's own preference via undefined hour12.
+function formatDueTime(timeStr, ar) {
+  if (!timeStr) return ''
+  const [h, m] = timeStr.split(':').map(Number)
+  const d = new Date(); d.setHours(h, m, 0, 0)
+  return d.toLocaleTimeString(ar ? 'ar-QA' : undefined, { hour: 'numeric', minute: '2-digit', hour12: ar ? true : undefined })
 }
 
 function idHash(str) {
@@ -82,7 +139,7 @@ export default function Tasks({ profile, isMainAdmin, onNav }) {
 
   const [editing, setEditing]   = useState(null)
   const [confirmDel, setConfirmDel] = useState(null)
-  const [form, setForm] = useState({ title: '', notes: '', priority: 'moderate', category: '', dueDate: '', status: 'todo', assignedTo: profile?.id || '', notifyOnComplete: false })
+  const [form, setForm] = useState({ title: '', notes: '', priority: 'moderate', category: '', dueDate: '', dueTime: '', status: 'todo', assignedTo: profile?.id || '', notifyOnComplete: false, repeatType: 'None', customIntervalUnit: 'days', customIntervalValue: 1, repeatEndType: 'Never', repeatEndDate: '', repeatEndCount: '' })
 
   async function load() {
     setLoading(true)
@@ -198,15 +255,22 @@ export default function Tasks({ profile, isMainAdmin, onNav }) {
       priority: task.priority,
       category: task.category || '',
       dueDate: task.due_date || '',
+      dueTime: task.due_time || '',
       status: task.status,
       assignedTo: task.assigned_to || profile?.id || '',
       notifyOnComplete: !!task.notify_on_complete,
+      repeatType: task.repeat_type || 'None',
+      customIntervalUnit: task.custom_interval_unit || 'days',
+      customIntervalValue: task.custom_interval_value || 1,
+      repeatEndType: task.repeat_end_type || 'Never',
+      repeatEndDate: task.repeat_end_date || '',
+      repeatEndCount: task.repeat_end_count || '',
     })
     setEditing(task)
   }
 
   function openNew() {
-    setForm({ title: '', notes: '', priority: 'moderate', category: '', dueDate: '', status: 'todo', assignedTo: profile?.id || '', notifyOnComplete: false })
+    setForm({ title: '', notes: '', priority: 'moderate', category: '', dueDate: '', dueTime: '', status: 'todo', assignedTo: profile?.id || '', notifyOnComplete: false, repeatType: 'None', customIntervalUnit: 'days', customIntervalValue: 1, repeatEndType: 'Never', repeatEndDate: '', repeatEndCount: '' })
     setEditing('new')
   }
 
@@ -219,17 +283,24 @@ export default function Tasks({ profile, isMainAdmin, onNav }) {
       priority: form.priority,
       category: form.category || null,
       due_date: form.dueDate || null,
+      due_time: form.dueTime || null,
       status: form.status,
       assigned_to: assignedTo,
       notify_on_complete: form.notifyOnComplete,
       completed_at: form.status === 'done' ? new Date().toISOString() : null,
       updated_at: new Date().toISOString(),
+      repeat_type: form.repeatType,
+      custom_interval_unit: form.repeatType === 'Custom' ? form.customIntervalUnit : null,
+      custom_interval_value: form.repeatType === 'Custom' ? (Number(form.customIntervalValue) || 1) : null,
+      repeat_end_type: form.repeatType === 'None' ? 'Never' : form.repeatEndType,
+      repeat_end_date: form.repeatEndType === 'OnDate' ? (form.repeatEndDate || null) : null,
+      repeat_end_count: form.repeatEndType === 'AfterCount' ? (Number(form.repeatEndCount) || null) : null,
     }
     let error
     const dueDateChanged = editing !== 'new' && editing.due_date !== payload.due_date
     const justCompleted = editing !== 'new' && editing.status !== 'done' && payload.status === 'done'
     if (editing === 'new') {
-      ;({ error } = await supabase.from('tasks').insert({ ...payload, created_by: profile?.id || null }))
+      ;({ error } = await supabase.from('tasks').insert({ ...payload, created_by: profile?.id || null, occurrence_number: payload.repeat_type !== 'None' ? 1 : null }))
     } else {
       ;({ error } = await supabase.from('tasks').update(payload).eq('id', editing.id))
     }
@@ -237,10 +308,61 @@ export default function Tasks({ profile, isMainAdmin, onNav }) {
     if (dueDateChanged) {
       await supabase.from('notifications').delete().eq('related_entity_type', 'task').eq('related_entity_id', editing.id)
     }
-    if (justCompleted) await notifyCompletionIfRequested(editing.id, payload)
+    if (justCompleted) {
+      await notifyCompletionIfRequested(editing.id, payload)
+      await createNextOccurrence({ ...editing, ...payload, id: editing.id })
+    }
     toast(editing === 'new' ? (ar ? 'تمت إضافة المهمة' : 'Task added') : (ar ? 'تم حفظ التغييرات' : 'Task updated'))
     setEditing(null)
     await load()
+  }
+
+  // Creates the next occurrence of a completed recurring task — the
+  // completed row is left exactly as-is (kept for history), a brand new
+  // row is inserted for the next due date, preserving assignee, priority,
+  // category, notes/title, and the same recurrence settings so the series
+  // continues. A fresh notification is generated for the new occurrence
+  // the same way a normal new task would notify its assignee.
+  async function createNextOccurrence(completedTask) {
+    const nextDueDate = computeNextDueDate(completedTask)
+    if (!nextDueDate) return // series ended or not recurring
+
+    const seriesId = completedTask.series_id || completedTask.id
+    const nextOccurrenceNumber = (completedTask.occurrence_number || 1) + 1
+
+    const { data: inserted, error } = await supabase.from('tasks').insert({
+      title: completedTask.title,
+      notes: completedTask.notes,
+      priority: completedTask.priority,
+      category: completedTask.category,
+      due_date: nextDueDate,
+      due_time: completedTask.due_time,
+      status: 'todo',
+      assigned_to: completedTask.assigned_to,
+      created_by: completedTask.created_by,
+      notify_on_complete: completedTask.notify_on_complete,
+      repeat_type: completedTask.repeat_type,
+      custom_interval_unit: completedTask.custom_interval_unit,
+      custom_interval_value: completedTask.custom_interval_value,
+      repeat_end_type: completedTask.repeat_end_type,
+      repeat_end_date: completedTask.repeat_end_date,
+      repeat_end_count: completedTask.repeat_end_count,
+      series_id: seriesId,
+      occurrence_number: nextOccurrenceNumber,
+    }).select().maybeSingle()
+
+    if (error) { console.error('[tasks] failed to create next occurrence:', error); return }
+    if (!inserted || !inserted.assigned_to) return
+
+    await supabase.from('notifications').insert({
+      user_id: inserted.assigned_to,
+      type: 'task_assigned',
+      title: ar ? 'مهمة متكررة جديدة' : 'New recurring task',
+      body: ar ? `تم إنشاء التكرار التالي لـ: ${inserted.title}` : `Next occurrence created for: ${inserted.title}`,
+      data: {},
+      read: false,
+      category: 'Tasks', target_path: 'tasks', related_entity_type: 'task', related_entity_id: inserted.id,
+    })
   }
 
   async function notifyCompletionIfRequested(taskId, payload) {
@@ -273,7 +395,10 @@ export default function Tasks({ profile, isMainAdmin, onNav }) {
     if (error) { toast(error.message, 'error'); return }
     if (status === 'done') {
       await supabase.from('notifications').delete().eq('related_entity_type', 'task').eq('related_entity_id', task.id)
-      if (wasNotDone) await notifyCompletionIfRequested(task.id, { ...task, notify_on_complete: task.notify_on_complete })
+      if (wasNotDone) {
+        await notifyCompletionIfRequested(task.id, { ...task, notify_on_complete: task.notify_on_complete })
+        await createNextOccurrence(task)
+      }
     }
     await load()
   }
@@ -348,6 +473,10 @@ export default function Tasks({ profile, isMainAdmin, onNav }) {
                   <label>{ar ? 'تاريخ الاستحقاق' : 'Due date'}</label>
                   <input className="form-input" type="date" value={form.dueDate} onChange={e => setForm(f => ({ ...f, dueDate: e.target.value }))} />
                 </div>
+                <div className="form-group">
+                  <label>{ar ? 'وقت الاستحقاق (اختياري)' : 'Due time (optional)'}</label>
+                  <input className="form-input" type="time" value={form.dueTime} onChange={e => setForm(f => ({ ...f, dueTime: e.target.value }))} />
+                </div>
               </div>
               <div className="form-group">
                 <label>{ar ? 'الفئة' : 'Category'}</label>
@@ -356,6 +485,62 @@ export default function Tasks({ profile, isMainAdmin, onNav }) {
                   {Object.keys(CATEGORY_META).map(c => <option key={c} value={c}>{ar ? CATEGORY_META[c].ar : CATEGORY_META[c].en}</option>)}
                 </select>
               </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>{ar ? 'التكرار' : 'Repeat'}</label>
+                  <select className="form-input" value={form.repeatType} onChange={e => setForm(f => ({ ...f, repeatType: e.target.value }))}>
+                    {REPEAT_TYPES.map(r => <option key={r} value={r}>{
+                      r === 'None' ? (ar ? 'بدون' : 'None')
+                      : r === 'Daily' ? (ar ? 'يومي' : 'Daily')
+                      : r === 'Weekly' ? (ar ? 'أسبوعي' : 'Weekly')
+                      : r === 'Monthly' ? (ar ? 'شهري' : 'Monthly')
+                      : r === 'Yearly' ? (ar ? 'سنوي' : 'Yearly')
+                      : (ar ? 'مخصص' : 'Custom')
+                    }</option>)}
+                  </select>
+                </div>
+                {form.repeatType === 'Custom' && (
+                  <div className="form-group">
+                    <label>{ar ? 'كل' : 'Every'}</label>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <input className="form-input" type="number" min="1" style={{ width: 70 }}
+                        value={form.customIntervalValue} onChange={e => setForm(f => ({ ...f, customIntervalValue: e.target.value }))} />
+                      <select className="form-input" value={form.customIntervalUnit} onChange={e => setForm(f => ({ ...f, customIntervalUnit: e.target.value }))}>
+                        {CUSTOM_INTERVAL_UNITS.map(u => <option key={u} value={u}>{
+                          u === 'days' ? (ar ? 'أيام' : 'days')
+                          : u === 'weeks' ? (ar ? 'أسابيع' : 'weeks')
+                          : u === 'months' ? (ar ? 'أشهر' : 'months')
+                          : (ar ? 'سنوات' : 'years')
+                        }</option>)}
+                      </select>
+                    </div>
+                  </div>
+                )}
+              </div>
+              {form.repeatType !== 'None' && (
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>{ar ? 'إنهاء التكرار' : 'End repeat'}</label>
+                    <select className="form-input" value={form.repeatEndType} onChange={e => setForm(f => ({ ...f, repeatEndType: e.target.value }))}>
+                      <option value="Never">{ar ? 'أبداً' : 'Never'}</option>
+                      <option value="OnDate">{ar ? 'في تاريخ' : 'On date'}</option>
+                      <option value="AfterCount">{ar ? 'بعد عدد من المرات' : 'After X occurrences'}</option>
+                    </select>
+                  </div>
+                  {form.repeatEndType === 'OnDate' && (
+                    <div className="form-group">
+                      <label>{ar ? 'تاريخ الانتهاء' : 'End date'}</label>
+                      <input className="form-input" type="date" value={form.repeatEndDate} onChange={e => setForm(f => ({ ...f, repeatEndDate: e.target.value }))} />
+                    </div>
+                  )}
+                  {form.repeatEndType === 'AfterCount' && (
+                    <div className="form-group">
+                      <label>{ar ? 'عدد المرات' : 'Occurrences'}</label>
+                      <input className="form-input" type="number" min="1" value={form.repeatEndCount} onChange={e => setForm(f => ({ ...f, repeatEndCount: e.target.value }))} />
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label>{ar ? 'الحالة' : 'Status'}</label>
                 <div style={{ display: 'flex', gap: 8 }}>
@@ -595,7 +780,14 @@ export default function Tasks({ profile, isMainAdmin, onNav }) {
                           <span style={{ fontSize: 10.5, fontWeight: 600, color: frameColor || 'var(--text3)', display: 'flex', alignItems: 'center', gap: 2 }}>
                             <i className="ti ti-calendar" style={{ fontSize: 11 }} />
                             {formatDue(task.due_date, ar)}
+                            {task.due_time && ` ${formatDueTime(task.due_time, ar)}`}
                             {overdue && ` · ${ar ? 'متأخرة' : 'overdue'}`}
+                          </span>
+                        )}
+                        {task.repeat_type && task.repeat_type !== 'None' && (
+                          <span style={{ fontSize: 10.5, color: 'var(--text3)', display: 'flex', alignItems: 'center', gap: 2 }}>
+                            <i className="ti ti-repeat" style={{ fontSize: 11 }} />
+                            {ar ? 'متكرر' : 'Recurring'}
                           </span>
                         )}
                         {assignee && (
