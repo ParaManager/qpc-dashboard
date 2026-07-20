@@ -5,14 +5,13 @@ import { Avatar, avColor, initials } from '../lib/helpers'
 import { toast, ConfirmModal } from '../components/Toast'
 import { canEdit } from '../lib/useAuth'
 import { usePersonRoles, RoleBadges } from '../components/RoleBadges.jsx'
+import NationalitySelect from '../components/NationalitySelect.jsx'
 import MultiSelectFilter from '../components/MultiSelectFilter.jsx'
 import { SHARED_TYPES, mergeDocuments } from '../lib/documentEngine'
 import { isTrustedAdmin } from '../lib/permissions'
 import { logAdminActivity } from '../lib/adminActivity'
 import PhotoCropModal from '../components/PhotoCropModal'
 import * as XLSX from 'xlsx'
-
-const COUNTRIES_EN = ['Afghanistan','Algeria','Argentina','Armenia','Australia','Azerbaijan','Bahrain','Bangladesh','Belarus','Belgium','Brazil','Cameroon','Canada','Chile','China','Colombia','Croatia','Czech Republic','Denmark','Egypt','Eritrea','Ethiopia','Finland','France','Georgia','Germany','Ghana','Greece','Guinea','Hungary','India','Indonesia','Iran','Iraq','Ireland','Italy','Japan','Jordan','Kazakhstan','Kenya','Kuwait','Kyrgyzstan','Lebanon','Libya','Malaysia','Mali','Mauritania','Mexico','Mongolia','Morocco','Myanmar','Nepal','Netherlands','New Zealand','Nigeria','Norway','Oman','Pakistan','Palestine','Peru','Philippines','Poland','Portugal','Qatar','Romania','Russia','Rwanda','Saudi Arabia','Scotland','Senegal','Serbia','Singapore','Slovakia','Somalia','South Africa','South Korea','Spain','Sri Lanka','Sudan','Sweden','Syria','Tajikistan','Tanzania','Thailand','Tunisia','Turkey','Turkmenistan','UAE','Uganda','UK','Ukraine','USA','Uzbekistan','Venezuela','Vietnam','Wales','Yemen','Zambia','Zimbabwe']
 
 const COUNTRY_AR = {
   'Qatar':'قطر','Egypt':'مصر','Yemen':'اليمن','Algeria':'الجزائر','Morocco':'المغرب',
@@ -437,7 +436,6 @@ export default function Referees({ referees, onRefresh, profile }) {
     const [form, setForm] = useState(editData || {})
     const set = (k,v) => setForm(f=>({...f,[k]:v}))
     const genderOpts = [{value:'',label:''},{value:'Male',label:ar?'ذكر':'Male'},{value:'Female',label:ar?'أنثى':'Female'}]
-    const natOpts = [{value:'',label:''},...COUNTRIES_EN.map(c=>({value:c,label:ar?(COUNTRY_AR[c]||c):c}))]
     const F = ({label,name,type='text',placeholder,options}) => (
       <div className="form-group">
         <label className="form-label">{label}</label>
@@ -459,7 +457,10 @@ export default function Referees({ referees, onRefresh, profile }) {
             <F label={L('Full Name (Arabic)','الاسم الكامل بالعربي')} name="name_ar" placeholder="مثال: أحمد محمد" />
             <div className="form-row">
               <F label={L('Gender','الجنس')} name="gender" options={genderOpts} />
-              <F label={L('Nationality','الجنسية')} name="nationality" options={natOpts} />
+              <div className="form-group">
+                <label className="form-label">{L('Nationality','الجنسية')}</label>
+                <NationalitySelect value={form.nationality} onChange={v => set('nationality', v)} lang={lang} />
+              </div>
             </div>
             <div className="form-row">
               <F label={L('Date of Birth','تاريخ الميلاد')} name="dob" type="date" />
@@ -527,7 +528,7 @@ export default function Referees({ referees, onRefresh, profile }) {
               <th style={{ padding:'4px 8px' }}>
                 <MultiSelectFilter
                   options={[
-                    ...COUNTRIES_EN.map(c => ({ value: c, label: ar?(COUNTRY_AR[c]||c):c })),
+                    ...[...new Set((referees||[]).map(r => r.nationality).filter(Boolean))].sort().map(c => ({ value: c, label: ar?(COUNTRY_AR[c]||c):c })),
                     { value: 'Blank', label: L('Blank','فارغ') },
                   ]}
                   selected={natF}
