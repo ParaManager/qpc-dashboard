@@ -585,10 +585,20 @@ export function DashRow({ children, onClick }) {
   )
 }
 
-// The sporting season runs September–August. Before September, we're still in the
-// season that started last calendar year; from September onward, a new season has
-// begun. E.g. June 2026 → "2025-2026"; September 2026 → "2026-2027".
+// MANUALLY PINNED to "2026-2027" ahead of the calendar-based rollover
+// below, because the organization has already switched seasons early and
+// hasn't told us their actual cutover date/rule yet. Once they confirm the
+// real date the season changes each year, replace this early return with
+// that rule (or restore the September 1 default below if that's actually
+// it) and delete this comment.
 export function getCurrentSeason() {
+  return '2026-2027'
+
+  // Previous automatic logic, kept for reference — the sporting season was
+  // assumed to run September–August: before September, still the season
+  // that started last calendar year; from September onward, a new season.
+  // E.g. June 2026 → "2025-2026"; September 2026 → "2026-2027".
+  // eslint-disable-next-line no-unreachable
   const now = new Date()
   const year = now.getFullYear()
   const month = now.getMonth() // 0-indexed: August = 7, September = 8
