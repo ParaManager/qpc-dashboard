@@ -41,22 +41,29 @@ export default function Away({ athletes, coaches, employees, onNav }) {
     return Math.round((today - start) / 86400000)
   }
 
+  function matchesAwaySearch(p, q) {
+    if (!q) return true
+    const type = p._isCoach ? 'Coach' : p._isEmployee ? 'Employee' : 'Athlete'
+    const name = (p.name || '').toLowerCase()
+    const nameAr = (p.name_ar || '').toLowerCase()
+    const typeEn = TYPE_LABEL[type].en.toLowerCase()
+    const typeAr = TYPE_LABEL[type].ar.toLowerCase()
+    const statusEn = (STATUS_LABEL[p.status]?.en || p.status || '').toLowerCase()
+    const statusAr = (STATUS_LABEL[p.status]?.ar || p.status || '').toLowerCase()
+    return [name, nameAr, typeEn, typeAr, statusEn, statusAr].some(v => v.includes(q))
+  }
+
   const filtered = allAway.filter(p => {
     if (statusFilter.length > 0 && !statusFilter.includes(p.status)) return false
-    if (search) {
-      const q = search.toLowerCase()
-      const type = p._isCoach ? 'Coach' : p._isEmployee ? 'Employee' : 'Athlete'
-      const name = (p.name || '').toLowerCase()
-      const nameAr = (p.name_ar || '').toLowerCase()
-      const typeEn = TYPE_LABEL[type].en.toLowerCase()
-      const typeAr = TYPE_LABEL[type].ar.toLowerCase()
-      const statusEn = (STATUS_LABEL[p.status]?.en || p.status || '').toLowerCase()
-      const statusAr = (STATUS_LABEL[p.status]?.ar || p.status || '').toLowerCase()
-      const matches = [name, nameAr, typeEn, typeAr, statusEn, statusAr].some(v => v.includes(q))
-      if (!matches) return false
-    }
-    return true
+    return matchesAwaySearch(p, search.toLowerCase())
   })
+
+  // Status is the only column filter here, so "excluding the filter being
+  // opened" just means counting against search alone.
+  const statusCountsBase = allAway.filter(p => matchesAwaySearch(p, search.toLowerCase()))
+  function computeAwayStatusCount(statusValue) {
+    return statusCountsBase.filter(p => p.status === statusValue).length
+  }
 
   const hasActiveFilters = search || statusFilter.length > 0
   function clearFilters() { setSearch(''); setStatusFilter([]) }
@@ -93,6 +100,7 @@ export default function Away({ athletes, coaches, employees, onNav }) {
           selected={statusFilter}
           allLabel={L('Away Status: All', 'حالة الغياب: الكل')}
           onChange={setStatusFilter}
+          counts={AWAY_STATUSES.reduce((acc, s) => { acc[s] = computeAwayStatusCount(s); return acc }, {})}
         />
         {hasActiveFilters && (
           <button onClick={clearFilters}

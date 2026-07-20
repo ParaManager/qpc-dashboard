@@ -156,12 +156,21 @@ export default function Tasks({ profile, isMainAdmin, onNav }) {
     ? (viewScope === 'all' ? tasks : tasks.filter(t => t.assigned_to === profile?.id))
     : tasks.filter(t => t.assigned_to === profile?.id)
 
-  const filtered = scoped.filter(t => {
-    if (search && !t.title.toLowerCase().includes(search.toLowerCase()) && !(t.notes||'').toLowerCase().includes(search.toLowerCase())) return false
-    if (isMainAdmin && viewScope === 'all' && assigneeFilter.length > 0 && !assigneeFilter.includes(t.assigned_to)) return false
-    if (categoryFilter.length > 0 && !categoryFilter.some(v => v === 'blank' ? !t.category : (t.category || '') === v)) return false
-    return true
-  })
+  function passesTaskFilters(t, q, skipKey) {
+    const skip = (key) => key === skipKey
+    return (
+      (!q || t.title.toLowerCase().includes(q) || (t.notes||'').toLowerCase().includes(q)) &&
+      (skip('assignee') || !isMainAdmin || viewScope !== 'all' || assigneeFilter.length === 0 || assigneeFilter.includes(t.assigned_to)) &&
+      (skip('category') || categoryFilter.length === 0 || categoryFilter.some(v => v === 'blank' ? !t.category : (t.category || '') === v))
+    )
+  }
+  function computeTaskOptionCounts(colKey, getFieldValue, matchOption) {
+    const q = search.toLowerCase()
+    const base = scoped.filter(t => passesTaskFilters(t, q, colKey))
+    return (value) => base.filter(t => matchOption(getFieldValue(t), value)).length
+  }
+
+  const filtered = scoped.filter(t => passesTaskFilters(t, search.toLowerCase(), null))
 
   const byStatus = STATUSES.reduce((acc, s) => {
     acc[s] = filtered.filter(t => t.status === s).sort((a, b) => {
@@ -461,25 +470,39 @@ export default function Tasks({ profile, isMainAdmin, onNav }) {
 
       <div className="filters" style={{ flexWrap: 'wrap' }}>
         <div className="search-wrap"><i className="ti ti-search" /><input placeholder={ar ? 'بحث في المهام...' : 'Search tasks…'} value={search} onChange={e => setSearch(e.target.value)} /></div>
-        {isMainAdmin && viewScope === 'all' && (
-          <MultiSelectFilter
-            options={eligible.map(p => ({ value: p.id, label: p.id === profile?.id ? (ar ? 'نفسي' : 'Myself') : assigneeLabel(p) }))}
-            selected={assigneeFilter}
-            allLabel={ar ? 'كل المسؤولين' : 'All assignees'}
-            onChange={setAssigneeFilter}
-            style={{ width: 'auto', minWidth: 140 }}
-          />
-        )}
-        <MultiSelectFilter
-          options={[
+        {isMainAdmin && viewScope === 'all' && (() => {
+          const assigneeOptions = eligible.map(p => ({ value: p.id, label: p.id === profile?.id ? (ar ? 'نفسي' : 'Myself') : assigneeLabel(p) }))
+          const assigneeCounter = computeTaskOptionCounts('assignee', t => t.assigned_to, (fv, ov) => fv === ov)
+          const assigneeCounts = assigneeOptions.reduce((acc,o)=>{acc[o.value]=assigneeCounter(o.value);return acc},{})
+          return (
+            <MultiSelectFilter
+              options={assigneeOptions}
+              selected={assigneeFilter}
+              allLabel={ar ? 'كل المسؤولين' : 'All assignees'}
+              onChange={setAssigneeFilter}
+              style={{ width: 'auto', minWidth: 140 }}
+              counts={assigneeCounts}
+            />
+          )
+        })()}
+        {(() => {
+          const categoryOptions = [
             ...Object.keys(CATEGORY_META).map(c => ({ value: c, label: ar ? CATEGORY_META[c].ar : CATEGORY_META[c].en })),
             { value: 'blank', label: ar ? 'فارغ' : 'Blank' },
-          ]}
-          selected={categoryFilter}
-          allLabel={ar ? 'كل الفئات' : 'All categories'}
-          onChange={setCategoryFilter}
-          style={{ width: 'auto', minWidth: 140 }}
-        />
+          ]
+          const categoryCounter = computeTaskOptionCounts('category', t => t.category, (fv, ov) => ov === 'blank' ? !fv : (fv || '') === ov)
+          const categoryCounts2 = categoryOptions.reduce((acc,o)=>{acc[o.value]=categoryCounter(o.value);return acc},{})
+          return (
+            <MultiSelectFilter
+              options={categoryOptions}
+              selected={categoryFilter}
+              allLabel={ar ? 'كل الفئات' : 'All categories'}
+              onChange={setCategoryFilter}
+              style={{ width: 'auto', minWidth: 140 }}
+              counts={categoryCounts2}
+            />
+          )
+        })()}
         {hasActiveFilters && (
           <button onClick={clearFilters} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '8px 12px', borderRadius: 9, border: '1px solid #fca5a5', background: '#fef2f2', color: '#dc2626', fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap' }}>
             <i className="ti ti-x" style={{ fontSize: 13 }} /> {ar ? 'مسح الفلاتر' : 'Clear Filters'}

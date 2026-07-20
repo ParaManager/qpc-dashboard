@@ -326,19 +326,29 @@ export default function Referees({ referees, onRefresh, profile }) {
   const [editData, setEditData] = useState(null)
   const [saving, setSaving]     = useState(false)
 
+  // Shared predicate reused by the main list and per-option counts.
+  function passesRefFilters(r, q, skipKey) {
+    const skip = (key) => key === skipKey
+    const matchesSearch = !q ||
+      (r.name||'').toLowerCase().includes(q) ||
+      (r.name_ar||'').toLowerCase().includes(q) ||
+      (r.id_number||'').includes(q) ||
+      (r.nationality||'').toLowerCase().includes(q)
+    return (
+      matchesSearch &&
+      (skip('nat') || natF.length === 0 || natF.some(v => v === 'Blank' ? !r.nationality : r.nationality?.toLowerCase() === v.toLowerCase())) &&
+      (skip('gender') || genderF.length === 0 || genderF.some(v => v === 'Blank' ? !r.gender : r.gender === v))
+    )
+  }
+  function computeRefOptionCounts(colKey, getFieldValue, matchOption) {
+    const q = search.toLowerCase()
+    const base = (referees||[]).filter(r => passesRefFilters(r, q, colKey))
+    return (value) => base.filter(r => matchOption(getFieldValue(r), value)).length
+  }
+
   const list = useMemo(() => {
-    let d = [...(referees||[])]
-    if (search) {
-      const q = search.toLowerCase()
-      d = d.filter(r =>
-        (r.name||'').toLowerCase().includes(q) ||
-        (r.name_ar||'').toLowerCase().includes(q) ||
-        (r.id_number||'').includes(q) ||
-        (r.nationality||'').toLowerCase().includes(q)
-      )
-    }
-    if (natF.length > 0)    d = d.filter(r => natF.some(v => v === 'Blank' ? !r.nationality : r.nationality?.toLowerCase() === v.toLowerCase()))
-    if (genderF.length > 0) d = d.filter(r => genderF.some(v => v === 'Blank' ? !r.gender : r.gender === v))
+    const q = search.toLowerCase()
+    let d = (referees||[]).filter(r => passesRefFilters(r, q, null))
     d.sort((a,b) => {
       if (sort==='name-asc')  return (a.name||'').localeCompare(b.name||'')
       if (sort==='name-desc') return (b.name||'').localeCompare(a.name||'')
@@ -526,28 +536,44 @@ export default function Referees({ referees, onRefresh, profile }) {
             <tr style={{ background:'#f8f9fb' }}>
               <th colSpan={2} />
               <th style={{ padding:'4px 8px' }}>
-                <MultiSelectFilter
-                  options={[
+                {(() => {
+                  const natOptions = [
                     ...[...new Set((referees||[]).map(r => r.nationality).filter(Boolean))].sort().map(c => ({ value: c, label: ar?(COUNTRY_AR[c]||c):c })),
                     { value: 'Blank', label: L('Blank','فارغ') },
-                  ]}
-                  selected={natF}
-                  allLabel={L('All','الكل')}
-                  onChange={setNatF}
-                  style={{ maxWidth: 120 }}
-                />
+                  ]
+                  const natCounter = computeRefOptionCounts('nat', r => r.nationality, (fv, ov) => ov==='Blank' ? !fv : fv?.toLowerCase()===ov.toLowerCase())
+                  const natCounts = natOptions.reduce((acc,o)=>{acc[o.value]=natCounter(o.value);return acc},{})
+                  return (
+                    <MultiSelectFilter
+                      options={natOptions}
+                      selected={natF}
+                      allLabel={L('All','الكل')}
+                      onChange={setNatF}
+                      style={{ maxWidth: 120 }}
+                      counts={natCounts}
+                    />
+                  )
+                })()}
               </th>
               <th style={{ padding:'4px 8px' }}>
-                <MultiSelectFilter
-                  options={[
+                {(() => {
+                  const genderOptions = [
                     { value: 'Male', label: L('Male','ذكر') },
                     { value: 'Female', label: L('Female','أنثى') },
                     { value: 'Blank', label: L('Blank','فارغ') },
-                  ]}
-                  selected={genderF}
-                  allLabel={L('All','الكل')}
-                  onChange={setGenderF}
-                />
+                  ]
+                  const genderCounter = computeRefOptionCounts('gender', r => r.gender, (fv, ov) => ov==='Blank' ? !fv : fv===ov)
+                  const genderCounts = genderOptions.reduce((acc,o)=>{acc[o.value]=genderCounter(o.value);return acc},{})
+                  return (
+                    <MultiSelectFilter
+                      options={genderOptions}
+                      selected={genderF}
+                      allLabel={L('All','الكل')}
+                      onChange={setGenderF}
+                      counts={genderCounts}
+                    />
+                  )
+                })()}
               </th>
               <th colSpan={3} />
             </tr>

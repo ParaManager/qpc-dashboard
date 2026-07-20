@@ -257,12 +257,23 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
   const categoriesRaw = [...SPORT_CATEGORIES]
   const hasFilters = search || sport.length > 0 || sportCategory.length > 0 || status.length > 0
 
-  let list = coaches.filter(c =>
-    (sport.length === 0 || sport.some(v => v === 'Blank' ? !c.sport : c.sport === v)) &&
-    (sportCategory.length === 0 || sportCategory.some(v => v === 'Blank' ? !c.sport_category : c.sport_category === v)) &&
-    (status.length === 0 || status.includes(c.status)) &&
-    (!search || c.name.toLowerCase().includes(search.toLowerCase()) || (c.name_ar||'').toLowerCase().includes(search.toLowerCase()) || (c.sport||'').toLowerCase().includes(search.toLowerCase()))
-  )
+  function passesCoachFilters(c, q, skipKey) {
+    const skip = (key) => key === skipKey
+    return (
+      (skip('sport') || sport.length === 0 || sport.some(v => v === 'Blank' ? !c.sport : c.sport === v)) &&
+      (skip('sportCategory') || sportCategory.length === 0 || sportCategory.some(v => v === 'Blank' ? !c.sport_category : c.sport_category === v)) &&
+      (skip('status') || status.length === 0 || status.includes(c.status)) &&
+      (!q || c.name.toLowerCase().includes(q) || (c.name_ar||'').toLowerCase().includes(q) || (c.sport||'').toLowerCase().includes(q))
+    )
+  }
+
+  function computeCoachOptionCounts(colKey, getFieldValue, matchOption) {
+    const q = search.toLowerCase()
+    const base = coaches.filter(c => passesCoachFilters(c, q, colKey))
+    return (value) => base.filter(c => matchOption(getFieldValue(c), value)).length
+  }
+
+  let list = coaches.filter(c => passesCoachFilters(c, search.toLowerCase(), null))
   list = [...list].sort((a, b) => {
     const aC = athletes.filter(x => x.coach_id === a.id).length
     const bC = athletes.filter(x => x.coach_id === b.id).length
@@ -645,37 +656,58 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
       </div>
       <div className="filters">
         <div className="search-wrap"><i className="ti ti-search" /><input placeholder={tx("coaches.searchCoaches","Search by name, sport…")} value={search} onChange={e => setSearch(e.target.value)} /></div>
-        <MultiSelectFilter
-          options={[
+        {(() => {
+          const catOptions = [
             ...categoriesRaw.map(c => ({ value: c, label: lang==='ar' ? (SPORT_CATEGORY_NAMES_AR[c]||c) : c })),
             { value: 'Blank', label: lang==='ar'?'فارغ':'Blank' },
-          ]}
-          selected={sportCategory}
-          allLabel={tx('filters.allCategories','All categories')}
-          onChange={vals => { setSportCategory(vals); setSport([]) }}
-        />
-        <MultiSelectFilter
-          options={[
+          ]
+          const catCounter = computeCoachOptionCounts('sportCategory', c => c.sport_category, (fv, ov) => ov==='Blank' ? !fv : fv===ov)
+          const catCounts = catOptions.reduce((acc,o)=>{acc[o.value]=catCounter(o.value);return acc},{})
+
+          const sportOptions = [
             ...sportsRaw.map(s => ({ value: s, label: sportLabel(s, sportCategory.length === 1 ? sportCategory[0] : null, lang==='ar') })),
             { value: 'Blank', label: lang==='ar'?'فارغ':'Blank' },
-          ]}
-          selected={sport}
-          allLabel={tx('filters.allSports','All sports')}
-          onChange={setSport}
-        />
-        <MultiSelectFilter
-          options={[
+          ]
+          const sportCounter = computeCoachOptionCounts('sport', c => c.sport, (fv, ov) => ov==='Blank' ? !fv : fv===ov)
+          const sportCounts = sportOptions.reduce((acc,o)=>{acc[o.value]=sportCounter(o.value);return acc},{})
+
+          const statusOptions = [
             { value:'Active', label:tx('status.active','Active') },
             { value:'On Leave', label:lang==='ar'?'في إجازة':'On Leave' },
             { value:'In Competition', label:lang==='ar'?'في منافسة':'In Competition' },
             { value:'In Training Camp', label:lang==='ar'?'في معسكر تدريبي':'In Training Camp' },
             { value:'Inactive', label:tx('status.inactive','Inactive') },
             { value:'Retired', label:lang==='ar'?'متقاعد':'Retired' },
-          ]}
-          selected={status}
-          allLabel={tx('filters.allStatuses','All statuses')}
-          onChange={setStatus}
-        />
+          ]
+          const statusCounter = computeCoachOptionCounts('status', c => c.status, (fv, ov) => fv===ov)
+          const statusCounts = statusOptions.reduce((acc,o)=>{acc[o.value]=statusCounter(o.value);return acc},{})
+
+          return (
+            <>
+              <MultiSelectFilter
+                options={catOptions}
+                selected={sportCategory}
+                allLabel={tx('filters.allCategories','All categories')}
+                onChange={vals => { setSportCategory(vals); setSport([]) }}
+                counts={catCounts}
+              />
+              <MultiSelectFilter
+                options={sportOptions}
+                selected={sport}
+                allLabel={tx('filters.allSports','All sports')}
+                onChange={setSport}
+                counts={sportCounts}
+              />
+              <MultiSelectFilter
+                options={statusOptions}
+                selected={status}
+                allLabel={tx('filters.allStatuses','All statuses')}
+                onChange={setStatus}
+                counts={statusCounts}
+              />
+            </>
+          )
+        })()}
         <select className="filter" value={sort} onChange={e => setSort(e.target.value)}>
           <option value="name-asc">{tx('filters.nameAZ','Name A→Z')}</option>
           <option value="name-desc">{tx('filters.nameZA','Name Z→A')}</option>

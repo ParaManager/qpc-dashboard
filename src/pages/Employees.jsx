@@ -945,16 +945,30 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
     return selectedValues.some(v => v === 'Blank' ? !fieldValue : fieldValue === v)
   }
 
-  let list = employees.filter(e =>
-    (!search || e.name.toLowerCase().includes(search.toLowerCase()) ||
-               (e.name_ar||'').toLowerCase().includes(search.toLowerCase()) ||
-               (e.designation||'').toLowerCase().includes(search.toLowerCase()) ||
-               (e.designation_ar||'').toLowerCase().includes(search.toLowerCase())) &&
-    matchMulti(colFilters.designation, e.designation) &&
-    matchMulti(colFilters.nationality, e.nationality) &&
-    matchMulti(colFilters.gender, e.gender) &&
-    (!colFilters.status?.length || colFilters.status.includes(effectiveStatus(employeeStatusSource(e, coaches))))
-  )
+  // Shared predicate, reused by both the main list and per-option counts —
+  // skipColKey excludes one column's own filter so opening its dropdown
+  // shows counts under every OTHER active filter (search + other columns).
+  function passesEmployeeFilters(e, q, skipColKey) {
+    const skip = (key) => key === skipColKey
+    return (
+      (!q || e.name.toLowerCase().includes(q) ||
+             (e.name_ar||'').toLowerCase().includes(q) ||
+             (e.designation||'').toLowerCase().includes(q) ||
+             (e.designation_ar||'').toLowerCase().includes(q)) &&
+      (skip('designation') || matchMulti(colFilters.designation, e.designation)) &&
+      (skip('nationality') || matchMulti(colFilters.nationality, e.nationality)) &&
+      (skip('gender') || matchMulti(colFilters.gender, e.gender)) &&
+      (skip('status') || !colFilters.status?.length || colFilters.status.includes(effectiveStatus(employeeStatusSource(e, coaches))))
+    )
+  }
+
+  function computeEmployeeOptionCounts(colKey, getFieldValue, matchOption) {
+    const q = search.toLowerCase()
+    const base = employees.filter(e => passesEmployeeFilters(e, q, colKey))
+    return (value) => base.filter(e => matchOption(getFieldValue(e), value)).length
+  }
+
+  let list = employees.filter(e => passesEmployeeFilters(e, search.toLowerCase(), null))
   list = [...list].sort((a, b) => {
     if (sort === 'name-asc')   return a.name.localeCompare(b.name)
     if (sort === 'name-desc')  return b.name.localeCompare(a.name)
@@ -1340,24 +1354,37 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
                 { key:'status',      span:1 },
               ].map(({ key }, i) => (
                 <th key={i} style={{ padding:'4px 8px' }}>
-                  {key && COL_FILTERS[key] ? (
-                    <MultiSelectFilter
-                      options={[
-                        ...COL_FILTERS[key].map(o => ({
-                          value: o,
-                          label: key==='designation' ? (DESIG_LABELS[o]||o)
-                            : key==='nationality' ? tc(o)
-                            : key==='gender' ? ({'Male':lang==='ar'?'ذكر':'Male','Female':lang==='ar'?'أنثى':'Female'}[o]||o)
-                            : (COL_FILTER_LABELS[key]?.[o]||o),
-                        })),
-                        ...(key==='status' ? [] : [{ value: 'Blank', label: lang==='ar'?'فارغ':'Blank' }]),
-                      ]}
-                      selected={colFilters[key] || []}
-                      allLabel={lang==='ar'?'الكل':'All'}
-                      onChange={vals => setColFilters(f => ({ ...f, [key]: vals }))}
-                      style={{ maxWidth: 130 }}
-                    />
-                  ) : null}
+                  {key && COL_FILTERS[key] ? (() => {
+                    const dropdownOptions = [
+                      ...COL_FILTERS[key].map(o => ({
+                        value: o,
+                        label: key==='designation' ? (DESIG_LABELS[o]||o)
+                          : key==='nationality' ? tc(o)
+                          : key==='gender' ? ({'Male':lang==='ar'?'ذكر':'Male','Female':lang==='ar'?'أنثى':'Female'}[o]||o)
+                          : (COL_FILTER_LABELS[key]?.[o]||o),
+                      })),
+                      ...(key==='status' ? [] : [{ value: 'Blank', label: lang==='ar'?'فارغ':'Blank' }]),
+                    ]
+                    const FIELD_GETTERS = {
+                      designation: e => e.designation,
+                      nationality: e => e.nationality,
+                      gender: e => e.gender,
+                      status: e => effectiveStatus(employeeStatusSource(e, coaches)),
+                    }
+                    const defaultMatch = (fieldVal, optionVal) => optionVal === 'Blank' ? !fieldVal : fieldVal === optionVal
+                    const getCount = computeEmployeeOptionCounts(key, FIELD_GETTERS[key], defaultMatch)
+                    const filterCounts = dropdownOptions.reduce((acc, o) => { acc[o.value] = getCount(o.value); return acc }, {})
+                    return (
+                      <MultiSelectFilter
+                        options={dropdownOptions}
+                        selected={colFilters[key] || []}
+                        allLabel={lang==='ar'?'الكل':'All'}
+                        onChange={vals => setColFilters(f => ({ ...f, [key]: vals }))}
+                        style={{ maxWidth: 130 }}
+                        counts={filterCounts}
+                      />
+                    )
+                  })() : null}
                 </th>
               ))}
               <th />
