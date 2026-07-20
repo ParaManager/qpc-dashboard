@@ -2691,25 +2691,11 @@ ${myDocs.length > 0 ? `<div class="section">
                   { label: lang==='ar' ? 'الأداء' : 'Performance', keys: ['medals'] },
                 ]
                 return (
-                  <div style={{ position:'absolute', top:'calc(100% + 6px)', right:0, background:'var(--surface)', border:'1px solid var(--border)', borderRadius:12, padding:'12px 4px', zIndex:200, boxShadow:'0 8px 24px rgba(0,0,0,.12)', minWidth:220, maxHeight:420, overflowY:'auto' }}>
-                    {COL_GROUPS.map(group => (
-                      <div key={group.label}>
-                        <div style={{ fontSize:10.5, fontWeight:700, color:'var(--text3)', textTransform:'uppercase', letterSpacing:'.06em', padding:'8px 12px 4px' }}>{group.label}</div>
-                        {group.keys.map(key => {
-                          const col = ALL_COLS.find(c => c.key === key)
-                          if (!col) return null
-                          return (
-                            <label key={col.key} style={{ display:'flex', alignItems:'center', gap:10, padding:'6px 12px', cursor:col.key==='name'?'not-allowed':'pointer', borderRadius:8 }}>
-                              <input type="checkbox" checked={isVisible(col.key)} disabled={col.key==='name'} onChange={() => toggleCol(col.key)}
-                                style={{ width:14, height:14, cursor:col.key==='name'?'not-allowed':'pointer', accentColor:'#0085C7' }} />
-                              <span style={{ fontSize:13, color:col.key==='name'?'var(--text3)':'var(--text)' }}>{col.label}</span>
-                              {col.key==='name' && <span style={{ fontSize:10, color:'var(--text3)', marginLeft:'auto' }}>{tx('filters.always','always')}</span>}
-                            </label>
-                          )
-                        })}
-                      </div>
-                    ))}
-                    <div style={{ padding:'8px 12px 0', borderTop:'1px solid var(--border)', marginTop:4, display:'flex', gap:6, flexWrap:'wrap' }}>
+                  <div style={{ position:'absolute', top:'calc(100% + 6px)', right:0, background:'var(--surface)', border:'1px solid var(--border)', borderRadius:12, zIndex:200, boxShadow:'0 8px 24px rgba(0,0,0,.12)', minWidth:220, maxHeight:420, display:'flex', flexDirection:'column', overflow:'hidden' }}>
+                    {/* All / Default / None — fixed at the top, always
+                        visible without scrolling, stays put while the
+                        column list below scrolls. */}
+                    <div style={{ padding:'10px 12px 8px', borderBottom:'1px solid var(--border)', display:'flex', gap:6, flexWrap:'wrap', flexShrink:0 }}>
                       <button onClick={() => setVisibleCols(ALL_COLS.map(c=>c.key))} style={{ flex:1, padding:'5px', fontSize:11, background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:7, cursor:'pointer', color:'var(--text2)' }}>{tx('filters.all','All')}</button>
                       <button onClick={() => setVisibleCols(
                         profile?.role === 'coach'
@@ -2717,6 +2703,25 @@ ${myDocs.length > 0 ? `<div class="section">
                           : ALL_COLS.filter(c=>c.default).map(c=>c.key)
                       )} style={{ flex:1, padding:'5px', fontSize:11, background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:7, cursor:'pointer', color:'var(--text2)' }}>{tx('filters.default','Default')}</button>
                       <button onClick={() => setVisibleCols(['name'])} style={{ flex:1, padding:'5px', fontSize:11, background:'#fef2f2', border:'1px solid #fca5a5', borderRadius:7, cursor:'pointer', color:'#dc2626' }}>{tx('filters.none','None')}</button>
+                    </div>
+                    <div style={{ overflowY:'auto', padding:'8px 4px' }}>
+                      {COL_GROUPS.map(group => (
+                        <div key={group.label}>
+                          <div style={{ fontSize:10.5, fontWeight:700, color:'var(--text3)', textTransform:'uppercase', letterSpacing:'.06em', padding:'8px 12px 4px' }}>{group.label}</div>
+                          {group.keys.map(key => {
+                            const col = ALL_COLS.find(c => c.key === key)
+                            if (!col) return null
+                            return (
+                              <label key={col.key} style={{ display:'flex', alignItems:'center', gap:10, padding:'6px 12px', cursor:col.key==='name'?'not-allowed':'pointer', borderRadius:8 }}>
+                                <input type="checkbox" checked={isVisible(col.key)} disabled={col.key==='name'} onChange={() => toggleCol(col.key)}
+                                  style={{ width:14, height:14, cursor:col.key==='name'?'not-allowed':'pointer', accentColor:'#0085C7' }} />
+                                <span style={{ fontSize:13, color:col.key==='name'?'var(--text3)':'var(--text)' }}>{col.label}</span>
+                                {col.key==='name' && <span style={{ fontSize:10, color:'var(--text3)', marginLeft:'auto' }}>{tx('filters.always','always')}</span>}
+                              </label>
+                            )
+                          })}
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )
