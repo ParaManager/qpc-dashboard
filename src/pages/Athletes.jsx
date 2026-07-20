@@ -1237,36 +1237,53 @@ export default function Athletes({ athletes, coaches, employees, results, docume
     return selectedValues.some(v => v === 'Blank' ? !fieldValue : fieldValue === v)
   }
 
-  const filteredList = useMemo(() => {
-    const q = search.toLowerCase().trim()
-    return athletes.filter(a =>
+  // Single predicate builder reused by both the main filtered list and the
+  // per-option counts shown inside each MultiSelectFilter dropdown.
+  // `skipColKey` excludes one colFilters column's own selection from the
+  // check — so opening a dropdown shows what each option WOULD yield given
+  // every other active filter (search, quick filters, other columns), not
+  // a count that's already collapsed by that same column's current pick.
+  function passesAthleteFilters(a, q, skipColKey) {
+    const skip = (key) => key === skipColKey
+    return (
       (sport  === 'All sports'   || a.sport  === sport)  &&
       (sportCategory === 'All categories' || a.sport_category === sportCategory) &&
       (status === 'All statuses' || effectiveStatus(a) === status) &&
       (gender === 'All genders'  || a.gender === gender) &&
-      a.name && // exclude blank names
+      !!a.name && // exclude blank names
       (!q || (searchableValues.get(a.id) || '').includes(q)) &&
-      // column-level filters
-      // Every colFilters[key] is now an array of selected values (multi-
-      // select, OR'd together) — empty array means no filter for that
-      // column. "Blank" can appear alongside real values in the same array.
-      matchMulti(colFilters.sport_category, a.sport_category) &&
-      matchMulti(colFilters.sport, a.sport) &&
-      matchMulti(colFilters.status, effectiveStatus(a)) &&
-      matchMulti(colFilters.gender, a.gender) &&
-      matchMulti(colFilters.nationality, a.nationality) &&
-      matchMulti(colFilters.disability, a.disability) &&
-      matchMulti(colFilters.statistics_disability, a.statistics_disability) &&
-      matchMulti(colFilters.age_category, a.age_category) &&
-      matchMulti(colFilters.sport_age_category, a.sport_age_category) &&
-      (!colFilters.medical_status?.length || colFilters.medical_status.some(v => v === 'None' ? (!a.medical_status || a.medical_status === 'None') : a.medical_status === v)) &&
-      (!colFilters.coachName?.length || colFilters.coachName.some(v => v === 'Blank' ? !a.coach_id : coaches.find(c => c.id === a.coach_id)?.name === v)) &&
-      (!colFilters.documents?.length || colFilters.documents.some(v => {
+      (skip('sport_category') || matchMulti(colFilters.sport_category, a.sport_category)) &&
+      (skip('sport') || matchMulti(colFilters.sport, a.sport)) &&
+      (skip('status') || matchMulti(colFilters.status, effectiveStatus(a))) &&
+      (skip('gender') || matchMulti(colFilters.gender, a.gender)) &&
+      (skip('nationality') || matchMulti(colFilters.nationality, a.nationality)) &&
+      (skip('disability') || matchMulti(colFilters.disability, a.disability)) &&
+      (skip('statistics_disability') || matchMulti(colFilters.statistics_disability, a.statistics_disability)) &&
+      (skip('age_category') || matchMulti(colFilters.age_category, a.age_category)) &&
+      (skip('sport_age_category') || matchMulti(colFilters.sport_age_category, a.sport_age_category)) &&
+      (skip('medical_status') || !colFilters.medical_status?.length || colFilters.medical_status.some(v => v === 'None' ? (!a.medical_status || a.medical_status === 'None') : a.medical_status === v)) &&
+      (skip('coachName') || !colFilters.coachName?.length || colFilters.coachName.some(v => v === 'Blank' ? !a.coach_id : coaches.find(c => c.id === a.coach_id)?.name === v)) &&
+      (skip('documents') || !colFilters.documents?.length || colFilters.documents.some(v => {
         const ds = athleteDocStatus(a.id, documents).key
         return v === 'Complete' ? ds === 'complete' : v === 'Missing' ? ds === 'missing' : v === 'None' ? ds === 'none' : true
       }))
     )
+  }
+
+  const filteredList = useMemo(() => {
+    const q = search.toLowerCase().trim()
+    return athletes.filter(a => passesAthleteFilters(a, q, null))
   }, [athletes, coaches, documents, search, sport, sportCategory, status, gender, colFilters, searchableValues])
+
+  // Per-column option counts for the MultiSelectFilter dropdowns — computed
+  // from athletes matching every filter EXCEPT the column being opened,
+  // updating instantly as any other filter changes since it's derived
+  // fresh on every render from the same live filter state.
+  function computeOptionCounts(colKey, getFieldValue, matchOption) {
+    const q = search.toLowerCase().trim()
+    const base = athletes.filter(a => passesAthleteFilters(a, q, colKey))
+    return (value) => base.filter(a => matchOption(getFieldValue(a), value)).length
+  }
 
   // Locale-aware, case-insensitive text compare; empty values always sort
   // last regardless of direction (per spec), by treating '' as "greater".
@@ -2903,12 +2920,44 @@ ${myDocs.length > 0 ? `<div class="section">
                   ]
                   const filterKey = col.key === 'coach_id' ? 'coachName' : col.key
                   const selectedValues = colFilters[filterKey] || []
+
+                  // Field getter + option-match rule per column, reused by
+                  // computeOptionCounts to build each dropdown's counts —
+                  // mirrors exactly what passesAthleteFilters/matchMulti
+                  // already do for that column, just inverted into a
+                  // per-value tally instead of a single boolean.
+                  const FIELD_GETTERS = {
+                    sport_category: a => a.sport_category,
+                    sport: a => a.sport,
+                    status: a => effectiveStatus(a),
+                    gender: a => a.gender,
+                    nationality: a => a.nationality,
+                    disability: a => a.disability,
+                    statistics_disability: a => a.statistics_disability,
+                    age_category: a => a.age_category,
+                    sport_age_category: a => a.sport_age_category,
+                    medical_status: a => a.medical_status,
+                    coach_id: a => coaches.find(c => c.id === a.coach_id)?.name,
+                    documents: a => athleteDocStatus(a.id, documents).key,
+                  }
+                  const MATCH_RULES = {
+                    medical_status: (fieldVal, optionVal) => optionVal === 'None' ? (!fieldVal || fieldVal === 'None') : fieldVal === optionVal,
+                    coach_id: (fieldVal, optionVal) => optionVal === 'Blank' ? !fieldVal : fieldVal === optionVal,
+                    documents: (fieldVal, optionVal) => optionVal === 'Complete' ? fieldVal === 'complete' : optionVal === 'Missing' ? fieldVal === 'missing' : optionVal === 'None' ? fieldVal === 'none' : false,
+                  }
+                  const defaultMatch = (fieldVal, optionVal) => optionVal === 'Blank' ? !fieldVal : fieldVal === optionVal
+                  const getCount = computeOptionCounts(filterKey === 'coachName' ? 'coachName' : col.key, FIELD_GETTERS[col.key] || (() => undefined), MATCH_RULES[col.key] || defaultMatch)
+                  const filterCounts = FIELD_GETTERS[col.key]
+                    ? dropdownOptions.reduce((acc, o) => { acc[o.value] = getCount(o.value); return acc }, {})
+                    : null
+
                   return (
                     <th key={col.key} style={{ padding:'4px 8px', position:'sticky', top:headerRowHeight, zIndex:20, background:'#f8f9fb' }}>
                       <MultiSelectFilter
                         options={dropdownOptions}
                         selected={selectedValues}
                         allLabel={allLabel}
+                        counts={filterCounts}
                         onChange={vals => {
                           if (col.key === 'sport_category') {
                             // Changing category can invalidate previously-
