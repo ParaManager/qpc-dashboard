@@ -2836,7 +2836,10 @@ ${myDocs.length > 0 ? `<div class="section">
                     style={{
                       cursor: isSortable ? 'pointer' : 'default', userSelect:'none', whiteSpace:'nowrap',
                       position:'sticky', top:0, zIndex: isFirstCol ? 23 : 21, background:'var(--surface)',
-                      ...(isFirstCol ? { left:0, minWidth:STICKY_NAME_COL_WIDTH, boxShadow:'2px 0 4px rgba(0,0,0,.06)' } : {}),
+                      ...(isFirstCol ? (lang==='ar'
+                        ? { right:0, minWidth:STICKY_NAME_COL_WIDTH, boxShadow:'-2px 0 4px rgba(0,0,0,.06)' }
+                        : { left:0, minWidth:STICKY_NAME_COL_WIDTH, boxShadow:'2px 0 4px rgba(0,0,0,.06)' }
+                      ) : {}),
                     }}>
                     <div style={{ display:'flex', alignItems:'center', gap:4 }}>
                       {c.label}
@@ -2888,7 +2891,10 @@ ${myDocs.length > 0 ? `<div class="section">
                     <th key={col.key}
                       style={{
                         position:'sticky', top:headerRowHeight, zIndex: col.key==='name' ? 22 : 20, background:'#f8f9fb',
-                        ...(col.key==='name' ? { left:0, minWidth:STICKY_NAME_COL_WIDTH, boxShadow:'2px 0 4px rgba(0,0,0,.06)' } : {}),
+                        ...(col.key==='name' ? (lang==='ar'
+                          ? { right:0, minWidth:STICKY_NAME_COL_WIDTH, boxShadow:'-2px 0 4px rgba(0,0,0,.06)' }
+                          : { left:0, minWidth:STICKY_NAME_COL_WIDTH, boxShadow:'2px 0 4px rgba(0,0,0,.06)' }
+                        ) : {}),
                       }} />
                   )
 
@@ -3008,8 +3014,8 @@ ${myDocs.length > 0 ? `<div class="section">
                     return (
                       <td key={c.key}
                         style={isFirstCol ? {
-                          position:'sticky', left:0, zIndex:10, minWidth:STICKY_NAME_COL_WIDTH,
-                          background:stickyCellBg, boxShadow:'2px 0 4px rgba(0,0,0,.06)',
+                          position:'sticky', ...(lang==='ar' ? { right:0 } : { left:0 }), zIndex:10, minWidth:STICKY_NAME_COL_WIDTH,
+                          background:stickyCellBg, boxShadow: lang==='ar' ? '-2px 0 4px rgba(0,0,0,.06)' : '2px 0 4px rgba(0,0,0,.06)',
                         } : undefined}>
                         {editMode ? renderEditCell(a, c.key) : renderCell(a, c.key)}
                       </td>
