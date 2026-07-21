@@ -659,7 +659,19 @@ export default function App() {
   const roleColor = ROLE_COLORS[role]
   const roleIcon  = ROLE_ICONS[role]
   const userName  = profile?.full_name || (user.email?.endsWith('@qpc-system.qa') ? user.email.replace('@qpc-system.qa','') : user.email)
+  // Same photo source as My Profile: resolve by person_id across every
+  // linked role first (covers multi-role accounts and referees, which the
+  // old role-id-only lookup below never checked), falling back to the
+  // single-role lookup for any account not yet linked to a person_id.
   const userPhoto = (() => {
+    if (profile?.person_id) {
+      const myEmp = employees.find(e => e.person_id === profile.person_id)
+      const myAth = athletes.find(a => a.person_id === profile.person_id)
+      const myCo  = coaches.find(c => c.person_id === profile.person_id)
+      const myRef = (referees || []).find(r => r.person_id === profile.person_id)
+      const fromPerson = myEmp?.photo_url || myAth?.photo_url || myCo?.photo_url || myRef?.photo_url
+      if (fromPerson) return fromPerson
+    }
     if (isAthlete && myAthleteId) {
       const a = athletes.find(a => String(a.id) === String(myAthleteId))
       return a?.photo_url || null
