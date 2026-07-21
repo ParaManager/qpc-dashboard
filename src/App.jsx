@@ -234,15 +234,21 @@ export default function App() {
             const isPastDueTime = t.due_date === todayStr && t.due_time && dueDateTimeMs < nowMs
             const timeSuffix = t.due_time ? ` ${t.due_time.slice(0,5)}` : ''
             const base = { user_id: ownerId, category: 'Tasks', target_path: 'tasks', related_entity_type: 'task', related_entity_id: t.id, read: false }
+            // `data` carries the raw task title/time so renderers can
+            // reconstruct the notification live in the viewer's own
+            // language instead of showing whatever language was active
+            // when this row happened to be generated (see
+            // src/lib/notificationText.js for the render-side helper).
+            const taskData = { task_title: t.title, due_time: t.due_time ? t.due_time.slice(0,5) : null }
             if (t.due_date === tomorrowStr) {
-              inserts.push({ ...base, type: 'task_due_tomorrow',
+              inserts.push({ ...base, type: 'task_due_tomorrow', data: taskData,
                 title: lang==='ar' ? 'مهمة مستحقة غداً' : 'Task due tomorrow', body: `${t.title}${timeSuffix}`,
                 dedup_key: `task-due-tomorrow-${t.id}` })
             } else if (t.due_date === todayStr && !isPastDueTime) {
               const { error } = await supabase.from('notifications').delete()
                 .eq('related_entity_type', 'task').eq('related_entity_id', t.id).eq('dedup_key', `task-due-tomorrow-${t.id}`)
               if (error) console.error('[notifications] failed clearing due-tomorrow on transition to due-today:', error)
-              inserts.push({ ...base, type: 'task_due_today',
+              inserts.push({ ...base, type: 'task_due_today', data: taskData,
                 title: lang==='ar' ? 'مهمة مستحقة اليوم' : 'Task due today', body: `${t.title}${timeSuffix}`,
                 dedup_key: `task-due-today-${t.id}-${todayStr}` })
             } else if (t.due_date < todayStr || isPastDueTime) {
@@ -250,7 +256,7 @@ export default function App() {
                 .eq('related_entity_type', 'task').eq('related_entity_id', t.id)
                 .in('type', ['task_due_tomorrow', 'task_due_today'])
               if (error) console.error('[notifications] failed clearing due-tomorrow/due-today on transition to overdue:', error)
-              inserts.push({ ...base, type: 'task_overdue',
+              inserts.push({ ...base, type: 'task_overdue', data: taskData,
                 title: lang==='ar' ? 'مهمة متأخرة' : 'Task overdue', body: `${t.title}${timeSuffix}`,
                 dedup_key: `task-overdue-${t.id}${isPastDueTime ? '-' + t.due_time : ''}` })
             }
@@ -280,11 +286,12 @@ export default function App() {
             for (const p of group.rows) {
               if (!AWAY_STATUSES.includes(p.status)) continue
               const name = p.name || ''
+              const awayData = { name, name_ar: p.name_ar || null, status: p.status }
               if (p.status_start === todayStr) {
                 inserts.push({
                   user_id: adminIds[0], category: 'Away Management', target_path: group.path,
                   related_entity_type: group.type, related_entity_id: String(p.id), read: false,
-                  type: 'away_start',
+                  type: 'away_start', data: awayData,
                   title: lang==='ar' ? 'بدء غياب مؤقت' : 'Temporary status started',
                   body: lang==='ar' ? `${name} — ${p.status} يبدأ اليوم` : `${name}'s ${p.status.toLowerCase()} starts today`,
                   dedup_key: `away-start-${group.type}-${p.id}-${todayStr}`,
@@ -294,7 +301,7 @@ export default function App() {
                 inserts.push({
                   user_id: adminIds[0], category: 'Away Management', target_path: group.path,
                   related_entity_type: group.type, related_entity_id: String(p.id), read: false,
-                  type: 'away_end',
+                  type: 'away_end', data: awayData,
                   title: lang==='ar' ? 'انتهاء غياب مؤقت' : 'Temporary status ending',
                   body: lang==='ar' ? `${name} — ${p.status} ينتهي اليوم` : `${name}'s ${p.status.toLowerCase()} ends today`,
                   dedup_key: `away-end-${group.type}-${p.id}-${todayStr}`,
@@ -355,9 +362,10 @@ export default function App() {
               } else {
                 continue // not one of the exact reminder days
               }
+              const expiryData = { name: a2.name, name_ar: a2.name_ar || null, doc_type: docType, expiry_date: exp, days_until: daysUntil }
               expiryInserts.push({
                 category: 'Documents', target_path: 'athletes', related_entity_type: 'athlete', related_entity_id: String(a2.id), read: false,
-                type, title, body, dedup_key: dedupKey,
+                type, title, body, dedup_key: dedupKey, data: expiryData,
               })
             }
           }
