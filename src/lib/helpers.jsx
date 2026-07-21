@@ -605,3 +605,73 @@ export function getCurrentSeason() {
   const startYear = month >= 8 ? year : year - 1
   return `${startYear}-${startYear + 1}`
 }
+
+// Renders a system-generated notification's title/body live, from its
+// stored `type` + `data` (structured fields only — task title, person
+// name, document type, dates, etc.), using the same tx()/L() pattern as
+// everywhere else in the app. Never reads the notification's own stored
+// title/body for these known types, since that text gets permanently
+// fixed in whichever language the admin session that generated it was
+// using. `tx` and `L` are passed in from the caller's own useLang()/local
+// helper — this function holds no translation data of its own beyond what
+// already lives in translations.js's notifTypes section.
+export function renderNotificationText(n, tx, L) {
+  const d = n?.data || {}
+  const docLabel = (type) => type === 'passport' ? tx('notifTypes.docPassport', 'Passport')
+    : type === 'id' ? tx('notifTypes.docId', 'Qatar ID')
+    : (type || tx('notifTypes.docId', 'Document'))
+
+  switch (n?.type) {
+    case 'task_due_tomorrow':
+      return { title: tx('notifTypes.taskDueTomorrow', 'Task due tomorrow'), body: `${d.task_title || n.body || ''}${d.due_time ? ' ' + d.due_time : ''}` }
+    case 'task_due_today':
+      return { title: tx('notifTypes.taskDueToday', 'Task due today'), body: `${d.task_title || n.body || ''}${d.due_time ? ' ' + d.due_time : ''}` }
+    case 'task_overdue':
+      return { title: tx('notifTypes.taskOverdue', 'Task overdue'), body: `${d.task_title || n.body || ''}${d.due_time ? ' ' + d.due_time : ''}` }
+
+    case 'away_start': {
+      const name = L(d.name || '', d.name_ar || d.name || '')
+      const status = d.status || ''
+      const phrase = tx('notifTypes.awayStartsToday', `${status.toLowerCase()} starts today`)
+      return {
+        title: tx('notifTypes.awayStartTitle', 'Temporary status started'),
+        body: L(`${name}'s ${phrase}`, `${name} — ${status} ${phrase}`),
+      }
+    }
+    case 'away_end': {
+      const name = L(d.name || '', d.name_ar || d.name || '')
+      const status = d.status || ''
+      const phrase = tx('notifTypes.awayEndsToday', `${status.toLowerCase()} ends today`)
+      return {
+        title: tx('notifTypes.awayEndTitle', 'Temporary status ending'),
+        body: L(`${name}'s ${phrase}`, `${name} — ${status} ${phrase}`),
+      }
+    }
+
+    case 'document_expiring': {
+      const name = L(d.name || '', d.name_ar || d.name || '')
+      const label = docLabel(d.doc_type)
+      const suffix = d.days_until === 60 ? tx('notifTypes.docExpiringWarning60', '60-day warning')
+        : d.days_until === 30 ? tx('notifTypes.docExpiringWarning30', '30-day warning')
+        : tx('notifTypes.docExpiringSoon', 'expiring soon')
+      return {
+        title: `${label} — ${suffix}`,
+        body: `${name} — ${label} ${tx('notifTypes.docExpiresOn', 'expires on')} ${d.expiry_date || ''}`,
+      }
+    }
+    case 'document_expired': {
+      const name = L(d.name || '', d.name_ar || d.name || '')
+      const label = docLabel(d.doc_type)
+      return {
+        title: `${label} ${tx('notifTypes.docExpired', 'expired')}`,
+        body: `${name} — ${label} ${tx('notifTypes.docExpiredSince', 'expired on')} ${d.expiry_date || ''}`,
+      }
+    }
+
+    default:
+      // Not a known system-generated type — user-authored content (excuse
+      // requests, sign-up requests, etc.) or an older row with no `data`
+      // yet: show whatever is actually stored, unchanged.
+      return { title: n?.title || '', body: n?.body || '' }
+  }
+}

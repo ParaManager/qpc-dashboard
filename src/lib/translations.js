@@ -1,4 +1,27 @@
 export const AR = {
+  // System-generated notification text, rebuilt live from each
+  // notification's stored `type` + `data` (never the raw stored title/
+  // body, which get permanently fixed in whichever language the admin
+  // session that generated them happened to be using). Used via tx() the
+  // same way as every other section here — English is always the literal
+  // fallback string passed at the call site, not duplicated here.
+  notifTypes: {
+    taskDueTomorrow: 'مهمة مستحقة غداً',
+    taskDueToday: 'مهمة مستحقة اليوم',
+    taskOverdue: 'مهمة متأخرة',
+    awayStartTitle: 'بدء غياب مؤقت',
+    awayEndTitle: 'انتهاء غياب مؤقت',
+    awayStartsToday: 'يبدأ اليوم',
+    awayEndsToday: 'ينتهي اليوم',
+    docExpiringWarning60: 'تنبيه 60 يوماً',
+    docExpiringWarning30: 'تنبيه 30 يوماً',
+    docExpiringSoon: 'ينتهي قريباً',
+    docExpiresOn: 'ينتهي في',
+    docExpired: 'منتهي الصلاحية',
+    docExpiredSince: 'منتهي منذ',
+    docPassport: 'جواز السفر',
+    docId: 'الرقم الشخصي',
+  },
   nav: {
     overview:'نظرة عامة', people:'الأشخاص', competitions:'المنافسات',
     dashboard:'لوحة التحكم', athletes:'الرياضيون', coaches:'المدربون',
