@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
+import { renderNotificationText } from '../lib/helpers'
 
 const TYPE_META = {
   excuse_request:     { icon:'ti-clock',           color:'#f59e0b', category:'System' },
@@ -27,7 +28,7 @@ const TYPE_META = {
 const CATEGORIES = ['All','Requests','Tasks','Documents','Resources','Away Management','Accounts','System']
 
 export default function Notifications({ profile, onNav }) {
-  const { lang } = useLang()
+  const { lang, tx } = useLang()
   const ar = lang === 'ar'
   const L = (en, a) => ar ? a : en
 
@@ -257,7 +258,7 @@ export default function Notifications({ profile, onNav }) {
                         style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, padding:'6px 10px', borderRadius:8, cursor:'pointer', fontSize:12 }}
                         onMouseEnter={e => e.currentTarget.style.background='var(--surface2)'}
                         onMouseLeave={e => e.currentTarget.style.background='transparent'}>
-                        <span style={{ color:'var(--text2)' }}>{n.body}</span>
+                        <span style={{ color:'var(--text2)' }}>{renderNotificationText(n, tx, L).body}</span>
                         <i className="ti ti-arrow-right" style={{ fontSize:12, color:'var(--text3)' }} />
                       </div>
                     ))}
@@ -283,10 +284,10 @@ export default function Notifications({ profile, onNav }) {
                   </div>
                   <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                      <div style={{ fontSize:13, fontWeight:600 }}>{n.title}</div>
+                      <div style={{ fontSize:13, fontWeight:600 }}>{renderNotificationText(n, tx, L).title}</div>
                       {!n.read && <div style={{ width:7, height:7, borderRadius:'50%', background:meta.color, flexShrink:0 }} />}
                     </div>
-                    <div style={{ fontSize:12, color:'var(--text3)', marginTop:3 }}>{n.body}</div>
+                    <div style={{ fontSize:12, color:'var(--text3)', marginTop:3 }}>{renderNotificationText(n, tx, L).body}</div>
                     <div style={{ fontSize:11, color:'var(--text3)', marginTop:5 }}>
                       {new Date(n.created_at).toLocaleString(ar?'ar-QA':'en-GB', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' })}
                     </div>
