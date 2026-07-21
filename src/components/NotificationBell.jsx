@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
+import { renderNotificationText } from '../lib/helpers'
 import {
   requestNotificationPermission,
   getNotificationPermission,
@@ -12,7 +13,7 @@ import {
 } from '../lib/notifications'
 
 export default function NotificationBell({ isAdmin, userId }) {
-  const { lang } = useLang()
+  const { lang, tx } = useLang()
   const ar = lang === 'ar'
   const L = (en, a) => ar ? a : en
 
@@ -185,8 +186,8 @@ export default function NotificationBell({ isAdmin, userId }) {
                   '#0085C7'
                 ), flexShrink:0, marginTop:5 }} />
                 <div style={{ flex:1 }}>
-                  <div style={{ fontSize:13, fontWeight:500 }}>{n.title}</div>
-                  <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>{n.body}</div>
+                  <div style={{ fontSize:13, fontWeight:500 }}>{renderNotificationText(n, tx, L).title}</div>
+                  <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>{renderNotificationText(n, tx, L).body}</div>
                   <div style={{ fontSize:10, color:'var(--text3)', marginTop:4 }}>{new Date(n.created_at).toLocaleDateString(ar?'ar-QA':'en-GB')}</div>
                 </div>
                 <button onClick={e => { e.stopPropagation(); dismiss(n.id) }}

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
+import { renderNotificationText } from '../lib/helpers'
 
 const TYPE_META = {
   excuse_request:   { color:'#8b5cf6', icon:'ti-message-circle' },
@@ -13,25 +14,6 @@ const TYPE_META = {
   access_request:   { color:'#0085C7', icon:'ti-user-plus' },
 }
 
-// The reminder-generation code in App.jsx bakes the notification's title/
-// body into whichever language the admin who happened to trigger it was
-// using at that moment — since notifications are shared/deduped across
-// every trusted admin, that permanently fixes the stored text's language
-// regardless of who's currently viewing it (e.g. an Arabic-mode admin
-// generates a reminder, and it stays Arabic forever even to an English-
-// mode viewer). Re-deriving a live-localized label from `type` here, the
-// same way the rest of this component already handles every other banner,
-// fixes it at render time without needing to touch the generation code
-// or existing stored rows.
-const GENERIC_TYPE_LABEL = {
-  task_due_tomorrow: { en: 'Task due tomorrow', ar: 'مهمة مستحقة غداً' },
-  task_due_today:    { en: 'Task due today',    ar: 'مهمة مستحقة اليوم' },
-  task_overdue:      { en: 'Task overdue',      ar: 'مهمة متأخرة' },
-  away_start:        { en: 'Away period started', ar: 'بدأت فترة الغياب' },
-  away_end:          { en: 'Away period ending',  ar: 'فترة الغياب على وشك الانتهاء' },
-  document_expiring: { en: 'Document expiring soon', ar: 'وثيقة على وشك الانتهاء' },
-  document_expired:  { en: 'Document expired', ar: 'وثيقة منتهية الصلاحية' },
-}
 
 /**
  * Reusable notification banner block for any dashboard (coach, athlete, admin, employee).
@@ -46,7 +28,7 @@ const GENERIC_TYPE_LABEL = {
  * never silently picking the first one for them.
  */
 export default function DashboardBanners({ profile, onNav, extraBanners = [], maxBanners = 2 }) {
-  const { lang } = useLang()
+  const { lang, tx } = useLang()
   const ar = lang === 'ar'
   const L = (en, a) => ar ? a : en
 
@@ -142,7 +124,7 @@ export default function DashboardBanners({ profile, onNav, extraBanners = [], ma
       title: otherNotifs.length === 1
         ? L('1 new notification', 'إشعار جديد واحد')
         : L(`${otherNotifs.length} new notifications`, `${otherNotifs.length} إشعارات جديدة`),
-      sub: (GENERIC_TYPE_LABEL[top?.type]?.[lang]) || top?.title || '',
+      sub: top ? renderNotificationText(top, tx, L).title : '',
       actionLabel: L('View','عرض'),
       // Other notifications are heterogeneous, so there's no single "right" destination per
       // item worth picking between — always send to the full Notifications page.
