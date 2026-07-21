@@ -29,15 +29,28 @@ export function generateEmployeeCard(emp) {
   const nameAr  = emp.name_ar         || 'الاسم الكامل'
   const posEn   = emp.designation     || 'Position Name'
   const posAr   = desigAr             || 'المسمى الوظيفي'
+  const safeName = name.replace(/[^a-zA-Z0-9]/g, '-')
+
+  // Absolute origin so logo <img> srcs resolve correctly inside the popup
+  // (popup opened via document.write has no implicit base URL).
+  const origin = window.location.origin
 
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
+<meta name="viewport" content="width=760"/>
 <title>ID Card – ${name}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 * { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ─── SCREEN ─── */
+html, body {
+  font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+}
 body {
   background: #c0bbb4;
   min-height: 100vh;
@@ -47,7 +60,6 @@ body {
   justify-content: center;
   gap: 22px;
   padding: 40px 24px;
-  font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
 }
 .btns { display: flex; gap: 10px; }
 .btn { padding: 9px 22px; border: none; border-radius: 8px; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 600; }
@@ -60,6 +72,7 @@ body {
   overflow: hidden;
   position: relative;
   background: #ffffff;
+  flex-shrink: 0;
   box-shadow:
     0 1px 0 rgba(255,255,255,.9) inset,
     0 4px 8px rgba(0,0,0,.08),
@@ -76,8 +89,9 @@ body {
   background: #7b1325;
   clip-path: polygon(0 0, 230px 0, 182px 100%, 0 100%);
   z-index: 1;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
 }
-/* diagonal texture overlay */
 .diag-band::before {
   content: '';
   position: absolute;
@@ -89,8 +103,9 @@ body {
     transparent 1px,
     transparent 10px
   );
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
 }
-/* gold diagonal accent line */
 .diag-gold {
   position: absolute;
   top: 0; left: 0;
@@ -99,6 +114,8 @@ body {
   clip-path: polygon(232px 0, 242px 0, 192px 100%, 184px 100%);
   background: linear-gradient(180deg, #f0d060, #c9a84c 50%, #8b6500);
   z-index: 2;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
 }
 
 /* ── PHOTO ── */
@@ -112,6 +129,8 @@ body {
   background: #c8cacd;
   z-index: 10;
   box-shadow: 0 4px 16px rgba(0,0,0,.3), 0 0 0 2px rgba(201,168,76,.25);
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
 }
 .photo-wrap img { width: 100%; height: 100%; object-fit: cover; object-position: top center; }
 
@@ -134,9 +153,11 @@ body {
   color: #c9a84c;
   letter-spacing: .04em;
   display: block;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
 }
 
-/* ID chips below staff pill */
+/* ID chips */
 .id-chips {
   display: flex; gap: 72px;
   padding: 8px 24px;
@@ -144,9 +165,7 @@ body {
   border-bottom: 1px solid #edeae4;
   flex-shrink: 0;
 }
-.id-chip {
-  display: flex; flex-direction: column; gap: 1px;
-}
+.id-chip { display: flex; flex-direction: column; gap: 1px; }
 .id-chip .cl { font-size: 11px; color: #888; font-weight: 700; letter-spacing: .08em; }
 .id-chip .cv { font-size: 13px; font-weight: 700; color: #1a2340; }
 
@@ -158,7 +177,7 @@ body {
   z-index: 5;
 }
 
-/* Logos strip top */
+/* Logos strip */
 .logos-strip {
   height: 90px;
   display: flex; align-items: center;
@@ -167,28 +186,33 @@ body {
   border-bottom: 1px solid #edeae4;
   position: relative;
   flex-shrink: 0;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
 }
 .logos-strip::after {
   content: '';
   position: absolute;
   bottom: 0; left: 0; right: 0; height: 2px;
   background: linear-gradient(90deg, #c9a84c, #f0d060 40%, #c9a84c 70%, rgba(201,168,76,.1));
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
 }
 .logo-img { object-fit: contain; display: block; }
 .logo-sep {
   width: 1px; height: 58px;
   background: linear-gradient(180deg, transparent, rgba(201,168,76,.65), transparent);
   margin: 0 22px; flex-shrink: 0;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
 }
 
-/* Name + position content */
+/* Name + position */
 .content {
   flex: 1;
   padding: 20px 24px 0;
   position: relative;
   overflow: hidden;
 }
-/* subtle QPC watermark */
 .content::after {
   content: 'QPC';
   position: absolute;
@@ -198,7 +222,6 @@ body {
   line-height: 1; pointer-events: none;
   font-family: 'Inter', Arial, sans-serif;
 }
-/* subtle hex pattern top-right */
 .hex-pattern {
   position: absolute;
   right: 0; top: 0;
@@ -206,11 +229,15 @@ body {
   opacity: .045;
   background-image: radial-gradient(circle, #7b1325 1px, transparent 1px);
   background-size: 14px 14px;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
 }
 .eyebrow {
   font-size: 7.5px; font-weight: 700;
   color: #c9a84c; letter-spacing: .22em;
   margin-bottom: 12px; position: relative; z-index: 1;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
 }
 .en-name {
   font-size: 28px; font-weight: 900;
@@ -218,7 +245,6 @@ body {
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   position: relative; z-index: 1; max-width: 100%;
 }
-/* Arabic name — same size + weight as English */
 .ar-name {
   font-size: 28px; font-weight: 900;
   color: #1a2340; margin-top: 4px;
@@ -231,23 +257,27 @@ body {
   display: flex; align-items: center; gap: 8px;
   margin: 12px 0; position: relative; z-index: 1;
 }
-.rule-bar { height: 2.5px; width: 44px; background: #c9a84c; border-radius: 2px; flex-shrink: 0; }
+.rule-bar {
+  height: 2.5px; width: 44px; background: #c9a84c; border-radius: 2px; flex-shrink: 0;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
+}
 .rule-line { height: 1px; flex: 1; background: #edeae4; }
-.rule-dot { width: 10px; height: 10px; border-radius: 50%; background: #c9a84c; flex-shrink: 0; }
-/* Position EN */
+.rule-dot {
+  width: 10px; height: 10px; border-radius: 50%; background: #c9a84c; flex-shrink: 0;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
+}
 .pos-en {
-  font-size: 24px; font-weight: 700;
-  color: #7b1325;
+  font-size: 24px; font-weight: 700; color: #7b1325;
   position: relative; z-index: 1;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
 }
-/* Arabic position — same size + weight as English */
 .pos-ar {
-  font-size: 24px; font-weight: 700;
-  color: #7b1325; margin-top: 4px;
+  font-size: 24px; font-weight: 700; color: #7b1325; margin-top: 4px;
   direction: rtl; text-align: left;
   position: relative; z-index: 1;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
 }
 
 /* Contact footer */
@@ -263,6 +293,7 @@ body {
   background: #7b1325;
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
 }
 .contact-icon svg { width: 14px; height: 14px; stroke: white; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .contact-text { font-size: 13px; color: #333; font-weight: 500; }
@@ -273,13 +304,39 @@ body {
   bottom: 0; left: 0; right: 0; height: 4px;
   background: linear-gradient(90deg, #7b1325, #c9a84c 25%, #f0d060 50%, #c9a84c 75%, #7b1325);
   z-index: 20;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
 }
 
+/* ─── PRINT ─── */
 @media print {
-  body { background: white; padding: 0; justify-content: flex-start; }
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  html, body {
+    width: 760px;
+    height: 460px;
+    overflow: hidden;
+    background: white !important;
+    margin: 0;
+    padding: 0;
+    display: block;
+    min-height: unset;
+    gap: 0;
+  }
   .btns { display: none !important; }
-  .card { box-shadow: none; border: 1px solid #ddd; }
-  @page { size: 760px 460px; margin: 0; }
+  .card {
+    width: 760px !important;
+    height: 460px !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    border: none !important;
+    overflow: hidden !important;
+  }
+  @page { size: 572pt 346pt; margin: 0; }
 }
 </style>
 </head>
@@ -293,14 +350,12 @@ body {
 
 <div class="card" id="card">
 
-  <!-- Diagonal crimson band -->
   <div class="diag-band"></div>
   <div class="diag-gold"></div>
 
-  <!-- Photo -->
   <div class="photo-wrap">
     ${photo
-      ? `<img src="${photo}" alt="${name}"/>`
+      ? `<img src="${photo}" crossorigin="anonymous" alt="${name}"/>`
       : `<svg viewBox="0 0 100 115" width="100%" height="100%" style="padding-top:8%">
            <circle cx="50" cy="34" r="25" fill="#9aa0a6"/>
            <ellipse cx="50" cy="97" rx="40" ry="28" fill="#9aa0a6"/>
@@ -308,28 +363,24 @@ body {
     }
   </div>
 
-  <!-- Staff ID -->
   <div class="staff-pill">
     <span class="lbl">STAFF ID</span>
     <span class="val">${staffId}</span>
   </div>
 
-  <!-- Right panel -->
   <div class="right">
 
-    <!-- Logos -->
     <div class="logos-strip">
-      <img src="/logo-qpc.png"   alt="QPC"             class="logo-img" style="height:70px;width:auto;max-width:90px"  onerror="this.style.display='none'"/>
+      <img src="${origin}/logo-qpc.png"   alt="QPC"             class="logo-img" style="height:70px;width:auto;max-width:90px"  onerror="this.style.display='none'"/>
       <div class="logo-sep"></div>
-      <img src="/logo-qatar.png" alt="Qatar"            class="logo-img" style="height:74px;width:auto;max-width:76px"  onerror="this.style.display='none'"/>
+      <img src="${origin}/logo-qatar.png" alt="Qatar"            class="logo-img" style="height:74px;width:auto;max-width:76px"  onerror="this.style.display='none'"/>
       <div class="logo-sep"></div>
-      <img src="/logo-so.png"    alt="Special Olympics" class="logo-img" style="height:46px;width:auto;max-width:150px" onerror="this.style.display='none'"/>
+      <img src="${origin}/logo-so.png"    alt="Special Olympics" class="logo-img" style="height:46px;width:auto;max-width:150px" onerror="this.style.display='none'"/>
     </div>
 
-    <!-- Name + position -->
     <div class="content">
       <div class="hex-pattern"></div>
-      <div class="eyebrow">QATAR PARALYMPIC COMMITTEE &nbsp;·&nbsp; بطاقة موظف</div>
+      <div class="eyebrow">QATAR PARALYMPIC COMMITTEE  ·  بطاقة موظف</div>
       <div class="en-name">${name}</div>
       <div class="ar-name">${nameAr}</div>
       <div class="rule">
@@ -341,7 +392,6 @@ body {
       <div class="pos-ar">${posAr}</div>
     </div>
 
-    <!-- Job ID + QSS — above contact -->
     <div class="id-chips">
       <div class="id-chip">
         <span class="cl">JOB ID</span>
@@ -353,7 +403,6 @@ body {
       </div>
     </div>
 
-    <!-- Contact -->
     <div class="contact">
       <div class="contact-row">
         <div class="contact-icon">
@@ -375,30 +424,81 @@ body {
 </div>
 
 <script>
-document.getElementById('dlBtn').onclick = () => {
-  const btn = document.getElementById('dlBtn')
-  btn.textContent = 'Generating…'; btn.disabled = true
-  const s = document.createElement('script')
-  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'
-  s.onload = async () => {
-    try {
-      const canvas = await html2canvas(document.getElementById('card'), {
-        scale: 2, useCORS: true, backgroundColor: '#ffffff', width: 760, height: 460
-      })
-      const a = document.createElement('a')
-      a.download = '${name.replace(/[^a-zA-Z0-9]/g, '-')}-ID-Card.png'
-      a.href = canvas.toDataURL('image/png')
-      a.click()
-    } catch(e) { alert('Download error: ' + e.message) }
-    btn.textContent = '⬇ Download PNG'; btn.disabled = false
-  }
-  document.head.appendChild(s)
-}
+(function () {
+  var dlBtn = document.getElementById('dlBtn');
+
+  dlBtn.onclick = function () {
+    dlBtn.textContent = 'Generating…';
+    dlBtn.disabled = true;
+
+    var s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+
+    s.onerror = function () {
+      alert('Could not load html2canvas. Check your internet connection.');
+      dlBtn.textContent = '⬇ Download PNG';
+      dlBtn.disabled = false;
+    };
+
+    s.onload = function () {
+      // Wait for fonts + all images before capture so nothing is blank
+      var fontReady = (document.fonts && document.fonts.ready) ? document.fonts.ready : Promise.resolve();
+      var imgs = Array.from(document.querySelectorAll('img'));
+      var imgReady = Promise.all(imgs.map(function (img) {
+        if (img.complete) return Promise.resolve();
+        return new Promise(function (res) { img.onload = res; img.onerror = res; });
+      }));
+
+      Promise.all([fontReady, imgReady]).then(function () {
+        html2canvas(document.getElementById('card'), {
+          scale: 2,
+          useCORS: true,
+          allowTaint: false,
+          backgroundColor: '#ffffff',
+          width: 760,
+          height: 460,
+          x: 0,
+          y: 0,
+          scrollX: 0,
+          scrollY: 0,
+          windowWidth: 760,
+          windowHeight: 460,
+          logging: false,
+          imageTimeout: 15000,
+          onclone: function (doc) {
+            // Prevent any scroll offset inside the cloned document
+            doc.documentElement.style.overflow = 'hidden';
+            doc.body.style.overflow = 'hidden';
+            doc.body.style.padding = '0';
+            doc.body.style.margin = '0';
+          }
+        }).then(function (canvas) {
+          var a = document.createElement('a');
+          a.download = '${safeName}-ID-Card.png';
+          a.href = canvas.toDataURL('image/png');
+          a.click();
+          dlBtn.textContent = '⬇ Download PNG';
+          dlBtn.disabled = false;
+        }).catch(function (e) {
+          alert('Download error: ' + e.message);
+          dlBtn.textContent = '⬇ Download PNG';
+          dlBtn.disabled = false;
+        });
+      });
+    };
+
+    document.head.appendChild(s);
+  };
+})();
 </script>
 </body>
 </html>`
 
   const win = window.open('', '_blank')
+  if (!win) {
+    alert('Popup blocked — please allow popups for this site and try again.')
+    return
+  }
   win.document.write(html)
   win.document.close()
 }
