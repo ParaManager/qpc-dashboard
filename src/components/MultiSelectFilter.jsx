@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { useLang } from '../lib/LangContext.jsx'
 
 // Searchable multi-select checkbox dropdown for inline table filters.
 // `selected` is an array of chosen values (empty array = no filter / "All").
@@ -10,6 +11,9 @@ export default function MultiSelectFilter({ options, selected, onChange, allLabe
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const ref = useRef(null)
+  const { lang } = useLang()
+  const ar = lang === 'ar'
+  const L = (en, a) => ar ? a : en
 
   useEffect(() => {
     if (!open) return
@@ -43,7 +47,7 @@ export default function MultiSelectFilter({ options, selected, onChange, allLabe
     ? allLabel
     : selected.length === 1
       ? (options.find(o => o.value === selected[0])?.label || selected[0])
-      : `${selected.length} selected`
+      : L(`${selected.length} selected`, `${selected.length} محدد`)
 
   return (
     <div ref={ref} className="filter-multiselect" style={{ position: 'relative', ...style }}>
@@ -52,10 +56,6 @@ export default function MultiSelectFilter({ options, selected, onChange, allLabe
         onClick={() => setOpen(v => !v)}
         style={{
           width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6,
-          // Matches the plain select.filter styling used everywhere else
-          // (page-level "All categories" / "All sports" / "All statuses"
-          // dropdowns) — same box, same 13px text, same padding — so this
-          // reads as an ordinary dropdown, not a dense inline-table filter.
           fontSize: 13, border: '1px solid var(--border)', borderRadius: 9, padding: '8px 12px',
           background: 'var(--surface)', color: 'var(--text)',
           cursor: 'pointer', outline: 'none', fontWeight: 400,
@@ -78,8 +78,6 @@ export default function MultiSelectFilter({ options, selected, onChange, allLabe
             const rect = btn?.getBoundingClientRect()
             if (!rect) return
 
-            // Vertical: flip above the trigger if there isn't enough room
-            // below (unchanged from before).
             const spaceBelow = window.innerHeight - rect.bottom
             const dropH = Math.min(360, options.length * 30 + 90)
             if (spaceBelow < dropH + 8) {
@@ -88,13 +86,6 @@ export default function MultiSelectFilter({ options, selected, onChange, allLabe
               el.style.top = (rect.bottom + 4) + 'px'; el.style.bottom = 'auto'
             }
 
-            // Horizontal: keep the current width (or the trigger's own
-            // width, whichever is larger) but never let it render off the
-            // right edge of the viewport. If left-aligning to the trigger
-            // would overflow, right-align to the trigger's right edge
-            // instead (opens to the left) — re-checked on every open since
-            // the trigger's position can change (window resize, scroll,
-            // sidebar toggle, RTL layout, etc).
             const dropWidth = Math.max(rect.width, 180)
             const viewportW = window.innerWidth
             const margin = 8
@@ -102,8 +93,6 @@ export default function MultiSelectFilter({ options, selected, onChange, allLabe
             if (left + dropWidth > viewportW - margin) {
               left = rect.right - dropWidth
             }
-            // Still clamp fully on-screen even if the trigger itself is
-            // wider than the viewport or sits very close to an edge.
             left = Math.max(margin, Math.min(left, viewportW - dropWidth - margin))
             el.style.left = left + 'px'
             el.style.width = dropWidth + 'px'
@@ -114,16 +103,11 @@ export default function MultiSelectFilter({ options, selected, onChange, allLabe
                 autoFocus
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder="Search…"
+                placeholder={L('Search…', 'بحث…')}
                 style={{ width: '100%', fontSize: 12, padding: '5px 8px', borderRadius: 6, border: '1px solid var(--border)', outline: 'none', background: 'var(--surface2)' }} />
             </div>
           )}
 
-          {/* Pinned rows: Select All (selects every real value), then
-              Blank if the caller supplied one — always in this order,
-              never affected by search. The old separate "All" row is
-              removed; unchecking every value (including via this Select
-              All checkbox) is how filtering gets disabled now. */}
           <div style={{ padding: 4, borderBottom: '1px solid var(--border)' }}>
             <label
               style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', fontSize: 12, cursor: allValues.length === 0 ? 'default' : 'pointer', borderRadius: 6, fontWeight: allSelected ? 600 : 400, opacity: allValues.length === 0 ? 0.5 : 1 }}
@@ -131,7 +115,7 @@ export default function MultiSelectFilter({ options, selected, onChange, allLabe
               onMouseLeave={e => e.currentTarget.style.background = ''}
               onClick={allValues.length === 0 ? undefined : (allSelected ? clearAll : selectAll)}>
               <input type="checkbox" checked={allSelected} disabled={allValues.length === 0} onChange={allSelected ? clearAll : selectAll} />
-              <span>Select All</span>
+              <span>{L('Select All', 'تحديد الكل')}</span>
             </label>
             {blankOption && blankMatchesSearch && (
               <label key={blankOption.value}
@@ -147,7 +131,7 @@ export default function MultiSelectFilter({ options, selected, onChange, allLabe
 
           <div style={{ overflowY: 'auto', padding: 4 }}>
             {filteredRegular.length === 0 ? (
-              <div style={{ padding: '8px 10px', fontSize: 12, color: 'var(--text3)' }}>No matches</div>
+              <div style={{ padding: '8px 10px', fontSize: 12, color: 'var(--text3)' }}>{L('No matches', 'لا توجد نتائج')}</div>
             ) : filteredRegular.map(o => (
               <label key={o.value}
                 style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', fontSize: 12, cursor: 'pointer', borderRadius: 6 }}
