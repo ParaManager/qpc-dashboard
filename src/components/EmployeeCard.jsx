@@ -29,40 +29,37 @@ export function generateEmployeeCard(emp) {
   const nameAr  = emp.name_ar         || 'الاسم الكامل'
   const posEn   = emp.designation     || 'Position Name'
   const posAr   = desigAr             || 'المسمى الوظيفي'
-  const safeName = name.replace(/[^a-zA-Z0-9]/g, '-')
-  const origin  = window.location.origin
 
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=760"/>
 <title>ID Card – ${name}</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 * { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { font-family: 'Inter', 'Segoe UI', Arial, sans-serif; }
 body {
   background: #c0bbb4;
   min-height: 100vh;
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  gap: 22px; padding: 40px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  padding: 40px 24px;
+  font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
 }
-.btns { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
-.btn {
-  padding: 9px 22px; border: none; border-radius: 8px;
-  cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 600;
-}
-.btn:disabled { opacity: .55; cursor: default; }
+.btns { display: flex; gap: 10px; }
+.btn { padding: 9px 22px; border: none; border-radius: 8px; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 600; }
 
 /* ── CARD ── */
 .card {
-  width: 760px; height: 460px;
-  border-radius: 16px; overflow: hidden;
-  position: relative; background: #ffffff; flex-shrink: 0;
+  width: 760px;
+  height: 460px;
+  border-radius: 16px;
+  overflow: hidden;
+  position: relative;
+  background: #ffffff;
   box-shadow:
     0 1px 0 rgba(255,255,255,.9) inset,
     0 4px 8px rgba(0,0,0,.08),
@@ -70,177 +67,239 @@ body {
     0 40px 80px rgba(0,0,0,.12);
 }
 
-/* ── BACKGROUND SVG (replaces clip-path divs — html2canvas supports SVG correctly) ── */
-.bg-svg {
-  position: absolute; top: 0; left: 0;
-  width: 760px; height: 460px; z-index: 1;
-  pointer-events: none;
+/* ── DIAGONAL CRIMSON BAND (left) ── */
+.diag-band {
+  position: absolute;
+  top: 0; left: 0;
+  width: 260px;
+  height: 100%;
+  background: #7b1325;
+  clip-path: polygon(0 0, 230px 0, 182px 100%, 0 100%);
+  z-index: 1;
+}
+/* diagonal texture overlay */
+.diag-band::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(255,255,255,.04) 0px,
+    rgba(255,255,255,.04) 1px,
+    transparent 1px,
+    transparent 10px
+  );
+}
+/* gold diagonal accent line */
+.diag-gold {
+  position: absolute;
+  top: 0; left: 0;
+  width: 260px;
+  height: 100%;
+  clip-path: polygon(232px 0, 242px 0, 192px 100%, 184px 100%);
+  background: linear-gradient(180deg, #f0d060, #c9a84c 50%, #8b6500);
+  z-index: 2;
 }
 
 /* ── PHOTO ── */
 .photo-wrap {
-  position: absolute; top: 44px; left: 26px;
+  position: absolute;
+  top: 44px; left: 26px;
   width: 152px; height: 152px;
-  border-radius: 50%; border: 4px solid #c9a84c;
-  overflow: hidden; background: #c8cacd; z-index: 10;
+  border-radius: 50%;
+  border: 4px solid #c9a84c;
+  overflow: hidden;
+  background: #c8cacd;
+  z-index: 10;
   box-shadow: 0 4px 16px rgba(0,0,0,.3), 0 0 0 2px rgba(201,168,76,.25);
 }
 .photo-wrap img { width: 100%; height: 100%; object-fit: cover; object-position: top center; }
 
-/* Staff ID pill */
+/* Staff ID pill below photo */
 .staff-pill {
-  position: absolute; top: 210px; left: 26px;
-  width: 152px; text-align: center; z-index: 10;
+  position: absolute;
+  top: 210px; left: 26px;
+  width: 152px;
+  text-align: center;
+  z-index: 10;
 }
 .staff-pill .lbl {
-  font-size: 8px; font-weight: 700; color: rgba(255,255,255,.55);
-  letter-spacing: .16em; display: block; margin-bottom: 3px;
+  font-size: 8px; font-weight: 700;
+  color: rgba(255,255,255,.55);
+  letter-spacing: .16em;
+  display: block; margin-bottom: 3px;
 }
 .staff-pill .val {
-  font-size: 18px; font-weight: 800; color: #c9a84c;
-  letter-spacing: .04em; display: block;
+  font-size: 18px; font-weight: 800;
+  color: #c9a84c;
+  letter-spacing: .04em;
+  display: block;
 }
 
-/* ID chips */
+/* ID chips below staff pill */
 .id-chips {
-  display: flex; gap: 72px; padding: 8px 24px;
-  border-top: 1px solid #edeae4; border-bottom: 1px solid #edeae4;
+  display: flex; gap: 72px;
+  padding: 8px 24px;
+  border-top: 1px solid #edeae4;
+  border-bottom: 1px solid #edeae4;
   flex-shrink: 0;
 }
-.id-chip { display: flex; flex-direction: column; gap: 1px; }
+.id-chip {
+  display: flex; flex-direction: column; gap: 1px;
+}
 .id-chip .cl { font-size: 11px; color: #888; font-weight: 700; letter-spacing: .08em; }
 .id-chip .cv { font-size: 13px; font-weight: 700; color: #1a2340; }
 
 /* ── RIGHT CONTENT PANEL ── */
 .right {
-  position: absolute; top: 0; left: 244px; right: 0; bottom: 0;
-  display: flex; flex-direction: column; z-index: 5;
+  position: absolute;
+  top: 0; left: 244px; right: 0; bottom: 0;
+  display: flex; flex-direction: column;
+  z-index: 5;
 }
 
-/* Logos strip */
+/* Logos strip top */
 .logos-strip {
-  height: 90px; display: flex; align-items: center;
-  padding: 0 24px 0 44px; gap: 0;
+  height: 90px;
+  display: flex; align-items: center; justify-content: space-evenly;
+  padding: 0 16px;
   border-bottom: 1px solid #edeae4;
-  position: relative; flex-shrink: 0;
+  position: relative;
+  flex-shrink: 0;
 }
 .logos-strip::after {
   content: '';
-  position: absolute; bottom: 0; left: 0; right: 0; height: 2px;
+  position: absolute;
+  bottom: 0; left: 0; right: 0; height: 2px;
   background: linear-gradient(90deg, #c9a84c, #f0d060 40%, #c9a84c 70%, rgba(201,168,76,.1));
 }
 .logo-img { object-fit: contain; display: block; }
 .logo-sep {
   width: 1px; height: 58px;
   background: linear-gradient(180deg, transparent, rgba(201,168,76,.65), transparent);
-  margin: 0 22px; flex-shrink: 0;
+  flex-shrink: 0;
 }
 
-/* Name + position */
+/* Name + position content */
 .content {
-  flex: 1; padding: 20px 24px 0;
-  position: relative; overflow: hidden;
+  flex: 1;
+  padding: 20px 24px 0;
+  position: relative;
+  overflow: hidden;
 }
+/* subtle QPC watermark */
 .content::after {
   content: 'QPC';
-  position: absolute; right: 12px; bottom: 60px;
-  font-size: 72px; font-weight: 900; color: #7b1325; opacity: .025;
+  position: absolute;
+  right: 12px; bottom: 60px;
+  font-size: 72px; font-weight: 900;
+  color: #7b1325; opacity: .025;
   line-height: 1; pointer-events: none;
+  font-family: 'Inter', Arial, sans-serif;
 }
+/* subtle hex pattern top-right */
 .hex-pattern {
-  position: absolute; right: 0; top: 0; width: 140px; height: 180px; opacity: .045;
+  position: absolute;
+  right: 0; top: 0;
+  width: 140px; height: 180px;
+  opacity: .045;
   background-image: radial-gradient(circle, #7b1325 1px, transparent 1px);
   background-size: 14px 14px;
 }
 .eyebrow {
-  font-size: 7.5px; font-weight: 700; color: #c9a84c;
-  letter-spacing: .22em; margin-bottom: 12px; position: relative; z-index: 1;
-}
-/* Arabic inside the eyebrow must reset letter-spacing — spacing breaks connected Arabic script */
-.eyebrow .ar {
-  letter-spacing: 0;
-  direction: rtl;
-  unicode-bidi: embed;
-  font-style: normal;
+  font-size: 7.5px; font-weight: 700;
+  color: #c9a84c; letter-spacing: .22em;
+  margin-bottom: 12px; position: relative; z-index: 1;
 }
 .en-name {
-  font-size: 28px; font-weight: 900; color: #1a2340;
-  line-height: 1; letter-spacing: -.025em;
+  font-size: 28px; font-weight: 900;
+  color: #1a2340; line-height: 1; letter-spacing: -.025em;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   position: relative; z-index: 1; max-width: 100%;
 }
+/* Arabic name — same size + weight as English */
 .ar-name {
-  font-size: 28px; font-weight: 900; color: #1a2340; margin-top: 4px;
-  direction: rtl; text-align: left; letter-spacing: 0;
+  font-size: 28px; font-weight: 900;
+  color: #1a2340; margin-top: 4px;
+  direction: rtl; text-align: left;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  position: relative; z-index: 1; line-height: 1.1; max-width: 100%;
+  position: relative; z-index: 1;
+  line-height: 1.1; max-width: 100%;
 }
-.rule { display: flex; align-items: center; gap: 8px; margin: 12px 0; position: relative; z-index: 1; }
+.rule {
+  display: flex; align-items: center; gap: 8px;
+  margin: 12px 0; position: relative; z-index: 1;
+}
 .rule-bar { height: 2.5px; width: 44px; background: #c9a84c; border-radius: 2px; flex-shrink: 0; }
 .rule-line { height: 1px; flex: 1; background: #edeae4; }
 .rule-dot { width: 10px; height: 10px; border-radius: 50%; background: #c9a84c; flex-shrink: 0; }
+/* Position EN */
 .pos-en {
-  font-size: 24px; font-weight: 700; color: #7b1325;
+  font-size: 24px; font-weight: 700;
+  color: #7b1325;
   position: relative; z-index: 1;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+/* Arabic position — same size + weight as English */
 .pos-ar {
-  font-size: 24px; font-weight: 700; color: #7b1325; margin-top: 4px;
-  direction: rtl; text-align: left; letter-spacing: 0; position: relative; z-index: 1;
+  font-size: 24px; font-weight: 700;
+  color: #7b1325; margin-top: 4px;
+  direction: rtl; text-align: left;
+  position: relative; z-index: 1;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
 /* Contact footer */
-.contact { border-top: 1px solid #edeae4; padding: 12px 24px 16px; display: flex; gap: 20px; flex-shrink: 0; }
+.contact {
+  border-top: 1px solid #edeae4;
+  padding: 12px 24px 16px;
+  display: flex; gap: 20px;
+  flex-shrink: 0;
+}
 .contact-row { display: flex; align-items: center; gap: 10px; }
 .contact-icon {
-  width: 28px; height: 28px; border-radius: 50%; background: #7b1325;
-  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  width: 28px; height: 28px; border-radius: 50%;
+  background: #7b1325;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
 }
 .contact-icon svg { width: 14px; height: 14px; stroke: white; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .contact-text { font-size: 13px; color: #333; font-weight: 500; }
 
 /* Bottom gold bar */
 .gold-bar {
-  position: absolute; bottom: 0; left: 0; right: 0; height: 4px;
+  position: absolute;
+  bottom: 0; left: 0; right: 0; height: 4px;
   background: linear-gradient(90deg, #7b1325, #c9a84c 25%, #f0d060 50%, #c9a84c 75%, #7b1325);
   z-index: 20;
+}
+
+@media print {
+  body { background: white; padding: 0; justify-content: flex-start; }
+  .btns { display: none !important; }
+  .card { box-shadow: none; border: 1px solid #ddd; }
+  @page { size: 760px 460px; margin: 0; }
 }
 </style>
 </head>
 <body>
 
 <div class="btns">
-  <button class="btn" id="dlBtn"    style="background:#7b1325;color:white">⬇ Download PNG</button>
-  <button class="btn" id="printBtn" style="background:#2d3748;color:white">🖶 Print</button>
-  <button class="btn"               style="background:white;color:#555;border:1px solid #ddd" onclick="window.close()">← Back</button>
+  <button class="btn" id="dlBtn" style="background:#7b1325;color:white">⬇ Download PNG</button>
+  <button class="btn" onclick="window.print()" style="background:#2d3748;color:white">🖨 Print</button>
+  <button class="btn" onclick="window.close()" style="background:white;color:#555;border:1px solid #ddd">← Back</button>
 </div>
 
 <div class="card" id="card">
 
-  <svg class="bg-svg" viewBox="0 0 760 460" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
-    <defs>
-      <linearGradient id="goldGrad" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%"   stop-color="#f0d060"/>
-        <stop offset="50%"  stop-color="#c9a84c"/>
-        <stop offset="100%" stop-color="#8b6500"/>
-      </linearGradient>
-      <pattern id="diagLines" x="0" y="0" width="14.14" height="14.14"
-               patternUnits="userSpaceOnUse" patternTransform="rotate(-45)">
-        <rect x="0" y="0" width="1" height="14.14" fill="rgba(255,255,255,0.04)"/>
-      </pattern>
-      <clipPath id="bandClip">
-        <polygon points="0,0 230,0 182,460 0,460"/>
-      </clipPath>
-    </defs>
-    <polygon points="0,0 230,0 182,460 0,460" fill="#7b1325"/>
-    <rect x="0" y="0" width="760" height="460" fill="url(#diagLines)" clip-path="url(#bandClip)"/>
-    <polygon points="232,0 242,0 192,460 184,460" fill="url(#goldGrad)"/>
-  </svg>
+  <!-- Diagonal crimson band -->
+  <div class="diag-band"></div>
+  <div class="diag-gold"></div>
 
+  <!-- Photo -->
   <div class="photo-wrap">
     ${photo
-      ? `<img src="${photo}" crossorigin="anonymous" alt="${name}"/>`
+      ? `<img src="${photo}" alt="${name}"/>`
       : `<svg viewBox="0 0 100 115" width="100%" height="100%" style="padding-top:8%">
            <circle cx="50" cy="34" r="25" fill="#9aa0a6"/>
            <ellipse cx="50" cy="97" rx="40" ry="28" fill="#9aa0a6"/>
@@ -248,40 +307,52 @@ body {
     }
   </div>
 
+  <!-- Staff ID -->
   <div class="staff-pill">
     <span class="lbl">STAFF ID</span>
     <span class="val">${staffId}</span>
   </div>
 
+  <!-- Right panel -->
   <div class="right">
 
+    <!-- Logos -->
     <div class="logos-strip">
-      <img src="${origin}/logo-qpc.png"   alt="QPC"             class="logo-img" style="height:70px;width:auto;max-width:90px"  onerror="this.style.display='none'"/>
+      <img src="/logo-qpc.png"   alt="QPC"             class="logo-img" style="height:70px;width:auto;max-width:90px"  onerror="this.style.display='none'"/>
       <div class="logo-sep"></div>
-      <img src="${origin}/logo-qatar.png" alt="Qatar"            class="logo-img" style="height:74px;width:auto;max-width:76px"  onerror="this.style.display='none'"/>
+      <img src="/logo-qatar.png" alt="Qatar"            class="logo-img" style="height:74px;width:auto;max-width:76px"  onerror="this.style.display='none'"/>
       <div class="logo-sep"></div>
-      <img src="${origin}/logo-so.png"    alt="Special Olympics" class="logo-img" style="height:46px;width:auto;max-width:150px" onerror="this.style.display='none'"/>
+      <img src="/logo-so.png"    alt="Special Olympics" class="logo-img" style="height:46px;width:auto;max-width:150px" onerror="this.style.display='none'"/>
     </div>
 
+    <!-- Name + position -->
     <div class="content">
       <div class="hex-pattern"></div>
-      <div class="eyebrow">QATAR PARALYMPIC COMMITTEE &nbsp;·&nbsp; <span class="ar">بطاقة موظف</span></div>
+      <div class="eyebrow">QATAR PARALYMPIC COMMITTEE &nbsp;·&nbsp; بطاقة موظف</div>
       <div class="en-name">${name}</div>
-      <div class="ar-name" lang="ar">${nameAr}</div>
+      <div class="ar-name">${nameAr}</div>
       <div class="rule">
         <div class="rule-bar"></div>
         <div class="rule-line"></div>
         <div class="rule-dot"></div>
       </div>
       <div class="pos-en">${posEn}</div>
-      <div class="pos-ar" lang="ar">${posAr}</div>
+      <div class="pos-ar">${posAr}</div>
     </div>
 
+    <!-- Job ID + QSS — above contact -->
     <div class="id-chips">
-      <div class="id-chip"><span class="cl">JOB ID</span><span class="cv">${jobId}</span></div>
-      <div class="id-chip"><span class="cl">QSS NUMBER</span><span class="cv">${qssNum}</span></div>
+      <div class="id-chip">
+        <span class="cl">JOB ID</span>
+        <span class="cv">${jobId}</span>
+      </div>
+      <div class="id-chip">
+        <span class="cl">QSS NUMBER</span>
+        <span class="cv">${qssNum}</span>
+      </div>
     </div>
 
+    <!-- Contact -->
     <div class="contact">
       <div class="contact-row">
         <div class="contact-icon">
@@ -303,107 +374,30 @@ body {
 </div>
 
 <script>
-(function () {
-  var CARD_W = 760, CARD_H = 460;
-  var h2cLoaded = false, h2cLoading = false, h2cQueue = [];
-
-  function loadH2C(cb) {
-    if (h2cLoaded) { cb(); return; }
-    h2cQueue.push(cb);
-    if (h2cLoading) return;
-    h2cLoading = true;
-    var s = document.createElement('script');
-    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
-    s.onerror = function () { alert('Could not load html2canvas. Check internet connection.'); };
-    s.onload = function () {
-      h2cLoaded = true;
-      h2cQueue.forEach(function (fn) { fn(); });
-      h2cQueue = [];
-    };
-    document.head.appendChild(s);
+document.getElementById('dlBtn').onclick = () => {
+  const btn = document.getElementById('dlBtn')
+  btn.textContent = 'Generating…'; btn.disabled = true
+  const s = document.createElement('script')
+  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'
+  s.onload = async () => {
+    try {
+      const canvas = await html2canvas(document.getElementById('card'), {
+        scale: 2, useCORS: true, backgroundColor: '#ffffff', width: 760, height: 460
+      })
+      const a = document.createElement('a')
+      a.download = '${name.replace(/[^a-zA-Z0-9]/g, '-')}-ID-Card.png'
+      a.href = canvas.toDataURL('image/png')
+      a.click()
+    } catch(e) { alert('Download error: ' + e.message) }
+    btn.textContent = '⬇ Download PNG'; btn.disabled = false
   }
-
-  function waitReady(cb) {
-    var fontReady = (document.fonts && document.fonts.ready) ? document.fonts.ready : Promise.resolve();
-    var imgs = Array.from(document.querySelectorAll('#card img'));
-    var imgReady = Promise.all(imgs.map(function (img) {
-      if (img.complete) return Promise.resolve();
-      return new Promise(function (res) { img.onload = res; img.onerror = res; });
-    }));
-    Promise.all([fontReady, imgReady]).then(cb);
-  }
-
-  function captureCard(cb) {
-    loadH2C(function () {
-      waitReady(function () {
-        html2canvas(document.getElementById('card'), {
-          scale: 2,
-          useCORS: true,
-          allowTaint: false,
-          backgroundColor: '#ffffff',
-          width: CARD_W,
-          height: CARD_H,
-          x: 0, y: 0,
-          scrollX: 0, scrollY: 0,
-          windowWidth: CARD_W,
-          windowHeight: CARD_H,
-          logging: false,
-          imageTimeout: 15000,
-          onclone: function (doc) {
-            doc.documentElement.style.overflow = 'hidden';
-            doc.body.style.cssText = 'overflow:hidden;padding:0;margin:0;width:760px;height:460px;';
-          }
-        }).then(cb).catch(function (e) { alert('Capture error: ' + e.message); });
-      });
-    });
-  }
-
-  document.getElementById('dlBtn').onclick = function () {
-    var btn = this;
-    btn.textContent = 'Generating…'; btn.disabled = true;
-    captureCard(function (canvas) {
-      var a = document.createElement('a');
-      a.download = '${safeName}-ID-Card.png';
-      a.href = canvas.toDataURL('image/png');
-      a.click();
-      btn.textContent = '⬇ Download PNG'; btn.disabled = false;
-    });
-  };
-
-  document.getElementById('printBtn').onclick = function () {
-    var btn = this;
-    btn.textContent = 'Preparing…'; btn.disabled = true;
-    captureCard(function (canvas) {
-      btn.textContent = '🖶 Print'; btn.disabled = false;
-      var dataUrl = canvas.toDataURL('image/png');
-      var pw = window.open('', '_blank');
-      if (!pw) { alert('Popup blocked — allow popups for this site and try again.'); return; }
-      pw.document.write(
-        '<!DOCTYPE html><html><head>' +
-        '<meta charset="UTF-8"/>' +
-        '<style>' +
-        '*{margin:0;padding:0;box-sizing:border-box}' +
-        '@page{size:760px 460px;margin:0}' +
-        'html,body{width:760px;height:460px;overflow:hidden;background:#fff}' +
-        'img{width:760px;height:460px;display:block}' +
-        '</style></head><body>' +
-        '<img src="' + dataUrl + '"/>' +
-        '<script>window.onload=function(){window.print();};<\\/script>' +
-        '</body></html>'
-      );
-      pw.document.close();
-    });
-  };
-})();
+  document.head.appendChild(s)
+}
 </script>
 </body>
 </html>`
 
   const win = window.open('', '_blank')
-  if (!win) {
-    alert('Popup blocked — please allow popups for this site and try again.')
-    return
-  }
   win.document.write(html)
   win.document.close()
 }
