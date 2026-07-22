@@ -13,6 +13,16 @@ export default function Dashboard({ athletes, coaches, employees, referees, even
   const { tx, lang } = useLang()
   const ar = lang === 'ar'
 
+  // Resolve Arabic name from linked person record (profiles table has no name_ar column)
+  const personNameAr = (() => {
+    if (!profile?.person_id) return null
+    const match =
+      athletes.find(a => a.person_id === profile.person_id) ||
+      coaches.find(c => c.person_id === profile.person_id) ||
+      employees.find(e => e.person_id === profile.person_id)
+    return match?.name_ar || null
+  })()
+
   // Pending Requests card can point to two different places (form
   // submissions vs. account sign-ups) — when both have pending items, a
   // small popover lets the person choose, same pattern already used by
@@ -58,14 +68,6 @@ export default function Dashboard({ athletes, coaches, employees, referees, even
     { label: ar ? 'خارج المقر' : 'Away', val: allAway.length, hint: ar ? 'إجازة/معسكر/منافسة' : 'leave/camp/comp.', color: '#f97316', icon: 'ti-map-pin-off',
       click: () => onNav('away') },
     { isPending: true, label: tx('dashboard.pendingRequests','Pending Requests'), val: pendingRequestsCount + pendingAccountsCount,
-      // Two genuinely different things both called "requests": form
-      // submissions (Leave Request, Equipment Request, etc.) and account
-      // sign-up approvals. The hint spells out both counts plainly. If only
-      // one of them actually has anything pending, clicking goes straight
-      // there — no need to ask when there's nothing to choose between. If
-      // both do, clicking opens a small picker (same pattern as
-      // DashboardBanners) so the person decides where to go instead of one
-      // always silently winning over the other.
       hint: ar
         ? `${pendingRequestsCount} نماذج · ${pendingAccountsCount} تسجيل`
         : `${pendingRequestsCount} forms · ${pendingAccountsCount} sign-ups`,
@@ -74,27 +76,24 @@ export default function Dashboard({ athletes, coaches, employees, referees, even
         if (pendingRequestsCount > 0 && pendingAccountsCount > 0) setShowPendingPicker(v => !v)
         else if (pendingRequestsCount > 0) onNav('requests', { statusFilter:'pending' })
         else if (pendingAccountsCount > 0) onNav('users')
-        // Both are 0 — nothing pending anywhere, so there's nowhere useful
-        // to send them; do nothing rather than navigate to an empty list.
       } },
   ]
 
   return (
     <div>
-      {/* ── Hero Banner (slightly shorter than before) ── */}
+      {/* ── Hero Banner ── */}
       <div style={{
         position: 'relative', borderRadius: 18, overflow: 'hidden', marginBottom: 14,
         minHeight: 140, display: 'flex', alignItems: 'center',
         background: '#1a0a14',
       }}>
-        {/* Real QPC banner — athletes + Doha skyline */}
         <div style={{
           position: 'absolute', inset: 0,
           backgroundImage: 'url(/dashboard-banner.jpg)',
           backgroundSize: 'cover', backgroundPosition: 'center center',
           opacity: 1,
         }} />
-        {/* Gradient overlay — darkens the side where text appears */}
+        {/* Gradient darkens the side where text appears (left in LTR, right in RTL) */}
         <div style={{
           position: 'absolute', inset: 0,
           background: ar
@@ -108,7 +107,7 @@ export default function Dashboard({ athletes, coaches, employees, referees, even
             {tx('dashboard.welcomeBack', 'Welcome back,')}
           </div>
           <div style={{ fontSize: 22, fontWeight: 700, color: '#fff', letterSpacing: '-.02em', marginBottom: 3 }}>
-            {(ar ? (profile?.name_ar || profile?.full_name) : profile?.full_name) || tx('roles.admin','Admin')}
+            {(ar ? (personNameAr || profile?.full_name) : profile?.full_name) || tx('roles.admin','Admin')}
           </div>
           <div style={{ fontSize: 12, color: 'rgba(255,255,255,.55)', marginBottom: 10 }}>
             {roleLabel(profile?.role, ar)}
@@ -129,10 +128,6 @@ export default function Dashboard({ athletes, coaches, employees, referees, even
         {kpiCards.map(({ label, val, hint, color, icon, click, isPending }) => (
           <div key={label} className="kpi-card" onClick={click}
             ref={isPending ? pendingPickerRef : undefined}
-            // Only this card ever needs to show a popover below itself, so
-            // only this one gets overflow:visible (inline style always wins
-            // over the shared .kpi-card class rule) — every other card keeps
-            // its normal clipped corners untouched.
             style={isPending ? { overflow: 'visible' } : undefined}>
             <div className="kpi-icon" style={{ background: color + '18' }}>
               <i className={`ti ${icon}`} style={{ color, fontSize: 16 }} />
@@ -196,7 +191,7 @@ export default function Dashboard({ athletes, coaches, employees, referees, even
         </div>
       </div>
 
-      {/* ── Sports Breakdown — now shows "X athletes · Y%" of total athletes ── */}
+      {/* ── Sports Breakdown ── */}
       <div className="card">
         <div className="card-title">
           <i className="ti ti-ball-football" /> {tx('dashboard.sportsBreakdown','Sports breakdown')}
