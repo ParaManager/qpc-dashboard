@@ -7,8 +7,9 @@ import { supabase } from './supabase'
 //
 // logAdminActivity({
 //   actor:        the acting user's profile (needs id, full_name, and ideally email)
+//                 Arabic name is resolved automatically via actor.person_id
 //   actorEmail:   optional explicit email if not reliably present on actor
-//   actorNameAr:  optional Arabic name of the actor — shown in Arabic UI
+//   actorNameAr:  optional explicit Arabic name override
 //   action:       'created' | 'updated' | 'deleted' | 'approved' | 'rejected' | ...
 //   entityType:   'athlete' | 'coach' | 'employee' | 'referee' | 'event' | 'result'
 //                 | 'resource' | 'request' | 'away_status' | 'user' | 'import' | 'document'
@@ -24,6 +25,20 @@ export async function logAdminActivity({ actor, actorEmail, actorNameAr, action,
   try {
     const actorName = actor?.full_name || actor?.email || 'Someone'
     const resolvedEmail = (actorEmail || actor?.email || '').toLowerCase()
+
+    // Resolve Arabic name: explicit override → actor.name_ar → DB lookup via person_id
+    let resolvedActorNameAr = actorNameAr || actor?.name_ar || null
+    if (!resolvedActorNameAr && actor?.person_id) {
+      for (const table of ['athletes', 'coaches', 'employees']) {
+        const { data } = await supabase
+          .from(table)
+          .select('name_ar')
+          .eq('person_id', actor.person_id)
+          .limit(1)
+          .maybeSingle()
+        if (data?.name_ar) { resolvedActorNameAr = data.name_ar; break }
+      }
+    }
 
     const { data: logRow, error: logErr } = await supabase.from('activity_log').insert({
       actor_id: actor?.id || null,
@@ -42,7 +57,7 @@ export async function logAdminActivity({ actor, actorEmail, actorNameAr, action,
       return
     }
 
-    await notifyTrustedAdmins({ actor, actorName, actorNameAr: actorNameAr || null, action, entityType, entityId, entityLabel, module, logId: logRow?.id })
+    await notifyTrustedAdmins({ actor, actorName, actorNameAr: resolvedActorNameAr, action, entityType, entityId, entityLabel, module, logId: logRow?.id })
   } catch (err) {
     console.error('[adminActivity] logAdminActivity failed:', err)
   }
