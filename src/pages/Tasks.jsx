@@ -186,9 +186,9 @@ export default function Tasks({ profile, isMainAdmin, onNav }) {
   async function loadEligible() {
     const { data } = await supabase
       .from('profiles')
-      .select('id, email, full_name, role, account_type, status, employee_id')
+      .select('id, email, full_name, role, account_type, status, employee_id, person_id')
       .eq('status', 'active')
-    const list = (data || []).filter(p => {
+    let list = (data || []).filter(p => {
       const isMain = isMainAdminEmail(p.email)
       if (isMain) return true
       if (!['admin', 'employee', 'coach'].includes(p.account_type || p.role)) return false
@@ -196,6 +196,18 @@ export default function Tasks({ profile, isMainAdmin, onNav }) {
       if (!p.full_name || !p.full_name.trim()) return false
       return true
     })
+    // Enrich with Arabic name from employees table via employee_id
+    const empIds = list.filter(p => p.employee_id).map(p => p.employee_id)
+    if (empIds.length > 0) {
+      const { data: empData } = await supabase
+        .from('employees')
+        .select('id, name_ar')
+        .in('id', empIds)
+      const empMap = Object.fromEntries((empData || []).map(e => [String(e.id), e.name_ar]))
+      list = list.map(p => p.employee_id && empMap[String(p.employee_id)]
+        ? { ...p, name_ar: empMap[String(p.employee_id)] }
+        : p)
+    }
     setEligible(list)
   }
 
@@ -203,6 +215,7 @@ export default function Tasks({ profile, isMainAdmin, onNav }) {
 
   function assigneeLabel(p) {
     if (!p) return ''
+    if (ar && p.name_ar) return p.name_ar
     if (p.full_name && p.full_name.trim()) return p.full_name.trim()
     if (p.email && !/^COACH-\d+$/.test(p.email)) return p.email
     return ar ? 'مستخدم' : 'User'
