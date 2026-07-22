@@ -1,15 +1,43 @@
 import { useState, useEffect } from 'react'
 import { useLang } from '../lib/LangContext.jsx'
 import { usePersonRoles, RoleBadges } from '../components/RoleBadges.jsx'
-import { effectiveStatus, statusClass, Avatar } from '../lib/helpers'
+import { effectiveStatus, statusClass, Avatar, SPORT_NAMES_AR } from '../lib/helpers'
 import { supabase } from '../lib/supabase'
+
+const STATUS_AR = {
+  'Active':               'نشط',
+  'Inactive':             'غير نشط',
+  'On Leave':             'في إجازة',
+  'In Competition':       'في منافسة',
+  'In Training Camp':     'في معسكر تدريبي',
+  'Injured':              'مصاب',
+  'Under Medical Review': 'تحت المراقبة الطبية',
+  'Suspended':            'موقوف',
+  'Retired':              'متقاعد',
+  'Pending':              'قيد الانتظار',
+  'Approved':             'مقبول',
+  'Rejected':             'مرفوض',
+}
+
+const DESIGNATION_AR = {
+  'Coach':             'مدرب',
+  'Assistant Coach':   'مدرب مساعد',
+  'Technical Expert':  'خبير تقني',
+  'Physiotherapist':   'معالج فيزيائي',
+  'Doctor':            'طبيب',
+  'Manager':           'مدير',
+  'Director':          'مدير تنفيذي',
+  'Administrator':     'إداري',
+  'Secretary':         'أمين سر',
+  'Coordinator':       'منسق',
+}
 
 // Real, combined "My Profile" — one page showing every role linked to the
 // logged-in person's person_id, instead of routing to whichever single
 // role page happened to match first. Falls back gracefully (renders
 // nothing extra) for anyone without a person_id yet (pre-migration data).
 export default function MyProfile({ profile, athletes, coaches, employees, referees, onNav }) {
-  const { lang } = useLang()
+  const { lang, tx } = useLang()
   const ar = lang === 'ar'
   const personId = profile?.person_id
 
@@ -19,6 +47,22 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
   const myCoach    = coaches.find(c => c.person_id === personId)
   const myEmployee = employees.find(e => e.person_id === personId)
   const myReferee  = (referees || []).find(r => r.person_id === personId)
+
+  const statusLabel = (record) => {
+    const s = effectiveStatus(record)
+    return ar ? (STATUS_AR[s] || s) : s
+  }
+
+  const sportLabel = (sport) => {
+    if (!sport) return ''
+    return ar ? (SPORT_NAMES_AR[sport] || sport) : sport
+  }
+
+  const nationalityLabel = (nat) => {
+    if (!nat) return ''
+    if (!ar) return nat
+    return tx('countries.' + nat, nat)
+  }
 
   // One combined Documents list — every role linked to this person_id
   // contributes its documents into a single fetch/list, deduplicated by
@@ -42,9 +86,6 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
     Promise.all(queries).then(results => {
       if (cancelled) return
       const merged = results.flatMap(r => r.data || [])
-      // Dedupe by file_path (the actual underlying file) — a shared
-      // document can legitimately be referenced once from
-      // person_shared_documents; nothing else points at the same path.
       const seen = new Set()
       const deduped = merged.filter(d => {
         const key = d.file_path || `${d.type}-${d.name}`
@@ -74,6 +115,8 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
 
   const photoUrl = myEmployee?.photo_url || myAthlete?.photo_url || myCoach?.photo_url || myReferee?.photo_url
 
+  const nationality = (myEmployee || myAthlete || myCoach || myReferee)?.nationality
+
   return (
     <div>
       <div className="page-header">
@@ -92,7 +135,7 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
           {!loading && <RoleBadges roles={roles} lang={lang} />}
           <div className="detail-fields">
             {[
-              [ar ? 'الجنسية' : 'Nationality', (myEmployee || myAthlete || myCoach || myReferee)?.nationality],
+              [ar ? 'الجنسية' : 'Nationality', nationalityLabel(nationality)],
               [ar ? 'الهاتف' : 'Phone', myEmployee?.phone || myAthlete?.phone || myCoach?.phone],
               [ar ? 'البريد الإلكتروني' : 'Email', myEmployee?.email || myAthlete?.email || myCoach?.email || profile?.email],
             ].filter(([, v]) => v).map(([k, v]) => (
@@ -106,11 +149,11 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
             <div className="info-card">
               <div className="info-title" style={{ marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span>{ar ? 'قسم الموظف' : 'Employee'}</span>
-                <span className={`badge ${statusClass(effectiveStatus(myEmployee))}`} style={{ fontSize: 10.5 }}>{effectiveStatus(myEmployee)}</span>
+                <span className={`badge ${statusClass(effectiveStatus(myEmployee))}`} style={{ fontSize: 10.5 }}>{statusLabel(myEmployee)}</span>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '4px 16px' }}>
                 {[
-                  [ar ? 'الوظيفة' : 'Designation', myEmployee.designation],
+                  [ar ? 'الوظيفة' : 'Designation', ar ? (DESIGNATION_AR[myEmployee.designation] || myEmployee.designation) : myEmployee.designation],
                   [ar ? 'رقم الموظف' : 'Employee #', myEmployee.employee_number],
                   [ar ? 'رقم QSS' : 'QSS #', myEmployee.qss_number],
                 ].filter(([, v]) => v).map(([k, v]) => (
@@ -127,11 +170,11 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
             <div className="info-card">
               <div className="info-title" style={{ marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span>{ar ? 'قسم الرياضي' : 'Athlete'}</span>
-                <span className={`badge ${statusClass(effectiveStatus(myAthlete))}`} style={{ fontSize: 10.5 }}>{effectiveStatus(myAthlete)}</span>
+                <span className={`badge ${statusClass(effectiveStatus(myAthlete))}`} style={{ fontSize: 10.5 }}>{statusLabel(myAthlete)}</span>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '4px 16px' }}>
                 {[
-                  [ar ? 'الرياضة' : 'Sport', myAthlete.sport],
+                  [ar ? 'الرياضة' : 'Sport', sportLabel(myAthlete.sport)],
                   [ar ? 'التصنيف' : 'Classification', myAthlete.classification],
                 ].filter(([, v]) => v).map(([k, v]) => (
                   <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv">{v}</span></div>
@@ -147,10 +190,10 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
             <div className="info-card">
               <div className="info-title" style={{ marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span>{ar ? 'قسم المدرب' : 'Coach'}{myCoach.is_historical ? (ar ? ' (سابق)' : ' (Former)') : ''}</span>
-                {!myCoach.is_historical && <span className={`badge ${statusClass(effectiveStatus(myCoach))}`} style={{ fontSize: 10.5 }}>{effectiveStatus(myCoach)}</span>}
+                {!myCoach.is_historical && <span className={`badge ${statusClass(effectiveStatus(myCoach))}`} style={{ fontSize: 10.5 }}>{statusLabel(myCoach)}</span>}
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '4px 16px' }}>
-                {[[ar ? 'الرياضة' : 'Sport', myCoach.sport]].filter(([, v]) => v).map(([k, v]) => (
+                {[[ar ? 'الرياضة' : 'Sport', sportLabel(myCoach.sport)]].filter(([, v]) => v).map(([k, v]) => (
                   <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv">{v}</span></div>
                 ))}
               </div>
@@ -169,10 +212,6 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
             </div>
           )}
 
-          {/* ONE combined Documents card — merges person_shared_documents
-              with every linked role's own documents, deduplicated. No
-              completion %/missing chips here (those stay on each role's
-              own detail page). */}
           <div className="info-card">
             <div className="info-title" style={{ marginBottom: 10 }}>
               {ar ? 'الوثائق' : 'Documents'} <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 400, color: 'var(--text3)', textTransform: 'none', letterSpacing: 0 }}>{allDocs.length} {ar ? 'ملف' : `file${allDocs.length !== 1 ? 's' : ''}`}</span>
