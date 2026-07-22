@@ -44,6 +44,7 @@ const STATUS_META = {
 }
 
 const ROLES = ['admin','coach','athlete','employee']
+const ROLE_LABELS_AR = { admin: 'مدير', coach: 'مدرب', athlete: 'رياضي', employee: 'موظف' }
 
 const ROLE_COLORS = { admin:'#EE334E', coach:'#0085C7', athlete:'#009F6B', employee:'#8b5cf6' }
 
@@ -337,7 +338,7 @@ export default function Requests({ profile, navState }) {
                     <button key={r} type="button"
                       onClick={()=>setFormData(p=>({...p,visible_to:p.visible_to.includes(r)?p.visible_to.filter(x=>x!==r):[...p.visible_to,r]}))}
                       style={{padding:'5px 16px',borderRadius:20,border:`1.5px solid ${formData.visible_to.includes(r)?'#0085C7':'var(--border)'}`,background:formData.visible_to.includes(r)?'#0085C7':'transparent',color:formData.visible_to.includes(r)?'white':'var(--text2)',fontSize:13,fontWeight:formData.visible_to.includes(r)?600:400,cursor:'pointer',transition:'all .15s'}}>
-                      {r}
+                      {ar ? (ROLE_LABELS_AR[r] || r) : r}
                     </button>
                   ))}
                 </div>
