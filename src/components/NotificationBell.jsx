@@ -46,10 +46,6 @@ export default function NotificationBell({ isAdmin, userId }) {
     return () => channels.forEach(c => supabase.removeChannel(c))
   }, [userId])
 
-  // OS-level permission alone doesn't mean push is actually wired up on this
-  // device — someone could have granted permission under the old, non-functional
-  // version of this feature with no real subscription behind it. Check the
-  // genuine subscription state so the button reflects reality.
   useEffect(() => {
     hasActivePushSubscription().then(setHasSubscription)
   }, [])
@@ -105,13 +101,15 @@ export default function NotificationBell({ isAdmin, userId }) {
       </button>
 
       {open && (
-        <div style={{ position:'absolute', top:'calc(100% + 8px)', right: ar?'auto':0, left: ar?0:'auto', width:320, maxWidth:'calc(100vw - 24px)', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14, boxShadow:'0 8px 32px rgba(0,0,0,.2)', zIndex:1000, overflow:'hidden' }}>
+        // Always anchor to right:0 — the bell is always on the right edge of the header,
+        // so the dropdown should extend leftward regardless of language direction.
+        <div dir={ar ? 'rtl' : 'ltr'} style={{ position:'absolute', top:'calc(100% + 8px)', right:0, left:'auto', width:320, maxWidth:'calc(100vw - 24px)', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14, boxShadow:'0 8px 32px rgba(0,0,0,.2)', zIndex:1000, overflow:'hidden' }}>
 
           {/* Header */}
           <div style={{ padding:'12px 16px', borderBottom:'1px solid var(--border)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
             <div style={{ fontSize:13, fontWeight:600 }}>
               {L('Notifications', 'الإشعارات')}
-              {totalCount > 0 && <span style={{ marginLeft:6, background:'#EE334E20', color:'#EE334E', borderRadius:20, padding:'2px 8px', fontSize:11 }}>{totalCount}</span>}
+              {totalCount > 0 && <span style={{ marginInlineStart:6, background:'#EE334E20', color:'#EE334E', borderRadius:20, padding:'2px 8px', fontSize:11 }}>{totalCount}</span>}
             </div>
             <div style={{ display:'flex', gap:8, alignItems:'center' }}>
               {notifications.length > 0 && (
@@ -137,13 +135,10 @@ export default function NotificationBell({ isAdmin, userId }) {
           </div>
 
           <div style={{ maxHeight:400, overflowY:'auto' }}>
-            {/* Personal notifications */}
             {notifications.map(n => (
-              <div key={n.id} 
+              <div key={n.id}
                 onClick={() => {
                   setOpen(false)
-                  // Clicking through marks it seen, but never affects whether the underlying
-                  // thing is resolved — dashboard banners track resolution separately.
                   supabase.from('notifications').update({ read: true }).eq('id', n.id)
                   const sessionId = n.data?.session_id
                   if (n.type === 'needs_attendance') {
