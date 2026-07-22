@@ -101,8 +101,6 @@ export default function NotificationBell({ isAdmin, userId }) {
       </button>
 
       {open && (
-        // Always anchor to right:0 — the bell is always on the right edge of the header,
-        // so the dropdown should extend leftward regardless of language direction.
         <div dir={ar ? 'rtl' : 'ltr'} style={{ position:'absolute', top:'calc(100% + 8px)', right:0, left:'auto', width:320, maxWidth:'calc(100vw - 24px)', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14, boxShadow:'0 8px 32px rgba(0,0,0,.2)', zIndex:1000, overflow:'hidden' }}>
 
           {/* Header */}
@@ -178,6 +176,7 @@ export default function NotificationBell({ isAdmin, userId }) {
                   n.type==='task_due_tomorrow'?'#f59e0b':n.type==='task_due_today'?'#f59e0b':n.type==='task_overdue'?'#EE334E':
                   n.type==='away_start'?'#d97706':n.type==='away_end'?'#009F6B':
                   n.type==='document_expiring'?'#f59e0b':n.type==='document_expired'?'#EE334E':
+                  n.type==='admin_activity'?'#6366f1':
                   '#0085C7'
                 ), flexShrink:0, marginTop:5 }} />
                 <div style={{ flex:1 }}>
@@ -203,7 +202,7 @@ export default function NotificationBell({ isAdmin, userId }) {
             <div style={{ padding:'10px 16px', borderTop:'1px solid var(--border)', textAlign:'center' }}>
               <a href="#" onClick={e => { e.preventDefault(); setOpen(false); window.dispatchEvent(new CustomEvent('navigate', { detail: { page:'notifications' } })) }}
                 style={{ fontSize:12, color:'#0085C7', textDecoration:'none', fontWeight:600 }}>
-                {L('View all notifications →','عرض جميع الإشعارات ←')}
+                {L('View all notifications →','→ عرض جميع الإشعارات')}
               </a>
             </div>
           )}
