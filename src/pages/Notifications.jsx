@@ -27,6 +27,17 @@ const TYPE_META = {
 }
 const CATEGORIES = ['All','Requests','Tasks','Documents','Resources','Away Management','Accounts','System']
 
+const CAT_AR = {
+  'All':              'كل الفئات',
+  'Requests':         'الطلبات',
+  'Tasks':            'المهام',
+  'Documents':        'الوثائق',
+  'Resources':        'الموارد',
+  'Away Management':  'إدارة الغياب',
+  'Accounts':         'الحسابات',
+  'System':           'النظام',
+}
+
 export default function Notifications({ profile, onNav }) {
   const { lang, tx } = useLang()
   const ar = lang === 'ar'
@@ -42,9 +53,6 @@ export default function Notifications({ profile, onNav }) {
 
   useEffect(() => { load() }, [profile?.id])
 
-  // Loads the first page. Paginated (not a single unlimited fetch) so this
-  // stays fast as notification history grows — "Load more" fetches the next
-  // page instead of everything at once.
   async function load() {
     if (!profile?.id) return
     setLoading(true)
@@ -79,7 +87,6 @@ export default function Notifications({ profile, onNav }) {
   }
 
   async function dismiss(id) {
-    // Dismissing only clears it from the bell — it should stay visible in this full list.
     await supabase.from('notifications').update({ dismissed: true, read: true }).eq('id', id)
     setNotifs(prev => prev.map(n => n.id === id ? { ...n, dismissed: true, read: true } : n))
   }
@@ -129,11 +136,6 @@ export default function Notifications({ profile, onNav }) {
   const visible = (filter === 'unread' ? notifs.filter(n => !n.read) : notifs)
     .filter(n => catFilter === 'All' || (n.category || TYPE_META[n.type]?.category || 'System') === catFilter)
 
-  // Same pattern as the Resources page's category counts: each tab shows
-  // its own total under the current all/unread mode, ignoring only the
-  // active category filter itself (so every tab's count stays visible and
-  // meaningful regardless of which one is currently selected). `notifs`
-  // already reflects whatever this user is permitted to see.
   const filterScopedNotifs = filter === 'unread' ? notifs.filter(n => !n.read) : notifs
   const categoryCounts = CATEGORIES.reduce((acc, cat) => {
     acc[cat] = filterScopedNotifs.filter(n =>
@@ -142,8 +144,6 @@ export default function Notifications({ profile, onNav }) {
     return acc
   }, {})
 
-  // Group needs_attendance into one row, since these can pile up to one-per-session
-  // and shouldn't clutter the list individually.
   const GROUPED_TYPES = ['needs_attendance']
   const groupedNotifs = visible.filter(n => GROUPED_TYPES.includes(n.type))
   const individualNotifs = visible.filter(n => !GROUPED_TYPES.includes(n.type))
@@ -206,7 +206,7 @@ export default function Notifications({ profile, onNav }) {
               border: `1.5px solid ${catFilter===cat ? '#0085C7' : 'var(--border)'}`,
               background: catFilter===cat ? '#0085C7' : 'transparent',
               color: catFilter===cat ? 'white' : 'var(--text2)' }}>
-            {cat === 'All' ? L('All categories','كل الفئات') : cat} ({categoryCounts[cat] || 0})
+            {ar ? CAT_AR[cat] : (cat === 'All' ? 'All categories' : cat)} ({categoryCounts[cat] || 0})
           </button>
         ))}
       </div>
@@ -252,14 +252,14 @@ export default function Notifications({ profile, onNav }) {
                       <i className="ti ti-x" />
                     </button>
                   </div>
-                  <div className="notif-group-items" style={{ padding:'0 16px 12px 64px', display:'flex', flexDirection:'column', gap:4 }}>
+                  <div className="notif-group-items" style={{ padding: ar ? '0 64px 12px 16px' : '0 16px 12px 64px', display:'flex', flexDirection:'column', gap:4 }}>
                     {g.items.map(n => (
                       <div key={n.id} onClick={() => handleClick(n)}
                         style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, padding:'6px 10px', borderRadius:8, cursor:'pointer', fontSize:12 }}
                         onMouseEnter={e => e.currentTarget.style.background='var(--surface2)'}
                         onMouseLeave={e => e.currentTarget.style.background='transparent'}>
                         <span style={{ color:'var(--text2)' }}>{renderNotificationText(n, tx, L).body}</span>
-                        <i className="ti ti-arrow-right" style={{ fontSize:12, color:'var(--text3)' }} />
+                        <i className={`ti ${ar ? 'ti-arrow-left' : 'ti-arrow-right'}`} style={{ fontSize:12, color:'var(--text3)' }} />
                       </div>
                     ))}
                   </div>
