@@ -6,20 +6,21 @@ import { supabase } from './supabase'
 // actions (opening pages, searching, filtering, sorting, pagination).
 //
 // logAdminActivity({
-//   actor:       the acting user's profile (needs id, full_name, and ideally email)
-//   actorEmail:  optional explicit email if not reliably present on actor
-//   action:      'created' | 'updated' | 'deleted' | 'approved' | 'rejected' | ...
-//   entityType:  'athlete' | 'coach' | 'employee' | 'referee' | 'event' | 'result'
-//                | 'resource' | 'request' | 'away_status' | 'user' | 'import' | 'document'
-//   entityId:    string/number id of the affected record, or null
-//   entityLabel: human-readable name, e.g. "Ahmed Ali"
-//   module:      page/route this happened on, e.g. 'athletes'
-//   metadata:    optional small JSON blob with extra detail (counts, before/after, etc.)
+//   actor:        the acting user's profile (needs id, full_name, and ideally email)
+//   actorEmail:   optional explicit email if not reliably present on actor
+//   actorNameAr:  optional Arabic name of the actor — shown in Arabic UI
+//   action:       'created' | 'updated' | 'deleted' | 'approved' | 'rejected' | ...
+//   entityType:   'athlete' | 'coach' | 'employee' | 'referee' | 'event' | 'result'
+//                 | 'resource' | 'request' | 'away_status' | 'user' | 'import' | 'document'
+//   entityId:     string/number id of the affected record, or null
+//   entityLabel:  human-readable name, e.g. "Ahmed Ali"
+//   module:       page/route this happened on, e.g. 'athletes'
+//   metadata:     optional small JSON blob with extra detail (counts, before/after, etc.)
 //
 // This never throws — a failure here must not undo or block the caller's
 // already-successful data change. Failures are logged to the console so
 // they're visible during development instead of silently vanishing.
-export async function logAdminActivity({ actor, actorEmail, action, entityType, entityId, entityLabel, module, metadata }) {
+export async function logAdminActivity({ actor, actorEmail, actorNameAr, action, entityType, entityId, entityLabel, module, metadata }) {
   try {
     const actorName = actor?.full_name || actor?.email || 'Someone'
     const resolvedEmail = (actorEmail || actor?.email || '').toLowerCase()
@@ -41,7 +42,7 @@ export async function logAdminActivity({ actor, actorEmail, action, entityType, 
       return
     }
 
-    await notifyTrustedAdmins({ actor, actorName, action, entityType, entityId, entityLabel, module, logId: logRow?.id })
+    await notifyTrustedAdmins({ actor, actorName, actorNameAr: actorNameAr || null, action, entityType, entityId, entityLabel, module, logId: logRow?.id })
   } catch (err) {
     console.error('[adminActivity] logAdminActivity failed:', err)
   }
@@ -61,7 +62,7 @@ function describeActivity({ actorName, action, entityType, entityLabel }) {
   return `${actorName} ${actionWord} ${entityPhrase}.`
 }
 
-async function notifyTrustedAdmins({ actor, actorName, action, entityType, entityId, entityLabel, module, logId }) {
+async function notifyTrustedAdmins({ actor, actorName, actorNameAr, action, entityType, entityId, entityLabel, module, logId }) {
   const { data: admins, error: adminErr } = await supabase
     .from('profiles')
     .select('id, email')
@@ -75,7 +76,13 @@ async function notifyTrustedAdmins({ actor, actorName, action, entityType, entit
     type: 'admin_activity',
     title: `${actorName} — ${action}`,
     body,
-    data: { module, entity_type: entityType, entity_id: entityId, activity_log_id: logId || null },
+    data: {
+      module,
+      entity_type: entityType,
+      entity_id: entityId,
+      activity_log_id: logId || null,
+      actor_name_ar: actorNameAr || null,
+    },
     read: false,
     category: 'Admin Activity',
     target_path: module || null,

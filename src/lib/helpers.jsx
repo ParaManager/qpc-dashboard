@@ -151,7 +151,6 @@ export const SPORT_NAMES_AR = {
   'Figure Skating':            'التزلج الفني',
   'Floorball':                 'الفلوربول',
   'Snowboarding':              'التزلج على الجليد',
-  'Snowshoeing':               'المشي بأحذية الثلج',
   'Short Track Speed Skating': 'التزلج السريع المضمار القصير',
   'Special Olympics':          'الأولمبياد الخاص',
   'Unified Basketball':        'كرة السلة الموحدة',
@@ -553,15 +552,20 @@ export function renderNotificationText(n, tx, L) {
       // title format: "Admin Name — action" (e.g. "Ahcene Bouteldja — deleted")
       const dashIdx = (n?.title || '').lastIndexOf(' — ')
       const adminName = dashIdx >= 0 ? (n?.title || '').slice(0, dashIdx) : (n?.title || '')
+      // Use stored Arabic name if available, otherwise fall back to English name
+      const adminNameAr = d.actor_name_ar || adminName
       const actionEn = dashIdx >= 0 ? (n?.title || '').slice(dashIdx + 3).toLowerCase() : ''
       const entityType = d.entity_type || ''
       const actionAr = {
-        deleted:  tx('notifTypes.adminActivityDeleted',  'deleted'),
-        updated:  tx('notifTypes.adminActivityUpdated',  'updated'),
-        approved: tx('notifTypes.adminActivityApproved', 'approved'),
-        rejected: tx('notifTypes.adminActivityRejected', 'rejected'),
-        created:  tx('notifTypes.adminActivityCreated',  'created'),
-        added:    tx('notifTypes.adminActivityAdded',    'added'),
+        deleted:       tx('notifTypes.adminActivityDeleted',  'deleted'),
+        updated:       tx('notifTypes.adminActivityUpdated',  'updated'),
+        approved:      tx('notifTypes.adminActivityApproved', 'approved'),
+        rejected:      tx('notifTypes.adminActivityRejected', 'rejected'),
+        created:       tx('notifTypes.adminActivityCreated',  'created'),
+        added:         tx('notifTypes.adminActivityAdded',    'added'),
+        imported:      tx('notifTypes.adminActivityUpdated',  'imported'),
+        role_changed:  tx('notifTypes.adminActivityUpdated',  'updated'),
+        status_changed:tx('notifTypes.adminActivityUpdated',  'updated'),
       }[actionEn] || actionEn
       const entityAr = {
         employee: tx('notifTypes.adminEntityEmployee', 'employee'),
@@ -576,8 +580,8 @@ export function renderNotificationText(n, tx, L) {
       const markerIdx = bodyStr.indexOf(marker)
       const entityName = markerIdx >= 0 ? bodyStr.slice(markerIdx + marker.length).replace(/\.$/, '') : ''
       return {
-        title: L(n?.title || '', `${adminName} — ${actionAr}`),
-        body: L(bodyStr, entityName ? `${adminName} ${actionAr} ${entityAr} ${entityName}` : bodyStr),
+        title: L(n?.title || '', `${adminNameAr} — ${actionAr}`),
+        body: L(bodyStr, entityName ? `${adminNameAr} ${actionAr} ${entityAr} ${entityName}` : bodyStr),
       }
     }
 
