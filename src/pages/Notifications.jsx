@@ -24,19 +24,21 @@ const TYPE_META = {
   away_end:           { icon:'ti-plane-arrival',    color:'#009F6B', category:'Away Management' },
   document_expiring:  { icon:'ti-file-alert',       color:'#f59e0b', category:'Documents' },
   document_expired:   { icon:'ti-file-x',           color:'#EE334E', category:'Documents' },
+  admin_activity:     { icon:'ti-shield-check',     color:'#6366f1', category:'System' },
 }
-const CATEGORIES = ['All','Requests','Tasks','Documents','Resources','Away Management','Accounts','System']
 
 const CAT_AR = {
-  'All':              'كل الفئات',
-  'Requests':         'الطلبات',
-  'Tasks':            'المهام',
-  'Documents':        'الوثائق',
-  'Resources':        'الموارد',
-  'Away Management':  'إدارة الغياب',
-  'Accounts':         'الحسابات',
-  'System':           'النظام',
+  'All': 'كل الفئات',
+  'Requests': 'الطلبات',
+  'Tasks': 'المهام',
+  'Documents': 'الوثائق',
+  'Resources': 'الموارد',
+  'Away Management': 'إدارة الغياب',
+  'Accounts': 'الحسابات',
+  'System': 'النظام',
 }
+
+const CATEGORIES = ['All','Requests','Tasks','Documents','Resources','Away Management','Accounts','System']
 
 export default function Notifications({ profile, onNav }) {
   const { lang, tx } = useLang()
