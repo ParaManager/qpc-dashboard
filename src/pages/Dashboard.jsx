@@ -9,14 +9,17 @@ function roleLabel(role, ar) {
   return map[role] || role
 }
 
+// Translate a stored-English event/person status string for display
+function txStatus(status, tx) {
+  if (!status) return status
+  // Try exact key first, then lowercase, then lowercase with spaces
+  return tx('status.' + status, tx('status.' + status.toLowerCase(), tx('status.' + status.toLowerCase().replace(/ /g, '_'), status)))
+}
+
 export default function Dashboard({ athletes, coaches, employees, referees, events, results, pendingRequestsCount, pendingAccountsCount, onNav, profile }) {
   const { tx, lang } = useLang()
   const ar = lang === 'ar'
 
-  // Pending Requests card can point to two different places (form
-  // submissions vs. account sign-ups) — when both have pending items, a
-  // small popover lets the person choose, same pattern already used by
-  // DashboardBanners' own "which one?" picker.
   const [showPendingPicker, setShowPendingPicker] = useState(false)
   const pendingPickerRef = useRef(null)
   useEffect(() => {
@@ -26,6 +29,7 @@ export default function Dashboard({ athletes, coaches, employees, referees, even
     document.addEventListener('mousedown', handleOutsideClick)
     return () => document.removeEventListener('mousedown', handleOutsideClick)
   }, [])
+
   const active   = athletes.filter(a => a.status === 'Active').length
   const upcoming = events.filter(e => e.status === 'Upcoming' || e.status === 'Registration Open').length
 
@@ -34,13 +38,8 @@ export default function Dashboard({ athletes, coaches, employees, referees, even
     .filter(a => (a.medals_gold+a.medals_silver+a.medals_bronze) > 0)
     .slice(0, 5)
 
-  // Away KPI count — single source of truth shared with the Away Management
-  // page (src/lib/helpers.jsx computeAwayPeople), so the two can never show
-  // different numbers for the same underlying data.
   const { allAway } = computeAwayPeople(athletes, coaches, employees, lang)
 
-  // ── Sports in use — same source data the Sports Breakdown section below
-  // uses, reused here for the "Sports" KPI card count. ──
   const sportEntries = SPORT_CATEGORIES.flatMap(category =>
     (SPORTS_BY_CATEGORY[category] || []).map(s => ({
       sport: s, category,
@@ -55,17 +54,9 @@ export default function Dashboard({ athletes, coaches, employees, referees, even
     { label: tx('nav.referees','Referees'), val: referees.length, hint: ar ? 'الحكام' : 'officials', color: '#f59e0b', icon: 'ti-flag-2', click: () => onNav('referees') },
     { label: tx('dashboard.sports','Sports'), val: sportEntries.length, hint: ar ? 'قيد الاستخدام' : 'in use', color: '#0d9488', icon: 'ti-ball-football', click: () => onNav('sports') },
     { label: tx('dashboard.activeEvents','Active Events'), val: upcoming, hint: ar ? 'قادمة' : 'upcoming', color: '#EE334E', icon: 'ti-calendar-event', click: () => onNav('events', { statusFilter:'Upcoming' }) },
-    { label: ar ? 'خارج المقر' : 'Away', val: allAway.length, hint: ar ? 'إجازة/معسكر/منافسة' : 'leave/camp/comp.', color: '#f97316', icon: 'ti-map-pin-off',
+    { label: tx('nav.away','Away Management'), val: allAway.length, hint: ar ? 'إجازة/معسكر/منافسة' : 'leave/camp/comp.', color: '#f97316', icon: 'ti-map-pin-off',
       click: () => onNav('away') },
     { isPending: true, label: tx('dashboard.pendingRequests','Pending Requests'), val: pendingRequestsCount + pendingAccountsCount,
-      // Two genuinely different things both called "requests": form
-      // submissions (Leave Request, Equipment Request, etc.) and account
-      // sign-up approvals. The hint spells out both counts plainly. If only
-      // one of them actually has anything pending, clicking goes straight
-      // there — no need to ask when there's nothing to choose between. If
-      // both do, clicking opens a small picker (same pattern as
-      // DashboardBanners) so the person decides where to go instead of one
-      // always silently winning over the other.
       hint: ar
         ? `${pendingRequestsCount} نماذج · ${pendingAccountsCount} تسجيل`
         : `${pendingRequestsCount} forms · ${pendingAccountsCount} sign-ups`,
@@ -74,27 +65,23 @@ export default function Dashboard({ athletes, coaches, employees, referees, even
         if (pendingRequestsCount > 0 && pendingAccountsCount > 0) setShowPendingPicker(v => !v)
         else if (pendingRequestsCount > 0) onNav('requests', { statusFilter:'pending' })
         else if (pendingAccountsCount > 0) onNav('users')
-        // Both are 0 — nothing pending anywhere, so there's nowhere useful
-        // to send them; do nothing rather than navigate to an empty list.
       } },
   ]
 
   return (
     <div>
-      {/* ── Hero Banner (slightly shorter than before) ── */}
+      {/* ── Hero Banner ── */}
       <div style={{
         position: 'relative', borderRadius: 18, overflow: 'hidden', marginBottom: 14,
         minHeight: 140, display: 'flex', alignItems: 'center',
         background: '#1a0a14',
       }}>
-        {/* Real QPC banner — athletes + Doha skyline */}
         <div style={{
           position: 'absolute', inset: 0,
           backgroundImage: 'url(/dashboard-banner.jpg)',
           backgroundSize: 'cover', backgroundPosition: 'center center',
           opacity: 1,
         }} />
-        {/* Gradient overlay — lighter since the image's crimson left already gives text contrast */}
         <div style={{
           position: 'absolute', inset: 0,
           background: ar
@@ -102,7 +89,6 @@ export default function Dashboard({ athletes, coaches, employees, referees, even
             : 'linear-gradient(to right, rgba(10,5,15,0.80) 0%, rgba(10,5,15,0.55) 40%, rgba(10,5,15,0.05) 65%)',
         }} />
 
-        {/* Content */}
         <div style={{ position: 'relative', zIndex: 1, padding: '18px 28px', flex: 1 }}>
           <div style={{ fontSize: 12, color: 'rgba(255,255,255,.5)', marginBottom: 6, fontWeight: 500 }}>
             {tx('dashboard.welcomeBack', 'Welcome back,')}
@@ -116,7 +102,8 @@ export default function Dashboard({ athletes, coaches, employees, referees, even
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#EE334E' }} />
             <span style={{ fontSize: 11.5, color: '#EE334E', fontWeight: 600 }}>
-              {tx('nav.season','Season')} {getCurrentSeason()}
+              {/* dir="ltr" prevents the Unicode bidi algorithm from reversing "2026-2027" in RTL context */}
+              {tx('nav.season','Season')} <span dir="ltr">{getCurrentSeason()}</span>
             </span>
           </div>
         </div>
@@ -129,10 +116,6 @@ export default function Dashboard({ athletes, coaches, employees, referees, even
         {kpiCards.map(({ label, val, hint, color, icon, click, isPending }) => (
           <div key={label} className="kpi-card" onClick={click}
             ref={isPending ? pendingPickerRef : undefined}
-            // Only this card ever needs to show a popover below itself, so
-            // only this one gets overflow:visible (inline style always wins
-            // over the shared .kpi-card class rule) — every other card keeps
-            // its normal clipped corners untouched.
             style={isPending ? { overflow: 'visible' } : undefined}>
             <div className="kpi-icon" style={{ background: color + '18' }}>
               <i className={`ti ${icon}`} style={{ color, fontSize: 16 }} />
@@ -142,7 +125,8 @@ export default function Dashboard({ athletes, coaches, employees, referees, even
               <div className="kpi-val" style={{ color }}>{val}</div>
               <div className="kpi-hint">{hint}</div>
             </div>
-            <i className="ti ti-chevron-right kpi-arrow" />
+            {/* Mirror chevron in RTL */}
+            <i className={`ti ${ar ? 'ti-chevron-left' : 'ti-chevron-right'} kpi-arrow`} />
 
             {isPending && showPendingPicker && (
               <div style={{ position:'absolute', top:'calc(100% + 4px)', left:0, right:0, background:'var(--surface)', border:'1px solid var(--border)', borderRadius:12, boxShadow:'0 8px 24px rgba(0,0,0,.15)', zIndex:30 }}
@@ -155,14 +139,14 @@ export default function Dashboard({ athletes, coaches, employees, referees, even
                   onMouseEnter={e => e.currentTarget.style.background='var(--surface2)'}
                   onMouseLeave={e => e.currentTarget.style.background='transparent'}>
                   <span>{ar ? `طلبات النماذج (${pendingRequestsCount})` : `Form Requests (${pendingRequestsCount})`}</span>
-                  <i className="ti ti-arrow-right" style={{ fontSize:13, color:'var(--text3)', flexShrink:0 }} />
+                  <i className={`ti ${ar ? 'ti-arrow-left' : 'ti-arrow-right'}`} style={{ fontSize:13, color:'var(--text3)', flexShrink:0 }} />
                 </div>
                 <div onClick={() => { setShowPendingPicker(false); onNav('users') }}
                   style={{ padding:'10px 14px', fontSize:13, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'space-between', gap:8 }}
                   onMouseEnter={e => e.currentTarget.style.background='var(--surface2)'}
                   onMouseLeave={e => e.currentTarget.style.background='transparent'}>
                   <span>{ar ? `طلبات الحسابات (${pendingAccountsCount})` : `Account Sign-ups (${pendingAccountsCount})`}</span>
-                  <i className="ti ti-arrow-right" style={{ fontSize:13, color:'var(--text3)', flexShrink:0 }} />
+                  <i className={`ti ${ar ? 'ti-arrow-left' : 'ti-arrow-right'}`} style={{ fontSize:13, color:'var(--text3)', flexShrink:0 }} />
                 </div>
               </div>
             )}
@@ -178,7 +162,10 @@ export default function Dashboard({ athletes, coaches, employees, referees, even
               <div style={{ width:8, height:8, borderRadius:'50%', background:statusDot(ev.status), flexShrink:0 }} />
               <span style={{ flex:1, fontSize:13 }}>{ev.name}</span>
               <span style={{ fontSize:11, color:'#9aa3b2' }}>{ev.start_date}</span>
-              <span className={`badge ${statusClass(ev.status)}`}>{ev.status}</span>
+              {/* Translate status badge in Arabic mode */}
+              <span className={`badge ${statusClass(ev.status)}`}>
+                {ar ? txStatus(ev.status, tx) : ev.status}
+              </span>
             </DashRow>
           ))}
           {events.filter(e => e.status !== 'Completed').length === 0 && <div className="empty">{tx('dashboard.noUpcomingEvents','No upcoming events')}</div>}
@@ -188,7 +175,7 @@ export default function Dashboard({ athletes, coaches, employees, referees, even
           {leaders.map(a => (
             <DashRow key={a.id} onClick={() => onNav('athletes', { athleteId: a.id })}>
               <Avatar name={a.name} id={a.id} size={28} fs={9} />
-              <span style={{ flex:1, fontSize:13 }}>{a.name}</span>
+              <span style={{ flex:1, fontSize:13 }}>{ar && a.name_ar ? a.name_ar : a.name}</span>
               <MedalDisplay gold={a.medals_gold} silver={a.medals_silver} bronze={a.medals_bronze} />
             </DashRow>
           ))}
@@ -196,11 +183,11 @@ export default function Dashboard({ athletes, coaches, employees, referees, even
         </div>
       </div>
 
-      {/* ── Sports Breakdown — now shows "X athletes · Y%" of total athletes ── */}
+      {/* ── Sports Breakdown ── */}
       <div className="card">
         <div className="card-title">
           <i className="ti ti-ball-football" /> {tx('dashboard.sportsBreakdown','Sports breakdown')}
-          <span style={{ fontSize:10, fontWeight:400, color:'var(--text3)', textTransform:'none', letterSpacing:0, marginLeft:4 }}>— {tx('dashboard.clickToExplore','click to explore')}</span>
+          <span style={{ fontSize:10, fontWeight:400, color:'var(--text3)', textTransform:'none', letterSpacing:0, marginLeft: ar ? 0 : 4, marginRight: ar ? 4 : 0 }}>— {tx('dashboard.clickToExplore','click to explore')}</span>
         </div>
         {(() => {
           const topSports = sportEntries.sort((a,b) => b.count - a.count).slice(0, 8)
@@ -227,7 +214,7 @@ export default function Dashboard({ athletes, coaches, employees, referees, even
         })()}
         <div style={{ textAlign:'center', marginTop:10 }}>
           <span onClick={() => onNav('sports')} style={{ fontSize:12, fontWeight:600, color:'#0085C7', cursor:'pointer' }}>
-            {tx('dashboard.viewAllSports','View all sports')} →
+            {tx('dashboard.viewAllSports','View all sports')} {ar ? '←' : '→'}
           </span>
         </div>
       </div>
