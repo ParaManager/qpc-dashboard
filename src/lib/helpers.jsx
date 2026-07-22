@@ -1,16 +1,5 @@
 export const AV_COLORS = ['#0085C7','#EE334E','#009F6B','#8b5cf6','#e67e22','#16a085','#c0392b','#2980b9']
 
-// ============================================================================
-// SPORT CATEGORIES — five programs, each with its own discipline list.
-// "Sub-category" here means the season split (Summer/Winter) for Paralympic and
-// Special Olympics, plus Unified Sports' own four groupings. All five share one
-// flat naming convention: Paralympic disciplines get "Para " in front except a
-// fixed list of exceptions (sports that already have their own distinct name,
-// e.g. Boccia, Goalball, the Wheelchair-prefixed sports); every Special Olympics
-// discipline gets "SO " in front, no exceptions; Unified sports keep their own
-// "Unified X" naming as-is, no extra prefix.
-// ============================================================================
-
 export const SPORT_CATEGORIES = [
   'Summer Paralympic', 'Winter Paralympic',
   'Summer Special Olympics', 'Winter Special Olympics',
@@ -25,7 +14,6 @@ export const SPORT_CATEGORY_NAMES_AR = {
   'Unified Sports':            'الرياضات الموحدة',
 }
 
-// --- Summer Paralympic (23 disciplines) ------------------------------------
 export const SUMMER_PARALYMPIC_SPORTS = [
   'Athletics', 'Archery', 'Badminton', 'Boccia', 'Canoe', 'Climbing',
   'Cycling', 'Equestrian', 'Blind Football', 'Goalball', 'Judo',
@@ -34,14 +22,11 @@ export const SUMMER_PARALYMPIC_SPORTS = [
   'Wheelchair Fencing', 'Wheelchair Rugby', 'Wheelchair Tennis',
 ]
 
-// --- Winter Paralympic (6 disciplines) -------------------------------------
 export const WINTER_PARALYMPIC_SPORTS = [
   'Alpine Skiing', 'Biathlon', 'Cross-Country Skiing', 'Para Ice Hockey',
   'Snowboard', 'Wheelchair Curling',
 ]
 
-// --- Summer Special Olympics (25 disciplines, "Aquatics" stored as Swimming
-// since that's the existing flat athlete/coach value already in use) --------
 export const SUMMER_SPECIAL_OLYMPICS_SPORTS = [
   'Athletics', 'Swimming', 'Archery', 'Badminton', 'Basketball', 'Bocce',
   'Bowling', 'Cycling', 'Equestrian', 'Football', 'Golf', 'Gymnastics',
@@ -50,13 +35,11 @@ export const SUMMER_SPECIAL_OLYMPICS_SPORTS = [
   'Tennis', 'Triathlon', 'Volleyball',
 ]
 
-// --- Winter Special Olympics (7 disciplines) -------------------------------
 export const WINTER_SPECIAL_OLYMPICS_SPORTS = [
   'Alpine Skiing', 'Cross-Country Skiing', 'Figure Skating', 'Floorball',
   'Snowboarding', 'Snowshoeing', 'Short Track Speed Skating',
 ]
 
-// --- Unified Sports, grouped into four expandable sub-sections -------------
 export const UNIFIED_SPORTS_GROUPS = {
   'Unified Team Sports': [
     'Unified Basketball', 'Unified Football', 'Unified Futsal',
@@ -80,34 +63,20 @@ export const UNIFIED_SPORTS_GROUPS = {
 }
 export const UNIFIED_SPORTS = Object.values(UNIFIED_SPORTS_GROUPS).flat()
 
-// Legacy: many existing records simply have sport = 'Special Olympics' (the program
-// as a whole, not a specific discipline) — kept selectable so those records keep
-// displaying and filtering correctly. We deliberately never touch existing
-// athlete/coach rows; any correction is made manually by an admin who knows which
-// program/discipline they actually belong to.
 const LEGACY_SPORTS = ['Special Olympics']
 
-// Every Paralympic discipline (Summer + Winter) that should NOT get "Para" in
-// front, because it already has its own distinct name in common use.
 const PARALYMPIC_NO_PREFIX = [
   'Boccia', 'Blind Football', 'Goalball', 'Sitting Volleyball',
   'Wheelchair Basketball', 'Wheelchair Fencing', 'Wheelchair Rugby',
   'Wheelchair Tennis', 'Wheelchair Curling', 'Para Ice Hockey',
 ]
 
-// Full flat list — every sport from every program, deduplicated, plus the legacy
-// catch-all. Used wherever a single flat picker is needed with no category context.
-// Most places should use SPORTS_BY_CATEGORY instead so the right label is shown.
 export const SPORTS = [...new Set([
   ...SUMMER_PARALYMPIC_SPORTS, ...WINTER_PARALYMPIC_SPORTS,
   ...SUMMER_SPECIAL_OLYMPICS_SPORTS, ...WINTER_SPECIAL_OLYMPICS_SPORTS,
   ...UNIFIED_SPORTS, ...LEGACY_SPORTS,
 ])]
 
-// Which sports belong to which category — drives the sport dropdown filtering by
-// category in forms, and lets the Sports page group disciplines under the right tab.
-// Every sport appears here even if no athlete/coach currently uses it, so a brand
-// new discipline is always pickable as soon as someone joins under it.
 export const SPORTS_BY_CATEGORY = {
   'Summer Paralympic':        [...SUMMER_PARALYMPIC_SPORTS, 'Special Olympics'],
   'Winter Paralympic':        WINTER_PARALYMPIC_SPORTS,
@@ -116,12 +85,6 @@ export const SPORTS_BY_CATEGORY = {
   'Unified Sports':           UNIFIED_SPORTS,
 }
 
-// Returns the correct display label for a sport, given which category it's being
-// shown under. Paralympic disciplines (Summer or Winter) get "Para " in front
-// unless they're in the no-prefix exception list. Special Olympics disciplines
-// (Summer or Winter) always get "SO " in front. Unified sports and the legacy
-// catch-all are shown as-is. Falls back to the Paralympic convention when no
-// category is known, since that's the organization's primary program.
 export function sportLabel(sport, category, ar) {
   if (!sport) return ''
   const base = ar ? (SPORT_NAMES_AR[sport] || sport) : sport
@@ -137,13 +100,9 @@ export function sportLabel(sport, category, ar) {
     if (PARALYMPIC_NO_PREFIX.includes(sport) || sport === 'Special Olympics') return base
     return ar ? `${base} (بارالمبي)` : `Para ${base}`
   }
-  // Unified Sports (and anything else): shown as-is.
   return base
 }
 
-// Arabic display names for the plain/underlying sport words — single source of
-// truth. sportLabel() above adds the Para/SO/بارالمبي qualifier on top of these
-// where needed; don't add per-category variants here.
 export const SPORT_NAMES_AR = {
   'Athletics':                 'ألعاب القوى',
   'Archery':                   'الرماية بالقوس',
@@ -304,10 +263,6 @@ export const SPORT_META = {
 
 export const avColor  = id => AV_COLORS[id % AV_COLORS.length]
 
-// Arabic translations of each sport's description (the SPORT_META.desc text) and
-// of the four Unified Sports sub-group headers — kept as separate maps from
-// SPORT_META itself so the English source descriptions above stay untouched and
-// easy to diff/update independently.
 export const SPORT_DESC_AR = {
   'Athletics':                 'فعاليات ألعاب القوى الميدانية والمضمار.',
   'Archery':                   'الرماية الدقيقة بالقوس على الهدف.',
@@ -395,29 +350,21 @@ export const UNIFIED_GROUP_NAMES_AR = {
 }
 export const initials = n  => n.split(' ').map(w => w[0]).slice(0,2).join('').toUpperCase()
 
-// Maps a status label (athlete/coach/event/session status) to a badge CSS class
-// suffix (badge-green, badge-red, etc. — see index.css for the actual colors).
-// Recovered mapping: matches the local copies several pages kept of this same
-// logic (e.g. Athletes.jsx's own status-color map), so this stays consistent
-// with how statuses have always been colored across the app.
 export function statusClass(status) {
   return {
-    // People statuses
-    'Active':              'badge-green',   // green  — good, normal
-    'Inactive':            'badge-gray',    // gray   — neutral/off
-    'On Leave':            'badge-amber',   // amber  — away temporarily
-    'In Competition':      'badge-blue',    // blue   — representing QPC
-    'In Training Camp':    'badge-teal',    // teal   — training/development
-    'Injured':             'badge-orange',  // orange — medical concern
-    'Under Medical Review':'badge-purple',  // purple — under review
-    'Suspended':           'badge-red',     // red    — disciplinary
-    'Retired':             'badge-gray',    // gray   — no longer active
-    // Request/submission statuses
+    'Active':              'badge-green',
+    'Inactive':            'badge-gray',
+    'On Leave':            'badge-amber',
+    'In Competition':      'badge-blue',
+    'In Training Camp':    'badge-teal',
+    'Injured':             'badge-orange',
+    'Under Medical Review':'badge-purple',
+    'Suspended':           'badge-red',
+    'Retired':             'badge-gray',
     'Pending':             'badge-amber',
     'Approved':            'badge-green',
     'Rejected':            'badge-red',
     'In Review':           'badge-blue',
-    // Event statuses
     'Upcoming':            'badge-blue',
     'Registration Open':   'badge-green',
     'Planning':            'badge-amber',
@@ -426,9 +373,6 @@ export function statusClass(status) {
   }[status] || 'badge-gray'
 }
 
-// Maps a status label to an actual color value (not a class name) — used directly
-// as a CSS background/color, e.g. for progress bars and small status dots where a
-// full badge class isn't appropriate.
 export function statusDot(status) {
   return {
     'Active':              '#009F6B',
@@ -452,51 +396,24 @@ export function statusDot(status) {
   }[status] || '#9aa3b2'
 }
 
-// Designations that make an employee record also count as a coach for
-// status purposes — kept here as the shared definition so Employees.jsx and
-// Dashboard.jsx (and anything else that needs it later) can't drift out of
-// sync with each other about who counts as "coach-type".
 export const COACH_DESIGNATIONS = ['Coach', 'Assistant Coach', 'Technical Expert', 'Physiotherapist', 'Doctor']
 
-// Returns the effective status for today, respecting status_start dates.
-// If status_start is in the future, the person is still 'Active' until that date.
 export function effectiveStatus(person) {
   const DATED = ['On Leave', 'In Competition', 'In Training Camp']
   if (!DATED.includes(person.status)) return person.status
   if (!person.status_start) return person.status
   const today = new Date(); today.setHours(0,0,0,0)
   const start = new Date(person.status_start); start.setHours(0,0,0,0)
-  if (today < start) return 'Active'  // not yet started — still active
-  // Check if past end date
+  if (today < start) return 'Active'
   if (person.status_end) {
     const end = new Date(person.status_end); end.setHours(0,0,0,0)
-    if (today > end) return 'Active'  // returned — revert to active
+    if (today > end) return 'Active'
   }
   return person.status
 }
 
-// The statuses that count as a temporary "away" absence — used consistently
-// wherever the app needs to decide who's currently away.
 export const AWAY_STATUSES = ['On Leave', 'In Competition', 'In Training Camp']
 
-// Single source of truth for "who is currently away" across athletes,
-// coaches, and employees. Originally built inline in Dashboard.jsx for the
-// Away KPI card; extracted here so the Away Management page (and anything
-// else that needs this later) reuses the exact same computation instead of
-// a second, potentially-drifting copy.
-//
-// Coach-type employees (Coach, Assistant Coach, Technical Expert,
-// Physiotherapist, Doctor) are resolved to their linked coaches-table record
-// when one exists — that record is authoritative for their status — and
-// fall back to their own employee record when no match is found, so they're
-// never silently dropped. Matched coaches are counted once, through the
-// employee entry, and excluded from the separate coaches list to avoid
-// double-counting.
-//
-// Returns { allAway, awayAthletes, awayCoaches, awayEmployees }. Every
-// person in the returned arrays is spread with a `_type` label (localized
-// via `lang`) and, for coaches/employees, a `_isCoach`/`_isEmployee` flag —
-// exactly the shape Dashboard.jsx already produced.
 export function computeAwayPeople(athletes, coaches, employees, lang) {
   const ar = lang === 'ar'
 
@@ -512,13 +429,6 @@ export function computeAwayPeople(athletes, coaches, employees, lang) {
   }
 
   const matchedCoachIds = new Set()
-  // For a coach-type employee resolved to a linked coach record, that coach
-  // record is where the real status/status_start/status_end actually live —
-  // so the object carried forward must be the resolved record, not the
-  // original employee shell (which may still hold stale/unrelated status
-  // fields on the employees table). This only changes which record's data
-  // is displayed for someone already correctly determined to be away — the
-  // away/not-away determination itself is unchanged.
   const awayEmployeeResults = (employees || [])
     .map(e => {
       const src = employeeStatusSource(e)
@@ -531,9 +441,6 @@ export function computeAwayPeople(athletes, coaches, employees, lang) {
       isCoachType,
     }))
 
-  // A coach-type employee is classified and displayed as a Coach (not an
-  // Employee), since that is their true role — only genuinely regular
-  // employee records are counted/displayed as Employee.
   const awayEmployees = awayEmployeeResults.filter(r => !r.isCoachType).map(r => r.person)
   const awayEmployeesAsCoaches = awayEmployeeResults.filter(r => r.isCoachType).map(r => r.person)
 
@@ -585,36 +492,10 @@ export function DashRow({ children, onClick }) {
   )
 }
 
-// MANUALLY PINNED to "2026-2027" ahead of the calendar-based rollover
-// below, because the organization has already switched seasons early and
-// hasn't told us their actual cutover date/rule yet. Once they confirm the
-// real date the season changes each year, replace this early return with
-// that rule (or restore the September 1 default below if that's actually
-// it) and delete this comment.
 export function getCurrentSeason() {
   return '2026-2027'
-
-  // Previous automatic logic, kept for reference — the sporting season was
-  // assumed to run September–August: before September, still the season
-  // that started last calendar year; from September onward, a new season.
-  // E.g. June 2026 → "2025-2026"; September 2026 → "2026-2027".
-  // eslint-disable-next-line no-unreachable
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = now.getMonth() // 0-indexed: August = 7, September = 8
-  const startYear = month >= 8 ? year : year - 1
-  return `${startYear}-${startYear + 1}`
 }
 
-// Renders a system-generated notification's title/body live, from its
-// stored `type` + `data` (structured fields only — task title, person
-// name, document type, dates, etc.), using the same tx()/L() pattern as
-// everywhere else in the app. Never reads the notification's own stored
-// title/body for these known types, since that text gets permanently
-// fixed in whichever language the admin session that generated it was
-// using. `tx` and `L` are passed in from the caller's own useLang()/local
-// helper — this function holds no translation data of its own beyond what
-// already lives in translations.js's notifTypes section.
 export function renderNotificationText(n, tx, L) {
   const d = n?.data || {}
   const docLabel = (type) => type === 'passport' ? tx('notifTypes.docPassport', 'Passport')
@@ -668,10 +549,90 @@ export function renderNotificationText(n, tx, L) {
       }
     }
 
+    case 'admin_activity': {
+      // title format: "Admin Name — action" (e.g. "Ahcene Bouteldja — deleted")
+      const dashIdx = (n?.title || '').lastIndexOf(' — ')
+      const adminName = dashIdx >= 0 ? (n?.title || '').slice(0, dashIdx) : (n?.title || '')
+      const actionEn = dashIdx >= 0 ? (n?.title || '').slice(dashIdx + 3).toLowerCase() : ''
+      const entityType = d.entity_type || ''
+      const actionAr = {
+        deleted:  tx('notifTypes.adminActivityDeleted',  'deleted'),
+        updated:  tx('notifTypes.adminActivityUpdated',  'updated'),
+        approved: tx('notifTypes.adminActivityApproved', 'approved'),
+        rejected: tx('notifTypes.adminActivityRejected', 'rejected'),
+        created:  tx('notifTypes.adminActivityCreated',  'created'),
+        added:    tx('notifTypes.adminActivityAdded',    'added'),
+      }[actionEn] || actionEn
+      const entityAr = {
+        employee: tx('notifTypes.adminEntityEmployee', 'employee'),
+        coach:    tx('notifTypes.adminEntityCoach',    'coach'),
+        athlete:  tx('notifTypes.adminEntityAthlete',  'athlete'),
+        user:     tx('notifTypes.adminEntityUser',     'user'),
+        referee:  tx('notifTypes.adminEntityReferee',  'referee'),
+      }[entityType] || entityType
+      // Extract entity name: body = "AdminName action entityType EntityName."
+      const bodyStr = n?.body || ''
+      const marker = ` ${actionEn} ${entityType} `
+      const markerIdx = bodyStr.indexOf(marker)
+      const entityName = markerIdx >= 0 ? bodyStr.slice(markerIdx + marker.length).replace(/\.$/, '') : ''
+      return {
+        title: L(n?.title || '', `${adminName} — ${actionAr}`),
+        body: L(bodyStr, entityName ? `${adminName} ${actionAr} ${entityAr} ${entityName}` : bodyStr),
+      }
+    }
+
+    case 'account_approved':
+      return {
+        title: tx('notifTypes.accountApproved', 'Access request approved'),
+        body: tx('notifTypes.accountApprovedBody', 'Your account has been activated — you can now sign in.'),
+      }
+
+    case 'account_rejected':
+      return {
+        title: tx('notifTypes.accountRejected', 'Access request rejected'),
+        body: tx('notifTypes.accountRejectedBody', 'Your account request was not approved.'),
+      }
+
+    case 'access_request': {
+      const bodyStr = n?.body || ''
+      const nameOnly = bodyStr.replace(/ is requesting access$/, '')
+      return {
+        title: tx('notifTypes.accessRequest', 'New access request'),
+        body: L(bodyStr, `${nameOnly} ${tx('notifTypes.accessRequestingAccess', 'is requesting access')}`),
+      }
+    }
+
+    case 'request_approved':
+      return {
+        title: tx('notifTypes.requestApproved', 'Request approved'),
+        body: n?.body || '',
+      }
+
+    case 'request_rejected':
+      return {
+        title: tx('notifTypes.requestRejected', 'Request rejected'),
+        body: n?.body || '',
+      }
+
+    case 'resource_added':
+      return {
+        title: tx('notifTypes.resourceAdded', 'New resource added'),
+        body: n?.body || '',
+      }
+
+    case 'import_succeeded':
+      return {
+        title: tx('notifTypes.importSucceeded', 'Import succeeded'),
+        body: n?.body || '',
+      }
+
+    case 'import_failed':
+      return {
+        title: tx('notifTypes.importFailed', 'Import failed'),
+        body: n?.body || '',
+      }
+
     default:
-      // Not a known system-generated type — user-authored content (excuse
-      // requests, sign-up requests, etc.) or an older row with no `data`
-      // yet: show whatever is actually stored, unchanged.
       return { title: n?.title || '', body: n?.body || '' }
   }
 }

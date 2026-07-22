@@ -15,6 +15,33 @@ export const AR = {
     docExpiredSince: 'منتهي منذ',
     docPassport: 'جواز السفر',
     docId: 'الرقم الشخصي',
+    // Account notifications
+    accountApproved: 'تم قبول طلب الوصول',
+    accountApprovedBody: 'تم تفعيل حسابك — يمكنك الآن تسجيل الدخول.',
+    accountRejected: 'تم رفض طلب الوصول',
+    accountRejectedBody: 'لم يتم قبول طلب حسابك.',
+    accessRequest: 'طلب وصول جديد',
+    accessRequestingAccess: 'يطلب الوصول',
+    // Request notifications
+    requestApproved: 'تمت الموافقة على الطلب',
+    requestRejected: 'تم رفض الطلب',
+    // Resource / import notifications
+    resourceAdded: 'تمت إضافة مورد جديد',
+    importSucceeded: 'نجح الاستيراد',
+    importFailed: 'فشل الاستيراد',
+    // Admin activity action verbs
+    adminActivityDeleted: 'حذف',
+    adminActivityUpdated: 'حدّث',
+    adminActivityApproved: 'اعتمد',
+    adminActivityRejected: 'رفض',
+    adminActivityCreated: 'أنشأ',
+    adminActivityAdded: 'أضاف',
+    // Admin activity entity types
+    adminEntityEmployee: 'موظف',
+    adminEntityCoach: 'مدرب',
+    adminEntityAthlete: 'رياضي',
+    adminEntityUser: 'مستخدم',
+    adminEntityReferee: 'حكم',
   },
   nav: {
     overview:'نظرة عامة', people:'الأشخاص', competitions:'المنافسات',
@@ -42,10 +69,8 @@ export const AR = {
     upcomingEvents:'الفعاليات القادمة', medalLeaders:'قادة الميداليات',
     sportsBreakdown:'تفاصيل الرياضات', clickToExplore:'انقر للاستكشاف',
     noUpcomingEvents:'لا توجد فعاليات قادمة', noResults:'لا توجد نتائج بعد',
-    sports:'الرياضات',
-    pendingRequests:'الطلبات المعلقة',
-    welcomeBack:'مرحباً،',
-    viewAllSports:'عرض جميع الرياضات',
+    sports:'الرياضات', pendingRequests:'الطلبات المعلقة',
+    welcomeBack:'مرحباً،', viewAllSports:'عرض جميع الرياضات',
     noSportsYet:'لا يوجد رياضيون معينون لرياضة بعد',
   },
   actions: {
@@ -86,6 +111,7 @@ export const AR = {
     noCoachAssigned:'لم يتم تعيين مدرب', notRegistered:'لم يتم التسجيل في أي فعاليات بعد',
     recentResults:'النتائج الأخيرة', yearsOld:'سنة', withQPC:'مع QPC',
     noPersonalBests:'لا توجد إنجازات مسجلة',
+    editModeDesc:'انقر على أي خلية للتعديل. يتم حفظ التغييرات معاً عند النقر على حفظ.',
     modified:'معدّل', searchAthletes:'بحث عن رياضي...',
     ofAthletes:'من الرياضيين', noAthletesMatch:'لا يوجد رياضيون مطابقون',
     yearsActive:'سنة نشاط',
@@ -163,7 +189,6 @@ export const AR = {
   },
   medals: { gold:'ذهب', silver:'فضة', bronze:'برونز' },
   filters: {
-    always:'دائماً', mostParticipants:'أكثر مشاركين',
     allSports:'جميع الرياضات', allStatuses:'جميع الحالات',
     allGenders:'جميع الأجناس', allNationalities:'جميع الجنسيات',
     allDesignations:'جميع المسميات', allCoaches:'جميع المدربين',
@@ -172,7 +197,7 @@ export const AR = {
     mostGold:'أكثر ذهب', newestMembers:'أحدث الأعضاء', oldestMembers:'أقدم الأعضاء',
     mostAthletes:'أكثر رياضيين', longestWithQPC:'الأطول مع QPC',
     dateSoonest:'التاريخ (الأقرب)', dateLatest:'التاريخ (الأبعد)',
-    newest:'الأحدث', oldest:'الأقدم',
+    newest:'الأحدث', oldest:'الأقدم', always:'دائماً', mostParticipants:'أكثر مشاركين',
   },
   profile: {
     withQPC:'مع QPC منذ', dateOfBirth:'تاريخ الميلاد', gender:'الجنس',
