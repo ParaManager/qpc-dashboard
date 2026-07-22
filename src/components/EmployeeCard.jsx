@@ -30,10 +30,7 @@ export function generateEmployeeCard(emp) {
   const posEn   = emp.designation     || 'Position Name'
   const posAr   = desigAr             || 'المسمى الوظيفي'
   const safeName = name.replace(/[^a-zA-Z0-9]/g, '-')
-
-  // Absolute origin so logo srcs resolve correctly inside the popup
-  // (popup opened via document.write has no implicit base URL)
-  const origin = window.location.origin
+  const origin  = window.location.origin
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -46,19 +43,13 @@ export function generateEmployeeCard(emp) {
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
-
-html, body {
-  font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
-}
+html, body { font-family: 'Inter', 'Segoe UI', Arial, sans-serif; }
 body {
   background: #c0bbb4;
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 22px;
-  padding: 40px 24px;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 22px; padding: 40px 24px;
 }
 .btns { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
 .btn {
@@ -69,13 +60,9 @@ body {
 
 /* ── CARD ── */
 .card {
-  width: 760px;
-  height: 460px;
-  border-radius: 16px;
-  overflow: hidden;
-  position: relative;
-  background: #ffffff;
-  flex-shrink: 0;
+  width: 760px; height: 460px;
+  border-radius: 16px; overflow: hidden;
+  position: relative; background: #ffffff; flex-shrink: 0;
   box-shadow:
     0 1px 0 rgba(255,255,255,.9) inset,
     0 4px 8px rgba(0,0,0,.08),
@@ -83,30 +70,11 @@ body {
     0 40px 80px rgba(0,0,0,.12);
 }
 
-/* ── DIAGONAL CRIMSON BAND (left) ── */
-.diag-band {
+/* ── BACKGROUND SVG (replaces clip-path divs — renders correctly in html2canvas) ── */
+.bg-svg {
   position: absolute; top: 0; left: 0;
-  width: 260px; height: 100%;
-  background: #7b1325;
-  clip-path: polygon(0 0, 230px 0, 182px 100%, 0 100%);
-  z-index: 1;
-}
-.diag-band::before {
-  content: '';
-  position: absolute; inset: 0;
-  background-image: repeating-linear-gradient(
-    -45deg,
-    rgba(255,255,255,.04) 0px,
-    rgba(255,255,255,.04) 1px,
-    transparent 1px, transparent 10px
-  );
-}
-.diag-gold {
-  position: absolute; top: 0; left: 0;
-  width: 260px; height: 100%;
-  clip-path: polygon(232px 0, 242px 0, 192px 100%, 184px 100%);
-  background: linear-gradient(180deg, #f0d060, #c9a84c 50%, #8b6500);
-  z-index: 2;
+  width: 760px; height: 460px; z-index: 1;
+  pointer-events: none;
 }
 
 /* ── PHOTO ── */
@@ -114,8 +82,7 @@ body {
   position: absolute; top: 44px; left: 26px;
   width: 152px; height: 152px;
   border-radius: 50%; border: 4px solid #c9a84c;
-  overflow: hidden; background: #c8cacd;
-  z-index: 10;
+  overflow: hidden; background: #c8cacd; z-index: 10;
   box-shadow: 0 4px 16px rgba(0,0,0,.3), 0 0 0 2px rgba(201,168,76,.25);
 }
 .photo-wrap img { width: 100%; height: 100%; object-fit: cover; object-position: top center; }
@@ -181,8 +148,7 @@ body {
   line-height: 1; pointer-events: none;
 }
 .hex-pattern {
-  position: absolute; right: 0; top: 0; width: 140px; height: 180px;
-  opacity: .045;
+  position: absolute; right: 0; top: 0; width: 140px; height: 180px; opacity: .045;
   background-image: radial-gradient(circle, #7b1325 1px, transparent 1px);
   background-size: 14px 14px;
 }
@@ -202,10 +168,7 @@ body {
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   position: relative; z-index: 1; line-height: 1.1; max-width: 100%;
 }
-.rule {
-  display: flex; align-items: center; gap: 8px;
-  margin: 12px 0; position: relative; z-index: 1;
-}
+.rule { display: flex; align-items: center; gap: 8px; margin: 12px 0; position: relative; z-index: 1; }
 .rule-bar { height: 2.5px; width: 44px; background: #c9a84c; border-radius: 2px; flex-shrink: 0; }
 .rule-line { height: 1px; flex: 1; background: #edeae4; }
 .rule-dot { width: 10px; height: 10px; border-radius: 50%; background: #c9a84c; flex-shrink: 0; }
@@ -221,10 +184,7 @@ body {
 }
 
 /* Contact footer */
-.contact {
-  border-top: 1px solid #edeae4; padding: 12px 24px 16px;
-  display: flex; gap: 20px; flex-shrink: 0;
-}
+.contact { border-top: 1px solid #edeae4; padding: 12px 24px 16px; display: flex; gap: 20px; flex-shrink: 0; }
 .contact-row { display: flex; align-items: center; gap: 10px; }
 .contact-icon {
   width: 28px; height: 28px; border-radius: 50%; background: #7b1325;
@@ -251,9 +211,34 @@ body {
 
 <div class="card" id="card">
 
-  <div class="diag-band"></div>
-  <div class="diag-gold"></div>
+  <!--
+    SVG background replaces clip-path divs.
+    html2canvas does not support CSS clip-path reliably — the SVG approach
+    renders the diagonal shapes correctly in both canvas export and print.
+  -->
+  <svg class="bg-svg" viewBox="0 0 760 460" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+    <defs>
+      <linearGradient id="goldGrad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%"   stop-color="#f0d060"/>
+        <stop offset="50%"  stop-color="#c9a84c"/>
+        <stop offset="100%" stop-color="#8b6500"/>
+      </linearGradient>
+      <pattern id="diagLines" x="0" y="0" width="14.14" height="14.14" patternUnits="userSpaceOnUse" patternTransform="rotate(-45)">
+        <rect x="0" y="0" width="1" height="14.14" fill="rgba(255,255,255,0.04)"/>
+      </pattern>
+      <clipPath id="bandClip">
+        <polygon points="0,0 230,0 182,460 0,460"/>
+      </clipPath>
+    </defs>
+    <!-- Crimson diagonal band -->
+    <polygon points="0,0 230,0 182,460 0,460" fill="#7b1325"/>
+    <!-- Diagonal texture overlay -->
+    <rect x="0" y="0" width="760" height="460" fill="url(#diagLines)" clip-path="url(#bandClip)"/>
+    <!-- Gold accent strip -->
+    <polygon points="232,0 242,0 192,460 184,460" fill="url(#goldGrad)"/>
+  </svg>
 
+  <!-- Photo -->
   <div class="photo-wrap">
     ${photo
       ? `<img src="${photo}" crossorigin="anonymous" alt="${name}"/>`
@@ -264,11 +249,13 @@ body {
     }
   </div>
 
+  <!-- Staff ID -->
   <div class="staff-pill">
     <span class="lbl">STAFF ID</span>
     <span class="val">${staffId}</span>
   </div>
 
+  <!-- Right panel -->
   <div class="right">
 
     <div class="logos-strip">
@@ -294,14 +281,8 @@ body {
     </div>
 
     <div class="id-chips">
-      <div class="id-chip">
-        <span class="cl">JOB ID</span>
-        <span class="cv">${jobId}</span>
-      </div>
-      <div class="id-chip">
-        <span class="cl">QSS NUMBER</span>
-        <span class="cv">${qssNum}</span>
-      </div>
+      <div class="id-chip"><span class="cl">JOB ID</span><span class="cv">${jobId}</span></div>
+      <div class="id-chip"><span class="cl">QSS NUMBER</span><span class="cv">${qssNum}</span></div>
     </div>
 
     <div class="contact">
@@ -380,7 +361,7 @@ body {
     });
   }
 
-  /* ── Download PNG ── */
+  /* Download PNG */
   document.getElementById('dlBtn').onclick = function () {
     var btn = this;
     btn.textContent = 'Generating…'; btn.disabled = true;
@@ -393,7 +374,8 @@ body {
     });
   };
 
-  /* ── Print (image-based — bypasses all Safari CSS print issues) ── */
+  /* Print — renders to canvas first, then prints the image.
+     This bypasses all browser CSS print restrictions (Safari clip-path, color-adjust, etc.) */
   document.getElementById('printBtn').onclick = function () {
     var btn = this;
     btn.textContent = 'Preparing…'; btn.disabled = true;
