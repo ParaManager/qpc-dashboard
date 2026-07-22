@@ -70,7 +70,7 @@ body {
     0 40px 80px rgba(0,0,0,.12);
 }
 
-/* ── BACKGROUND SVG (replaces clip-path divs — renders correctly in html2canvas) ── */
+/* ── BACKGROUND SVG (replaces clip-path divs — html2canvas supports SVG correctly) ── */
 .bg-svg {
   position: absolute; top: 0; left: 0;
   width: 760px; height: 460px; z-index: 1;
@@ -156,6 +156,13 @@ body {
   font-size: 7.5px; font-weight: 700; color: #c9a84c;
   letter-spacing: .22em; margin-bottom: 12px; position: relative; z-index: 1;
 }
+/* Arabic inside the eyebrow must reset letter-spacing — spacing breaks connected Arabic script */
+.eyebrow .ar {
+  letter-spacing: 0;
+  direction: rtl;
+  unicode-bidi: embed;
+  font-style: normal;
+}
 .en-name {
   font-size: 28px; font-weight: 900; color: #1a2340;
   line-height: 1; letter-spacing: -.025em;
@@ -164,7 +171,7 @@ body {
 }
 .ar-name {
   font-size: 28px; font-weight: 900; color: #1a2340; margin-top: 4px;
-  direction: rtl; text-align: left;
+  direction: rtl; text-align: left; letter-spacing: 0;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   position: relative; z-index: 1; line-height: 1.1; max-width: 100%;
 }
@@ -179,7 +186,7 @@ body {
 }
 .pos-ar {
   font-size: 24px; font-weight: 700; color: #7b1325; margin-top: 4px;
-  direction: rtl; text-align: left; position: relative; z-index: 1;
+  direction: rtl; text-align: left; letter-spacing: 0; position: relative; z-index: 1;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
@@ -211,11 +218,6 @@ body {
 
 <div class="card" id="card">
 
-  <!--
-    SVG background replaces clip-path divs.
-    html2canvas does not support CSS clip-path reliably — the SVG approach
-    renders the diagonal shapes correctly in both canvas export and print.
-  -->
   <svg class="bg-svg" viewBox="0 0 760 460" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
     <defs>
       <linearGradient id="goldGrad" x1="0" y1="0" x2="0" y2="1">
@@ -223,22 +225,19 @@ body {
         <stop offset="50%"  stop-color="#c9a84c"/>
         <stop offset="100%" stop-color="#8b6500"/>
       </linearGradient>
-      <pattern id="diagLines" x="0" y="0" width="14.14" height="14.14" patternUnits="userSpaceOnUse" patternTransform="rotate(-45)">
+      <pattern id="diagLines" x="0" y="0" width="14.14" height="14.14"
+               patternUnits="userSpaceOnUse" patternTransform="rotate(-45)">
         <rect x="0" y="0" width="1" height="14.14" fill="rgba(255,255,255,0.04)"/>
       </pattern>
       <clipPath id="bandClip">
         <polygon points="0,0 230,0 182,460 0,460"/>
       </clipPath>
     </defs>
-    <!-- Crimson diagonal band -->
     <polygon points="0,0 230,0 182,460 0,460" fill="#7b1325"/>
-    <!-- Diagonal texture overlay -->
     <rect x="0" y="0" width="760" height="460" fill="url(#diagLines)" clip-path="url(#bandClip)"/>
-    <!-- Gold accent strip -->
     <polygon points="232,0 242,0 192,460 184,460" fill="url(#goldGrad)"/>
   </svg>
 
-  <!-- Photo -->
   <div class="photo-wrap">
     ${photo
       ? `<img src="${photo}" crossorigin="anonymous" alt="${name}"/>`
@@ -249,13 +248,11 @@ body {
     }
   </div>
 
-  <!-- Staff ID -->
   <div class="staff-pill">
     <span class="lbl">STAFF ID</span>
     <span class="val">${staffId}</span>
   </div>
 
-  <!-- Right panel -->
   <div class="right">
 
     <div class="logos-strip">
@@ -268,16 +265,16 @@ body {
 
     <div class="content">
       <div class="hex-pattern"></div>
-      <div class="eyebrow">QATAR PARALYMPIC COMMITTEE  ·  بطاقة موظف</div>
+      <div class="eyebrow">QATAR PARALYMPIC COMMITTEE &nbsp;·&nbsp; <span class="ar">بطاقة موظف</span></div>
       <div class="en-name">${name}</div>
-      <div class="ar-name">${nameAr}</div>
+      <div class="ar-name" lang="ar">${nameAr}</div>
       <div class="rule">
         <div class="rule-bar"></div>
         <div class="rule-line"></div>
         <div class="rule-dot"></div>
       </div>
       <div class="pos-en">${posEn}</div>
-      <div class="pos-ar">${posAr}</div>
+      <div class="pos-ar" lang="ar">${posAr}</div>
     </div>
 
     <div class="id-chips">
@@ -361,7 +358,6 @@ body {
     });
   }
 
-  /* Download PNG */
   document.getElementById('dlBtn').onclick = function () {
     var btn = this;
     btn.textContent = 'Generating…'; btn.disabled = true;
@@ -374,8 +370,6 @@ body {
     });
   };
 
-  /* Print — renders to canvas first, then prints the image.
-     This bypasses all browser CSS print restrictions (Safari clip-path, color-adjust, etc.) */
   document.getElementById('printBtn').onclick = function () {
     var btn = this;
     btn.textContent = 'Preparing…'; btn.disabled = true;
