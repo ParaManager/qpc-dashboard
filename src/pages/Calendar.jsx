@@ -124,7 +124,7 @@ export default function Calendar({ profile, events = [], onNav }) {
 
   function openItem(item) {
     if (item.kind === 'event') onNav('events', { eventId: item.raw.id })
-    else if (item.kind === 'task') onNav('tasks', { taskId: item.raw.id })
+    else if (item.kind === 'task') onNav('tasks')
     else { setDayDetail(null); setEditingMeeting(item.raw); setShowMeetingForm(true) }
   }
 

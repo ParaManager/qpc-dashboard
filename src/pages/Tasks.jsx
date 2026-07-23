@@ -122,7 +122,7 @@ function idHash(str) {
   return Math.abs(h)
 }
 
-export default function Tasks({ profile, isMainAdmin, onNav, initTaskId }) {
+export default function Tasks({ profile, isMainAdmin, onNav }) {
   const { tx, lang } = useLang()
   const ar = lang === 'ar'
 
@@ -212,12 +212,6 @@ export default function Tasks({ profile, isMainAdmin, onNav, initTaskId }) {
   }
 
   useEffect(() => { load(); loadEligible() }, [])
-
-  useEffect(() => {
-    if (!initTaskId || tasks.length === 0) return
-    const t = tasks.find(x => String(x.id) === String(initTaskId))
-    if (t) openEdit(t)
-  }, [initTaskId, tasks])
 
   function assigneeLabel(p) {
     if (!p) return ''
