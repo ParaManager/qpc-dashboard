@@ -30,6 +30,12 @@ export function computeEventStatus(startDate, endDate, deadline) {
   return 'In Progress'
 }
 
+// Compute live status from dates; only respect 'Canceled' if manually set
+function getEventStatus(ev) {
+  if (ev.status === 'Canceled') return 'Canceled'
+  return computeEventStatus(ev.start_date, ev.end_date, ev.deadline)
+}
+
 function CatBadge({ catId, eventCategories, lang }) {
   const cat = eventCategories?.find(c => c.id === catId)
   if (!cat) return null
@@ -76,7 +82,8 @@ export default function Events({ events, athletes, results, registrations, onRef
   const statusLabelsAr = { All: 'الكل', Planning: 'قيد التخطيط', Upcoming: 'قادم', 'In Progress': 'جارٍ', Completed: 'مكتمل', Canceled: 'ملغى' }
 
   let list = events.filter(e => {
-    const matchStatus   = statusF === 'All' || e.status === statusF
+    const evStatus  = getEventStatus(e)
+    const matchStatus   = statusF === 'All' || evStatus === statusF
     const matchCategory = categoryF === 'all' || String(e.category_id) === categoryF
     const matchApproval = approvalF === 'all' || e.approval_status === approvalF
     const matchDate     = !dateFromF || (e.start_date && e.start_date >= dateFromF)
@@ -148,12 +155,13 @@ export default function Events({ events, athletes, results, registrations, onRef
   if (selected) {
     const ev = events.find(x => x.id === selected)
     if (!ev) { setSelected(null); return null }
+    const evStatus    = getEventStatus(ev)
     const regIds      = registrations.filter(r => r.event_id === ev.id).map(r => r.athlete_id)
     const regAthletes = athletes.filter(a => regIds.includes(a.id))
     const eligible    = athletes.filter(a => ev.sport && a.sport === ev.sport && !regIds.includes(a.id))
     const evResults   = results.filter(r => r.event_name === ev.name)
     const pct         = Math.round((regAthletes.length / ev.max_participants) * 100)
-    const canReg      = ['Upcoming', 'In Progress', 'Planning'].includes(ev.status)
+    const canReg      = ['Upcoming', 'In Progress', 'Planning'].includes(evStatus)
 
     const editRecord = {
       id: ev.id, name: ev.name, nameAr: ev.name_ar,
@@ -184,7 +192,7 @@ export default function Events({ events, athletes, results, registrations, onRef
             <div className="detail-profile" style={{ textAlign: 'left' }}>
               <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
                 <CatBadge catId={ev.category_id} eventCategories={eventCategories} lang={lang} />
-                <Badge label={ev.status} />
+                <Badge label={evStatus} />
                 <ApprovalBadge status={ev.approval_status} lang={lang} />
               </div>
               <div className="detail-name">{ev.name}</div>
@@ -206,11 +214,11 @@ export default function Events({ events, athletes, results, registrations, onRef
             <div className="info-card" style={{ marginTop: 12 }}>
               <div className="info-title">{tx('events.participants', 'Registration')}</div>
               <div style={{ display: 'flex', justifyContent: 'space-around', padding: '6px 0 12px' }}>
-                <div style={{ textAlign: 'center' }}><div style={{ fontSize: 22, fontWeight: 600, color: statusDot(ev.status) }}>{regAthletes.length}</div><div style={{ fontSize: 11, color: 'var(--text3)' }}>{tx('events.registered', 'Registered')}</div></div>
+                <div style={{ textAlign: 'center' }}><div style={{ fontSize: 22, fontWeight: 600, color: statusDot(evStatus) }}>{regAthletes.length}</div><div style={{ fontSize: 11, color: 'var(--text3)' }}>{tx('events.registered', 'Registered')}</div></div>
                 <div style={{ textAlign: 'center' }}><div style={{ fontSize: 22, fontWeight: 600 }}>{ev.max_participants}</div><div style={{ fontSize: 11, color: 'var(--text3)' }}>{tx('events.capacity', 'Capacity')}</div></div>
                 <div style={{ textAlign: 'center' }}><div style={{ fontSize: 22, fontWeight: 600 }}>{ev.max_participants - regAthletes.length}</div><div style={{ fontSize: 11, color: 'var(--text3)' }}>{tx('events.spotsLeft', 'Spots left')}</div></div>
               </div>
-              <div className="prog-bar" style={{ height: 7 }}><div className="prog-fill" style={{ width: `${pct}%`, background: statusDot(ev.status) }} /></div>
+              <div className="prog-bar" style={{ height: 7 }}><div className="prog-fill" style={{ width: `${pct}%`, background: statusDot(evStatus) }} /></div>
               <div className="prog-text" style={{ marginTop: 5 }}>{pct}% {tx('events.filled', 'filled')}</div>
             </div>
           </div>
@@ -317,6 +325,7 @@ export default function Events({ events, athletes, results, registrations, onRef
       </div>
 
       {list.map(ev => {
+        const evStatus = getEventStatus(ev)
         const regCount = registrations.filter(r => r.event_id === ev.id).length
         const pct = Math.round((regCount / ev.max_participants) * 100)
         return (
@@ -331,7 +340,7 @@ export default function Events({ events, athletes, results, registrations, onRef
               </div>
               <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0, marginLeft: 12, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                 <CatBadge catId={ev.category_id} eventCategories={eventCategories} lang={lang} />
-                <Badge label={ev.status} />
+                <Badge label={evStatus} />
                 <ApprovalBadge status={ev.approval_status} lang={lang} />
                 <i className="ti ti-chevron-right" style={{ color: '#ccc', fontSize: 16, marginLeft: 4 }} />
               </div>
@@ -339,7 +348,7 @@ export default function Events({ events, athletes, results, registrations, onRef
             <div className="event-bottom">
               <div className="prog-wrap">
                 <div className="prog-label">{tx('events.participants', 'Participants')}</div>
-                <div className="prog-bar"><div className="prog-fill" style={{ width: `${pct}%`, background: statusDot(ev.status) }} /></div>
+                <div className="prog-bar"><div className="prog-fill" style={{ width: `${pct}%`, background: statusDot(evStatus) }} /></div>
                 <div className="prog-text">{regCount}/{ev.max_participants} {tx('events.registered', 'registered')}</div>
               </div>
               {ev.sport && <div><div className="prog-label">{tx('events.sport', 'Sport')}</div><span className="badge badge-blue">{ev.sport}</span></div>}
