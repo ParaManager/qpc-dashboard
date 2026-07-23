@@ -838,7 +838,7 @@ export default function App() {
           {page==='resources'     && <Resources profile={profile} onRefresh={fetchAll} />}
           {page==='requests'     && <Requests  profile={profile} onNav={goTo} navState={navState} />}
           {page==='away' && isAdmin && <Away athletes={athletes} coaches={coaches} employees={employees} onNav={goTo} profile={profile} />}
-          {page==='tasks'         && <Tasks profile={profile} isMainAdmin={isMainAdmin} onNav={goTo} initTaskId={navState?.taskId} />}
+          {page==='tasks'         && <Tasks profile={profile} isMainAdmin={isMainAdmin} onNav={goTo} />}
           {page==='referees'  && isAdmin && <Referees referees={referees} onRefresh={fetchAll} profile={profile} />}
           {page==='results'   && <Results   results={results} athletes={athletes} onRefresh={fetchAll} onNav={goTo} profile={profile} />}
           {page==='sports'    && isAdmin && <Sports    athletes={athletes} coaches={coaches} events={events} results={results} onNav={goTo} initSport={navState.sport} initCategory={navState.category} profile={profile} />}
