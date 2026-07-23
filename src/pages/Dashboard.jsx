@@ -4,15 +4,13 @@ import { useLang } from '../lib/LangContext.jsx'
 import DashboardBanners from '../components/DashboardBanners'
 import { computeEventStatus } from './Events'
 
-// Derives effective display status for an event — mirrors Events.jsx getEventStatus.
-// Rejection maps to Canceled; manual Canceled is preserved; otherwise computed from dates.
+// Derives effective display status — mirrors Events.jsx getEventStatus exactly.
 function getEventStatus(ev) {
   if (ev.approval_status === 'Rejected') return 'Canceled'
   if (ev.status === 'Canceled') return 'Canceled'
   return computeEventStatus(ev.start_date, ev.end_date, ev.deadline)
 }
 
-// Role label shown under the welcome name in the hero banner
 function roleLabel(role, ar) {
   const map = { admin: ar?'مسؤول':'Administrator', coach: ar?'مدرب':'Coach', employee: ar?'موظف':'Employee', athlete: ar?'رياضي':'Athlete' }
   return map[role] || role
@@ -22,7 +20,6 @@ export default function Dashboard({ athletes, coaches, employees, referees, even
   const { tx, lang } = useLang()
   const ar = lang === 'ar'
 
-  // Resolve Arabic name from linked person record (profiles table has no name_ar column)
   const personNameAr = (() => {
     if (!profile?.person_id) return null
     const match =
@@ -32,10 +29,6 @@ export default function Dashboard({ athletes, coaches, employees, referees, even
     return match?.name_ar || null
   })()
 
-  // Pending Requests card can point to two different places (form
-  // submissions vs. account sign-ups) — when both have pending items, a
-  // small popover lets the person choose, same pattern already used by
-  // DashboardBanners' own "which one?" picker.
   const [showPendingPicker, setShowPendingPicker] = useState(false)
   const pendingPickerRef = useRef(null)
   useEffect(() => {
@@ -54,7 +47,7 @@ export default function Dashboard({ athletes, coaches, employees, referees, even
     return e.approval_status === 'Approved' && (st === 'Upcoming' || st === 'In Progress')
   }).length
 
-  // Upcoming Events list: Approved + effective status = Upcoming, sorted soonest first
+  // Upcoming Events list: Approved + effective Upcoming, sorted soonest first
   const upcomingEvents = events
     .filter(e => {
       const st = getEventStatus(e)
@@ -68,13 +61,8 @@ export default function Dashboard({ athletes, coaches, employees, referees, even
     .filter(a => (a.medals_gold+a.medals_silver+a.medals_bronze) > 0)
     .slice(0, 5)
 
-  // Away KPI count — single source of truth shared with the Away Management
-  // page (src/lib/helpers.jsx computeAwayPeople), so the two can never show
-  // different numbers for the same underlying data.
   const { allAway } = computeAwayPeople(athletes, coaches, employees, lang)
 
-  // ── Sports in use — same source data the Sports Breakdown section below
-  // uses, reused here for the "Sports" KPI card count. ──
   const sportEntries = SPORT_CATEGORIES.flatMap(category =>
     (SPORTS_BY_CATEGORY[category] || []).map(s => ({
       sport: s, category,
@@ -83,21 +71,59 @@ export default function Dashboard({ athletes, coaches, employees, referees, even
   ).filter(e => e.count > 0)
 
   const kpiCards = [
-    { label: tx('dashboard.totalAthletes','Total Athletes'), val: athletes.length, hint: `${active} ${ar ? 'نشط' : 'active'}`, color: '#0085C7', icon: 'ti-users', click: () => onNav('athletes', { statusFilter:'Active' }) },
-    { label: tx('nav.coaches','Coaches'), val: coaches.length, hint: `${[...new Set(coaches.map(c=>c.sport))].length} ${ar ? 'رياضة' : 'sports'}`, color: '#009F6B', icon: 'ti-whistle', click: () => onNav('coaches') },
-    { label: tx('nav.employees','Employees'), val: employees.length, hint: ar ? 'الموظفون' : 'staff', color: '#8b5cf6', icon: 'ti-id-badge-2', click: () => onNav('employees') },
-    { label: tx('nav.referees','Referees'), val: referees.length, hint: ar ? 'الحكام' : 'officials', color: '#f59e0b', icon: 'ti-flag-2', click: () => onNav('referees') },
-    { label: tx('dashboard.sports','Sports'), val: sportEntries.length, hint: ar ? 'قيد الاستخدام' : 'in use', color: '#0d9488', icon: 'ti-ball-football', click: () => onNav('sports') },
+    {
+      label: tx('dashboard.totalAthletes','Total Athletes'),
+      val: athletes.length,
+      hint: `${active} ${tx('status.active','active')}`,
+      color: '#0085C7', icon: 'ti-users',
+      click: () => onNav('athletes', { statusFilter:'Active' }),
+    },
+    {
+      label: tx('nav.coaches','Coaches'),
+      val: coaches.length,
+      hint: `${[...new Set(coaches.map(c=>c.sport))].length} ${tx('dashboard.sports','sports')}`,
+      color: '#009F6B', icon: 'ti-whistle',
+      click: () => onNav('coaches'),
+    },
+    {
+      label: tx('nav.employees','Employees'),
+      val: employees.length,
+      hint: tx('employees.employee','staff'),
+      color: '#8b5cf6', icon: 'ti-id-badge-2',
+      click: () => onNav('employees'),
+    },
+    {
+      label: tx('nav.referees','Referees'),
+      val: referees.length,
+      hint: tx('nav.referees','officials'),
+      color: '#f59e0b', icon: 'ti-flag-2',
+      click: () => onNav('referees'),
+    },
+    {
+      label: tx('dashboard.sports','Sports'),
+      val: sportEntries.length,
+      hint: tx('filters.all','in use'),
+      color: '#0d9488', icon: 'ti-ball-football',
+      click: () => onNav('sports'),
+    },
     {
       label: tx('dashboard.activeEvents','Active Events'),
       val: activeEventsCount,
-      hint: ar ? 'قادمة وجارية' : 'Upcoming & in progress',
+      hint: tx('dashboard.activeEventsHint','Upcoming & in progress'),
       color: '#EE334E', icon: 'ti-calendar-event',
       click: () => onNav('events', { statusFilter:'Upcoming' }),
     },
-    { label: ar ? 'خارج المقر' : 'Away', val: allAway.length, hint: ar ? 'إجازة/معسكر/منافسة' : 'leave/camp/comp.', color: '#f97316', icon: 'ti-map-pin-off',
-      click: () => onNav('away') },
-    { isPending: true, label: tx('dashboard.pendingRequests','Pending Requests'), val: pendingRequestsCount + pendingAccountsCount,
+    {
+      label: tx('dashboard.away','Away'),
+      val: allAway.length,
+      hint: tx('dashboard.awayHint','leave/camp/comp.'),
+      color: '#f97316', icon: 'ti-map-pin-off',
+      click: () => onNav('away'),
+    },
+    {
+      isPending: true,
+      label: tx('dashboard.pendingRequests','Pending Requests'),
+      val: pendingRequestsCount + pendingAccountsCount,
       hint: ar
         ? `${pendingRequestsCount} نماذج · ${pendingAccountsCount} تسجيل`
         : `${pendingRequestsCount} forms · ${pendingAccountsCount} sign-ups`,
@@ -106,7 +132,8 @@ export default function Dashboard({ athletes, coaches, employees, referees, even
         if (pendingRequestsCount > 0 && pendingAccountsCount > 0) setShowPendingPicker(v => !v)
         else if (pendingRequestsCount > 0) onNav('requests', { statusFilter:'pending' })
         else if (pendingAccountsCount > 0) onNav('users')
-      } },
+      },
+    },
   ]
 
   return (
@@ -117,24 +144,16 @@ export default function Dashboard({ athletes, coaches, employees, referees, even
         minHeight: 140, display: 'flex', alignItems: 'center',
         background: '#1a0a14',
       }}>
-        <div style={{
-          position: 'absolute', inset: 0,
-          backgroundImage: 'url(/dashboard-banner.jpg)',
-          backgroundSize: 'cover', backgroundPosition: 'center center',
-          opacity: 1,
-        }} />
-        {/* Gradient darkens the side where text appears (left in LTR, right in RTL) */}
+        <div style={{ position: 'absolute', inset: 0, backgroundImage: 'url(/dashboard-banner.jpg)', backgroundSize: 'cover', backgroundPosition: 'center center', opacity: 1 }} />
         <div style={{
           position: 'absolute', inset: 0,
           background: ar
             ? 'linear-gradient(to left, rgba(10,5,15,0.85) 0%, rgba(10,5,15,0.55) 40%, rgba(10,5,15,0.05) 65%)'
             : 'linear-gradient(to right, rgba(10,5,15,0.80) 0%, rgba(10,5,15,0.55) 40%, rgba(10,5,15,0.05) 65%)',
         }} />
-
-        {/* Content */}
         <div style={{ position: 'relative', zIndex: 1, padding: '18px 28px', flex: 1 }}>
           <div style={{ fontSize: 12, color: 'rgba(255,255,255,.5)', marginBottom: 6, fontWeight: 500 }}>
-            {tx('dashboard.welcomeBack', 'Welcome back,')}
+            {tx('dashboard.welcomeBack','Welcome back,')}
           </div>
           <div style={{ fontSize: 22, fontWeight: 700, color: '#fff', letterSpacing: '-.02em', marginBottom: 3 }}>
             {(ar ? (personNameAr || profile?.full_name) : profile?.full_name) || tx('roles.admin','Admin')}
@@ -153,7 +172,7 @@ export default function Dashboard({ athletes, coaches, employees, referees, even
 
       <DashboardBanners profile={profile} onNav={onNav} />
 
-      {/* ── 8 Compact KPI Cards ── */}
+      {/* ── KPI Cards ── */}
       <div className="kpi-grid">
         {kpiCards.map(({ label, val, hint, color, icon, click, isPending }) => (
           <div key={label} className="kpi-card" onClick={click}
@@ -203,7 +222,7 @@ export default function Dashboard({ athletes, coaches, employees, referees, even
             return (
               <DashRow key={ev.id} onClick={() => onNav('events', { eventId: ev.id })}>
                 <div style={{ width:8, height:8, borderRadius:'50%', background:statusDot(evStatus), flexShrink:0 }} />
-                <span style={{ flex:1, fontSize:13 }}>{ev.name}</span>
+                <span style={{ flex:1, fontSize:13 }}>{ar && ev.name_ar ? ev.name_ar : ev.name}</span>
                 <span style={{ fontSize:11, color:'#9aa3b2' }}>{ev.start_date}</span>
                 <span className={`badge ${statusClass(evStatus)}`}>{evStatus}</span>
               </DashRow>
