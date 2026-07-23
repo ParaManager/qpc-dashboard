@@ -1,4 +1,10 @@
 export const AR = {
+  // System-generated notification text, rebuilt live from each
+  // notification's stored `type` + `data` (never the raw stored title/
+  // body, which get permanently fixed in whichever language the admin
+  // session that generated them happened to be using). Used via tx() the
+  // same way as every other section here — English is always the literal
+  // fallback string passed at the call site, not duplicated here.
   notifTypes: {
     taskDueTomorrow: 'مهمة مستحقة غداً',
     taskDueToday: 'مهمة مستحقة اليوم',
@@ -15,33 +21,6 @@ export const AR = {
     docExpiredSince: 'منتهي منذ',
     docPassport: 'جواز السفر',
     docId: 'الرقم الشخصي',
-    // Account notifications
-    accountApproved: 'تم قبول طلب الوصول',
-    accountApprovedBody: 'تم تفعيل حسابك — يمكنك الآن تسجيل الدخول.',
-    accountRejected: 'تم رفض طلب الوصول',
-    accountRejectedBody: 'لم يتم قبول طلب حسابك.',
-    accessRequest: 'طلب وصول جديد',
-    accessRequestingAccess: 'يطلب الوصول',
-    // Request notifications
-    requestApproved: 'تمت الموافقة على الطلب',
-    requestRejected: 'تم رفض الطلب',
-    // Resource / import notifications
-    resourceAdded: 'تمت إضافة مورد جديد',
-    importSucceeded: 'نجح الاستيراد',
-    importFailed: 'فشل الاستيراد',
-    // Admin activity action verbs
-    adminActivityDeleted: 'حذف',
-    adminActivityUpdated: 'حدّث',
-    adminActivityApproved: 'اعتمد',
-    adminActivityRejected: 'رفض',
-    adminActivityCreated: 'أنشأ',
-    adminActivityAdded: 'أضاف',
-    // Admin activity entity types
-    adminEntityEmployee: 'موظف',
-    adminEntityCoach: 'مدرب',
-    adminEntityAthlete: 'رياضي',
-    adminEntityUser: 'مستخدم',
-    adminEntityReferee: 'حكم',
   },
   nav: {
     overview:'نظرة عامة', people:'الأشخاص', competitions:'المنافسات',
@@ -51,7 +30,6 @@ export const AR = {
     schedule:'الجدول الزمني', attendance:'الحضور والغياب',
     users:'إدارة المستخدمين', admin:'الإدارة', referees:'الحكام', profile:'ملفي الشخصي', settings:'الإعدادات', account:'الحساب', mycompetitions:'منافساتي',
     notifications:'الإشعارات', resources:'الموارد', tasks:'المهام', training:'التدريب', requests:'الطلبات',
-    away:'إدارة الغياب',
   },
   pages: {
     dashboard:'لوحة التحكم', athletes:'الرياضيون', coaches:'المدربون',
@@ -69,9 +47,6 @@ export const AR = {
     upcomingEvents:'الفعاليات القادمة', medalLeaders:'قادة الميداليات',
     sportsBreakdown:'تفاصيل الرياضات', clickToExplore:'انقر للاستكشاف',
     noUpcomingEvents:'لا توجد فعاليات قادمة', noResults:'لا توجد نتائج بعد',
-    sports:'الرياضات', pendingRequests:'الطلبات المعلقة',
-    welcomeBack:'مرحباً،', viewAllSports:'عرض جميع الرياضات',
-    noSportsYet:'لا يوجد رياضيون معينون لرياضة بعد',
   },
   actions: {
     add:'إضافة', edit:'تعديل', delete:'حذف', save:'حفظ', cancel:'إلغاء',
@@ -91,6 +66,8 @@ export const AR = {
     disMultiple:'إعاقات متعددة', disOther:'أخرى',
     emergencyPhone:'هاتف الطوارئ', notesPlaceholder:'أضف ملاحظات عن هذا الرياضي…',
     editMode:'وضع التعديل نشط', editModeDesc:'انقر على أي خلية للتعديل.',
+        emergencyPhone:'هاتف الطوارئ', notesPlaceholder:'أضف ملاحظات عن هذا الرياضي…',
+
     athlete:'الرياضي', sport:'الرياضة', classification:'التصنيف',
     nationality:'الجنسية', coach:'المدرب', status:'الحالة',
     medals:'الميداليات', documents:'الوثائق', gender:'الجنس',
@@ -110,7 +87,7 @@ export const AR = {
     medicalInfo:'المعلومات الطبية', clubRole:'النادي والدور',
     noCoachAssigned:'لم يتم تعيين مدرب', notRegistered:'لم يتم التسجيل في أي فعاليات بعد',
     recentResults:'النتائج الأخيرة', yearsOld:'سنة', withQPC:'مع QPC',
-    noPersonalBests:'لا توجد إنجازات مسجلة',
+    noPersonalBests:'لا توجد إنجازات مسجلة', editMode:'وضع التعديل',
     editModeDesc:'انقر على أي خلية للتعديل. يتم حفظ التغييرات معاً عند النقر على حفظ.',
     modified:'معدّل', searchAthletes:'بحث عن رياضي...',
     ofAthletes:'من الرياضيين', noAthletesMatch:'لا يوجد رياضيون مطابقون',
@@ -123,7 +100,7 @@ export const AR = {
     since:'مع QPC منذ', email:'البريد الإلكتروني', phone:'الهاتف',
     passportNumber:'رقم الجواز', passportExpiry:'انتهاء الجواز',
     idNumber:'الرقم الشخصي', idExpiry:'انتهاء الهوية',
-    coach:'المدرب', sport:'الرياضة',
+    coach:'المدرب', sport:'الرياضة', certLevel:'مستوى الشهادة',
     nationality:'الجنسية', athletes:'الرياضيون', status:'الحالة',
     employeeNum:'رقم الموظف', addCoach:'إضافة مدرب',
     backToCoaches:'العودة إلى المدربين', assignedAthletes:'الرياضيون المعينون',
@@ -159,6 +136,18 @@ export const AR = {
     registerAthlete:'تسجيل رياضي', results:'النتائج', noResults:'لا توجد نتائج مسجلة',
     noEvents:'لا توجد فعاليات مطابقة', searchEvents:'بحث عن فعالية...',
     ofEvents:'من الفعاليات',
+    // Event system refactor — new fields
+    category:'التصنيف', nameAr:'الاسم بالعربية',
+    discipline:'التخصص', deadline:'الموعد النهائي',
+    approvalStatus:'حالة الموافقة',
+    approved:'معتمد', tbc:'تحت المراجعة', canceled:'ملغى',
+    manageCategories:'إدارة التصنيفات', addCategory:'إضافة تصنيف',
+    editCategory:'تعديل التصنيف',
+    deactivateCategory:'تعطيل', activateCategory:'تفعيل',
+    allCategories:'جميع التصنيفات', allApprovals:'جميع حالات الموافقة',
+    allDisciplines:'جميع التخصصات', fromDate:'من تاريخ',
+    notes:'ملاحظات', place:'المكان',
+    categoryInactive:'معطل', categoryInUse:'مستخدم في فعالية',
   },
   results: {
     medal:'الميدالية', athlete:'الرياضي', discipline:'التخصص',
@@ -181,14 +170,18 @@ export const AR = {
   status: {
     underMedicalReview:'تحت المراجعة الطبية', 'Under Medical Review':'تحت المراجعة الطبية',
     'On Leave':'في إجازة', onLeave:'في إجازة', suspended:'موقوف',
-    active:'نشط', inactive:'غير نشط',
+        onLeave:'في إجازة', 'On Leave':'في إجازة',
+
+    active:'نشط', inactive:'غير نشط', suspended:'موقوف',
     'under medical review':'تحت المراجعة الطبية', injured:'مصاب',
     retired:'متقاعد', 'on leave':'في إجازة', upcoming:'قادم',
     completed:'مكتمل', 'registration open':'التسجيل مفتوح', planning:'قيد التخطيط',
-    'in competition':'في منافسة', 'in training camp':'في معسكر تدريبي',
   },
   medals: { gold:'ذهب', silver:'فضة', bronze:'برونز' },
   filters: {
+    always:'دائماً', mostParticipants:'أكثر مشاركين', nameZA:'الاسم ي→أ',
+        nameZA:'الاسم ي→أ', always:'دائماً', mostParticipants:'أكثر مشاركين',
+
     allSports:'جميع الرياضات', allStatuses:'جميع الحالات',
     allGenders:'جميع الأجناس', allNationalities:'جميع الجنسيات',
     allDesignations:'جميع المسميات', allCoaches:'جميع المدربين',
@@ -197,7 +190,7 @@ export const AR = {
     mostGold:'أكثر ذهب', newestMembers:'أحدث الأعضاء', oldestMembers:'أقدم الأعضاء',
     mostAthletes:'أكثر رياضيين', longestWithQPC:'الأطول مع QPC',
     dateSoonest:'التاريخ (الأقرب)', dateLatest:'التاريخ (الأبعد)',
-    newest:'الأحدث', oldest:'الأقدم', always:'دائماً', mostParticipants:'أكثر مشاركين',
+    newest:'الأحدث', oldest:'الأقدم',
   },
   profile: {
     withQPC:'مع QPC منذ', dateOfBirth:'تاريخ الميلاد', gender:'الجنس',
@@ -208,23 +201,27 @@ export const AR = {
     nationality:'الجنسية', phone:'الهاتف', email:'البريد الإلكتروني',
     joinedQPC:'تاريخ الانضمام', sport:'الرياضة', classification:'التصنيف',
     disability:'نوع الإعاقة', club:'النادي', designation:'الوظيفة',
-    residencyStatus:'الصفة',
-    emergencyName:'اسم جهة الاتصال',
+    residencyStatus:'الصفة', passportNumber:'رقم الجواز',
+    passportExpiry:'انتهاء الجواز', idNumber:'الرقم الشخصي',
+    idExpiry:'انتهاء الهوية', emergencyName:'اسم جهة الاتصال',
     emergencyRelation:'صلة القرابة', emergencyPhone:'هاتف الطوارئ',
     bloodType:'فصيلة الدم', allergies:'الحساسية',
-    medicalConditions:'الحالات الطبية',
+    medicalConditions:'الحالات الطبية', qssNumber:'رقم QSS',
     ageCategory:'الفئة العمرية', medicalStatus:'الحالة الطبية',
     careerProfile:'رقم المسار', yearsActive:'سنوات النشاط',
     noPersonalBests:'لا توجد إنجازات', yearsOld:'سنة',
-    expired:'منتهية الصلاحية',
+    certLevel:'مستوى الشهادة', employeeNum:'رقم الموظف',
+    since:'مع QPC منذ', expired:'منتهية الصلاحية',
     active:'نشط', inactive:'غير نشط',
+        withQPC:'مع QPC منذ',
+
     personalInfo:'المعلومات الشخصية', sportClassification:'الرياضة والتصنيف',
     passportID:'الجواز والهوية', emergencyContact:'جهة الاتصال في حالات الطوارئ',
     medicalInfo:'المعلومات الطبية', clubRole:'النادي والدور',
     headCoach:'المدرب الرئيسي', medalCount:'عدد الميداليات',
     personalBests:'أفضل الإنجازات', competitionHistory:'سجل المنافسات',
     notes:'ملاحظات', documents:'الوثائق', recentResults:'النتائج الأخيرة',
-    assignedAthletes:'الرياضيون المعينون', withQPC:'مع QPC',
+    assignedAthletes:'الرياضيون المعينون', yearsOld:'سنة', withQPC:'مع QPC',
     noCoachAssigned:'لم يتم تعيين مدرب', clickToView:'انقر للعرض',
     employeeInfo:'معلومات الموظف', coachInfo:'معلومات المدرب',
   },
@@ -266,11 +263,15 @@ export const AR = {
     venue:'المكان', maxParticipants:'الحد الأقصى للمشاركين', eventType:'نوع الفعالية',
     athlete:'الرياضي', medal:'الميدالية', competitionName:'اسم المنافسة',
     disciplineEvent:'التخصص', resultScore:'النتيجة', position:'الترتيب', date:'التاريخ',
-    unassigned:'غير معين',
+    unassigned:'غير معين', male:'ذكر', female:'أنثى',
     newAthlete:'رياضي جديد', newCoach:'مدرب جديد', newEvent:'فعالية جديدة', newResult:'نتيجة جديدة',
     editAthlete:'تعديل الرياضي', editCoach:'تعديل المدرب', editEvent:'تعديل الفعالية', editResult:'تعديل النتيجة',
     saveChanges:'حفظ التغييرات', addRecord:'إضافة سجل',
     required:'مطلوب', nameRequired:'الاسم مطلوب',
+    // Event form additions
+    category:'التصنيف', eventNameAr:'الاسم بالعربية (الفعالية)',
+    approvalStatus:'حالة الموافقة', discipline:'التخصص / الفعالية',
+    deadline:'الموعد النهائي', notes:'ملاحظات',
   },
   countries: {
     'Qatar':'قطر', 'Egypt':'مصر', 'Algeria':'الجزائر', 'Morocco':'المغرب',
@@ -281,7 +282,7 @@ export const AR = {
     'Pakistan':'باكستان', 'India':'الهند', 'Bangladesh':'بنغلاديش',
     'Philippines':'الفلبين', 'Indonesia':'إندونيسيا', 'Sri Lanka':'سريلانكا',
     'Nepal':'نيبال', 'Iran':'إيران', 'Turkey':'تركيا', 'Türkiye':'تركيا',
-    'Afghanistan':'أفغانستان', 'Maroc':'المغرب',
+    'Afghanistan':'أفغانستان', 'Morocco':'المغرب', 'Maroc':'المغرب',
     'Nigeria':'نيجيريا', 'Ghana':'غانا', 'Kenya':'كينيا', 'Ethiopia':'إثيوبيا',
     'Cameroon':'الكاميرون', 'Senegal':'السنغال', 'Tanzania':'تنزانيا',
     'Uganda':'أوغندا', 'Rwanda':'رواندا', 'Mali':'مالي', 'Guinea':'غينيا',
@@ -297,7 +298,7 @@ export const AR = {
     'Romania':'رومانيا', 'Hungary':'المجر', 'Czech Republic':'التشيك',
     'Serbia':'صربيا', 'Croatia':'كرواتيا', 'Slovakia':'سلوفاكيا',
     'South Africa':'جنوب أفريقيا', 'Zimbabwe':'زيمبابوي', 'Zambia':'زامبيا',
-    'Eritrea':'إريتريا', 'Mauritania':'موريتانيا',
+    'Eritrea':'إريتريا', 'Libya':'ليبيا', 'Mauritania':'موريتانيا',
     'Myanmar':'ميانمار', 'Thailand':'تايلاند', 'Vietnam':'فيتنام',
     'Malaysia':'ماليزيا', 'Singapore':'سنغافورة',
     'New Zealand':'نيوزيلندا', 'Mexico':'المكسيك', 'Colombia':'كولومبيا',
