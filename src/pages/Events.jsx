@@ -65,7 +65,6 @@ export default function Events({ events, athletes, results, registrations, onRef
   const [search, setSearch]       = useState('')
   const [categoryF, setCategoryF] = useState('all')
   const [approvalF, setApprovalF] = useState('all')
-  const [dateFromF, setDateFromF] = useState('')
   const [statusF, setStatusF]     = useState(initStatusFilter || 'All')
   const [sort, setSort]           = useState('date-asc')
   const [selected, setSelected]   = useState(initEventId || null)
@@ -86,7 +85,6 @@ export default function Events({ events, athletes, results, registrations, onRef
     const matchStatus   = statusF === 'All' || evStatus === statusF
     const matchCategory = categoryF === 'all' || String(e.category_id) === categoryF
     const matchApproval = approvalF === 'all' || e.approval_status === approvalF
-    const matchDate     = !dateFromF || (e.start_date && e.start_date >= dateFromF)
     const matchSearch   = e.name.toLowerCase().includes(search.toLowerCase())
       || (e.name_ar || '').includes(search)
       || (e.venue || '').toLowerCase().includes(search.toLowerCase())
@@ -307,7 +305,6 @@ export default function Events({ events, athletes, results, registrations, onRef
             <option key={s} value={s}>{ar ? { Approved: 'معتمد', TBC: 'تحت المراجعة', Rejected: 'مرفوض' }[s] : s}</option>
           ))}
         </select>
-        <input type="date" className="filter" value={dateFromF} onChange={e => setDateFromF(e.target.value)} style={{ maxWidth: 160 }} />
         <select className="filter" value={sort} onChange={e => setSort(e.target.value)}>
           <option value="date-asc">{tx('filters.dateSoonest', 'Date (soonest)')}</option>
           <option value="date-desc">{tx('filters.dateLatest', 'Date (latest)')}</option>
