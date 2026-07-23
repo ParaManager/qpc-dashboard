@@ -575,7 +575,7 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
       )}
       <div className="page-header">
         <div>
-          <div className="page-title">{L('Schedule','الجدول الزمني')}</div>
+          <div className="page-title">{viewOnly ? L('Schedules','الجداول الزمنية') : L('Schedule','الجدول الزمني')}</div>
           <div className="page-sub">
             {monthNames[month]} {year}
             {viewOnly && (
