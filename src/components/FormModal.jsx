@@ -5,8 +5,6 @@ import { useLang } from '../lib/LangContext.jsx'
 
 const COLORS = { athlete: '#0085C7', coach: '#009F6B', event: '#EE334E', result: '#8b5cf6' }
 
-// Nationality data now lives entirely in the shared nationalities table (see NationalitySelect.jsx / useNationalities.js) — no hardcoded country list.
-
 function Field({ label, name, type = 'text', placeholder, options, value, onChange, required, invalid }) {
   return (
     <div className="form-group" data-field={name}>
@@ -28,10 +26,6 @@ function Field({ label, name, type = 'text', placeholder, options, value, onChan
 
 function Row({ children }) { return <div className="form-row">{children}</div> }
 
-// Section now optionally collapses — only used that way for the athlete
-// form (the long single-page form the improvement request is about);
-// every other type keeps calling it with just `label`, which behaves
-// exactly as before (always expanded, no toggle affordance shown).
 function Section({ label, collapsible, open, onToggle }) {
   if (!collapsible) return <div className="form-section">{label}</div>
   return (
@@ -42,45 +36,46 @@ function Section({ label, collapsible, open, onToggle }) {
   )
 }
 
-export default function FormModal({ type, record, coaches, athletes, onSave, onClose }) {
+export default function FormModal({ type, record, coaches, athletes, onSave, onClose, eventCategories }) {
   const isEdit = !!record
   const { lang } = useLang()
   const ar = lang === 'ar'
   const [form, setForm] = useState({})
   const [saving, setSaving] = useState(false)
   const [invalidFields, setInvalidFields] = useState({})
-  // Which of the 4 athlete-form sections are currently expanded. Personal
-  // starts open (it's what you see first / most often need); the rest
-  // start collapsed to shrink the initial page height, matching the
-  // "compact collapsible sections" requirement — everything stays reachable
-  // via one click, nothing is hidden behind a multi-step wizard.
   const [openSections, setOpenSections] = useState({ personal:true, sport:false, club:false, id:false })
   function toggleSection(key) { setOpenSections(s => ({ ...s, [key]: !s[key] })) }
   const modalBodyRef = useRef(null)
 
-  // Nationality now comes entirely from the shared nationalities table via NationalitySelect — no hardcoded country list here.
-
-  // Category options (Paralympic / Special Olympics)
   const categoryOpts = SPORT_CATEGORIES.map(c => ({
     value: c,
-    label: ar ? (SPORT_CATEGORY_NAMES_AR[c]||c) : c
+    label: ar ? (SPORT_CATEGORY_NAMES_AR[c] || c) : c
   }))
 
-  // Sport options with Arabic labels — scoped to whichever category is currently
-  // selected in the form, so picking "Special Olympics" only shows its disciplines
-  // (plus the legacy flat value). Falls back to every sport if no category is set yet.
   const sportOpts = (SPORTS_BY_CATEGORY[form?.sportCategory] || SPORTS).map(s => ({
     value: s,
     label: sportLabel(s, form?.sportCategory, ar)
   }))
 
-  // Athlete designation options
+  // Event category options (dynamic, from Supabase via prop)
+  const eventCatOpts = [
+    { value: '', label: ar ? '— اختر تصنيفاً —' : '— Select category —' },
+    ...(eventCategories || []).filter(c => c.is_active).map(c => ({
+      value: String(c.id),
+      label: ar && c.name_ar ? c.name_ar : c.name,
+    })),
+  ]
+
+  const approvalOpts = ['TBC', 'Approved', 'Canceled'].map(s => ({
+    value: s,
+    label: ar ? ({ TBC:'تحت المراجعة', Approved:'معتمد', Canceled:'ملغى' }[s] || s) : s,
+  }))
+
   const athDesigOpts = ['','Player','Female Player','Coach','Female Coach','Referee','Female Referee','Admin Staff','Technical Staff','Medical Staff','Board Member','Female Board Member','Member','Female Member','Employee','Female Employee','Expert'].map(s => ({
     value: s,
     label: ar && s ? ({'Player':'لاعب','Female Player':'لاعبة','Coach':'مدرب','Female Coach':'مدربة','Referee':'حكم','Female Referee':'حكمة','Admin Staff':'جهاز إداري','Technical Staff':'جهاز في','Medical Staff':'جهاز طبي','Board Member':'عضو مجلس إدارة','Female Board Member':'عضوة مجلس إدارة','Member':'عضو','Female Member':'عضوة','Employee':'موظف','Female Employee':'موظفة','Expert':'خبير في'}[s]||s) : s
   }))
 
-  // Residency status options
   const residencyOpts = ['','Qatari Male','Qatari Female','Resident Male','Resident Female','Professional Male','Professional Female','Born in Qatar','Qatari Mother'].map(s => ({
     value: s,
     label: ar && s ? ({'Qatari Male':'قطري','Qatari Female':'قطرية','Resident Male':'مقيم','Resident Female':'مقيمة','Professional Male':'محترف','Professional Female':'محترفة','Born in Qatar':'مواليد قطر','Qatari Mother':'أم قطرية'}[s]||s) : s
@@ -92,7 +87,7 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
       const defaults = {
         athlete: { gender: 'Male', nationality: 'Qatari', sportCategory: 'Summer Paralympic', sport: SPORTS[0], status: 'Active' },
         coach:   { sportCategory: 'Summer Paralympic', sport: SPORTS[0], status: 'Active' },
-        event:   { sport: SPORTS[0], type: 'National', status: 'Planning', maxParticipants: 30 },
+        event:   { sport: '', status: 'Planning', approvalStatus: 'TBC', maxParticipants: 30 },
         result:  { medal: 'gold', position: 1 },
       }
       setForm(defaults[type] || {})
@@ -103,7 +98,6 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
   const f = (name) => ({ name, value: form[name], onChange: set })
 
   const T = {
-    // Section titles
     personalInfo:     ar ? 'المعلومات الشخصية'              : 'Personal Information',
     sportClass:       ar ? 'الرياضة والتصنيف'               : 'Sport & Classification',
     clubRole:         ar ? 'النادي والدور'                   : 'Club & Role',
@@ -113,16 +107,16 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
     employment:       ar ? 'التوظيف'                         : 'Employment',
     eventDetails:     ar ? 'تفاصيل الفعالية'                 : 'Event Details',
     resultInfo:       ar ? 'معلومات النتيجة'                 : 'Result Information',
-    // Field labels
     nameEn:           ar ? 'الاسم الكامل (إنجليزي)'          : 'Full name (English)',
     nameAr:           ar ? 'الاسم الكامل (عربي)'             : 'Full name (Arabic)',
+    eventNameAr:      ar ? 'اسم الفعالية (عربي)'             : 'Arabic name',
     dob:              ar ? 'تاريخ الميلاد'                   : 'Date of birth',
     gender:           ar ? 'الجنس'                           : 'Gender',
     nationality:      ar ? 'الجنسية'                         : 'Nationality',
     phone:            ar ? 'الهاتف'                          : 'Phone',
     email:            ar ? 'البريد الإلكتروني'               : 'Email',
     joinDate:         ar ? 'تاريخ الانضمام'                  : 'Join date',
-    sportCategory:    ar ? 'فئة الرياضة'                       : 'Sport Category',
+    sportCategory:    ar ? 'فئة الرياضة'                     : 'Sport Category',
     sport:            ar ? 'الرياضة'                         : 'Sport',
     classification:   ar ? 'التصنيف'                         : 'Classification',
     disability:       ar ? 'نوع الإعاقة'                     : 'Disability type',
@@ -142,16 +136,20 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
     idResNum:         ar ? 'رقم الهوية / الإقامة'            : 'Qatar ID / Residence number',
     empNum:           ar ? 'رقم الموظف'                      : 'Employee number',
     since:            ar ? 'تاريخ الانضمام إلى QPC'          : 'Start date with QPC',
-    eventName:        ar ? 'اسم الفعالية'                    : 'Event name',
-    eventType:        ar ? 'النوع'                           : 'Type',
-    venue:            ar ? 'المكان'                          : 'Venue',
+    eventName:        ar ? 'اسم الفعالية (إنجليزي)'          : 'Event name (English)',
+    category:         ar ? 'التصنيف'                         : 'Category',
+    approvalStatus:   ar ? 'حالة الموافقة'                   : 'Approval status',
+    discipline:       ar ? 'التخصص / الفعالية'               : 'Discipline / event',
+    venue:            ar ? 'المكان'                          : 'Venue / place',
     startDate:        ar ? 'تاريخ البداية'                   : 'Start date',
     endDate:          ar ? 'تاريخ النهاية'                   : 'End date',
+    deadline:         ar ? 'الموعد النهائي'                  : 'Deadline',
     maxPart:          ar ? 'الحد الأقصى للمشاركين'           : 'Max participants',
+    notes:            ar ? 'ملاحظات'                         : 'Notes',
     athlete:          ar ? 'الرياضي'                         : 'Athlete',
     medal:            ar ? 'الميدالية'                       : 'Medal',
     compName:         ar ? 'اسم المنافسة'                    : 'Competition name',
-    discipline:       ar ? 'التخصص'                          : 'Discipline / event',
+    resultDisc:       ar ? 'التخصص'                          : 'Discipline / event',
     result:           ar ? 'النتيجة'                         : 'Result / score',
     position:         ar ? 'الترتيب'                         : 'Position',
     date:             ar ? 'التاريخ'                         : 'Date',
@@ -159,7 +157,6 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
     save:             ar ? 'حفظ التغييرات'                   : 'Save changes',
     add:              ar ? 'إضافة'                           : 'Add record',
     cancel:           ar ? 'إلغاء'                           : 'Cancel',
-    // Dropdown options
     male:             ar ? 'ذكر'   : 'Male',
     female:           ar ? 'أنثى' : 'Female',
   }
@@ -235,11 +232,6 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
               <Row>
                 <Field label={T.sportCategory} required invalid={invalidFields.sportCategory} options={categoryOpts} {...f('sportCategory')}
                   onChange={(name, v) => {
-                    // Changing category can invalidate the currently selected
-                    // sport (it may not exist in the new category's list) —
-                    // keep it only if still valid, otherwise fall back to
-                    // that category's first sport rather than silently
-                    // leaving a now-invalid value selected.
                     const validSports = SPORTS_BY_CATEGORY[v] || SPORTS
                     setForm(p => ({ ...p, sportCategory: v, sport: validSports.includes(p.sport) ? p.sport : (validSports[0] || '') }))
                   }} />
@@ -271,10 +263,6 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
                   </select>
                 </div>
               </Row>
-              {/* Age Category / Sport Age Category are auto-computed, read-only,
-                  and already shown on the detail page — kept here only as a
-                  single compact info line instead of two full-width rows, so
-                  they don't consume unnecessary vertical space in the form. */}
               <div style={{ fontSize:11.5, color:'var(--text3)', background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:8, padding:'7px 10px', margin:'2px 0 14px', display:'flex', gap:14, flexWrap:'wrap' }}>
                 <span>{ar ? 'الفئة العمرية: تُحسب تلقائياً' : 'Age category: auto-computed'}</span>
                 <span>{ar ? 'الفئة العمرية الرياضية: تُحسب تلقائياً' : 'Sport age category: auto-computed'}</span>
@@ -389,20 +377,58 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
           {/* ── EVENT ── */}
           {type === 'event' && <>
             <Section label={T.eventDetails} />
-            <Field label={T.eventName} placeholder={ar?"مثال: بطولة قطر المفتوحة":"e.g. Qatar Open Athletics Championships"} {...f('name')} />
+
+            {/* Names */}
             <Row>
-              <Field label={T.sport} options={sportOpts} {...f('sport')} />
-              <Field label={T.eventType} options={['National','Regional','Invitational']} {...f('type')} />
+              <Field label={T.eventName} required placeholder={ar?"مثال: بطولة قطر المفتوحة":"e.g. Qatar Open Athletics Championships"} {...f('name')} />
+              <Field label={T.eventNameAr} placeholder={ar?"مثال: بطولة قطر المفتوحة":"e.g. بطولة قطر المفتوحة"} {...f('nameAr')} />
             </Row>
+
+            {/* Category + Approval status */}
+            <Row>
+              <Field label={T.category} options={eventCatOpts} {...f('categoryId')} />
+              <Field label={T.approvalStatus} options={approvalOpts} {...f('approvalStatus')} />
+            </Row>
+
+            {/* Sport + Discipline */}
+            <Row>
+              <Field label={T.sport}
+                options={[{ value:'', label: ar ? '— اختياري —' : '— Optional —' }, ...sportOpts]}
+                {...f('sport')}
+              />
+              <Field label={T.discipline} placeholder={ar?"مثال: 100م سباحة":"e.g. 100m freestyle"} {...f('discipline')} />
+            </Row>
+
+            {/* Venue */}
             <Field label={T.venue} placeholder={ar?"مثال: استاد خليفة الدولي":"e.g. Khalifa International Stadium"} {...f('venue')} />
+
+            {/* Dates */}
             <Row>
               <Field label={T.startDate} type="date" {...f('startDate')} />
               <Field label={T.endDate} type="date" {...f('endDate')} />
             </Row>
             <Row>
-              <Field label={T.maxPart} type="number" placeholder="60" {...f('maxParticipants')} />
+              <Field label={T.deadline} type="date" {...f('deadline')} />
               <Field label={T.status} options={statusOptsEvent} {...f('status')} />
             </Row>
+
+            {/* Max participants */}
+            <Row>
+              <Field label={T.maxPart} type="number" placeholder="30" {...f('maxParticipants')} />
+            </Row>
+
+            {/* Notes */}
+            <div className="form-group">
+              <label className="form-label">{T.notes}</label>
+              <textarea
+                className="form-input"
+                rows={3}
+                value={form.notes || ''}
+                onChange={e => set('notes', e.target.value)}
+                placeholder={ar ? 'ملاحظات إضافية...' : 'Additional notes...'}
+                style={{ resize:'vertical', fontFamily:'DM Sans, sans-serif' }}
+              />
+            </div>
           </>}
 
           {/* ── RESULT ── */}
@@ -414,7 +440,7 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
             </Row>
             <Field label={T.compName} placeholder={ar?"مثال: بطولة الرماية 2026":"e.g. Para Shooting Nationals 2026"} {...f('eventName')} />
             <Row>
-              <Field label={T.discipline} placeholder={ar?"مثال: 10م بندقية هواء SH1":"e.g. 10m Air Rifle SH1"} {...f('discipline')} />
+              <Field label={T.resultDisc} placeholder={ar?"مثال: 10م بندقية هواء SH1":"e.g. 10m Air Rifle SH1"} {...f('discipline')} />
               <Field label={T.result} placeholder={ar?"مثال: 248.7 نقطة":"e.g. 248.7 pts"} {...f('result')} />
             </Row>
             <Row>
@@ -430,12 +456,7 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
           <button className="btn" style={{ background: COLORS[type], opacity: saving ? .7 : 1, cursor: saving ? 'default' : 'pointer', display:'flex', alignItems:'center', gap:6 }}
             disabled={saving}
             onClick={async () => {
-              if (saving) return // prevent duplicate save clicks
-              // Only the athlete form currently has a defined required-field
-              // set (Full name, Gender, Nationality, Sport Category, Sport,
-              // Status) — every other type keeps its previous, unvalidated
-              // behavior rather than gaining new required-field enforcement
-              // it was never asked for.
+              if (saving) return
               if (type === 'athlete') {
                 const requiredMap = { name: form.name, gender: form.gender, nationality: form.nationality, sportCategory: form.sportCategory, sport: form.sport, status: form.status }
                 const bad = {}
@@ -445,9 +466,6 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
                 if (firstBadKey) {
                   const el = modalBodyRef.current?.querySelector(`[data-field="${firstBadKey}"]`)
                   if (el) {
-                    // The field's own section might be collapsed — open it
-                    // first so scrolling/focusing it actually lands somewhere
-                    // visible instead of a hidden collapsed section.
                     if (['name','gender','nationality'].includes(firstBadKey)) setOpenSections(s => ({ ...s, personal: true }))
                     if (['sportCategory','sport','status'].includes(firstBadKey)) setOpenSections(s => ({ ...s, sport: true }))
                     setTimeout(() => {
