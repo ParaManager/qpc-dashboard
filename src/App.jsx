@@ -96,6 +96,7 @@ export default function App() {
   const [employees, setEmployees]         = useState([])
   const [personDocs, setPersonDocs]         = useState([])
   const [referees, setReferees]             = useState([])
+  const [eventCategories, setEventCategories] = useState([])
   const [pendingRequestsCount, setPendingRequestsCount] = useState(0)
   const [pendingAccountsCount, setPendingAccountsCount] = useState(0)
   const [dataLoading, setDataLoading]     = useState(true)
@@ -139,7 +140,7 @@ export default function App() {
     // this block repeatedly (multiple tabs, frequent reloads, etc.) can never
     // create a duplicate, since a conflicting dedup_key is simply rejected.
 
-    const [a, c, e, r, reg, docs, emp, pdocs, refs, reqSubs, profs, tasksRes] = await Promise.all([
+   const [a, c, e, r, reg, docs, emp, pdocs, refs, reqSubs, profs, tasksRes, cats] = await Promise.all([
       supabase.from('athletes').select('*').order('name'),
       supabase.from('coaches').select('*').order('name'),
       supabase.from('events').select('*').order('start_date'),
@@ -159,6 +160,7 @@ export default function App() {
       supabase.from('profiles').select('status'),
       // Needed for the due-date reminder checks run below.
       supabase.from('tasks').select('*'),
+      supabase.from('event_categories').select('*').order('name'),
     ])
     if (a.data)    setAthletes(a.data)
     if (c.data)    setCoaches(c.data)
@@ -171,6 +173,7 @@ export default function App() {
     if (refs.data)  setReferees(refs.data)
     if (reqSubs.data) setPendingRequestsCount(reqSubs.data.filter(s => s.status === 'pending').length)
     if (profs.data)   setPendingAccountsCount(profs.data.filter(p => p.status === 'pending').length)
+    if (cats.data)   setEventCategories(cats.data)
     setDataLoading(false)
   }, [profile?.id, profile?.role, lang])
 
@@ -807,8 +810,7 @@ export default function App() {
           {page==='dashboard' && isCoach  && <CoachDashboard coach={myCoachRecord} athletes={myAthletes} events={events} results={results} onNav={goTo} profile={profile} />}
           {page==='athletes'  && <Athletes  athletes={myAthletes} coaches={coaches} employees={employees} results={results} documents={documents} events={events} registrations={registrations} onRefresh={fetchAll} onNav={goTo} initAthleteId={navState.athleteId} initStatusFilter={navState.statusFilter} navState={navState} profile={profile} />}
           {page==='coaches'   && isAdmin && <Coaches   coaches={coaches} athletes={athletes} employees={employees} personDocs={personDocs} onRefresh={fetchAll} onNav={goTo} initCoachId={navState.coachId} navState={navState} profile={profile} />}
-          {page==='events'    && <Events    events={events} athletes={athletes} results={results} registrations={registrations} onRefresh={fetchAll} onNav={goTo} initEventId={navState.eventId} initStatusFilter={navState.statusFilter} profile={profile} />}
-          {page==='schedule'  && <Schedule  key={`schedule-${refreshToken}`} profile={profile} coachId={isAdmin ? null : myCoachId} myAthletes={myAthletes} athletes={athletes} coaches={coaches} onNav={goTo} readOnly={isAthlete} viewOnly={isAdmin} athleteId={isAthlete ? myAthleteId : null} initSessionId={navState?.sessionId} initCoachFilter={navState?.coachFilter} />}
+          {page==='events' && <Events events={events} athletes={athletes} results={results} registrations={registrations} onRefresh={fetchAll} onNav={goTo} initEventId={navState.eventId} initStatusFilter={navState.statusFilter} profile={profile} eventCategories={eventCategories} />} {page==='schedule'  && <Schedule  key={`schedule-${refreshToken}`} profile={profile} coachId={isAdmin ? null : myCoachId} myAthletes={myAthletes} athletes={athletes} coaches={coaches} onNav={goTo} readOnly={isAthlete} viewOnly={isAdmin} athleteId={isAthlete ? myAthleteId : null} initSessionId={navState?.sessionId} initCoachFilter={navState?.coachFilter} />}
           {page==='attendance' && <Attendance key={`attendance-${refreshToken}`} profile={profile} coachId={isAdmin ? null : myCoachId} myAthletes={myAthletes} onNav={goTo} viewOnly={isAdmin} initSessionId={navState.sessionId} />}
           {page==='users'     && isAdmin && <UserManagement profile={profile} initUserId={navState?.userId} />}
           {page==='athlete-dashboard' && <AthleteDashboard athlete={myAthlete} coach={myCoach} results={results} events={events} registrations={registrations} onNav={goTo} profile={profile} />}
