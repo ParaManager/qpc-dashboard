@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Avatar, Badge, statusDot, DashRow } from '../lib/helpers'
+import { Avatar, Badge, statusDot, statusClass, DashRow } from '../lib/helpers'
 import FormModal from '../components/FormModal'
 import EventCategoryModal from '../components/EventCategoryModal'
 import { ConfirmModal, toast } from '../components/Toast'
@@ -10,6 +10,15 @@ import { logAdminActivity } from '../lib/adminActivity'
 import { useLang } from '../lib/LangContext.jsx'
 
 const APPROVAL_COLORS = { Approved: '#009F6B', TBC: '#f59e0b', Rejected: '#dc2626' }
+
+// Maps English status value → translation key suffix under `events.*`
+const STATUS_TX = {
+  Planning:     'planning',
+  Upcoming:     'upcoming',
+  'In Progress':'inProgress',
+  Completed:    'completed',
+  Canceled:     'canceled',
+}
 
 export function computeEventStatus(startDate, endDate, deadline) {
   const today = new Date(); today.setHours(0, 0, 0, 0)
@@ -33,6 +42,7 @@ function getEventStatus(ev) {
   return computeEventStatus(ev.start_date, ev.end_date, ev.deadline)
 }
 
+// Category badge — uses name_ar from DB via tx-agnostic prop
 function CatBadge({ catId, eventCategories, lang }) {
   const cat = eventCategories?.find(c => c.id === catId)
   if (!cat) return null
@@ -44,26 +54,31 @@ function CatBadge({ catId, eventCategories, lang }) {
   )
 }
 
-function ApprovalBadge({ status, lang }) {
+// Approval badge — uses tx() for labels
+function ApprovalBadge({ status, tx }) {
   const color = APPROVAL_COLORS[status] || '#64748b'
-  const label = lang === 'ar'
-    ? ({ Approved: 'معتمد', TBC: 'تحت المراجعة', Rejected: 'مرفوض' }[status] || status)
-    : status
+  const labelMap = { Approved: tx('events.approved', 'Approved'), TBC: tx('events.tbc', 'TBC'), Rejected: tx('events.rejected', 'Rejected') }
   return (
     <span style={{ background: color + '20', color, border: `1px solid ${color}40`, borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap' }}>
-      {label}
+      {labelMap[status] || status}
     </span>
   )
 }
 
-function PersonRow({ name, nameAr, id, subtitle, status, ar, canRemove, onRemove }) {
-  const displayName = ar && nameAr ? nameAr : name
+// Status badge — English value drives CSS class; tx() drives display label
+function StatusBadge({ status, tx }) {
+  const key = STATUS_TX[status]
+  const label = key ? tx(`events.${key}`, status) : status
+  return <span className={`badge ${statusClass(status)}`}>{label}</span>
+}
+
+function PersonRow({ name, nameAr, id, subtitle, subtitleAr, status, ar, canRemove, onRemove }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '7px 0', borderBottom: '1px solid var(--border)' }}>
       <Avatar name={name} id={id} size={30} fs={10} />
       <div style={{ flex: 1 }}>
-        <div style={{ fontSize: 13, fontWeight: 500 }}>{displayName}</div>
-        {subtitle && <div style={{ fontSize: 11, color: 'var(--text3)' }}>{subtitle}</div>}
+        <div style={{ fontSize: 13, fontWeight: 500 }}>{ar && nameAr ? nameAr : name}</div>
+        {subtitle && <div style={{ fontSize: 11, color: 'var(--text3)' }}>{ar && subtitleAr ? subtitleAr : subtitle}</div>}
       </div>
       {status && <Badge label={status} />}
       {canRemove && (
@@ -73,7 +88,7 @@ function PersonRow({ name, nameAr, id, subtitle, status, ar, canRemove, onRemove
   )
 }
 
-function OfficialsPicker({ roleKey, title, officials, employees, eventId, canEditMode, canAdd, ar, onAdd, onRemove }) {
+function OfficialsPicker({ roleKey, title, officials, employees, eventId, canEditMode, canAdd, ar, tx, onAdd, onRemove }) {
   const [adding, setAdding] = useState(false)
   const [pick, setPick]     = useState('')
   const assigned  = officials[roleKey] || []
@@ -81,26 +96,43 @@ function OfficialsPicker({ roleKey, title, officials, employees, eventId, canEdi
   return (
     <div style={{ marginBottom: 18 }}>
       <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 }}>{title}</div>
-      {assigned.length === 0 && <div className="empty" style={{ padding: '8px 0', fontSize: 12 }}>{ar ? 'لا يوجد موظفون معينون' : 'No employees assigned'}</div>}
+      {assigned.length === 0 && (
+        <div className="empty" style={{ padding: '8px 0', fontSize: 12 }}>{tx('events.noEmployeesAssigned', 'No employees assigned')}</div>
+      )}
       {assigned.map(o => {
         const emp = employees.find(e => e.id === o.employee_id)
         if (!emp) return null
-        return <PersonRow key={o.id} name={emp.name} nameAr={emp.name_ar} id={emp.id} subtitle={emp.designation||null} status={emp.status||null} ar={ar} canRemove={canEditMode} onRemove={() => onRemove(o.id)} />
+        return (
+          <PersonRow
+            key={o.id}
+            name={emp.name} nameAr={emp.name_ar}
+            id={emp.id}
+            subtitle={emp.designation || null} subtitleAr={emp.designation_ar || null}
+            status={emp.status || null}
+            ar={ar}
+            canRemove={canEditMode}
+            onRemove={() => onRemove(o.id)}
+          />
+        )
       })}
       {canAdd && canEditMode && (
         <div style={{ marginTop: 8 }}>
           {adding ? (
             <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
               <select value={pick} onChange={e => setPick(e.target.value)} style={{ fontSize: 12, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface1)', color: 'var(--text1)', flex: 1, minWidth: 0 }}>
-                <option value="">{ar ? '— اختر موظفاً —' : '— Select employee —'}</option>
+                <option value="">— {tx('events.selectEmployee', 'Select employee')} —</option>
                 {available.map(e => <option key={e.id} value={e.id}>{ar && e.name_ar ? e.name_ar : e.name}</option>)}
               </select>
-              <button onClick={async () => { if (pick) { await onAdd(eventId, parseInt(pick), roleKey); setPick(''); setAdding(false) } }} style={{ background: '#0085C7', color: '#fff', border: 'none', borderRadius: 7, padding: '4px 10px', fontSize: 12, cursor: 'pointer', flexShrink: 0 }}>{ar ? 'إضافة' : 'Add'}</button>
+              <button
+                onClick={async () => { if (pick) { await onAdd(eventId, parseInt(pick), roleKey); setPick(''); setAdding(false) } }}
+                style={{ background: '#0085C7', color: '#fff', border: 'none', borderRadius: 7, padding: '4px 10px', fontSize: 12, cursor: 'pointer', flexShrink: 0 }}>
+                {tx('actions.add', 'Add')}
+              </button>
               <button onClick={() => { setAdding(false); setPick('') }} style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--text2)', borderRadius: 6, padding: '3px 8px', fontSize: 12, cursor: 'pointer', flexShrink: 0 }}>✕</button>
             </div>
           ) : (
             <button onClick={() => setAdding(true)} style={{ background: '#0085C7', color: '#fff', border: 'none', borderRadius: 7, padding: '4px 10px', fontSize: 12, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-              <i className="ti ti-plus" style={{ fontSize: 11 }} />{ar ? 'إضافة' : 'Add'}
+              <i className="ti ti-plus" style={{ fontSize: 11 }} />{tx('actions.add', 'Add')}
             </button>
           )}
         </div>
@@ -109,7 +141,7 @@ function OfficialsPicker({ roleKey, title, officials, employees, eventId, canEdi
   )
 }
 
-// Sport → icon mapping for placeholder
+// Sport → icon mapping for card placeholder
 const SPORT_ICONS = {
   'Athletics':'ti-run','Swimming':'ti-ripple','Archery':'ti-target-arrow','Badminton':'ti-feather',
   'Boccia':'ti-disc','Canoe':'ti-anchor','Cycling':'ti-bike','Equestrian':'ti-horse-toy',
@@ -124,20 +156,15 @@ const SPORT_ICONS = {
 }
 
 function EventCardImage({ ev, eventCategories }) {
-  const cat = eventCategories?.find(c => c.id === ev.category_id)
-  const icon = SPORT_ICONS[ev.sport] || (cat?.icon) || 'ti-calendar-event'
+  const cat  = eventCategories?.find(c => c.id === ev.category_id)
+  const icon = SPORT_ICONS[ev.sport] || cat?.icon || 'ti-calendar-event'
   const bg   = cat?.color || '#0085C7'
-
   return (
     <div style={{ position: 'relative', width: '100%', paddingTop: '56.25%', overflow: 'hidden', background: bg + '18', borderRadius: '10px 10px 0 0', flexShrink: 0 }}>
       {ev.photo_url ? (
-        <img
-          src={ev.photo_url}
-          alt={ev.name}
-          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center', display: 'block' }}
-        />
+        <img src={ev.photo_url} alt={ev.name} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center', display: 'block' }} />
       ) : (
-        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <i className={`ti ${icon}`} style={{ fontSize: 36, color: bg, opacity: 0.6 }} />
         </div>
       )}
@@ -148,6 +175,7 @@ function EventCardImage({ ev, eventCategories }) {
 export default function Events({ events, athletes, results, registrations, onRefresh, onNav, initEventId, initStatusFilter, profile, eventCategories = [], employees = [] }) {
   const { lang, tx } = useLang()
   const ar = lang === 'ar'
+
   const [search, setSearch]       = useState('')
   const [categoryF, setCategoryF] = useState('all')
   const [approvalF, setApprovalF] = useState('all')
@@ -206,7 +234,7 @@ export default function Events({ events, athletes, results, registrations, onRef
       const photoUrl = data.publicUrl + '?t=' + Date.now()
       const { error: dbErr } = await supabase.from('events').update({ photo_url: photoUrl }).eq('id', eventId)
       if (dbErr) throw dbErr
-      toast(ar ? 'تم تحديث الصورة' : 'Photo updated'); await onRefresh()
+      toast(tx('events.photoUpdated', 'Photo updated')); await onRefresh()
     } catch (err) { toast(err.message || 'Upload failed', 'error') }
     finally { setPhotoUploading(false); if (photoInputRef.current) photoInputRef.current.value = '' }
   }
@@ -214,11 +242,16 @@ export default function Events({ events, athletes, results, registrations, onRef
   async function handlePhotoRemove(eventId) {
     const { error } = await supabase.from('events').update({ photo_url: null }).eq('id', eventId)
     if (error) { toast(error.message, 'error'); return }
-    toast(ar ? 'تم حذف الصورة' : 'Photo removed'); await onRefresh()
+    toast(tx('events.photoRemoved', 'Photo removed')); await onRefresh()
   }
 
   const statuses = ['All', 'Planning', 'Upcoming', 'In Progress', 'Completed', 'Canceled']
-  const statusLabelsAr = { All: 'الكل', Planning: 'قيد التخطيط', Upcoming: 'قادم', 'In Progress': 'جارٍ', Completed: 'مكتمل', Canceled: 'ملغى' }
+
+  function pillLabel(s) {
+    if (s === 'All') return tx('filters.all', 'All')
+    const key = STATUS_TX[s]
+    return key ? tx(`events.${key}`, s) : s
+  }
 
   let list = events.filter(e => {
     const evStatus      = getEventStatus(e)
@@ -313,13 +346,20 @@ export default function Events({ events, athletes, results, registrations, onRef
     }
 
     const ROLE_TITLES = {
-      head_of_delegation:   ar ? 'رئيس الوفد'    : 'Head of Delegation',
-      medical_staff:        ar ? 'الجهاز الطبي'   : 'Medical Staff',
-      coach:                ar ? 'المدربون'        : 'Coaches',
-      administrative_staff: ar ? 'الجهاز الإداري' : 'Administrative Staff',
+      head_of_delegation:   tx('events.headOfDelegation',   'Head of Delegation'),
+      medical_staff:        tx('events.medicalStaff',       'Medical Staff'),
+      coach:                tx('events.coaches',             'Coaches'),
+      administrative_staff: tx('events.administrativeStaff','Administrative Staff'),
     }
 
-    const pickerProps = { officials, employees, eventId: ev.id, canEditMode: canEditProfile, canAdd: canManageOfficials, ar, onAdd: addOfficial, onRemove: removeOfficial }
+    const pickerProps = {
+      officials, employees, eventId: ev.id,
+      canEditMode: canEditProfile,
+      canAdd: canManageOfficials,
+      ar, tx,
+      onAdd: addOfficial,
+      onRemove: removeOfficial,
+    }
 
     return (
       <div>
@@ -329,7 +369,10 @@ export default function Events({ events, athletes, results, registrations, onRef
         <input ref={photoInputRef} type="file" accept="image/*" style={{ display: 'none' }}
           onChange={e => { if (e.target.files[0]) handlePhotoUpload(ev.id, e.target.files[0]) }} />
 
-        <button className="back-btn" onClick={() => setSelected(null)}><i className="ti ti-arrow-left" /> {tx('events.backToEvents', 'Back to events')}</button>
+        <button className="back-btn" onClick={() => setSelected(null)}>
+          <i className="ti ti-arrow-left" /> {tx('events.backToEvents', 'Back to events')}
+        </button>
+
         {canEditProfile && (
           <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
             <button className="action-btn action-btn-edit" onClick={() => setForm('edit')}><i className="ti ti-pencil" /> {tx('actions.edit', 'Edit')}</button>
@@ -338,8 +381,10 @@ export default function Events({ events, athletes, results, registrations, onRef
         )}
 
         <div className="detail-grid">
+          {/* Left column */}
           <div>
             <div className="detail-profile" style={{ textAlign: 'left', padding: 0, overflow: 'hidden' }}>
+              {/* Photo */}
               <div
                 style={{ position: 'relative', width: '100%', height: ev.photo_url ? 180 : (canEditProfile ? 110 : 0), background: ev.photo_url ? 'transparent' : 'var(--surface2)', borderRadius: ev.photo_url ? '12px 12px 0 0' : 12, overflow: 'hidden', marginBottom: ev.photo_url ? 0 : (canEditProfile ? 12 : 0), cursor: canEditProfile ? 'pointer' : 'default', flexShrink: 0 }}
                 onClick={() => canEditProfile && photoInputRef.current?.click()}
@@ -349,14 +394,14 @@ export default function Events({ events, athletes, results, registrations, onRef
                 ) : canEditProfile ? (
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 6, color: 'var(--text3)' }}>
                     <i className="ti ti-photo" style={{ fontSize: 28 }} />
-                    <span style={{ fontSize: 12 }}>{ar ? 'انقر لإضافة صورة' : 'Click to add a photo'}</span>
+                    <span style={{ fontSize: 12 }}>{tx('events.addPhoto', 'Click to add a photo')}</span>
                   </div>
                 ) : null}
                 {ev.photo_url && canEditProfile && (
                   <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 6 }}>
                     <button onClick={e => { e.stopPropagation(); photoInputRef.current?.click() }}
                       style={{ background: 'rgba(0,0,0,.55)', color: '#fff', border: 'none', borderRadius: 6, padding: '4px 8px', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }} disabled={photoUploading}>
-                      <i className="ti ti-camera" style={{ fontSize: 12 }} />{ar ? 'تغيير' : 'Change'}
+                      <i className="ti ti-camera" style={{ fontSize: 12 }} />{tx('events.changePhoto', 'Change')}
                     </button>
                     <button onClick={e => { e.stopPropagation(); handlePhotoRemove(ev.id) }}
                       style={{ background: 'rgba(220,38,38,.7)', color: '#fff', border: 'none', borderRadius: 6, padding: '4px 8px', fontSize: 11, cursor: 'pointer' }}>
@@ -366,74 +411,94 @@ export default function Events({ events, athletes, results, registrations, onRef
                 )}
                 {photoUploading && (
                   <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <span style={{ color: '#fff', fontSize: 13 }}>{ar ? 'جارٍ الرفع…' : 'Uploading…'}</span>
+                    <span style={{ color: '#fff', fontSize: 13 }}>{tx('events.uploadingPhoto', 'Uploading…')}</span>
                   </div>
                 )}
               </div>
+
+              {/* Info */}
               <div style={{ padding: '16px 20px 20px' }}>
                 <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
                   <CatBadge catId={ev.category_id} eventCategories={eventCategories} lang={lang} />
-                  <Badge label={evStatus} />
-                  <ApprovalBadge status={ev.approval_status} lang={lang} />
+                  <StatusBadge status={evStatus} tx={tx} />
+                  <ApprovalBadge status={ev.approval_status} tx={tx} />
                 </div>
                 <div className="detail-name">{ev.name}</div>
                 {ev.name_ar && <div style={{ fontSize: 14, color: 'var(--text2)', marginTop: 4, direction: 'rtl' }}>{ev.name_ar}</div>}
                 <div className="detail-fields" style={{ marginTop: 16 }}>
                   {[
-                    [tx('events.venue','Venue'), ev.venue],
-                    [tx('events.startDate','Start date'), ev.start_date],
-                    [tx('events.endDate','End date'), ev.end_date],
-                    [tx('events.deadline','Deadline'), ev.deadline],
-                    [tx('events.sport','Sport'), ev.sport],
-                    [tx('events.notes','Notes'), ev.notes],
-                  ].map(([k,v]) => v ? <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv">{v}</span></div> : null)}
+                    [tx('events.venue',     'Venue'),      ev.venue],
+                    [tx('events.startDate', 'Start date'), ev.start_date],
+                    [tx('events.endDate',   'End date'),   ev.end_date],
+                    [tx('events.deadline',  'Deadline'),   ev.deadline],
+                    [tx('events.sport',     'Sport'),      ev.sport],
+                    [tx('events.notes',     'Notes'),      ev.notes],
+                  ].map(([k, v]) => v ? <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv">{v}</span></div> : null)}
                 </div>
               </div>
             </div>
           </div>
 
+          {/* Right column */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+            {/* Registered Athletes */}
             <div className="info-card">
-              <div className="info-title">{tx('events.registeredAthletes','Registered athletes')} ({regAthletes.length}) <span style={{ fontSize: 10, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>— {tx('athletes.clickToView','click to view')}</span></div>
+              <div className="info-title">
+                {tx('events.registeredAthletes', 'Registered athletes')} ({regAthletes.length})
+                <span style={{ fontSize: 10, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}> — {tx('events.clickToView', 'click to view')}</span>
+              </div>
               {regAthletes.map(a => (
                 <DashRow key={a.id} onClick={() => onNav('athletes', { athleteId: a.id })}>
                   <Avatar name={a.name} id={a.id} size={30} fs={10} />
-                  <div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 500 }}>{a.name}</div><div style={{ fontSize: 11, color: 'var(--text3)' }}>{a.classification}</div></div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 500 }}>{ar && a.name_ar ? a.name_ar : a.name}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text3)' }}>{a.classification}</div>
+                  </div>
                   <Badge label={a.status} />
-                  {canReg && <button onClick={e => { e.stopPropagation(); unregisterAthlete(ev.id, a.id) }} style={{ background: 'none', border: '1px solid #fca5a5', color: '#dc2626', borderRadius: 6, padding: '2px 8px', fontSize: 11, cursor: 'pointer', flexShrink: 0 }}>✕</button>}
+                  {canReg && (
+                    <button onClick={e => { e.stopPropagation(); unregisterAthlete(ev.id, a.id) }}
+                      style={{ background: 'none', border: '1px solid #fca5a5', color: '#dc2626', borderRadius: 6, padding: '2px 8px', fontSize: 11, cursor: 'pointer', flexShrink: 0 }}>✕</button>
+                  )}
                 </DashRow>
               ))}
-              {regAthletes.length === 0 && <div className="empty" style={{ padding: 12 }}>{tx('events.noAthletes','No athletes registered')}</div>}
+              {regAthletes.length === 0 && <div className="empty" style={{ padding: 12 }}>{tx('events.noAthletes', 'No athletes registered')}</div>}
               {canReg && eligible.length > 0 && (
                 <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
-                  <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '.05em', fontWeight: 600 }}>{tx('events.registerAthlete','Register an athlete')}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '.05em', fontWeight: 600 }}>
+                    {tx('events.registerAthlete', 'Register an athlete')}
+                  </div>
                   {eligible.map(a => (
                     <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '7px 0', borderBottom: '1px solid var(--border)' }}>
                       <Avatar name={a.name} id={a.id} size={28} fs={9} />
-                      <div style={{ flex: 1 }}><div style={{ fontSize: 13 }}>{a.name}</div><div style={{ fontSize: 11, color: 'var(--text3)' }}>{a.classification}</div></div>
-                      <button onClick={() => registerAthlete(ev.id, a.id)} style={{ background: '#0085C7', color: '#fff', border: 'none', borderRadius: 7, padding: '4px 10px', fontSize: 12, cursor: 'pointer' }}>+ {tx('actions.register','Register')}</button>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 13 }}>{ar && a.name_ar ? a.name_ar : a.name}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text3)' }}>{a.classification}</div>
+                      </div>
+                      <button onClick={() => registerAthlete(ev.id, a.id)}
+                        style={{ background: '#0085C7', color: '#fff', border: 'none', borderRadius: 7, padding: '4px 10px', fontSize: 12, cursor: 'pointer' }}>
+                        + {tx('actions.register', 'Register')}
+                      </button>
                     </div>
                   ))}
                 </div>
               )}
             </div>
 
+            {/* Officials — single card with all four roles */}
             <div className="info-card">
-              <div className="info-title">{ar ? 'المسؤولون الرسميون' : 'Team Officials'}</div>
-              <OfficialsPicker roleKey="head_of_delegation" title={ROLE_TITLES.head_of_delegation} {...pickerProps} />
-              <OfficialsPicker roleKey="medical_staff"      title={ROLE_TITLES.medical_staff}      {...pickerProps} />
-            </div>
-
-            <div className="info-card">
-              <div className="info-title">{ar ? 'المسؤولون التقنيون' : 'Technical Officials'}</div>
+              <div className="info-title">{tx('events.officials', 'Officials')}</div>
+              <OfficialsPicker roleKey="head_of_delegation"   title={ROLE_TITLES.head_of_delegation}   {...pickerProps} />
+              <OfficialsPicker roleKey="medical_staff"        title={ROLE_TITLES.medical_staff}        {...pickerProps} />
               <OfficialsPicker roleKey="coach"                title={ROLE_TITLES.coach}                {...pickerProps} />
               <OfficialsPicker roleKey="administrative_staff" title={ROLE_TITLES.administrative_staff} {...pickerProps} />
             </div>
 
+            {/* Results */}
             <div className="info-card">
-              <div className="info-title">{tx('events.results','Results')} ({evResults.length})</div>
+              <div className="info-title">{tx('events.results', 'Results')} ({evResults.length})</div>
               {evResults.length === 0
-                ? <div className="empty" style={{ padding: 16 }}>{tx('events.noResults','No results recorded')}</div>
+                ? <div className="empty" style={{ padding: 16 }}>{tx('events.noResults', 'No results recorded')}</div>
                 : evResults.map(r => {
                     const a = athletes.find(x => x.id === r.athlete_id)
                     return (
@@ -456,35 +521,16 @@ export default function Events({ events, athletes, results, registrations, onRef
   return (
     <div>
       <style>{`
-        .ev-grid {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 16px;
-          margin-top: 4px;
-        }
+        .ev-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 4px; }
         @media (max-width: 1100px) { .ev-grid { grid-template-columns: repeat(2, 1fr); } }
         @media (max-width: 600px)  { .ev-grid { grid-template-columns: 1fr; } }
-
-        .ev-gc {
-          background: var(--surface1);
-          border: 1px solid var(--border);
-          border-radius: 12px;
-          overflow: hidden;
-          cursor: pointer;
-          transition: box-shadow .15s, transform .15s;
-          display: flex;
-          flex-direction: column;
-          outline: none;
-        }
+        .ev-gc { background: var(--surface1); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; cursor: pointer; transition: box-shadow .15s, transform .15s; display: flex; flex-direction: column; outline: none; }
         .ev-gc:hover { box-shadow: 0 4px 18px rgba(0,0,0,.10); transform: translateY(-2px); }
         .ev-gc:focus-visible { box-shadow: 0 0 0 3px #0085C740; }
-
         .ev-gc-body { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
         .ev-gc-title { font-size: 14px; font-weight: 600; color: var(--text1); line-height: 1.35; word-break: break-word; }
-        .ev-gc-meta { display: flex; flex-direction: column; gap: 3px; }
         .ev-gc-meta-row { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text3); }
         .ev-gc-meta-row i { font-size: 12px; flex-shrink: 0; }
-        .ev-gc-badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
         .ev-gc-footer { display: flex; align-items: center; gap: 6px; margin-top: auto; padding-top: 8px; border-top: 1px solid var(--border); font-size: 11px; color: var(--text3); }
       `}</style>
 
@@ -493,59 +539,62 @@ export default function Events({ events, athletes, results, registrations, onRef
 
       <div className="page-header">
         <div>
-          <div className="page-title">{tx('pages.events','Events')}</div>
-          <div className="page-sub">{list.length} {tx('events.ofEvents','of')} {events.length} {tx('pages.events','events')}</div>
+          <div className="page-title">{tx('pages.events', 'Events')}</div>
+          <div className="page-sub">{list.length} {tx('events.ofEvents', 'of')} {events.length} {tx('pages.events', 'events')}</div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           {isTrustedAdmin(profile) && (
             <button className="btn" style={{ background: 'var(--surface2)', color: 'var(--text1)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 6 }} onClick={() => setShowCatModal(true)}>
-              <i className="ti ti-tag" /> {ar ? 'التصنيفات' : 'Categories'}
+              <i className="ti ti-tag" /> {tx('events.manageCategories', 'Categories')}
             </button>
           )}
           {canEdit(profile) && (
-            <button className="btn btn-red" onClick={() => setForm('new')}><i className="ti ti-plus" /> {tx('events.addEvent','New event')}</button>
+            <button className="btn btn-red" onClick={() => setForm('new')}>
+              <i className="ti ti-plus" /> {tx('events.addEvent', 'New event')}
+            </button>
           )}
         </div>
       </div>
 
       <div className="filters">
-        <div className="search-wrap"><i className="ti ti-search" /><input placeholder={tx('events.searchEvents','Search events…')} value={search} onChange={e => setSearch(e.target.value)} /></div>
+        <div className="search-wrap">
+          <i className="ti ti-search" />
+          <input placeholder={tx('events.searchEvents', 'Search events…')} value={search} onChange={e => setSearch(e.target.value)} />
+        </div>
         <select className="filter" value={categoryF} onChange={e => setCategoryF(e.target.value)}>
-          <option value="all">{ar ? 'جميع التصنيفات' : 'All categories'}</option>
+          <option value="all">{tx('events.allCategories', 'All categories')}</option>
           {eventCategories.filter(c => c.is_active).map(c => (
             <option key={c.id} value={String(c.id)}>{ar && c.name_ar ? c.name_ar : c.name}</option>
           ))}
         </select>
         <select className="filter" value={approvalF} onChange={e => setApprovalF(e.target.value)}>
-          <option value="all">{ar ? 'جميع حالات الموافقة' : 'All approvals'}</option>
-          {['Approved','TBC','Rejected'].map(s => (
-            <option key={s} value={s}>{ar ? {Approved:'معتمد',TBC:'تحت المراجعة',Rejected:'مرفوض'}[s] : s}</option>
-          ))}
+          <option value="all">{tx('events.allApprovals', 'All approvals')}</option>
+          <option value="Approved">{tx('events.approved', 'Approved')}</option>
+          <option value="TBC">{tx('events.tbc', 'TBC')}</option>
+          <option value="Rejected">{tx('events.rejected', 'Rejected')}</option>
         </select>
         <select className="filter" value={sort} onChange={e => setSort(e.target.value)}>
-          <option value="date-asc">{tx('filters.dateSoonest','Date (soonest)')}</option>
-          <option value="date-desc">{tx('filters.dateLatest','Date (latest)')}</option>
-          <option value="name-asc">{tx('filters.nameAZ','Name A→Z')}</option>
-          <option value="participants-desc">{tx('filters.mostParticipants','Most participants')}</option>
+          <option value="date-asc">{tx('filters.dateAsc', 'Date ↑')}</option>
+          <option value="date-desc">{tx('filters.dateDesc', 'Date ↓')}</option>
+          <option value="name-asc">{tx('filters.nameAZ', 'Name A→Z')}</option>
+          <option value="participants-desc">{tx('filters.mostParticipants', 'Most participants')}</option>
         </select>
       </div>
 
       <div className="pill-filters">
         {statuses.map(s => (
           <button key={s} className={`pill${s === statusF ? ' active' : ''}`} onClick={() => setStatusF(s)}>
-            {ar ? (statusLabelsAr[s] || s) : s}
+            {pillLabel(s)}
           </button>
         ))}
       </div>
 
-      {list.length === 0 && <div className="empty">{tx('events.noEvents','No events match')}</div>}
+      {list.length === 0 && <div className="empty">{tx('events.noEvents', 'No events match')}</div>}
 
       <div className="ev-grid">
         {list.map(ev => {
           const evStatus = getEventStatus(ev)
           const regCount = registrations.filter(r => r.event_id === ev.id).length
-          const cat      = eventCategories.find(c => c.id === ev.category_id)
-
           return (
             <div
               key={ev.id}
@@ -556,21 +605,17 @@ export default function Events({ events, athletes, results, registrations, onRef
               role="button"
               aria-label={ev.name}
             >
-              {/* 16:9 image */}
               <EventCardImage ev={ev} eventCategories={eventCategories} />
 
-              {/* Badge row just below image */}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, padding: '8px 12px 0' }}>
                 <CatBadge catId={ev.category_id} eventCategories={eventCategories} lang={lang} />
-                <Badge label={evStatus} />
-                <ApprovalBadge status={ev.approval_status} lang={lang} />
+                <StatusBadge status={evStatus} tx={tx} />
+                <ApprovalBadge status={ev.approval_status} tx={tx} />
               </div>
 
-              {/* Card body */}
               <div className="ev-gc-body">
-                <div className="ev-gc-title">{ev.name}</div>
-
-                <div className="ev-gc-meta">
+                <div className="ev-gc-title">{ar && ev.name_ar ? ev.name_ar : ev.name}</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                   {ev.venue && (
                     <div className="ev-gc-meta-row">
                       <i className="ti ti-map-pin" />
@@ -590,10 +635,9 @@ export default function Events({ events, athletes, results, registrations, onRef
                     </div>
                   )}
                 </div>
-
                 <div className="ev-gc-footer">
                   <i className="ti ti-users" style={{ fontSize: 12 }} />
-                  <span>{regCount} {ar ? 'مسجل' : 'registered'}</span>
+                  <span>{regCount} {tx('events.registered', 'registered')}</span>
                 </div>
               </div>
             </div>
