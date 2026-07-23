@@ -30,8 +30,8 @@ export function computeEventStatus(startDate, endDate, deadline) {
   return 'In Progress'
 }
 
-// Compute live status from dates; only respect 'Canceled' if manually set
 function getEventStatus(ev) {
+  if (ev.approval_status === 'Rejected') return 'Canceled'
   if (ev.status === 'Canceled') return 'Canceled'
   return computeEventStatus(ev.start_date, ev.end_date, ev.deadline)
 }
@@ -59,7 +59,74 @@ function ApprovalBadge({ status, lang }) {
   )
 }
 
-export default function Events({ events, athletes, results, registrations, onRefresh, onNav, initEventId, initStatusFilter, profile, eventCategories = [] }) {
+function OfficialsPicker({ roleKey, title, officials, employees, eventId, canEditMode, ar, onAdd, onRemove }) {
+  const [adding, setAdding] = useState(false)
+  const [pick, setPick] = useState('')
+
+  const assigned = officials[roleKey] || []
+  const available = employees.filter(e => !assigned.find(o => o.employee_id === e.id))
+
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 8 }}>
+        {title}
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', minHeight: 28 }}>
+        {assigned.length === 0 && !adding && (
+          <span style={{ fontSize: 12, color: 'var(--text3)' }}>{ar ? 'لا يوجد موظفون معينون' : 'No employees assigned'}</span>
+        )}
+        {assigned.map(o => {
+          const emp = employees.find(e => e.id === o.employee_id)
+          if (!emp) return null
+          return (
+            <span key={o.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 20, padding: '3px 10px 3px 8px', fontSize: 12 }}>
+              <Avatar name={emp.name} id={emp.id} size={18} fs={7} />
+              {ar && emp.name_ar ? emp.name_ar : emp.name}
+              {canEditMode && (
+                <button onClick={() => onRemove(o.id)} style={{ background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', padding: '0 0 0 2px', fontSize: 13, lineHeight: 1, display: 'flex', alignItems: 'center' }}>×</button>
+              )}
+            </span>
+          )
+        })}
+        {canEditMode && (
+          adding ? (
+            <div style={{ display: 'flex', gap: 5, alignItems: 'center', flexWrap: 'wrap' }}>
+              <select
+                value={pick}
+                onChange={e => setPick(e.target.value)}
+                style={{ fontSize: 12, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface1)', color: 'var(--text1)', maxWidth: 220 }}
+              >
+                <option value="">{ar ? '— اختر موظفاً —' : '— Select employee —'}</option>
+                {available.map(e => (
+                  <option key={e.id} value={e.id}>{ar && e.name_ar ? e.name_ar : e.name}</option>
+                ))}
+              </select>
+              <button
+                onClick={async () => { if (pick) { await onAdd(eventId, parseInt(pick), roleKey); setPick(''); setAdding(false) } }}
+                style={{ fontSize: 12, padding: '3px 10px', borderRadius: 6, background: '#0085C7', color: '#fff', border: 'none', cursor: 'pointer' }}
+              >
+                {ar ? 'إضافة' : 'Add'}
+              </button>
+              <button
+                onClick={() => { setAdding(false); setPick('') }}
+                style={{ fontSize: 12, padding: '3px 8px', borderRadius: 6, background: 'none', border: '1px solid var(--border)', color: 'var(--text2)', cursor: 'pointer' }}
+              >✕</button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setAdding(true)}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'none', border: '1px dashed var(--border)', borderRadius: 20, padding: '3px 10px', fontSize: 12, color: 'var(--text3)', cursor: 'pointer' }}
+            >
+              <i className="ti ti-plus" style={{ fontSize: 11 }} />{ar ? 'إضافة' : 'Add'}
+            </button>
+          )
+        )}
+      </div>
+    </div>
+  )
+}
+
+export default function Events({ events, athletes, results, registrations, onRefresh, onNav, initEventId, initStatusFilter, profile, eventCategories = [], employees = [] }) {
   const { lang, tx } = useLang()
   const ar = lang === 'ar'
   const [search, setSearch]       = useState('')
@@ -71,17 +138,48 @@ export default function Events({ events, athletes, results, registrations, onRef
   const [form, setForm]           = useState(null)
   const [confirm, setConfirm]     = useState(null)
   const [showCatModal, setShowCatModal] = useState(false)
+  const [officials, setOfficials] = useState({ head_of_delegation: [], medical_staff: [], coach: [], administrative_staff: [] })
 
   useEffect(() => {
     if (initEventId)      setSelected(initEventId)
     if (initStatusFilter) setStatusF(initStatusFilter)
   }, [initEventId, initStatusFilter])
 
+  useEffect(() => {
+    if (!selected) return
+    loadOfficials(selected)
+  }, [selected])
+
+  async function loadOfficials(eventId) {
+    const { data } = await supabase
+      .from('event_officials')
+      .select('id, employee_id, role')
+      .eq('event_id', eventId)
+    if (!data) return
+    const grouped = { head_of_delegation: [], medical_staff: [], coach: [], administrative_staff: [] }
+    for (const row of data) {
+      if (grouped[row.role]) grouped[row.role].push(row)
+    }
+    setOfficials(grouped)
+  }
+
+  async function addOfficial(eventId, employeeId, role) {
+    const { error } = await supabase.from('event_officials').insert({ event_id: eventId, employee_id: employeeId, role })
+    if (error) { toast(error.message, 'error'); return }
+    await loadOfficials(eventId)
+  }
+
+  async function removeOfficial(officialId) {
+    const { error } = await supabase.from('event_officials').delete().eq('id', officialId)
+    if (error) { toast(error.message, 'error'); return }
+    await loadOfficials(selected)
+  }
+
   const statuses = ['All', 'Planning', 'Upcoming', 'In Progress', 'Completed', 'Canceled']
   const statusLabelsAr = { All: 'الكل', Planning: 'قيد التخطيط', Upcoming: 'قادم', 'In Progress': 'جارٍ', Completed: 'مكتمل', Canceled: 'ملغى' }
 
   let list = events.filter(e => {
-    const evStatus  = getEventStatus(e)
+    const evStatus      = getEventStatus(e)
     const matchStatus   = statusF === 'All' || evStatus === statusF
     const matchCategory = categoryF === 'all' || String(e.category_id) === categoryF
     const matchApproval = approvalF === 'all' || e.approval_status === approvalF
@@ -102,18 +200,17 @@ export default function Events({ events, athletes, results, registrations, onRef
   async function handleSave(formData) {
     const isEdit = !!formData.id
     const payload = {
-      name:             formData.name,
-      name_ar:          formData.nameAr || null,
-      category_id:      formData.categoryId ? parseInt(formData.categoryId) : null,
-      sport:            formData.sport || null,
-      venue:            formData.venue || null,
-      start_date:       formData.startDate || null,
-      end_date:         formData.endDate || null,
-      deadline:         formData.deadline || null,
-      status:           formData.status || 'Planning',
-      approval_status:  formData.approvalStatus || 'TBC',
-      max_participants: parseInt(formData.maxParticipants) || 30,
-      notes:            formData.notes || null,
+      name:            formData.name,
+      name_ar:         formData.nameAr || null,
+      category_id:     formData.categoryId ? parseInt(formData.categoryId) : null,
+      sport:           formData.sport || null,
+      venue:           formData.venue || null,
+      start_date:      formData.startDate || null,
+      end_date:        formData.endDate || null,
+      deadline:        formData.deadline || null,
+      status:          formData.status || 'Planning',
+      approval_status: formData.approvalStatus || 'TBC',
+      notes:           formData.notes || null,
     }
     if (!payload.name) { toast(tx('form.nameRequired', 'Event name required'), 'error'); return }
     const { error } = isEdit
@@ -150,6 +247,7 @@ export default function Events({ events, athletes, results, registrations, onRef
     toast('Athlete removed'); onRefresh()
   }
 
+  // ── DETAIL VIEW ──
   if (selected) {
     const ev = events.find(x => x.id === selected)
     if (!ev) { setSelected(null); return null }
@@ -158,7 +256,6 @@ export default function Events({ events, athletes, results, registrations, onRef
     const regAthletes = athletes.filter(a => regIds.includes(a.id))
     const eligible    = athletes.filter(a => ev.sport && a.sport === ev.sport && !regIds.includes(a.id))
     const evResults   = results.filter(r => r.event_name === ev.name)
-    const pct         = Math.round((regAthletes.length / ev.max_participants) * 100)
     const canReg      = ['Upcoming', 'In Progress', 'Planning'].includes(evStatus)
 
     const editRecord = {
@@ -168,8 +265,16 @@ export default function Events({ events, athletes, results, registrations, onRef
       startDate: ev.start_date, endDate: ev.end_date,
       deadline: ev.deadline, status: ev.status,
       approvalStatus: ev.approval_status,
-      maxParticipants: ev.max_participants,
       notes: ev.notes,
+    }
+
+    const pickerProps = { officials, employees, eventId: ev.id, canEditMode: canEdit(profile), ar, onAdd: addOfficial, onRemove: removeOfficial }
+
+    const ROLE_TITLES = {
+      head_of_delegation:   ar ? 'رئيس الوفد'      : 'Head of Delegation',
+      medical_staff:        ar ? 'الجهاز الطبي'     : 'Medical Staff',
+      coach:                ar ? 'المدربون'          : 'Coaches',
+      administrative_staff: ar ? 'الجهاز الإداري'   : 'Administrative Staff',
     }
 
     return (
@@ -187,6 +292,7 @@ export default function Events({ events, athletes, results, registrations, onRef
 
         <div className="detail-grid">
           <div>
+            {/* Event info */}
             <div className="detail-profile" style={{ textAlign: 'left' }}>
               <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
                 <CatBadge catId={ev.category_id} eventCategories={eventCategories} lang={lang} />
@@ -209,19 +315,23 @@ export default function Events({ events, athletes, results, registrations, onRef
               </div>
             </div>
 
+            {/* Team Officials */}
             <div className="info-card" style={{ marginTop: 12 }}>
-              <div className="info-title">{tx('events.participants', 'Registration')}</div>
-              <div style={{ display: 'flex', justifyContent: 'space-around', padding: '6px 0 12px' }}>
-                <div style={{ textAlign: 'center' }}><div style={{ fontSize: 22, fontWeight: 600, color: statusDot(evStatus) }}>{regAthletes.length}</div><div style={{ fontSize: 11, color: 'var(--text3)' }}>{tx('events.registered', 'Registered')}</div></div>
-                <div style={{ textAlign: 'center' }}><div style={{ fontSize: 22, fontWeight: 600 }}>{ev.max_participants}</div><div style={{ fontSize: 11, color: 'var(--text3)' }}>{tx('events.capacity', 'Capacity')}</div></div>
-                <div style={{ textAlign: 'center' }}><div style={{ fontSize: 22, fontWeight: 600 }}>{ev.max_participants - regAthletes.length}</div><div style={{ fontSize: 11, color: 'var(--text3)' }}>{tx('events.spotsLeft', 'Spots left')}</div></div>
-              </div>
-              <div className="prog-bar" style={{ height: 7 }}><div className="prog-fill" style={{ width: `${pct}%`, background: statusDot(evStatus) }} /></div>
-              <div className="prog-text" style={{ marginTop: 5 }}>{pct}% {tx('events.filled', 'filled')}</div>
+              <div className="info-title">{ar ? 'المسؤولون الرسميون' : 'Team Officials'}</div>
+              <OfficialsPicker roleKey="head_of_delegation" title={ROLE_TITLES.head_of_delegation} {...pickerProps} />
+              <OfficialsPicker roleKey="medical_staff"      title={ROLE_TITLES.medical_staff}      {...pickerProps} />
+            </div>
+
+            {/* Technical Officials */}
+            <div className="info-card" style={{ marginTop: 12 }}>
+              <div className="info-title">{ar ? 'المسؤولون التقنيون' : 'Technical Officials'}</div>
+              <OfficialsPicker roleKey="coach"                title={ROLE_TITLES.coach}                {...pickerProps} />
+              <OfficialsPicker roleKey="administrative_staff" title={ROLE_TITLES.administrative_staff} {...pickerProps} />
             </div>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {/* Registered athletes */}
             <div className="info-card">
               <div className="info-title">{tx('events.registeredAthletes', 'Registered athletes')} ({regAthletes.length}) <span style={{ fontSize: 10, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>— {tx('athletes.clickToView', 'click to view')}</span></div>
               {regAthletes.map(a => (
@@ -247,6 +357,7 @@ export default function Events({ events, athletes, results, registrations, onRef
               )}
             </div>
 
+            {/* Results */}
             <div className="info-card">
               <div className="info-title">{tx('events.results', 'Results')} ({evResults.length})</div>
               {evResults.length === 0
@@ -269,6 +380,7 @@ export default function Events({ events, athletes, results, registrations, onRef
     )
   }
 
+  // ── LIST VIEW ──
   return (
     <div>
       {form && <FormModal type="event" record={null} onSave={handleSave} onClose={() => setForm(null)} eventCategories={eventCategories} />}
@@ -324,7 +436,8 @@ export default function Events({ events, athletes, results, registrations, onRef
       {list.map(ev => {
         const evStatus = getEventStatus(ev)
         const regCount = registrations.filter(r => r.event_id === ev.id).length
-        const pct = Math.round((regCount / ev.max_participants) * 100)
+        const maxPart  = ev.max_participants || 30
+        const pct      = Math.round((regCount / maxPart) * 100)
         return (
           <div key={ev.id} className="event-card" onClick={() => setSelected(ev.id)}>
             <div className="event-top">
@@ -346,7 +459,7 @@ export default function Events({ events, athletes, results, registrations, onRef
               <div className="prog-wrap">
                 <div className="prog-label">{tx('events.participants', 'Participants')}</div>
                 <div className="prog-bar"><div className="prog-fill" style={{ width: `${pct}%`, background: statusDot(evStatus) }} /></div>
-                <div className="prog-text">{regCount}/{ev.max_participants} {tx('events.registered', 'registered')}</div>
+                <div className="prog-text">{regCount}/{maxPart} {tx('events.registered', 'registered')}</div>
               </div>
               {ev.sport && <div><div className="prog-label">{tx('events.sport', 'Sport')}</div><span className="badge badge-blue">{ev.sport}</span></div>}
             </div>
