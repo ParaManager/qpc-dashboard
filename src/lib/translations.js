@@ -41,6 +41,8 @@ export const AR = {
     upcomingEvents:'الفعاليات القادمة', medalLeaders:'قادة الميداليات',
     sportsBreakdown:'تفاصيل الرياضات', clickToExplore:'انقر للاستكشاف',
     noUpcomingEvents:'لا توجد فعاليات قادمة', noResults:'لا توجد نتائج بعد',
+    sports:'الرياضات', welcomeBack:'أهلاً بك،',
+    activeEventsHint:'قادمة وجارية',
   },
   actions: {
     add:'إضافة', edit:'تعديل', delete:'حذف', save:'حفظ', cancel:'إلغاء',
@@ -92,7 +94,7 @@ export const AR = {
     passportNumber:'رقم الجواز', passportExpiry:'انتهاء الجواز',
     idNumber:'الرقم الشخصي', idExpiry:'انتهاء الهوية',
     coach:'المدرب', sport:'الرياضة',
-    nationality:'الجنسية', athletes:'الرياضيون', status:'الحالة',
+    athletes:'الرياضيون', status:'الحالة',
     employeeNum:'رقم الموظف', addCoach:'إضافة مدرب',
     backToCoaches:'العودة إلى المدربين', assignedAthletes:'الرياضيون المعينون',
     noAthletes:'لا يوجد رياضيون معينون', ofCoaches:'من المدربين',
@@ -143,6 +145,25 @@ export const AR = {
     // Other fields
     notes:'ملاحظات', nameAr:'الاسم بالعربية',
     fromDate:'من تاريخ',
+    // Officials
+    officials:'المسؤولون',
+    headOfDelegation:'رئيس الوفد',
+    medicalStaff:'الجهاز الطبي',
+    coaches:'المدربون',
+    administrativeStaff:'الجهاز الإداري',
+    noEmployeesAssigned:'لا يوجد موظفون معينون',
+    selectEmployee:'اختر موظفاً',
+    // Photo
+    addPhoto:'انقر لإضافة صورة',
+    changePhoto:'تغيير',
+    photoUpdated:'تم تحديث الصورة',
+    photoRemoved:'تم حذف الصورة',
+    uploadingPhoto:'جارٍ الرفع…',
+    // Misc
+    clickToView:'انقر للعرض',
+    noEventsMatch:'لا توجد فعاليات مطابقة',
+    of:'من',
+    eventsLabel:'فعالية',
   },
   results: {
     medal:'الميدالية', athlete:'الرياضي', discipline:'التخصص',
@@ -176,7 +197,7 @@ export const AR = {
   },
   medals: { gold:'ذهب', silver:'فضة', bronze:'برونز' },
   filters: {
-    always:'دائماً', mostParticipants:'أكثر مشاركين',
+    always:'دائماً', mostParticipants:'الأكثر مشاركة',
     allSports:'جميع الرياضات', allStatuses:'جميع الحالات',
     allGenders:'جميع الأجناس', allNationalities:'جميع الجنسيات',
     allDesignations:'جميع المسميات', allCoaches:'جميع المدربين',
@@ -185,6 +206,7 @@ export const AR = {
     mostGold:'أكثر ذهب', newestMembers:'أحدث الأعضاء', oldestMembers:'أقدم الأعضاء',
     mostAthletes:'أكثر رياضيين', longestWithQPC:'الأطول مع QPC',
     dateSoonest:'التاريخ (الأقرب)', dateLatest:'التاريخ (الأبعد)',
+    dateAsc:'التاريخ ↑', dateDesc:'التاريخ ↓',
     newest:'الأحدث', oldest:'الأقدم',
   },
   profile: {
