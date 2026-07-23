@@ -10,7 +10,7 @@ export default function MeetingFormModal({ meeting, onClose, onSaved, onDelete, 
   const L = (en, a) => ar ? a : en
   const isEdit = !!meeting
 
-  const [people, setPeople]         = useState([])
+  const [employees, setEmployees]   = useState([])
   const [search, setSearch]         = useState('')
   const [saving, setSaving]         = useState(false)
   const [form, setForm] = useState({
@@ -24,10 +24,19 @@ export default function MeetingFormModal({ meeting, onClose, onSaved, onDelete, 
   })
 
   useEffect(() => {
-    supabase.from('people').select('id, name, name_ar').order('name').then(({ data, error }) => {
-      if (error) { toast(error.message, 'error'); return }
-      setPeople(data || [])
-    })
+    // Attendees are drawn from Employees only — athletes, coach-only, and referee
+    // records are excluded unless they also have an Employees row. Meeting
+    // attendees are stored by person_id, so employees without a linked person
+    // record (person_id null) can't be selected.
+    supabase.from('employees')
+      .select('id, person_id, name, name_ar, designation, designation_ar, status')
+      .not('person_id', 'is', null)
+      .eq('is_historical', false)
+      .order('name')
+      .then(({ data, error }) => {
+        if (error) { toast(error.message, 'error'); return }
+        setEmployees(data || [])
+      })
   }, [])
 
   function toggleAttendee(id) {
@@ -75,11 +84,11 @@ export default function MeetingFormModal({ meeting, onClose, onSaved, onDelete, 
     onSaved()
   }
 
-  const filteredPeople = people.filter(p => {
+  const filteredEmployees = employees.filter(p => {
     const name = ar && p.name_ar ? p.name_ar : p.name
     return !search || (name || '').toLowerCase().includes(search.toLowerCase())
   })
-  const selectedPeople = people.filter(p => form.attendeeIds.includes(p.id))
+  const selectedEmployees = employees.filter(p => form.attendeeIds.includes(p.person_id))
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -117,29 +126,36 @@ export default function MeetingFormModal({ meeting, onClose, onSaved, onDelete, 
           </div>
           <div className="form-group">
             <label>{L('Attendees','الحضور')}</label>
-            {selectedPeople.length > 0 && (
+            {selectedEmployees.length > 0 && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
-                {selectedPeople.map(p => (
-                  <div key={p.id} onClick={() => toggleAttendee(p.id)}
+                {selectedEmployees.map(p => (
+                  <div key={p.id} onClick={() => toggleAttendee(p.person_id)}
                     style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px 3px 4px', borderRadius: 999, background: '#0085C715', color: '#0085C7', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}>
-                    <Avatar name={p.name} id={p.id} size={18} fs={9} />
+                    <Avatar name={p.name} id={p.person_id} size={18} fs={9} />
                     {ar && p.name_ar ? p.name_ar : p.name}
                     <i className="ti ti-x" style={{ fontSize: 12 }} />
                   </div>
                 ))}
               </div>
             )}
-            <input className="form-input" placeholder={L('Search people…','ابحث عن الأشخاص…')} value={search} onChange={e => setSearch(e.target.value)} />
-            <div style={{ maxHeight: 150, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 9, marginTop: 6 }}>
-              {filteredPeople.slice(0, 30).map(p => (
-                <div key={p.id} onClick={() => toggleAttendee(p.id)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', cursor: 'pointer', fontSize: 13, background: form.attendeeIds.includes(p.id) ? 'var(--surface2)' : 'transparent' }}>
-                  <Avatar name={p.name} id={p.id} size={22} fs={10} />
-                  <span>{ar && p.name_ar ? p.name_ar : p.name}</span>
-                  {form.attendeeIds.includes(p.id) && <i className="ti ti-check" style={{ marginLeft: 'auto', color: '#009F6B' }} />}
-                </div>
-              ))}
-              {filteredPeople.length === 0 && (
+            <input className="form-input" placeholder={L('Search employees…','ابحث عن الموظفين…')} value={search} onChange={e => setSearch(e.target.value)} />
+            <div style={{ maxHeight: 170, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 9, marginTop: 6 }}>
+              {filteredEmployees.slice(0, 30).map(p => {
+                const checked = form.attendeeIds.includes(p.person_id)
+                const designation = ar && p.designation_ar ? p.designation_ar : p.designation
+                return (
+                  <div key={p.id} onClick={() => toggleAttendee(p.person_id)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', cursor: 'pointer', fontSize: 13, background: checked ? 'var(--surface2)' : 'transparent' }}>
+                    <Avatar name={p.name} id={p.person_id} size={22} fs={10} />
+                    <span style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.3 }}>
+                      <span>{ar && p.name_ar ? p.name_ar : p.name}</span>
+                      {designation && <span style={{ fontSize: 11, color: 'var(--text3)' }}>{designation}</span>}
+                    </span>
+                    {checked && <i className="ti ti-check" style={{ marginLeft: 'auto', color: '#009F6B' }} />}
+                  </div>
+                )
+              })}
+              {filteredEmployees.length === 0 && (
                 <div style={{ padding: 10, fontSize: 12, color: 'var(--text3)' }}>{L('No matches','لا توجد نتائج')}</div>
               )}
             </div>
