@@ -38,7 +38,7 @@ function CatBadge({ catId, eventCategories, lang }) {
   if (!cat) return null
   const label = lang === 'ar' && cat.name_ar ? cat.name_ar : cat.name
   return (
-    <span style={{ background: cat.color + '20', color: cat.color, border: `1px solid ${cat.color}40`, borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+    <span style={{ background: cat.color + '20', color: cat.color, border: `1px solid ${cat.color}40`, borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
       <i className={`ti ${cat.icon}`} style={{ fontSize: 11 }} />{label}
     </span>
   )
@@ -50,13 +50,12 @@ function ApprovalBadge({ status, lang }) {
     ? ({ Approved: 'معتمد', TBC: 'تحت المراجعة', Rejected: 'مرفوض' }[status] || status)
     : status
   return (
-    <span style={{ background: color + '20', color, border: `1px solid ${color}40`, borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 600 }}>
+    <span style={{ background: color + '20', color, border: `1px solid ${color}40`, borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap' }}>
       {label}
     </span>
   )
 }
 
-// Shared person row — same layout as registered-athlete rows
 function PersonRow({ name, nameAr, id, subtitle, status, ar, canRemove, onRemove }) {
   const displayName = ar && nameAr ? nameAr : name
   return (
@@ -68,10 +67,7 @@ function PersonRow({ name, nameAr, id, subtitle, status, ar, canRemove, onRemove
       </div>
       {status && <Badge label={status} />}
       {canRemove && (
-        <button
-          onClick={onRemove}
-          style={{ background: 'none', border: '1px solid #fca5a5', color: '#dc2626', borderRadius: 6, padding: '2px 8px', fontSize: 11, cursor: 'pointer', flexShrink: 0 }}
-        >✕</button>
+        <button onClick={onRemove} style={{ background: 'none', border: '1px solid #fca5a5', color: '#dc2626', borderRadius: 6, padding: '2px 8px', fontSize: 11, cursor: 'pointer', flexShrink: 0 }}>✕</button>
       )}
     </div>
   )
@@ -80,73 +76,69 @@ function PersonRow({ name, nameAr, id, subtitle, status, ar, canRemove, onRemove
 function OfficialsPicker({ roleKey, title, officials, employees, eventId, canEditMode, canAdd, ar, onAdd, onRemove }) {
   const [adding, setAdding] = useState(false)
   const [pick, setPick]     = useState('')
-
-  const assigned = officials[roleKey] || []
+  const assigned  = officials[roleKey] || []
   const available = employees.filter(e => !assigned.find(o => o.employee_id === e.id))
-
   return (
     <div style={{ marginBottom: 18 }}>
-      <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 }}>
-        {title}
-      </div>
-
-      {assigned.length === 0 && (
-        <div className="empty" style={{ padding: '8px 0', fontSize: 12 }}>
-          {ar ? 'لا يوجد موظفون معينون' : 'No employees assigned'}
-        </div>
-      )}
-
+      <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 }}>{title}</div>
+      {assigned.length === 0 && <div className="empty" style={{ padding: '8px 0', fontSize: 12 }}>{ar ? 'لا يوجد موظفون معينون' : 'No employees assigned'}</div>}
       {assigned.map(o => {
         const emp = employees.find(e => e.id === o.employee_id)
         if (!emp) return null
-        return (
-          <PersonRow
-            key={o.id}
-            name={emp.name}
-            nameAr={emp.name_ar}
-            id={emp.id}
-            subtitle={emp.designation || null}
-            status={emp.status || null}
-            ar={ar}
-            canRemove={canEditMode}
-            onRemove={() => onRemove(o.id)}
-          />
-        )
+        return <PersonRow key={o.id} name={emp.name} nameAr={emp.name_ar} id={emp.id} subtitle={emp.designation||null} status={emp.status||null} ar={ar} canRemove={canEditMode} onRemove={() => onRemove(o.id)} />
       })}
-
       {canAdd && canEditMode && (
         <div style={{ marginTop: 8 }}>
           {adding ? (
             <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-              <select
-                value={pick}
-                onChange={e => setPick(e.target.value)}
-                style={{ fontSize: 12, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface1)', color: 'var(--text1)', flex: 1, minWidth: 0 }}
-              >
+              <select value={pick} onChange={e => setPick(e.target.value)} style={{ fontSize: 12, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface1)', color: 'var(--text1)', flex: 1, minWidth: 0 }}>
                 <option value="">{ar ? '— اختر موظفاً —' : '— Select employee —'}</option>
-                {available.map(e => (
-                  <option key={e.id} value={e.id}>{ar && e.name_ar ? e.name_ar : e.name}</option>
-                ))}
+                {available.map(e => <option key={e.id} value={e.id}>{ar && e.name_ar ? e.name_ar : e.name}</option>)}
               </select>
-              <button
-                onClick={async () => { if (pick) { await onAdd(eventId, parseInt(pick), roleKey); setPick(''); setAdding(false) } }}
-                style={{ background: '#0085C7', color: '#fff', border: 'none', borderRadius: 7, padding: '4px 10px', fontSize: 12, cursor: 'pointer', flexShrink: 0 }}
-              >
-                {ar ? 'إضافة' : 'Add'}
-              </button>
-              <button
-                onClick={() => { setAdding(false); setPick('') }}
-                style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--text2)', borderRadius: 6, padding: '3px 8px', fontSize: 12, cursor: 'pointer', flexShrink: 0 }}
-              >✕</button>
+              <button onClick={async () => { if (pick) { await onAdd(eventId, parseInt(pick), roleKey); setPick(''); setAdding(false) } }} style={{ background: '#0085C7', color: '#fff', border: 'none', borderRadius: 7, padding: '4px 10px', fontSize: 12, cursor: 'pointer', flexShrink: 0 }}>{ar ? 'إضافة' : 'Add'}</button>
+              <button onClick={() => { setAdding(false); setPick('') }} style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--text2)', borderRadius: 6, padding: '3px 8px', fontSize: 12, cursor: 'pointer', flexShrink: 0 }}>✕</button>
             </div>
           ) : (
-            <button
-              onClick={() => setAdding(true)}
-              style={{ background: '#0085C7', color: '#fff', border: 'none', borderRadius: 7, padding: '4px 10px', fontSize: 12, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}
-            >
+            <button onClick={() => setAdding(true)} style={{ background: '#0085C7', color: '#fff', border: 'none', borderRadius: 7, padding: '4px 10px', fontSize: 12, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
               <i className="ti ti-plus" style={{ fontSize: 11 }} />{ar ? 'إضافة' : 'Add'}
             </button>
           )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Sport → icon mapping for placeholder
+const SPORT_ICONS = {
+  'Athletics':'ti-run','Swimming':'ti-ripple','Archery':'ti-target-arrow','Badminton':'ti-feather',
+  'Boccia':'ti-disc','Canoe':'ti-anchor','Cycling':'ti-bike','Equestrian':'ti-horse-toy',
+  'Blind Football':'ti-ball-football','Goalball':'ti-ball-football','Judo':'ti-yin-yang',
+  'Powerlifting':'ti-barbell','Rowing':'ti-anchor','Shooting':'ti-target','Sitting Volleyball':'ti-ball-volleyball',
+  'Table Tennis':'ti-ping-pong','Taekwondo':'ti-yin-yang','Triathlon':'ti-run',
+  'Wheelchair Basketball':'ti-ball-basketball','Wheelchair Fencing':'ti-sword',
+  'Wheelchair Rugby':'ti-ball-american-football','Wheelchair Tennis':'ti-ball-tennis',
+  'Football':'ti-ball-football','Basketball':'ti-ball-basketball','Volleyball':'ti-ball-volleyball',
+  'Tennis':'ti-ball-tennis','Golf':'ti-golf','Gymnastics':'ti-yoga','Handball':'ti-ball-football',
+  'Bowling':'ti-disc','Softball':'ti-ball-baseball',
+}
+
+function EventCardImage({ ev, eventCategories }) {
+  const cat = eventCategories?.find(c => c.id === ev.category_id)
+  const icon = SPORT_ICONS[ev.sport] || (cat?.icon) || 'ti-calendar-event'
+  const bg   = cat?.color || '#0085C7'
+
+  return (
+    <div style={{ position: 'relative', width: '100%', paddingTop: '56.25%', overflow: 'hidden', background: bg + '18', borderRadius: '10px 10px 0 0', flexShrink: 0 }}>
+      {ev.photo_url ? (
+        <img
+          src={ev.photo_url}
+          alt={ev.name}
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center', display: 'block' }}
+        />
+      ) : (
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+          <i className={`ti ${icon}`} style={{ fontSize: 36, color: bg, opacity: 0.6 }} />
         </div>
       )}
     </div>
@@ -207,7 +199,7 @@ export default function Events({ events, athletes, results, registrations, onRef
     try {
       const ext  = file.name.split('.').pop().toLowerCase()
       const path = `${eventId}.${ext}`
-      await supabase.storage.from('event-photos').remove([`${eventId}.jpg`, `${eventId}.jpeg`, `${eventId}.png`, `${eventId}.webp`])
+      await supabase.storage.from('event-photos').remove([`${eventId}.jpg`,`${eventId}.jpeg`,`${eventId}.png`,`${eventId}.webp`])
       const { error: upErr } = await supabase.storage.from('event-photos').upload(path, file)
       if (upErr) throw upErr
       const { data } = supabase.storage.from('event-photos').getPublicUrl(path)
@@ -327,12 +319,7 @@ export default function Events({ events, athletes, results, registrations, onRef
       administrative_staff: ar ? 'الجهاز الإداري' : 'Administrative Staff',
     }
 
-    const pickerProps = {
-      officials, employees, eventId: ev.id,
-      canEditMode: canEditProfile,
-      canAdd: canManageOfficials,
-      ar, onAdd: addOfficial, onRemove: removeOfficial,
-    }
+    const pickerProps = { officials, employees, eventId: ev.id, canEditMode: canEditProfile, canAdd: canManageOfficials, ar, onAdd: addOfficial, onRemove: removeOfficial }
 
     return (
       <div>
@@ -351,7 +338,6 @@ export default function Events({ events, athletes, results, registrations, onRef
         )}
 
         <div className="detail-grid">
-          {/* Left column */}
           <div>
             <div className="detail-profile" style={{ textAlign: 'left', padding: 0, overflow: 'hidden' }}>
               <div
@@ -369,8 +355,7 @@ export default function Events({ events, athletes, results, registrations, onRef
                 {ev.photo_url && canEditProfile && (
                   <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 6 }}>
                     <button onClick={e => { e.stopPropagation(); photoInputRef.current?.click() }}
-                      style={{ background: 'rgba(0,0,0,.55)', color: '#fff', border: 'none', borderRadius: 6, padding: '4px 8px', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
-                      disabled={photoUploading}>
+                      style={{ background: 'rgba(0,0,0,.55)', color: '#fff', border: 'none', borderRadius: 6, padding: '4px 8px', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }} disabled={photoUploading}>
                       <i className="ti ti-camera" style={{ fontSize: 12 }} />{ar ? 'تغيير' : 'Change'}
                     </button>
                     <button onClick={e => { e.stopPropagation(); handlePhotoRemove(ev.id) }}
@@ -395,26 +380,21 @@ export default function Events({ events, athletes, results, registrations, onRef
                 {ev.name_ar && <div style={{ fontSize: 14, color: 'var(--text2)', marginTop: 4, direction: 'rtl' }}>{ev.name_ar}</div>}
                 <div className="detail-fields" style={{ marginTop: 16 }}>
                   {[
-                    [tx('events.venue',     'Venue'),      ev.venue],
-                    [tx('events.startDate', 'Start date'), ev.start_date],
-                    [tx('events.endDate',   'End date'),   ev.end_date],
-                    [tx('events.deadline',  'Deadline'),   ev.deadline],
-                    [tx('events.sport',     'Sport'),      ev.sport],
-                    [tx('events.notes',     'Notes'),      ev.notes],
-                  ].map(([k, v]) => v ? (
-                    <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv">{v}</span></div>
-                  ) : null)}
+                    [tx('events.venue','Venue'), ev.venue],
+                    [tx('events.startDate','Start date'), ev.start_date],
+                    [tx('events.endDate','End date'), ev.end_date],
+                    [tx('events.deadline','Deadline'), ev.deadline],
+                    [tx('events.sport','Sport'), ev.sport],
+                    [tx('events.notes','Notes'), ev.notes],
+                  ].map(([k,v]) => v ? <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv">{v}</span></div> : null)}
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Right column */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-
-            {/* Registered athletes */}
             <div className="info-card">
-              <div className="info-title">{tx('events.registeredAthletes', 'Registered athletes')} ({regAthletes.length}) <span style={{ fontSize: 10, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>— {tx('athletes.clickToView', 'click to view')}</span></div>
+              <div className="info-title">{tx('events.registeredAthletes','Registered athletes')} ({regAthletes.length}) <span style={{ fontSize: 10, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>— {tx('athletes.clickToView','click to view')}</span></div>
               {regAthletes.map(a => (
                 <DashRow key={a.id} onClick={() => onNav('athletes', { athleteId: a.id })}>
                   <Avatar name={a.name} id={a.id} size={30} fs={10} />
@@ -423,45 +403,42 @@ export default function Events({ events, athletes, results, registrations, onRef
                   {canReg && <button onClick={e => { e.stopPropagation(); unregisterAthlete(ev.id, a.id) }} style={{ background: 'none', border: '1px solid #fca5a5', color: '#dc2626', borderRadius: 6, padding: '2px 8px', fontSize: 11, cursor: 'pointer', flexShrink: 0 }}>✕</button>}
                 </DashRow>
               ))}
-              {regAthletes.length === 0 && <div className="empty" style={{ padding: 12 }}>{tx('events.noAthletes', 'No athletes registered')}</div>}
+              {regAthletes.length === 0 && <div className="empty" style={{ padding: 12 }}>{tx('events.noAthletes','No athletes registered')}</div>}
               {canReg && eligible.length > 0 && (
                 <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
-                  <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '.05em', fontWeight: 600 }}>{tx('events.registerAthlete', 'Register an athlete')}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '.05em', fontWeight: 600 }}>{tx('events.registerAthlete','Register an athlete')}</div>
                   {eligible.map(a => (
                     <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '7px 0', borderBottom: '1px solid var(--border)' }}>
                       <Avatar name={a.name} id={a.id} size={28} fs={9} />
                       <div style={{ flex: 1 }}><div style={{ fontSize: 13 }}>{a.name}</div><div style={{ fontSize: 11, color: 'var(--text3)' }}>{a.classification}</div></div>
-                      <button onClick={() => registerAthlete(ev.id, a.id)} style={{ background: '#0085C7', color: '#fff', border: 'none', borderRadius: 7, padding: '4px 10px', fontSize: 12, cursor: 'pointer' }}>+ {tx('actions.register', 'Register')}</button>
+                      <button onClick={() => registerAthlete(ev.id, a.id)} style={{ background: '#0085C7', color: '#fff', border: 'none', borderRadius: 7, padding: '4px 10px', fontSize: 12, cursor: 'pointer' }}>+ {tx('actions.register','Register')}</button>
                     </div>
                   ))}
                 </div>
               )}
             </div>
 
-            {/* Team Officials */}
             <div className="info-card">
               <div className="info-title">{ar ? 'المسؤولون الرسميون' : 'Team Officials'}</div>
               <OfficialsPicker roleKey="head_of_delegation" title={ROLE_TITLES.head_of_delegation} {...pickerProps} />
               <OfficialsPicker roleKey="medical_staff"      title={ROLE_TITLES.medical_staff}      {...pickerProps} />
             </div>
 
-            {/* Technical Officials */}
             <div className="info-card">
               <div className="info-title">{ar ? 'المسؤولون التقنيون' : 'Technical Officials'}</div>
               <OfficialsPicker roleKey="coach"                title={ROLE_TITLES.coach}                {...pickerProps} />
               <OfficialsPicker roleKey="administrative_staff" title={ROLE_TITLES.administrative_staff} {...pickerProps} />
             </div>
 
-            {/* Results */}
             <div className="info-card">
-              <div className="info-title">{tx('events.results', 'Results')} ({evResults.length})</div>
+              <div className="info-title">{tx('events.results','Results')} ({evResults.length})</div>
               {evResults.length === 0
-                ? <div className="empty" style={{ padding: 16 }}>{tx('events.noResults', 'No results recorded')}</div>
+                ? <div className="empty" style={{ padding: 16 }}>{tx('events.noResults','No results recorded')}</div>
                 : evResults.map(r => {
                     const a = athletes.find(x => x.id === r.athlete_id)
                     return (
                       <DashRow key={r.id} onClick={() => a && onNav('athletes', { athleteId: a.id })}>
-                        <span style={{ fontSize: 18, flexShrink: 0 }}>{r.medal === 'gold' ? '🥇' : r.medal === 'silver' ? '🥈' : '🥉'}</span>
+                        <span style={{ fontSize: 18, flexShrink: 0 }}>{r.medal==='gold'?'🥇':r.medal==='silver'?'🥈':'🥉'}</span>
                         <div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 500 }}>{r.athlete_name}</div><div style={{ fontSize: 11, color: 'var(--text2)' }}>{r.discipline}</div></div>
                         <span className="badge badge-blue">{r.result}</span>
                       </DashRow>
@@ -478,13 +455,46 @@ export default function Events({ events, athletes, results, registrations, onRef
   // ── LIST VIEW ──
   return (
     <div>
+      <style>{`
+        .ev-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 16px;
+          margin-top: 4px;
+        }
+        @media (max-width: 1100px) { .ev-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 600px)  { .ev-grid { grid-template-columns: 1fr; } }
+
+        .ev-gc {
+          background: var(--surface1);
+          border: 1px solid var(--border);
+          border-radius: 12px;
+          overflow: hidden;
+          cursor: pointer;
+          transition: box-shadow .15s, transform .15s;
+          display: flex;
+          flex-direction: column;
+          outline: none;
+        }
+        .ev-gc:hover { box-shadow: 0 4px 18px rgba(0,0,0,.10); transform: translateY(-2px); }
+        .ev-gc:focus-visible { box-shadow: 0 0 0 3px #0085C740; }
+
+        .ev-gc-body { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
+        .ev-gc-title { font-size: 14px; font-weight: 600; color: var(--text1); line-height: 1.35; word-break: break-word; }
+        .ev-gc-meta { display: flex; flex-direction: column; gap: 3px; }
+        .ev-gc-meta-row { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text3); }
+        .ev-gc-meta-row i { font-size: 12px; flex-shrink: 0; }
+        .ev-gc-badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
+        .ev-gc-footer { display: flex; align-items: center; gap: 6px; margin-top: auto; padding-top: 8px; border-top: 1px solid var(--border); font-size: 11px; color: var(--text3); }
+      `}</style>
+
       {form && <FormModal type="event" record={null} onSave={handleSave} onClose={() => setForm(null)} eventCategories={eventCategories} />}
       {showCatModal && <EventCategoryModal categories={eventCategories} onClose={() => setShowCatModal(false)} onRefresh={onRefresh} />}
 
       <div className="page-header">
         <div>
-          <div className="page-title">{tx('pages.events', 'Events')}</div>
-          <div className="page-sub">{list.length} {tx('events.ofEvents', 'of')} {events.length} {tx('pages.events', 'events')}</div>
+          <div className="page-title">{tx('pages.events','Events')}</div>
+          <div className="page-sub">{list.length} {tx('events.ofEvents','of')} {events.length} {tx('pages.events','events')}</div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           {isTrustedAdmin(profile) && (
@@ -493,13 +503,13 @@ export default function Events({ events, athletes, results, registrations, onRef
             </button>
           )}
           {canEdit(profile) && (
-            <button className="btn btn-red" onClick={() => setForm('new')}><i className="ti ti-plus" /> {tx('events.addEvent', 'New event')}</button>
+            <button className="btn btn-red" onClick={() => setForm('new')}><i className="ti ti-plus" /> {tx('events.addEvent','New event')}</button>
           )}
         </div>
       </div>
 
       <div className="filters">
-        <div className="search-wrap"><i className="ti ti-search" /><input placeholder={tx('events.searchEvents', 'Search events…')} value={search} onChange={e => setSearch(e.target.value)} /></div>
+        <div className="search-wrap"><i className="ti ti-search" /><input placeholder={tx('events.searchEvents','Search events…')} value={search} onChange={e => setSearch(e.target.value)} /></div>
         <select className="filter" value={categoryF} onChange={e => setCategoryF(e.target.value)}>
           <option value="all">{ar ? 'جميع التصنيفات' : 'All categories'}</option>
           {eventCategories.filter(c => c.is_active).map(c => (
@@ -508,15 +518,15 @@ export default function Events({ events, athletes, results, registrations, onRef
         </select>
         <select className="filter" value={approvalF} onChange={e => setApprovalF(e.target.value)}>
           <option value="all">{ar ? 'جميع حالات الموافقة' : 'All approvals'}</option>
-          {['Approved', 'TBC', 'Rejected'].map(s => (
-            <option key={s} value={s}>{ar ? { Approved: 'معتمد', TBC: 'تحت المراجعة', Rejected: 'مرفوض' }[s] : s}</option>
+          {['Approved','TBC','Rejected'].map(s => (
+            <option key={s} value={s}>{ar ? {Approved:'معتمد',TBC:'تحت المراجعة',Rejected:'مرفوض'}[s] : s}</option>
           ))}
         </select>
         <select className="filter" value={sort} onChange={e => setSort(e.target.value)}>
-          <option value="date-asc">{tx('filters.dateSoonest', 'Date (soonest)')}</option>
-          <option value="date-desc">{tx('filters.dateLatest', 'Date (latest)')}</option>
-          <option value="name-asc">{tx('filters.nameAZ', 'Name A→Z')}</option>
-          <option value="participants-desc">{tx('filters.mostParticipants', 'Most participants')}</option>
+          <option value="date-asc">{tx('filters.dateSoonest','Date (soonest)')}</option>
+          <option value="date-desc">{tx('filters.dateLatest','Date (latest)')}</option>
+          <option value="name-asc">{tx('filters.nameAZ','Name A→Z')}</option>
+          <option value="participants-desc">{tx('filters.mostParticipants','Most participants')}</option>
         </select>
       </div>
 
@@ -528,45 +538,68 @@ export default function Events({ events, athletes, results, registrations, onRef
         ))}
       </div>
 
-      {list.map(ev => {
-        const evStatus = getEventStatus(ev)
-        const regCount = registrations.filter(r => r.event_id === ev.id).length
-        const maxPart  = ev.max_participants || 30
-        const pct      = Math.round((regCount / maxPart) * 100)
-        return (
-          <div key={ev.id} className="event-card" onClick={() => setSelected(ev.id)} style={{ overflow: 'hidden' }}>
-            {ev.photo_url && (
-              <div style={{ height: 100, overflow: 'hidden', margin: '-1px -1px 0', borderRadius: '12px 12px 0 0' }}>
-                <img src={ev.photo_url} alt={ev.name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-              </div>
-            )}
-            <div className="event-top">
-              <div>
-                <div className="event-name">{ev.name}</div>
-                <div className="event-meta">
-                  {ev.venue && <span><i className="ti ti-map-pin" />{ev.venue}</span>}
-                  <span><i className="ti ti-calendar" />{ev.start_date}{ev.end_date && ev.end_date !== ev.start_date ? ` → ${ev.end_date}` : ''}</span>
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0, marginLeft: 12, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+      {list.length === 0 && <div className="empty">{tx('events.noEvents','No events match')}</div>}
+
+      <div className="ev-grid">
+        {list.map(ev => {
+          const evStatus = getEventStatus(ev)
+          const regCount = registrations.filter(r => r.event_id === ev.id).length
+          const cat      = eventCategories.find(c => c.id === ev.category_id)
+
+          return (
+            <div
+              key={ev.id}
+              className="ev-gc"
+              onClick={() => setSelected(ev.id)}
+              onKeyDown={e => e.key === 'Enter' && setSelected(ev.id)}
+              tabIndex={0}
+              role="button"
+              aria-label={ev.name}
+            >
+              {/* 16:9 image */}
+              <EventCardImage ev={ev} eventCategories={eventCategories} />
+
+              {/* Badge row just below image */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, padding: '8px 12px 0' }}>
                 <CatBadge catId={ev.category_id} eventCategories={eventCategories} lang={lang} />
                 <Badge label={evStatus} />
                 <ApprovalBadge status={ev.approval_status} lang={lang} />
-                <i className="ti ti-chevron-right" style={{ color: '#ccc', fontSize: 16, marginLeft: 4 }} />
+              </div>
+
+              {/* Card body */}
+              <div className="ev-gc-body">
+                <div className="ev-gc-title">{ev.name}</div>
+
+                <div className="ev-gc-meta">
+                  {ev.venue && (
+                    <div className="ev-gc-meta-row">
+                      <i className="ti ti-map-pin" />
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.venue}</span>
+                    </div>
+                  )}
+                  {ev.start_date && (
+                    <div className="ev-gc-meta-row">
+                      <i className="ti ti-calendar" />
+                      <span>{ev.start_date}{ev.end_date && ev.end_date !== ev.start_date ? ` → ${ev.end_date}` : ''}</span>
+                    </div>
+                  )}
+                  {ev.sport && (
+                    <div className="ev-gc-meta-row">
+                      <i className="ti ti-trophy" />
+                      <span>{ev.sport}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="ev-gc-footer">
+                  <i className="ti ti-users" style={{ fontSize: 12 }} />
+                  <span>{regCount} {ar ? 'مسجل' : 'registered'}</span>
+                </div>
               </div>
             </div>
-            <div className="event-bottom">
-              <div className="prog-wrap">
-                <div className="prog-label">{tx('events.participants', 'Participants')}</div>
-                <div className="prog-bar"><div className="prog-fill" style={{ width: `${pct}%`, background: statusDot(evStatus) }} /></div>
-                <div className="prog-text">{regCount}/{maxPart} {tx('events.registered', 'registered')}</div>
-              </div>
-              {ev.sport && <div><div className="prog-label">{tx('events.sport', 'Sport')}</div><span className="badge badge-blue">{ev.sport}</span></div>}
-            </div>
-          </div>
-        )
-      })}
-      {list.length === 0 && <div className="empty">{tx('events.noEvents', 'No events match')}</div>}
+          )
+        })}
+      </div>
     </div>
   )
 }
