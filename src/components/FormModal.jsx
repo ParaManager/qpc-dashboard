@@ -15,16 +15,13 @@ function computeEventStatus(startDate, endDate, deadline) {
   const start = startDate ? new Date(startDate) : null
   const effectiveEnd = endDate ? new Date(endDate) : (start ? new Date(startDate) : null)
   const dead = deadline ? new Date(deadline) : null
-
   if (!start) return 'Planning'
-
   if (dead) {
     if (today <= dead) return 'Planning'
     if (today < start) return 'Upcoming'
   } else {
     if (today < start) return 'Upcoming'
   }
-
   if (effectiveEnd && today > effectiveEnd) return 'Completed'
   return 'In Progress'
 }
@@ -60,23 +57,14 @@ function Section({ label, collapsible, open, onToggle }) {
   )
 }
 
-// Grouped sport select for event form — uses optgroups for Para / SO / Unified
 function EventSportSelect({ label, value, onChange, ar }) {
   const sn = k => ar ? (SPORT_NAMES_AR[k] || k) : k
-
-  // Para: Summer + Winter combined, deduped
   const paraSports = [...new Set([...SUMMER_PARALYMPIC_SPORTS, ...WINTER_PARALYMPIC_SPORTS])]
-  // SO: Summer + Winter combined, deduped
-  const soSports = [...new Set([...SUMMER_SPECIAL_OLYMPICS_SPORTS, ...WINTER_SPECIAL_OLYMPICS_SPORTS])]
-
+  const soSports   = [...new Set([...SUMMER_SPECIAL_OLYMPICS_SPORTS, ...WINTER_SPECIAL_OLYMPICS_SPORTS])]
   return (
     <div className="form-group">
       <label className="form-label">{label}</label>
-      <select
-        className="form-input"
-        value={value ?? ''}
-        onChange={e => onChange('sport', e.target.value)}
-      >
+      <select className="form-input" value={value ?? ''} onChange={e => onChange('sport', e.target.value)}>
         <option value="">{ar ? '— اختر رياضة —' : '— Select sport —'}</option>
         <optgroup label={ar ? 'الرياضات البارالمبية' : 'Paralympic Sports'}>
           {paraSports.map(s => <option key={s} value={s}>{sn(s)}</option>)}
@@ -103,14 +91,9 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
   function toggleSection(key) { setOpenSections(s => ({ ...s, [key]: !s[key] })) }
   const modalBodyRef = useRef(null)
 
-  const categoryOpts = SPORT_CATEGORIES.map(c => ({
-    value: c,
-    label: ar ? (SPORT_CATEGORY_NAMES_AR[c]||c) : c
-  }))
-
+  const categoryOpts = SPORT_CATEGORIES.map(c => ({ value: c, label: ar ? (SPORT_CATEGORY_NAMES_AR[c]||c) : c }))
   const sportOpts = (SPORTS_BY_CATEGORY[form?.sportCategory] || SPORTS).map(s => ({
-    value: s,
-    label: sportLabel(s, form?.sportCategory, ar)
+    value: s, label: sportLabel(s, form?.sportCategory, ar)
   }))
 
   const athDesigOpts = ['','Player','Female Player','Coach','Female Coach','Referee','Female Referee','Admin Staff','Technical Staff','Medical Staff','Board Member','Female Board Member','Member','Female Member','Employee','Female Employee','Expert'].map(s => ({
@@ -129,14 +112,13 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
       const defaults = {
         athlete: { gender: 'Male', nationality: 'Qatari', sportCategory: 'Summer Paralympic', sport: SPORTS[0], status: 'Active' },
         coach:   { sportCategory: 'Summer Paralympic', sport: SPORTS[0], status: 'Active' },
-        event:   { status: 'Planning', approvalStatus: 'TBC', maxParticipants: 30 },
+        event:   { status: 'Planning', approvalStatus: 'TBC' },
         result:  { medal: 'gold', position: 1 },
       }
       setForm(defaults[type] || {})
     }
   }, [record, type])
 
-  // Auto-compute event status when dates change
   useEffect(() => {
     if (type !== 'event') return
     const s = computeEventStatus(form.startDate, form.endDate, form.deadline)
@@ -147,118 +129,99 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
   const f = (name) => ({ name, value: form[name], onChange: set })
 
   const T = {
-    personalInfo:     ar ? 'المعلومات الشخصية'              : 'Personal Information',
-    sportClass:       ar ? 'الرياضة والتصنيف'               : 'Sport & Classification',
-    clubRole:         ar ? 'النادي والدور'                   : 'Club & Role',
-    passportID:       ar ? 'الجواز والهوية'                  : 'Passport & ID',
-    employment:       ar ? 'التوظيف'                         : 'Employment',
-    eventDetails:     ar ? 'تفاصيل الفعالية'                 : 'Event Details',
-    resultInfo:       ar ? 'معلومات النتيجة'                 : 'Result Information',
-    nameEn:           ar ? 'الاسم الكامل (إنجليزي)'          : 'Full name (English)',
-    nameAr:           ar ? 'الاسم الكامل (عربي)'             : 'Full name (Arabic)',
-    dob:              ar ? 'تاريخ الميلاد'                   : 'Date of birth',
-    gender:           ar ? 'الجنس'                           : 'Gender',
-    nationality:      ar ? 'الجنسية'                         : 'Nationality',
-    phone:            ar ? 'الهاتف'                          : 'Phone',
-    email:            ar ? 'البريد الإلكتروني'               : 'Email',
-    joinDate:         ar ? 'تاريخ الانضمام'                  : 'Join date',
-    sportCategory:    ar ? 'فئة الرياضة'                     : 'Sport Category',
-    sport:            ar ? 'الرياضة'                         : 'Sport',
-    classification:   ar ? 'التصنيف'                         : 'Classification',
-    disability:       ar ? 'نوع الإعاقة'                     : 'Disability type',
-    coach:            ar ? 'المدرب'                          : 'Coach',
-    status:           ar ? 'الحالة'                          : 'Status',
-    medicalStatus:    ar ? 'الحالة الطبية'                   : 'Medical status',
-    careerProfile:    ar ? 'رقم المسار'                      : 'Career profile #',
-    club:             ar ? 'النادي'                          : 'Club',
-    designation:      ar ? 'الوظيفة'                         : 'Designation',
-    residency:        ar ? 'الصفة'                           : 'Residency status',
-    qss:              ar ? 'رقم QSS'                         : 'QSS number',
-    passportNum:      ar ? 'رقم الجواز'                      : 'Passport number',
-    passportExp:      ar ? 'تاريخ انتهاء الجواز'             : 'Passport expiry',
-    idNum:            ar ? 'الرقم الشخصي'                    : 'Qatar ID number',
-    idExp:            ar ? 'تاريخ انتهاء الهوية'             : 'ID expiry',
-    idResNum:         ar ? 'رقم الهوية / الإقامة'            : 'Qatar ID / Residence number',
-    empNum:           ar ? 'رقم الموظف'                      : 'Employee number',
-    since:            ar ? 'تاريخ الانضمام إلى QPC'          : 'Start date with QPC',
-    eventName:        ar ? 'اسم الفعالية'                    : 'Event name',
-    eventNameAr:      ar ? 'اسم الفعالية (عربي)'             : 'Arabic name',
-    category:         ar ? 'التصنيف'                         : 'Category',
-    approvalStatus:   ar ? 'حالة الموافقة'                   : 'Approval status',
-    venue:            ar ? 'المكان'                          : 'Venue / place',
-    startDate:        ar ? 'تاريخ البداية'                   : 'Start date',
-    endDate:          ar ? 'تاريخ النهاية'                   : 'End date',
-    deadline:         ar ? 'الموعد النهائي'                  : 'Deadline',
-    maxPart:          ar ? 'الحد الأقصى للمشاركين'           : 'Max participants',
-    notes:            ar ? 'ملاحظات'                         : 'Notes',
-    athlete:          ar ? 'الرياضي'                         : 'Athlete',
-    medal:            ar ? 'الميدالية'                       : 'Medal',
-    compName:         ar ? 'اسم المنافسة'                    : 'Competition name',
-    discipline:       ar ? 'التخصص'                          : 'Discipline / event',
-    result:           ar ? 'النتيجة'                         : 'Result / score',
-    position:         ar ? 'الترتيب'                         : 'Position',
-    date:             ar ? 'التاريخ'                         : 'Date',
-    unassigned:       ar ? 'غير معين'                        : 'Unassigned',
-    save:             ar ? 'حفظ التغييرات'                   : 'Save changes',
-    add:              ar ? 'إضافة'                           : 'Add record',
-    cancel:           ar ? 'إلغاء'                           : 'Cancel',
-    male:             ar ? 'ذكر'   : 'Male',
-    female:           ar ? 'أنثى' : 'Female',
+    personalInfo:   ar ? 'المعلومات الشخصية'    : 'Personal Information',
+    sportClass:     ar ? 'الرياضة والتصنيف'     : 'Sport & Classification',
+    clubRole:       ar ? 'النادي والدور'         : 'Club & Role',
+    passportID:     ar ? 'الجواز والهوية'        : 'Passport & ID',
+    employment:     ar ? 'التوظيف'               : 'Employment',
+    eventDetails:   ar ? 'تفاصيل الفعالية'       : 'Event Details',
+    resultInfo:     ar ? 'معلومات النتيجة'       : 'Result Information',
+    nameEn:         ar ? 'الاسم الكامل (إنجليزي)': 'Full name (English)',
+    nameAr:         ar ? 'الاسم الكامل (عربي)'   : 'Full name (Arabic)',
+    dob:            ar ? 'تاريخ الميلاد'         : 'Date of birth',
+    gender:         ar ? 'الجنس'                 : 'Gender',
+    nationality:    ar ? 'الجنسية'               : 'Nationality',
+    phone:          ar ? 'الهاتف'                : 'Phone',
+    email:          ar ? 'البريد الإلكتروني'     : 'Email',
+    joinDate:       ar ? 'تاريخ الانضمام'        : 'Join date',
+    sportCategory:  ar ? 'فئة الرياضة'           : 'Sport Category',
+    sport:          ar ? 'الرياضة'               : 'Sport',
+    classification: ar ? 'التصنيف'               : 'Classification',
+    disability:     ar ? 'نوع الإعاقة'           : 'Disability type',
+    coach:          ar ? 'المدرب'                : 'Coach',
+    status:         ar ? 'الحالة'                : 'Status',
+    medicalStatus:  ar ? 'الحالة الطبية'         : 'Medical status',
+    careerProfile:  ar ? 'رقم المسار'            : 'Career profile #',
+    club:           ar ? 'النادي'                : 'Club',
+    designation:    ar ? 'الوظيفة'               : 'Designation',
+    residency:      ar ? 'الصفة'                 : 'Residency status',
+    qss:            ar ? 'رقم QSS'               : 'QSS number',
+    passportNum:    ar ? 'رقم الجواز'            : 'Passport number',
+    passportExp:    ar ? 'تاريخ انتهاء الجواز'   : 'Passport expiry',
+    idNum:          ar ? 'الرقم الشخصي'          : 'Qatar ID number',
+    idExp:          ar ? 'تاريخ انتهاء الهوية'   : 'ID expiry',
+    idResNum:       ar ? 'رقم الهوية / الإقامة'  : 'Qatar ID / Residence number',
+    empNum:         ar ? 'رقم الموظف'            : 'Employee number',
+    since:          ar ? 'تاريخ الانضمام إلى QPC': 'Start date with QPC',
+    eventName:      ar ? 'اسم الفعالية'          : 'Event name',
+    eventNameAr:    ar ? 'اسم الفعالية (عربي)'   : 'Arabic name',
+    category:       ar ? 'التصنيف'               : 'Category',
+    approvalStatus: ar ? 'حالة الموافقة'         : 'Approval status',
+    venue:          ar ? 'المكان'                : 'Venue / place',
+    startDate:      ar ? 'تاريخ البداية'         : 'Start date',
+    endDate:        ar ? 'تاريخ النهاية'         : 'End date',
+    deadline:       ar ? 'الموعد النهائي'        : 'Deadline',
+    notes:          ar ? 'ملاحظات'               : 'Notes',
+    athlete:        ar ? 'الرياضي'               : 'Athlete',
+    medal:          ar ? 'الميدالية'             : 'Medal',
+    compName:       ar ? 'اسم المنافسة'          : 'Competition name',
+    discipline:     ar ? 'التخصص'               : 'Discipline / event',
+    result:         ar ? 'النتيجة'               : 'Result / score',
+    position:       ar ? 'الترتيب'              : 'Position',
+    date:           ar ? 'التاريخ'              : 'Date',
+    unassigned:     ar ? 'غير معين'             : 'Unassigned',
+    save:           ar ? 'حفظ التغييرات'        : 'Save changes',
+    add:            ar ? 'إضافة'                : 'Add record',
+    cancel:         ar ? 'إلغاء'               : 'Cancel',
+    male:           ar ? 'ذكر'                 : 'Male',
+    female:         ar ? 'أنثى'               : 'Female',
   }
 
-  const typeLabel = {
-    athlete: ar ? 'رياضي'  : 'Athlete',
-    coach:   ar ? 'مدرب'   : 'Coach',
-    event:   ar ? 'فعالية' : 'Event',
-    result:  ar ? 'نتيجة'  : 'Result',
-  }
-
+  const typeLabel = { athlete: ar?'رياضي':'Athlete', coach: ar?'مدرب':'Coach', event: ar?'فعالية':'Event', result: ar?'نتيجة':'Result' }
   const genderOpts      = [{ value:'Male', label: T.male }, { value:'Female', label: T.female }]
   const genderOptsEmpty = [{ value:'', label:'' }, ...genderOpts]
-
-  const DATE_STATUSES = ['On Leave','In Competition','In Training Camp']
+  const DATE_STATUSES   = ['On Leave','In Competition','In Training Camp']
 
   const statusOptsAthlete = ['','Active','On Leave','In Competition','In Training Camp','Inactive','Injured','Under Medical Review','Suspended','Retired'].map(s => ({
-    value: s,
-    label: s === '' ? '' : ar ? {'Active':'نشط','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي','Inactive':'غير نشط','Injured':'مصاب','Under Medical Review':'تحت المراجعة الطبية','Suspended':'موقوف','Retired':'متقاعد'}[s]||s : s
+    value: s, label: s===''?'': ar?({'Active':'نشط','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي','Inactive':'غير نشط','Injured':'مصاب','Under Medical Review':'تحت المراجعة الطبية','Suspended':'موقوف','Retired':'متقاعد'}[s]||s):s
   }))
-
   const statusOptsCoach = ['Active','On Leave','In Competition','In Training Camp','Inactive','Retired'].map(s => ({
-    value: s, label: ar ? {'Active':'نشط','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي','Inactive':'غير نشط','Retired':'متقاعد'}[s]||s : s
+    value: s, label: ar?({'Active':'نشط','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي','Inactive':'غير نشط','Retired':'متقاعد'}[s]||s):s
   }))
-
   const statusOptsEvent = ['Planning','Upcoming','In Progress','Completed','Canceled'].map(s => ({
-    value: s, label: ar ? {'Planning':'قيد التخطيط','Upcoming':'قادم','In Progress':'جارٍ','Completed':'مكتمل','Canceled':'ملغى'}[s]||s : s
+    value: s, label: ar?({'Planning':'قيد التخطيط','Upcoming':'قادم','In Progress':'جارٍ','Completed':'مكتمل','Canceled':'ملغى'}[s]||s):s
   }))
-
   const approvalOpts = ['TBC','Approved','Rejected'].map(s => ({
-    value: s, label: ar ? {'TBC':'تحت المراجعة','Approved':'معتمد','Rejected':'مرفوض'}[s]||s : s
+    value: s, label: ar?({'TBC':'تحت المراجعة','Approved':'معتمد','Rejected':'مرفوض'}[s]||s):s
   }))
-
   const eventCatOpts = [
     { value: '', label: ar ? '— اختر تصنيفاً —' : '— Select category —' },
-    ...(eventCategories || []).filter(c => c.is_active).map(c => ({
-      value: String(c.id),
-      label: ar && c.name_ar ? c.name_ar : c.name,
-    })),
+    ...(eventCategories||[]).filter(c=>c.is_active).map(c => ({ value: String(c.id), label: ar&&c.name_ar?c.name_ar:c.name })),
   ]
-
-  const medalOpts = ['gold','silver','bronze'].map(s => ({
-    value: s, label: ar ? {'gold':'ذهب','silver':'فضة','bronze':'برونز'}[s] : s
-  }))
+  const medalOpts = ['gold','silver','bronze'].map(s => ({ value:s, label: ar?{'gold':'ذهب','silver':'فضة','bronze':'برونز'}[s]:s }))
 
   return (
-    <div className="modal-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
+    <div className="modal-overlay" onMouseDown={e => { if (e.target===e.currentTarget) onClose() }}>
       <div className="modal-box">
         <div className="modal-header">
-          <div className="modal-title">{isEdit ? (ar?'تعديل':'Edit') : (ar?'إضافة':'New')} {typeLabel[type]}</div>
+          <div className="modal-title">{isEdit?(ar?'تعديل':'Edit'):(ar?'إضافة':'New')} {typeLabel[type]}</div>
           <button className="modal-close" onClick={onClose}><i className="ti ti-x" /></button>
         </div>
 
-        <div className="modal-body" ref={modalBodyRef} style={{ paddingBottom: 24 }}>
+        <div className="modal-body" ref={modalBodyRef} style={{ paddingBottom:24 }}>
 
           {/* ── ATHLETE ── */}
-          {type === 'athlete' && <>
+          {type==='athlete' && <>
             <Section label={T.personalInfo} collapsible open={openSections.personal} onToggle={() => toggleSection('personal')} />
             {openSections.personal && <>
               <Row>
@@ -272,7 +235,7 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
               <Row>
                 <div className="form-group">
                   <label className="form-label">{T.nationality}<span style={{ color:'#dc2626' }}> *</span></label>
-                  <NationalitySelect value={form.nationality} onChange={v => set('nationality', v)} lang={lang} />
+                  <NationalitySelect value={form.nationality} onChange={v => set('nationality',v)} lang={lang} />
                 </div>
                 <Field label={T.phone} placeholder="+974 XXXX XXXX" {...f('phone')} />
               </Row>
@@ -286,10 +249,7 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
             {openSections.sport && <>
               <Row>
                 <Field label={T.sportCategory} required invalid={invalidFields.sportCategory} options={categoryOpts} {...f('sportCategory')}
-                  onChange={(name, v) => {
-                    const validSports = SPORTS_BY_CATEGORY[v] || SPORTS
-                    setForm(p => ({ ...p, sportCategory: v, sport: validSports.includes(p.sport) ? p.sport : (validSports[0] || '') }))
-                  }} />
+                  onChange={(name,v) => { const vs=SPORTS_BY_CATEGORY[v]||SPORTS; setForm(p=>({...p,sportCategory:v,sport:vs.includes(p.sport)?p.sport:(vs[0]||'')})) }} />
                 <Field label={T.sport} required invalid={invalidFields.sport} options={sportOpts} {...f('sport')} />
               </Row>
               <Row>
@@ -298,45 +258,24 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
               <Row>
                 <Field label={T.disability} placeholder={ar?"مثال: إصابة الحبل الشوكي":"e.g. Spinal Cord Injury"} {...f('disability')} />
                 <div className="form-group">
-                  <label className="form-label">{ar ? 'الإعاقة الإحصائية' : 'Statistics Disability'}</label>
+                  <label className="form-label">{ar?'الإعاقة الإحصائية':'Statistics Disability'}</label>
                   <select className="form-input" value={form.statistics_disability||''} onChange={e=>setForm(p=>({...p,statistics_disability:e.target.value||null}))}>
-                    <option value="">{ar ? '— اختر —' : '— Select —'}</option>
-                    {[
-                      ['Physical Disability',        'الإعاقات الجسدية / الحركية'],
-                      ['Intellectual Disability',    'الإعاقة الذهنية'],
-                      ['Visual Disability',          'الإعاقة البصرية'],
-                      ['Hearing Disability',         'الإعاقة السمعية'],
-                      ['Speech & Language Disorders','اضطرابات النطق واللغة'],
-                      ['Psychosocial Disability',    'الإعاقة النفسية والاجتماعية'],
-                      ['Multiple Disability',        'الإعاقات المتعددة'],
-                      ['Developmental Disability',   'الإعاقات النمائية'],
-                      ['Down Syndrome',              'متلازمة داون'],
-                      ['Autism',                     'اضطراب التوحد'],
-                    ].map(([en, arLabel]) => (
-                      <option key={en} value={en}>{ar ? arLabel : en}</option>
+                    <option value="">{ar?'— اختر —':'— Select —'}</option>
+                    {[['Physical Disability','الإعاقات الجسدية / الحركية'],['Intellectual Disability','الإعاقة الذهنية'],['Visual Disability','الإعاقة البصرية'],['Hearing Disability','الإعاقة السمعية'],['Speech & Language Disorders','اضطرابات النطق واللغة'],['Psychosocial Disability','الإعاقة النفسية والاجتماعية'],['Multiple Disability','الإعاقات المتعددة'],['Developmental Disability','الإعاقات النمائية'],['Down Syndrome','متلازمة داون'],['Autism','اضطراب التوحد']].map(([en,arL])=>(
+                      <option key={en} value={en}>{ar?arL:en}</option>
                     ))}
                   </select>
                 </div>
               </Row>
               <div style={{ fontSize:11.5, color:'var(--text3)', background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:8, padding:'7px 10px', margin:'2px 0 14px', display:'flex', gap:14, flexWrap:'wrap' }}>
-                <span>{ar ? 'الفئة العمرية: تُحسب تلقائياً' : 'Age category: auto-computed'}</span>
-                <span>{ar ? 'الفئة العمرية الرياضية: تُحسب تلقائياً' : 'Sport age category: auto-computed'}</span>
+                <span>{ar?'الفئة العمرية: تُحسب تلقائياً':'Age category: auto-computed'}</span>
+                <span>{ar?'الفئة العمرية الرياضية: تُحسب تلقائياً':'Sport age category: auto-computed'}</span>
               </div>
               <Row>
-                <Field label={T.coach} options={[{ value:'', label: T.unassigned }, ...(coaches||[]).map(c => ({ value: c.id, label: ar && c.name_ar ? c.name_ar : c.name }))]} {...f('coachId')} />
-                <Field label={T.status} required invalid={invalidFields.status} options={statusOptsAthlete} {...f('status')} onChange={(name, v) => { set(name, v); if (!DATE_STATUSES.includes(v)) { set('statusStart', null); set('statusEnd', null) } }} />
-                {DATE_STATUSES.includes(form.status) && (
-                  <div className="form-group">
-                    <label className="form-label">{ar ? 'تاريخ البداية' : 'Start date'}</label>
-                    <input type="date" className="form-input" value={form.statusStart||''} onChange={e=>setForm(p=>({...p,statusStart:e.target.value||null}))} />
-                  </div>
-                )}
-                {DATE_STATUSES.includes(form.status) && (
-                  <div className="form-group">
-                    <label className="form-label">{ar ? 'تاريخ الرجوع' : 'Return date'}</label>
-                    <input type="date" className="form-input" value={form.statusEnd||''} onChange={e=>setForm(p=>({...p,statusEnd:e.target.value||null}))} />
-                  </div>
-                )}
+                <Field label={T.coach} options={[{value:'',label:T.unassigned},...(coaches||[]).map(c=>({value:c.id,label:ar&&c.name_ar?c.name_ar:c.name}))]} {...f('coachId')} />
+                <Field label={T.status} required invalid={invalidFields.status} options={statusOptsAthlete} {...f('status')} onChange={(name,v)=>{ set(name,v); if(!DATE_STATUSES.includes(v)){set('statusStart',null);set('statusEnd',null)} }} />
+                {DATE_STATUSES.includes(form.status) && <div className="form-group"><label className="form-label">{ar?'تاريخ البداية':'Start date'}</label><input type="date" className="form-input" value={form.statusStart||''} onChange={e=>setForm(p=>({...p,statusStart:e.target.value||null}))} /></div>}
+                {DATE_STATUSES.includes(form.status) && <div className="form-group"><label className="form-label">{ar?'تاريخ الرجوع':'Return date'}</label><input type="date" className="form-input" value={form.statusEnd||''} onChange={e=>setForm(p=>({...p,statusEnd:e.target.value||null}))} /></div>}
               </Row>
               <Row>
                 <Field label={T.medicalStatus} placeholder={ar?"مثال: مكتمل":"e.g. Completed"} {...f('medicalStatus')} />
@@ -370,31 +309,24 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
           </>}
 
           {/* ── COACH ── */}
-          {type === 'coach' && <>
+          {type==='coach' && <>
             <Section label={T.personalInfo} />
             <Row>
               <Field label={T.nameEn} placeholder={ar?"مثال: كارلوس مينديز":"e.g. Carlos Mendez"} {...f('name')} />
               <Field label={T.nameAr} placeholder="e.g. كارلوس مينديز" {...f('nameAr')} />
             </Row>
             <Row>
-              <div className="form-group">
-                <label className="form-label">{T.nationality}</label>
-                <NationalitySelect value={form.nationality} onChange={v => set('nationality', v)} lang={lang} />
-              </div>
+              <div className="form-group"><label className="form-label">{T.nationality}</label><NationalitySelect value={form.nationality} onChange={v=>set('nationality',v)} lang={lang} /></div>
               <Field label={T.gender} options={genderOptsEmpty} {...f('gender')} />
             </Row>
             <Row>
               <Field label={T.phone} placeholder="+974 XXXX XXXX" {...f('phone')} />
               <Field label={T.email} type="email" placeholder={ar?"مدرب@qpc.qa":"coach@qpc.qa"} {...f('email')} />
             </Row>
-
             <Section label={T.employment} />
             <Row>
               <Field label={T.sportCategory} options={categoryOpts} {...f('sportCategory')}
-                onChange={(name, v) => {
-                  const validSports = SPORTS_BY_CATEGORY[v] || SPORTS
-                  setForm(p => ({ ...p, sportCategory: v, sport: validSports.includes(p.sport) ? p.sport : (validSports[0] || '') }))
-                }} />
+                onChange={(name,v)=>{ const vs=SPORTS_BY_CATEGORY[v]||SPORTS; setForm(p=>({...p,sportCategory:v,sport:vs.includes(p.sport)?p.sport:(vs[0]||'')})) }} />
               <Field label={T.sport} options={sportOpts} {...f('sport')} />
             </Row>
             <Row>
@@ -403,21 +335,10 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
             </Row>
             <Row>
               <Field label={T.since} type="date" {...f('since')} />
-              <Field label={T.status} options={statusOptsCoach} {...f('status')} onChange={(name, v) => { set(name, v); if (!DATE_STATUSES.includes(v)) { set('statusStart', null); set('statusEnd', null) } }} />
-              {DATE_STATUSES.includes(form.status) && (
-                <div className="form-group">
-                  <label className="form-label">{ar ? 'تاريخ البداية' : 'Start date'}</label>
-                  <input type="date" className="form-input" value={form.statusStart||''} onChange={e=>setForm(p=>({...p,statusStart:e.target.value||null}))} />
-                </div>
-              )}
-              {DATE_STATUSES.includes(form.status) && (
-                <div className="form-group">
-                  <label className="form-label">{ar ? 'تاريخ الرجوع' : 'Return date'}</label>
-                  <input type="date" className="form-input" value={form.statusEnd||''} onChange={e=>setForm(p=>({...p,statusEnd:e.target.value||null}))} />
-                </div>
-              )}
+              <Field label={T.status} options={statusOptsCoach} {...f('status')} onChange={(name,v)=>{ set(name,v); if(!DATE_STATUSES.includes(v)){set('statusStart',null);set('statusEnd',null)} }} />
+              {DATE_STATUSES.includes(form.status) && <div className="form-group"><label className="form-label">{ar?'تاريخ البداية':'Start date'}</label><input type="date" className="form-input" value={form.statusStart||''} onChange={e=>setForm(p=>({...p,statusStart:e.target.value||null}))} /></div>}
+              {DATE_STATUSES.includes(form.status) && <div className="form-group"><label className="form-label">{ar?'تاريخ الرجوع':'Return date'}</label><input type="date" className="form-input" value={form.statusEnd||''} onChange={e=>setForm(p=>({...p,statusEnd:e.target.value||null}))} /></div>}
             </Row>
-
             <Section label={T.passportID} />
             <Row>
               <Field label={T.passportNum} placeholder="e.g. A12345678" {...f('passportNumber')} />
@@ -430,7 +351,7 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
           </>}
 
           {/* ── EVENT ── */}
-          {type === 'event' && <>
+          {type==='event' && <>
             <Section label={T.eventDetails} />
             <Row>
               <Field label={T.eventName} placeholder={ar?"مثال: بطولة قطر المفتوحة":"e.g. Qatar Open Athletics Championships"} {...f('name')} />
@@ -450,18 +371,17 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
               <Field label={T.deadline} type="date" {...f('deadline')} />
               <Field label={T.status} options={statusOptsEvent} {...f('status')} />
             </Row>
-            <Field label={T.maxPart} type="number" placeholder="30" {...f('maxParticipants')} />
             <div className="form-group">
               <label className="form-label">{T.notes}</label>
-              <textarea className="form-input" rows={3} placeholder={ar ? 'ملاحظات إضافية…' : 'Additional notes…'} value={form.notes ?? ''} onChange={e => set('notes', e.target.value)} style={{ resize: 'vertical', minHeight: 72 }} />
+              <textarea className="form-input" rows={3} placeholder={ar?'ملاحظات إضافية…':'Additional notes…'} value={form.notes??''} onChange={e=>set('notes',e.target.value)} style={{ resize:'vertical', minHeight:72 }} />
             </div>
           </>}
 
           {/* ── RESULT ── */}
-          {type === 'result' && <>
+          {type==='result' && <>
             <Section label={T.resultInfo} />
             <Row>
-              <Field label={T.athlete} options={(athletes||[]).map(a => ({ value: a.name, label: ar && a.name_ar ? a.name_ar : a.name }))} {...f('athleteName')} />
+              <Field label={T.athlete} options={(athletes||[]).map(a=>({value:a.name,label:ar&&a.name_ar?a.name_ar:a.name}))} {...f('athleteName')} />
               <Field label={T.medal} options={medalOpts} {...f('medal')} />
             </Row>
             <Field label={T.compName} placeholder={ar?"مثال: بطولة الرماية 2026":"e.g. Para Shooting Nationals 2026"} {...f('eventName')} />
@@ -479,25 +399,22 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
 
         <div className="modal-footer">
           <button className="btn-cancel" onClick={onClose} disabled={saving}>{T.cancel}</button>
-          <button className="btn" style={{ background: COLORS[type], opacity: saving ? .7 : 1, cursor: saving ? 'default' : 'pointer', display:'flex', alignItems:'center', gap:6 }}
+          <button className="btn" style={{ background:COLORS[type], opacity:saving?.7:1, cursor:saving?'default':'pointer', display:'flex', alignItems:'center', gap:6 }}
             disabled={saving}
             onClick={async () => {
               if (saving) return
-              if (type === 'athlete') {
-                const requiredMap = { name: form.name, gender: form.gender, nationality: form.nationality, sportCategory: form.sportCategory, sport: form.sport, status: form.status }
+              if (type==='athlete') {
+                const req = { name:form.name, gender:form.gender, nationality:form.nationality, sportCategory:form.sportCategory, sport:form.sport, status:form.status }
                 const bad = {}
-                for (const [key, val] of Object.entries(requiredMap)) { if (!val || !String(val).trim()) bad[key] = true }
+                for (const [k,v] of Object.entries(req)) { if (!v||!String(v).trim()) bad[k]=true }
                 setInvalidFields(bad)
-                const firstBadKey = Object.keys(bad)[0]
-                if (firstBadKey) {
-                  const el = modalBodyRef.current?.querySelector(`[data-field="${firstBadKey}"]`)
+                const firstBad = Object.keys(bad)[0]
+                if (firstBad) {
+                  const el = modalBodyRef.current?.querySelector(`[data-field="${firstBad}"]`)
                   if (el) {
-                    if (['name','gender','nationality'].includes(firstBadKey)) setOpenSections(s => ({ ...s, personal: true }))
-                    if (['sportCategory','sport','status'].includes(firstBadKey)) setOpenSections(s => ({ ...s, sport: true }))
-                    setTimeout(() => {
-                      el.scrollIntoView({ behavior:'smooth', block:'center' })
-                      el.querySelector('input,select')?.focus()
-                    }, 50)
+                    if (['name','gender','nationality'].includes(firstBad)) setOpenSections(s=>({...s,personal:true}))
+                    if (['sportCategory','sport','status'].includes(firstBad)) setOpenSections(s=>({...s,sport:true}))
+                    setTimeout(()=>{ el.scrollIntoView({behavior:'smooth',block:'center'}); el.querySelector('input,select')?.focus() },50)
                   }
                   return
                 }
