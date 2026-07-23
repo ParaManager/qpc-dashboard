@@ -3,13 +3,31 @@ import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
 import { toast, ConfirmModal } from '../components/Toast'
 import MeetingFormModal from '../components/MeetingFormModal.jsx'
+import { computeEventStatus } from './Events'
 
 const KIND_COLORS = { meeting: '#8b5cf6', event: '#EE334E', task: '#0085C7' }
+const KIND_ICONS  = { meeting: 'ti-users-group', event: 'ti-calendar-event', task: 'ti-checklist' }
+const BAR_H = 16, BAR_GAP = 3, ROW_H = 15
 
 function getDaysInMonth(year, month) { return new Date(year, month + 1, 0).getDate() }
 function getFirstDay(year, month) { return new Date(year, month, 1).getDay() }
 function toDateStr(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` }
 function startOfWeek(d) { const r = new Date(d); r.setDate(r.getDate() - r.getDay()); return r }
+function isMultiDay(item) { return item.kind === 'event' && item.endDate !== item.date }
+
+// Greedy lane packing for continuous multi-day event bars within one week row
+function assignLanes(segments) {
+  const lanes = []
+  for (const seg of segments) {
+    let placed = false
+    for (const lane of lanes) {
+      const last = lane[lane.length - 1]
+      if (last.colStart + last.colSpan <= seg.colStart) { lane.push(seg); placed = true; break }
+    }
+    if (!placed) lanes.push([seg])
+  }
+  return lanes
+}
 
 export default function Calendar({ profile, events = [], onNav }) {
   const { lang } = useLang()
@@ -26,6 +44,7 @@ export default function Calendar({ profile, events = [], onNav }) {
   const [showMeetingForm, setShowMeetingForm] = useState(false)
   const [editingMeeting, setEditingMeeting]   = useState(null)
   const [confirmDel, setConfirmDel] = useState(null)
+  const [dayDetail, setDayDetail]   = useState(null) // { dateStr, items }
 
   const year  = curDate.getFullYear()
   const month = curDate.getMonth()
@@ -57,10 +76,10 @@ export default function Calendar({ profile, events = [], onNav }) {
     setConfirmDel(null)
     setShowMeetingForm(false)
     setEditingMeeting(null)
+    setDayDetail(null)
     toast(L('Meeting deleted','تم حذف الاجتماع'))
   }
 
-  // ── Unified items list ──
   const monthNames = ar
     ? ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر']
     : ['January','February','March','April','May','June','July','August','September','October','November','December']
@@ -106,10 +125,21 @@ export default function Calendar({ profile, events = [], onNav }) {
 
   function isToday(dateStr) { return dateStr === toDateStr(today) }
 
+  // Canceled/completed items render muted — applies to events (Canceled/Completed/Rejected)
+  // and tasks (done). Meetings have no such lifecycle state in this schema.
+  function isMuted(item) {
+    if (item.kind === 'task') return item.raw.status === 'done'
+    if (item.kind === 'event') {
+      if (item.raw.status === 'Canceled' || item.raw.approval_status === 'Rejected') return true
+      return computeEventStatus(item.raw.start_date, item.raw.end_date, item.raw.deadline) === 'Completed'
+    }
+    return false
+  }
+
   function openItem(item) {
     if (item.kind === 'event') onNav('events', { eventId: item.raw.id })
     else if (item.kind === 'task') onNav('tasks', { taskId: item.raw.id })
-    else { setEditingMeeting(item.raw); setShowMeetingForm(true) }
+    else { setDayDetail(null); setEditingMeeting(item.raw); setShowMeetingForm(true) }
   }
 
   if (loading) return <div style={{ padding: 40, textAlign: 'center', color: 'var(--text3)' }}>{L('Loading…','جاري التحميل…')}</div>
@@ -119,12 +149,43 @@ export default function Calendar({ profile, events = [], onNav }) {
   const weekStart    = startOfWeek(curDate)
   const weekDays      = Array.from({ length: 7 }).map((_, i) => { const d = new Date(weekStart); d.setDate(d.getDate() + i); return d })
 
+  // Build full month grid as week rows (including muted lead/trail days from adjacent months)
+  const weeksCount  = Math.ceil((firstDay + daysInMonth) / 7)
+  const gridStart   = new Date(year, month, 1 - firstDay)
+  const monthWeeks  = Array.from({ length: weeksCount }).map((_, wi) =>
+    Array.from({ length: 7 }).map((_, di) => {
+      const d = new Date(gridStart); d.setDate(d.getDate() + wi * 7 + di)
+      return { date: d, dateStr: toDateStr(d), inMonth: d.getMonth() === month, weekend: d.getDay() === 0 || d.getDay() === 6 }
+    })
+  )
+
   // Agenda: everything within the visible month, chronological
   const agendaByDate = {}
   for (let d = 1; d <= daysInMonth; d++) {
     const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`
-    const dayItems = itemsOnDay(dateStr)
-    if (dayItems.length) agendaByDate[dateStr] = dayItems
+    const dItems = itemsOnDay(dateStr)
+    if (dItems.length) agendaByDate[dateStr] = dItems
+  }
+
+  function CompactItem({ item, dense }) {
+    const muted = isMuted(item)
+    return (
+      <div onClick={(e) => { e.stopPropagation(); openItem(item) }}
+        title={item.title}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 4, fontSize: dense ? 10 : 11, fontWeight: 500,
+          padding: dense ? '1.5px 5px' : '3px 6px', borderRadius: 5, marginBottom: 2, cursor: 'pointer',
+          background: (KIND_COLORS[item.kind] + (muted ? '10' : '18')),
+          color: muted ? 'var(--text3)' : KIND_COLORS[item.kind],
+          opacity: muted ? 0.65 : 1,
+          textDecoration: muted ? 'line-through' : 'none',
+          overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
+        }}>
+        <i className={`ti ${KIND_ICONS[item.kind]}`} style={{ fontSize: dense ? 10 : 11, flexShrink: 0 }} />
+        {item.kind === 'meeting' && item.startTime && <span style={{ flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{item.startTime.slice(0,5)}</span>}
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title}</span>
+      </div>
+    )
   }
 
   return (
@@ -145,6 +206,42 @@ export default function Calendar({ profile, events = [], onNav }) {
           onConfirm={() => handleDeleteMeeting(confirmDel)}
           onCancel={() => setConfirmDel(null)}
         />
+      )}
+      {dayDetail && (
+        <div className="modal-overlay" onClick={() => setDayDetail(null)}>
+          <div className="modal-box modal-sm" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <div className="modal-title">
+                {new Date(dayDetail.dateStr + 'T00:00:00').toLocaleDateString(ar ? 'ar' : 'en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+              </div>
+              <button className="modal-close" onClick={() => setDayDetail(null)}><i className="ti ti-x" /></button>
+            </div>
+            <div className="modal-body">
+              {dayDetail.items.length === 0 && (
+                <div style={{ fontSize: 13, color: 'var(--text3)' }}>{L('Nothing scheduled','لا يوجد شيء مجدول')}</div>
+              )}
+              {dayDetail.items.map(item => {
+                const muted = isMuted(item)
+                return (
+                  <div key={item.id} onClick={() => openItem(item)}
+                    style={{ display: 'flex', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--border)', cursor: 'pointer', alignItems: 'center', opacity: muted ? 0.6 : 1 }}>
+                    <div style={{ width: 26, height: 26, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', background: KIND_COLORS[item.kind] + '18', color: KIND_COLORS[item.kind], flexShrink: 0 }}>
+                      <i className={`ti ${KIND_ICONS[item.kind]}`} style={{ fontSize: 13 }} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, textDecoration: muted ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
+                        {item.startTime ? item.startTime.slice(0,5) : ''}{item.startTime && item.endTime ? ` – ${item.endTime.slice(0,5)}` : ''}
+                        {item.kind === 'event' && isMultiDay(item) ? `${item.date} → ${item.endDate}` : ''}
+                        {item.kind === 'meeting' && item.raw.location ? ` · ${item.raw.location}` : ''}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
       )}
 
       <div className="page-header">
@@ -175,6 +272,16 @@ export default function Calendar({ profile, events = [], onNav }) {
         </div>
       </div>
 
+      {/* Legend */}
+      <div style={{ display: 'flex', gap: 14, marginBottom: 14, flexWrap: 'wrap' }}>
+        {['meeting', 'event', 'task'].map(k => (
+          <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--text2)' }}>
+            <span style={{ width: 9, height: 9, borderRadius: 3, background: KIND_COLORS[k], display: 'inline-block' }} />
+            {k === 'meeting' ? L('Meetings','الاجتماعات') : k === 'event' ? L('Events','الفعاليات') : L('Tasks','المهام')}
+          </div>
+        ))}
+      </div>
+
       {/* Nav */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
         <button className="tb-btn" onClick={() => {
@@ -197,35 +304,85 @@ export default function Calendar({ profile, events = [], onNav }) {
       {view === 'month' && (
         <div className="cal-wrap" style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', boxShadow: 'var(--shadow)' }}>
           <div className="cal-headers" style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', borderBottom: '1px solid var(--border)' }}>
-            {dayNames.map(d => (
-              <div key={d} style={{ padding: '10px 0', textAlign: 'center', fontSize: 12, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.05em' }}>{d}</div>
+            {dayNames.map((d, i) => (
+              <div key={d} style={{ padding: '10px 0', textAlign: 'center', fontSize: 12, fontWeight: 600, color: (i === 0 || i === 6) ? 'var(--text3)' : 'var(--text2)', textTransform: 'uppercase', letterSpacing: '.05em', opacity: (i === 0 || i === 6) ? 0.75 : 1 }}>{d}</div>
             ))}
           </div>
-          <div className="cal-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)' }}>
-            {Array.from({ length: firstDay }).map((_, i) => (
-              <div key={`e${i}`} style={{ minHeight: 90, borderRight: '1px solid var(--border)', borderBottom: '1px solid var(--border)', background: 'var(--surface2)' }} />
-            ))}
-            {Array.from({ length: daysInMonth }).map((_, i) => {
-              const d = i + 1
-              const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`
-              const dayItems = itemsOnDay(dateStr)
-              const isTod = isToday(dateStr)
-              return (
-                <div key={d} style={{ minHeight: 90, borderRight: '1px solid var(--border)', borderBottom: '1px solid var(--border)', padding: '6px 4px', position: 'relative', background: isTod ? 'var(--surface2)' : 'var(--surface)' }}>
-                  <div style={{ fontSize: 12, fontWeight: isTod ? 700 : 500, width: 24, height: 24, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: isTod ? '#0085C7' : 'transparent', color: isTod ? '#fff' : 'var(--text)', marginBottom: 4 }}>{d}</div>
-                  {dayItems.slice(0, 3).map(item => (
-                    <div key={item.id} onClick={() => openItem(item)}
-                      style={{ fontSize: 10, fontWeight: 500, padding: '2px 5px', borderRadius: 4, marginBottom: 2, cursor: 'pointer', background: KIND_COLORS[item.kind] + '20', color: KIND_COLORS[item.kind], overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
-                      {item.startTime ? `${item.startTime.slice(0,5)} ` : ''}{item.title}
+
+          {monthWeeks.map((week, wi) => {
+            const weekStartStr = week[0].dateStr, weekEndStr = week[6].dateStr
+            const multiDaySegs = visibleItems
+              .filter(i => isMultiDay(i) && i.date <= weekEndStr && i.endDate >= weekStartStr)
+              .map(i => {
+                const segStart = i.date < weekStartStr ? weekStartStr : i.date
+                const segEnd   = i.endDate > weekEndStr ? weekEndStr : i.endDate
+                const colStart = week.findIndex(w => w.dateStr === segStart)
+                const colEnd   = week.findIndex(w => w.dateStr === segEnd)
+                return { item: i, colStart, colSpan: colEnd - colStart + 1 }
+              })
+              .sort((a, b) => a.colStart - b.colStart || b.colSpan - a.colSpan)
+            const lanes = assignLanes(multiDaySegs)
+            const spacerH = lanes.length ? lanes.length * (BAR_H + BAR_GAP) : 0
+
+            return (
+              <div key={wi} style={{ position: 'relative', display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', borderBottom: wi < monthWeeks.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                {week.map(({ date, dateStr, inMonth, weekend }) => {
+                  const dItems = itemsOnDay(dateStr)
+                  const otherItems = dItems.filter(i => !isMultiDay(i))
+                  const lanesTouching = lanes.filter(lane => lane.some(seg => {
+                    const segStartStr = week[seg.colStart].dateStr
+                    const segEndStr   = week[Math.min(seg.colStart + seg.colSpan - 1, 6)].dateStr
+                    return dateStr >= segStartStr && dateStr <= segEndStr
+                  })).length
+                  const visibleSlots = Math.max(0, 3 - lanesTouching)
+                  const visibleOther = otherItems.slice(0, visibleSlots)
+                  const hiddenCount = dItems.length - lanesTouching - visibleOther.length
+                  const isTod = isToday(dateStr)
+                  return (
+                    <div key={dateStr} className="cal-day-cell"
+                      style={{
+                        minHeight: 96, borderRight: '1px solid var(--border)', padding: '5px 5px 4px',
+                        background: isTod ? '#0085C70c' : (weekend || !inMonth) ? 'var(--surface2)' : 'var(--surface)',
+                        opacity: inMonth ? 1 : 0.5,
+                        boxShadow: isTod ? 'inset 0 0 0 1.5px #0085C7' : 'none',
+                        transition: 'background .12s',
+                      }}
+                      onMouseEnter={e => { if (inMonth) e.currentTarget.style.background = isTod ? '#0085C714' : 'var(--surface2)' }}
+                      onMouseLeave={e => { e.currentTarget.style.background = isTod ? '#0085C70c' : (weekend || !inMonth) ? 'var(--surface2)' : 'var(--surface)' }}>
+                      <div style={{ fontSize: 11.5, fontWeight: isTod ? 700 : 500, width: 21, height: 21, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: isTod ? '#0085C7' : 'transparent', color: isTod ? '#fff' : weekend ? 'var(--text3)' : 'var(--text)', marginBottom: 3 }}>{date.getDate()}</div>
+                      <div style={{ height: spacerH }} />
+                      {visibleOther.map(item => <CompactItem key={item.id} item={item} dense />)}
+                      {hiddenCount > 0 && (
+                        <div onClick={() => setDayDetail({ dateStr, items: dItems })}
+                          style={{ fontSize: 10, color: '#0085C7', fontWeight: 600, cursor: 'pointer', marginTop: 1 }}>
+                          +{hiddenCount} {L('more','أخرى')}
+                        </div>
+                      )}
                     </div>
-                  ))}
-                  {dayItems.length > 3 && (
-                    <div style={{ fontSize: 10, color: '#0085C7', fontWeight: 600 }}>+{dayItems.length - 3} {L('more','أخرى')}</div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
+                  )
+                })}
+                {/* Multi-day event bars, absolutely positioned across the week row */}
+                {lanes.map((lane, li) => lane.map(seg => (
+                  <div key={`${wi}-${li}-${seg.item.id}`}
+                    onClick={() => openItem(seg.item)}
+                    title={seg.item.title}
+                    style={{
+                      position: 'absolute', top: 27 + li * (BAR_H + BAR_GAP), left: `calc(${(seg.colStart/7)*100}% + 3px)`,
+                      width: `calc(${(seg.colSpan/7)*100}% - 6px)`, height: BAR_H, borderRadius: 5,
+                      background: isMuted(seg.item) ? KIND_COLORS.event + '15' : KIND_COLORS.event,
+                      color: isMuted(seg.item) ? 'var(--text3)' : '#fff',
+                      opacity: isMuted(seg.item) ? 0.65 : 1,
+                      textDecoration: isMuted(seg.item) ? 'line-through' : 'none',
+                      fontSize: 10, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4, padding: '0 6px',
+                      cursor: 'pointer', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', zIndex: 1,
+                    }}>
+                    <i className={`ti ${KIND_ICONS.event}`} style={{ fontSize: 10, flexShrink: 0 }} />
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{seg.item.title}</span>
+                  </div>
+                )))}
+              </div>
+            )
+          })}
         </div>
       )}
 
@@ -235,18 +392,14 @@ export default function Calendar({ profile, events = [], onNav }) {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)' }}>
             {weekDays.map(d => {
               const dateStr = toDateStr(d)
-              const dayItems = itemsOnDay(dateStr)
+              const dItems = itemsOnDay(dateStr)
               const isTod = isToday(dateStr)
+              const weekend = d.getDay() === 0 || d.getDay() === 6
               return (
-                <div key={dateStr} style={{ minHeight: 220, borderRight: '1px solid var(--border)', padding: '8px 6px', background: isTod ? 'var(--surface2)' : 'var(--surface)' }}>
+                <div key={dateStr} style={{ minHeight: 220, borderRight: '1px solid var(--border)', padding: '8px 6px', background: isTod ? '#0085C70c' : weekend ? 'var(--surface2)' : 'var(--surface)' }}>
                   <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', marginBottom: 4 }}>{dayNames[d.getDay()]}</div>
                   <div style={{ fontSize: 13, fontWeight: isTod ? 700 : 500, color: isTod ? '#0085C7' : 'var(--text)', marginBottom: 6 }}>{d.getDate()}</div>
-                  {dayItems.map(item => (
-                    <div key={item.id} onClick={() => openItem(item)}
-                      style={{ fontSize: 11, fontWeight: 500, padding: '4px 6px', borderRadius: 5, marginBottom: 3, cursor: 'pointer', background: KIND_COLORS[item.kind] + '20', color: KIND_COLORS[item.kind] }}>
-                      {item.startTime ? `${item.startTime.slice(0,5)} · ` : ''}{item.title}
-                    </div>
-                  ))}
+                  {dItems.map(item => <CompactItem key={item.id} item={item} />)}
                 </div>
               )
             })}
@@ -261,27 +414,30 @@ export default function Calendar({ profile, events = [], onNav }) {
           {Object.keys(agendaByDate).length === 0 && (
             <div style={{ fontSize: 13, color: 'var(--text3)', padding: '12px 0' }}>{L('Nothing scheduled this month','لا يوجد شيء مجدول هذا الشهر')}</div>
           )}
-          {Object.entries(agendaByDate).map(([dateStr, dayItems]) => (
+          {Object.entries(agendaByDate).map(([dateStr, dItems]) => (
             <div key={dateStr} style={{ marginBottom: 14 }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text2)', marginBottom: 6 }}>
                 {new Date(dateStr + 'T00:00:00').toLocaleDateString(ar ? 'ar' : 'en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
               </div>
-              {dayItems.map(item => (
-                <div key={item.id} onClick={() => openItem(item)}
-                  style={{ display: 'flex', gap: 12, padding: '8px 0', borderBottom: '1px solid var(--border)', cursor: 'pointer', alignItems: 'center' }}>
-                  <div style={{ width: 4, borderRadius: 4, alignSelf: 'stretch', background: KIND_COLORS[item.kind], flexShrink: 0 }} />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600 }}>{item.title}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
-                      {item.startTime ? item.startTime.slice(0,5) : ''}{item.startTime && item.endTime ? ` – ${item.endTime.slice(0,5)}` : ''}
-                      {item.kind === 'meeting' && item.raw.location ? ` · ${item.raw.location}` : ''}
+              {dItems.map(item => {
+                const muted = isMuted(item)
+                return (
+                  <div key={item.id} onClick={() => openItem(item)}
+                    style={{ display: 'flex', gap: 12, padding: '8px 0', borderBottom: '1px solid var(--border)', cursor: 'pointer', alignItems: 'center', opacity: muted ? 0.6 : 1 }}>
+                    <div style={{ width: 4, borderRadius: 4, alignSelf: 'stretch', background: KIND_COLORS[item.kind], flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, textDecoration: muted ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
+                        {item.startTime ? item.startTime.slice(0,5) : ''}{item.startTime && item.endTime ? ` – ${item.endTime.slice(0,5)}` : ''}
+                        {item.kind === 'meeting' && item.raw.location ? ` · ${item.raw.location}` : ''}
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 999, background: KIND_COLORS[item.kind] + '20', color: KIND_COLORS[item.kind], textTransform: 'capitalize', flexShrink: 0 }}>
+                      {item.kind === 'meeting' ? L('Meeting','اجتماع') : item.kind === 'event' ? L('Event','فعالية') : L('Task','مهمة')}
                     </div>
                   </div>
-                  <div style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 999, background: KIND_COLORS[item.kind] + '20', color: KIND_COLORS[item.kind], textTransform: 'capitalize' }}>
-                    {item.kind === 'meeting' ? L('Meeting','اجتماع') : item.kind === 'event' ? L('Event','فعالية') : L('Task','مهمة')}
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           ))}
         </div>
