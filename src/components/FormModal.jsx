@@ -5,6 +5,25 @@ import { useLang } from '../lib/LangContext.jsx'
 
 const COLORS = { athlete: '#0085C7', coach: '#009F6B', event: '#EE334E', result: '#8b5cf6' }
 
+function computeEventStatus(startDate, endDate, deadline) {
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const start = startDate ? new Date(startDate) : null
+  const effectiveEnd = endDate ? new Date(endDate) : (start ? new Date(startDate) : null)
+  const dead = deadline ? new Date(deadline) : null
+
+  if (!start) return 'Planning'
+
+  if (dead) {
+    if (today <= dead) return 'Planning'
+    if (today < start) return 'Upcoming'
+  } else {
+    if (today < start) return 'Upcoming'
+  }
+
+  if (effectiveEnd && today > effectiveEnd) return 'Completed'
+  return 'In Progress'
+}
+
 function Field({ label, name, type = 'text', placeholder, options, value, onChange, required, invalid }) {
   return (
     <div className="form-group" data-field={name}>
@@ -49,26 +68,12 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
 
   const categoryOpts = SPORT_CATEGORIES.map(c => ({
     value: c,
-    label: ar ? (SPORT_CATEGORY_NAMES_AR[c] || c) : c
+    label: ar ? (SPORT_CATEGORY_NAMES_AR[c]||c) : c
   }))
 
   const sportOpts = (SPORTS_BY_CATEGORY[form?.sportCategory] || SPORTS).map(s => ({
     value: s,
     label: sportLabel(s, form?.sportCategory, ar)
-  }))
-
-  // Event category options (dynamic, from Supabase via prop)
-  const eventCatOpts = [
-    { value: '', label: ar ? '— اختر تصنيفاً —' : '— Select category —' },
-    ...(eventCategories || []).filter(c => c.is_active).map(c => ({
-      value: String(c.id),
-      label: ar && c.name_ar ? c.name_ar : c.name,
-    })),
-  ]
-
-  const approvalOpts = ['TBC', 'Approved', 'Canceled'].map(s => ({
-    value: s,
-    label: ar ? ({ TBC:'تحت المراجعة', Approved:'معتمد', Canceled:'ملغى' }[s] || s) : s,
   }))
 
   const athDesigOpts = ['','Player','Female Player','Coach','Female Coach','Referee','Female Referee','Admin Staff','Technical Staff','Medical Staff','Board Member','Female Board Member','Member','Female Member','Employee','Female Employee','Expert'].map(s => ({
@@ -87,12 +92,19 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
       const defaults = {
         athlete: { gender: 'Male', nationality: 'Qatari', sportCategory: 'Summer Paralympic', sport: SPORTS[0], status: 'Active' },
         coach:   { sportCategory: 'Summer Paralympic', sport: SPORTS[0], status: 'Active' },
-        event:   { sport: '', status: 'Planning', approvalStatus: 'TBC', maxParticipants: 30 },
+        event:   { sport: SPORTS[0], status: 'Planning', approvalStatus: 'TBC', maxParticipants: 30 },
         result:  { medal: 'gold', position: 1 },
       }
       setForm(defaults[type] || {})
     }
   }, [record, type])
+
+  // Auto-compute event status when dates change
+  useEffect(() => {
+    if (type !== 'event') return
+    const s = computeEventStatus(form.startDate, form.endDate, form.deadline)
+    setForm(f => ({ ...f, status: s }))
+  }, [form.startDate, form.endDate, form.deadline, type])
 
   const set = (name, value) => setForm(f => ({ ...f, [name]: value }))
   const f = (name) => ({ name, value: form[name], onChange: set })
@@ -109,7 +121,6 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
     resultInfo:       ar ? 'معلومات النتيجة'                 : 'Result Information',
     nameEn:           ar ? 'الاسم الكامل (إنجليزي)'          : 'Full name (English)',
     nameAr:           ar ? 'الاسم الكامل (عربي)'             : 'Full name (Arabic)',
-    eventNameAr:      ar ? 'اسم الفعالية (عربي)'             : 'Arabic name',
     dob:              ar ? 'تاريخ الميلاد'                   : 'Date of birth',
     gender:           ar ? 'الجنس'                           : 'Gender',
     nationality:      ar ? 'الجنسية'                         : 'Nationality',
@@ -136,10 +147,10 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
     idResNum:         ar ? 'رقم الهوية / الإقامة'            : 'Qatar ID / Residence number',
     empNum:           ar ? 'رقم الموظف'                      : 'Employee number',
     since:            ar ? 'تاريخ الانضمام إلى QPC'          : 'Start date with QPC',
-    eventName:        ar ? 'اسم الفعالية (إنجليزي)'          : 'Event name (English)',
+    eventName:        ar ? 'اسم الفعالية'                    : 'Event name',
+    eventNameAr:      ar ? 'اسم الفعالية (عربي)'             : 'Arabic name',
     category:         ar ? 'التصنيف'                         : 'Category',
     approvalStatus:   ar ? 'حالة الموافقة'                   : 'Approval status',
-    discipline:       ar ? 'التخصص / الفعالية'               : 'Discipline / event',
     venue:            ar ? 'المكان'                          : 'Venue / place',
     startDate:        ar ? 'تاريخ البداية'                   : 'Start date',
     endDate:          ar ? 'تاريخ النهاية'                   : 'End date',
@@ -149,7 +160,7 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
     athlete:          ar ? 'الرياضي'                         : 'Athlete',
     medal:            ar ? 'الميدالية'                       : 'Medal',
     compName:         ar ? 'اسم المنافسة'                    : 'Competition name',
-    resultDisc:       ar ? 'التخصص'                          : 'Discipline / event',
+    discipline:       ar ? 'التخصص'                          : 'Discipline / event',
     result:           ar ? 'النتيجة'                         : 'Result / score',
     position:         ar ? 'الترتيب'                         : 'Position',
     date:             ar ? 'التاريخ'                         : 'Date',
@@ -184,9 +195,21 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
     value: s, label: ar ? {'Active':'نشط','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي','Inactive':'غير نشط','Retired':'متقاعد'}[s]||s : s
   }))
 
-  const statusOptsEvent = ['Planning','Registration Open','Upcoming','Completed'].map(s => ({
-    value: s, label: ar ? {'Planning':'قيد التخطيط','Registration Open':'التسجيل مفتوح','Upcoming':'قادم','Completed':'مكتمل'}[s]||s : s
+  const statusOptsEvent = ['Planning','Upcoming','In Progress','Completed','Canceled'].map(s => ({
+    value: s, label: ar ? {'Planning':'قيد التخطيط','Upcoming':'قادم','In Progress':'جارٍ','Completed':'مكتمل','Canceled':'ملغى'}[s]||s : s
   }))
+
+  const approvalOpts = ['TBC','Approved','Rejected'].map(s => ({
+    value: s, label: ar ? {'TBC':'تحت المراجعة','Approved':'معتمد','Rejected':'مرفوض'}[s]||s : s
+  }))
+
+  const eventCatOpts = [
+    { value: '', label: ar ? '— اختر تصنيفاً —' : '— Select category —' },
+    ...(eventCategories || []).filter(c => c.is_active).map(c => ({
+      value: String(c.id),
+      label: ar && c.name_ar ? c.name_ar : c.name,
+    })),
+  ]
 
   const medalOpts = ['gold','silver','bronze'].map(s => ({
     value: s, label: ar ? {'gold':'ذهب','silver':'فضة','bronze':'برونز'}[s] : s
@@ -377,32 +400,16 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
           {/* ── EVENT ── */}
           {type === 'event' && <>
             <Section label={T.eventDetails} />
-
-            {/* Names */}
             <Row>
-              <Field label={T.eventName} required placeholder={ar?"مثال: بطولة قطر المفتوحة":"e.g. Qatar Open Athletics Championships"} {...f('name')} />
-              <Field label={T.eventNameAr} placeholder={ar?"مثال: بطولة قطر المفتوحة":"e.g. بطولة قطر المفتوحة"} {...f('nameAr')} />
+              <Field label={T.eventName} placeholder={ar?"مثال: بطولة قطر المفتوحة":"e.g. Qatar Open Athletics Championships"} {...f('name')} />
+              <Field label={T.eventNameAr} placeholder="e.g. بطولة قطر المفتوحة" {...f('nameAr')} />
             </Row>
-
-            {/* Category + Approval status */}
             <Row>
               <Field label={T.category} options={eventCatOpts} {...f('categoryId')} />
               <Field label={T.approvalStatus} options={approvalOpts} {...f('approvalStatus')} />
             </Row>
-
-            {/* Sport + Discipline */}
-            <Row>
-              <Field label={T.sport}
-                options={[{ value:'', label: ar ? '— اختياري —' : '— Optional —' }, ...sportOpts]}
-                {...f('sport')}
-              />
-              <Field label={T.discipline} placeholder={ar?"مثال: 100م سباحة":"e.g. 100m freestyle"} {...f('discipline')} />
-            </Row>
-
-            {/* Venue */}
+            <Field label={T.sport} options={[{ value:'', label: ar ? '— اختر رياضة —' : '— Select sport —' }, ...SPORTS.map(s => ({ value: s, label: s }))]} {...f('sport')} />
             <Field label={T.venue} placeholder={ar?"مثال: استاد خليفة الدولي":"e.g. Khalifa International Stadium"} {...f('venue')} />
-
-            {/* Dates */}
             <Row>
               <Field label={T.startDate} type="date" {...f('startDate')} />
               <Field label={T.endDate} type="date" {...f('endDate')} />
@@ -411,23 +418,10 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
               <Field label={T.deadline} type="date" {...f('deadline')} />
               <Field label={T.status} options={statusOptsEvent} {...f('status')} />
             </Row>
-
-            {/* Max participants */}
-            <Row>
-              <Field label={T.maxPart} type="number" placeholder="30" {...f('maxParticipants')} />
-            </Row>
-
-            {/* Notes */}
+            <Field label={T.maxPart} type="number" placeholder="30" {...f('maxParticipants')} />
             <div className="form-group">
               <label className="form-label">{T.notes}</label>
-              <textarea
-                className="form-input"
-                rows={3}
-                value={form.notes || ''}
-                onChange={e => set('notes', e.target.value)}
-                placeholder={ar ? 'ملاحظات إضافية...' : 'Additional notes...'}
-                style={{ resize:'vertical', fontFamily:'DM Sans, sans-serif' }}
-              />
+              <textarea className="form-input" rows={3} placeholder={ar ? 'ملاحظات إضافية…' : 'Additional notes…'} value={form.notes ?? ''} onChange={e => set('notes', e.target.value)} style={{ resize: 'vertical', minHeight: 72 }} />
             </div>
           </>}
 
@@ -440,7 +434,7 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
             </Row>
             <Field label={T.compName} placeholder={ar?"مثال: بطولة الرماية 2026":"e.g. Para Shooting Nationals 2026"} {...f('eventName')} />
             <Row>
-              <Field label={T.resultDisc} placeholder={ar?"مثال: 10م بندقية هواء SH1":"e.g. 10m Air Rifle SH1"} {...f('discipline')} />
+              <Field label={T.discipline} placeholder={ar?"مثال: 10م بندقية هواء SH1":"e.g. 10m Air Rifle SH1"} {...f('discipline')} />
               <Field label={T.result} placeholder={ar?"مثال: 248.7 نقطة":"e.g. 248.7 pts"} {...f('result')} />
             </Row>
             <Row>
