@@ -7,26 +7,14 @@ import { computeEventStatus } from './Events'
 
 const KIND_COLORS = { meeting: '#8b5cf6', event: '#EE334E', task: '#0085C7' }
 const KIND_ICONS  = { meeting: 'ti-users-group', event: 'ti-calendar-event', task: 'ti-checklist' }
-const BAR_H = 16, BAR_GAP = 3, ROW_H = 15
 
 function getDaysInMonth(year, month) { return new Date(year, month + 1, 0).getDate() }
 function getFirstDay(year, month) { return new Date(year, month, 1).getDay() }
 function toDateStr(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` }
 function startOfWeek(d) { const r = new Date(d); r.setDate(r.getDate() - r.getDay()); return r }
-function isMultiDay(item) { return item.kind === 'event' && item.endDate !== item.date }
 
-// Greedy lane packing for continuous multi-day event bars within one week row
-function assignLanes(segments) {
-  const lanes = []
-  for (const seg of segments) {
-    let placed = false
-    for (const lane of lanes) {
-      const last = lane[lane.length - 1]
-      if (last.colStart + last.colSpan <= seg.colStart) { lane.push(seg); placed = true; break }
-    }
-    if (!placed) lanes.push([seg])
-  }
-  return lanes
+function isEventCanceled(ev) {
+  return ev.status === 'Canceled' || ev.approval_status === 'Rejected'
 }
 
 export default function Calendar({ profile, events = [], onNav }) {
@@ -98,6 +86,7 @@ export default function Calendar({ profile, events = [], onNav }) {
     }
     for (const e of events) {
       if (!e.start_date) continue
+      if (isEventCanceled(e)) continue // canceled events are excluded from the calendar entirely
       items.push({
         id: `event-${e.id}`, kind: 'event', date: e.start_date, endDate: e.end_date || e.start_date,
         startTime: null, endTime: null,
@@ -118,6 +107,8 @@ export default function Calendar({ profile, events = [], onNav }) {
   const filterKind = filter === 'Meetings' ? 'meeting' : filter === 'Events' ? 'event' : filter === 'Tasks' ? 'task' : null
   const visibleItems = filterKind ? allItems.filter(i => i.kind === filterKind) : allItems
 
+  // Each day only ever looks at its own date range — a multi-day event simply
+  // appears again (compact, not spanning) on every date it covers.
   function itemsOnDay(dateStr) {
     return visibleItems.filter(i => dateStr >= i.date && dateStr <= i.endDate)
       .sort((a, b) => (a.startTime || '99:99').localeCompare(b.startTime || '99:99'))
@@ -125,15 +116,10 @@ export default function Calendar({ profile, events = [], onNav }) {
 
   function isToday(dateStr) { return dateStr === toDateStr(today) }
 
-  // Canceled/completed items render muted — applies to events (Canceled/Completed/Rejected)
-  // and tasks (done). Meetings have no such lifecycle state in this schema.
+  // Completed tasks render muted. Events are never muted here — canceled ones
+  // are already excluded above, and there's no other "dim but visible" state.
   function isMuted(item) {
-    if (item.kind === 'task') return item.raw.status === 'done'
-    if (item.kind === 'event') {
-      if (item.raw.status === 'Canceled' || item.raw.approval_status === 'Rejected') return true
-      return computeEventStatus(item.raw.start_date, item.raw.end_date, item.raw.deadline) === 'Completed'
-    }
-    return false
+    return item.kind === 'task' && item.raw.status === 'done'
   }
 
   function openItem(item) {
@@ -146,18 +132,16 @@ export default function Calendar({ profile, events = [], onNav }) {
 
   const daysInMonth = getDaysInMonth(year, month)
   const firstDay    = getFirstDay(year, month)
-  const weekStart    = startOfWeek(curDate)
-  const weekDays      = Array.from({ length: 7 }).map((_, i) => { const d = new Date(weekStart); d.setDate(d.getDate() + i); return d })
+  const weekStart   = startOfWeek(curDate)
+  const weekDays    = Array.from({ length: 7 }).map((_, i) => { const d = new Date(weekStart); d.setDate(d.getDate() + i); return d })
 
-  // Build full month grid as week rows (including muted lead/trail days from adjacent months)
-  const weeksCount  = Math.ceil((firstDay + daysInMonth) / 7)
-  const gridStart   = new Date(year, month, 1 - firstDay)
-  const monthWeeks  = Array.from({ length: weeksCount }).map((_, wi) =>
-    Array.from({ length: 7 }).map((_, di) => {
-      const d = new Date(gridStart); d.setDate(d.getDate() + wi * 7 + di)
-      return { date: d, dateStr: toDateStr(d), inMonth: d.getMonth() === month, weekend: d.getDay() === 0 || d.getDay() === 6 }
-    })
-  )
+  // Full month grid including muted lead/trail days from adjacent months
+  const weeksCount = Math.ceil((firstDay + daysInMonth) / 7)
+  const gridStart  = new Date(year, month, 1 - firstDay)
+  const monthCells = Array.from({ length: weeksCount * 7 }).map((_, i) => {
+    const d = new Date(gridStart); d.setDate(d.getDate() + i)
+    return { date: d, dateStr: toDateStr(d), inMonth: d.getMonth() === month, weekend: d.getDay() === 0 || d.getDay() === 6 }
+  })
 
   // Agenda: everything within the visible month, chronological
   const agendaByDate = {}
@@ -167,23 +151,23 @@ export default function Calendar({ profile, events = [], onNav }) {
     if (dItems.length) agendaByDate[dateStr] = dItems
   }
 
-  function CompactItem({ item, dense }) {
+  function CompactItem({ item }) {
     const muted = isMuted(item)
     return (
       <div onClick={(e) => { e.stopPropagation(); openItem(item) }}
         title={item.title}
         style={{
-          display: 'flex', alignItems: 'center', gap: 4, fontSize: dense ? 10 : 11, fontWeight: 500,
-          padding: dense ? '1.5px 5px' : '3px 6px', borderRadius: 5, marginBottom: 2, cursor: 'pointer',
-          background: (KIND_COLORS[item.kind] + (muted ? '10' : '18')),
+          display: 'flex', alignItems: 'center', gap: 4, fontSize: 10.5, fontWeight: 500,
+          padding: '2px 5px', borderRadius: 5, marginBottom: 2, cursor: 'pointer',
+          background: KIND_COLORS[item.kind] + (muted ? '0c' : '18'),
           color: muted ? 'var(--text3)' : KIND_COLORS[item.kind],
           opacity: muted ? 0.65 : 1,
           textDecoration: muted ? 'line-through' : 'none',
-          overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis',
+          overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '100%',
         }}>
-        <i className={`ti ${KIND_ICONS[item.kind]}`} style={{ fontSize: dense ? 10 : 11, flexShrink: 0 }} />
+        <i className={`ti ${KIND_ICONS[item.kind]}`} style={{ fontSize: 10, flexShrink: 0 }} />
         {item.kind === 'meeting' && item.startTime && <span style={{ flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{item.startTime.slice(0,5)}</span>}
-        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title}</span>
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{item.title}</span>
       </div>
     )
   }
@@ -232,7 +216,7 @@ export default function Calendar({ profile, events = [], onNav }) {
                       <div style={{ fontSize: 13, fontWeight: 600, textDecoration: muted ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title}</div>
                       <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
                         {item.startTime ? item.startTime.slice(0,5) : ''}{item.startTime && item.endTime ? ` – ${item.endTime.slice(0,5)}` : ''}
-                        {item.kind === 'event' && isMultiDay(item) ? `${item.date} → ${item.endDate}` : ''}
+                        {item.kind === 'event' && item.endDate !== item.date ? `${item.date} → ${item.endDate}` : ''}
                         {item.kind === 'meeting' && item.raw.location ? ` · ${item.raw.location}` : ''}
                       </div>
                     </div>
@@ -300,7 +284,7 @@ export default function Calendar({ profile, events = [], onNav }) {
         <button className="tb-btn" onClick={() => setCurDate(new Date())}>{L('Today','اليوم')}</button>
       </div>
 
-      {/* MONTH VIEW */}
+      {/* MONTH VIEW — each cell renders only its own items, no cross-cell elements */}
       {view === 'month' && (
         <div className="cal-wrap" style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', boxShadow: 'var(--shadow)' }}>
           <div className="cal-headers" style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', borderBottom: '1px solid var(--border)' }}>
@@ -308,81 +292,32 @@ export default function Calendar({ profile, events = [], onNav }) {
               <div key={d} style={{ padding: '10px 0', textAlign: 'center', fontSize: 12, fontWeight: 600, color: (i === 0 || i === 6) ? 'var(--text3)' : 'var(--text2)', textTransform: 'uppercase', letterSpacing: '.05em', opacity: (i === 0 || i === 6) ? 0.75 : 1 }}>{d}</div>
             ))}
           </div>
-
-          {monthWeeks.map((week, wi) => {
-            const weekStartStr = week[0].dateStr, weekEndStr = week[6].dateStr
-            const multiDaySegs = visibleItems
-              .filter(i => isMultiDay(i) && i.date <= weekEndStr && i.endDate >= weekStartStr)
-              .map(i => {
-                const segStart = i.date < weekStartStr ? weekStartStr : i.date
-                const segEnd   = i.endDate > weekEndStr ? weekEndStr : i.endDate
-                const colStart = week.findIndex(w => w.dateStr === segStart)
-                const colEnd   = week.findIndex(w => w.dateStr === segEnd)
-                return { item: i, colStart, colSpan: colEnd - colStart + 1 }
-              })
-              .sort((a, b) => a.colStart - b.colStart || b.colSpan - a.colSpan)
-            const lanes = assignLanes(multiDaySegs)
-            const spacerH = lanes.length ? lanes.length * (BAR_H + BAR_GAP) : 0
-
-            return (
-              <div key={wi} style={{ position: 'relative', display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', borderBottom: wi < monthWeeks.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                {week.map(({ date, dateStr, inMonth, weekend }) => {
-                  const dItems = itemsOnDay(dateStr)
-                  const otherItems = dItems.filter(i => !isMultiDay(i))
-                  const lanesTouching = lanes.filter(lane => lane.some(seg => {
-                    const segStartStr = week[seg.colStart].dateStr
-                    const segEndStr   = week[Math.min(seg.colStart + seg.colSpan - 1, 6)].dateStr
-                    return dateStr >= segStartStr && dateStr <= segEndStr
-                  })).length
-                  const visibleSlots = Math.max(0, 3 - lanesTouching)
-                  const visibleOther = otherItems.slice(0, visibleSlots)
-                  const hiddenCount = dItems.length - lanesTouching - visibleOther.length
-                  const isTod = isToday(dateStr)
-                  return (
-                    <div key={dateStr} className="cal-day-cell"
-                      style={{
-                        minHeight: 96, borderRight: '1px solid var(--border)', padding: '5px 5px 4px',
-                        background: isTod ? '#0085C70c' : (weekend || !inMonth) ? 'var(--surface2)' : 'var(--surface)',
-                        opacity: inMonth ? 1 : 0.5,
-                        boxShadow: isTod ? 'inset 0 0 0 1.5px #0085C7' : 'none',
-                        transition: 'background .12s',
-                      }}
-                      onMouseEnter={e => { if (inMonth) e.currentTarget.style.background = isTod ? '#0085C714' : 'var(--surface2)' }}
-                      onMouseLeave={e => { e.currentTarget.style.background = isTod ? '#0085C70c' : (weekend || !inMonth) ? 'var(--surface2)' : 'var(--surface)' }}>
-                      <div style={{ fontSize: 11.5, fontWeight: isTod ? 700 : 500, width: 21, height: 21, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: isTod ? '#0085C7' : 'transparent', color: isTod ? '#fff' : weekend ? 'var(--text3)' : 'var(--text)', marginBottom: 3 }}>{date.getDate()}</div>
-                      <div style={{ height: spacerH }} />
-                      {visibleOther.map(item => <CompactItem key={item.id} item={item} dense />)}
-                      {hiddenCount > 0 && (
-                        <div onClick={() => setDayDetail({ dateStr, items: dItems })}
-                          style={{ fontSize: 10, color: '#0085C7', fontWeight: 600, cursor: 'pointer', marginTop: 1 }}>
-                          +{hiddenCount} {L('more','أخرى')}
-                        </div>
-                      )}
+          <div className="cal-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)' }}>
+            {monthCells.map(({ date, dateStr, inMonth, weekend }) => {
+              const dItems = itemsOnDay(dateStr)
+              const visible = dItems.slice(0, 3)
+              const hiddenCount = dItems.length - visible.length
+              const isTod = isToday(dateStr)
+              return (
+                <div key={dateStr} className="cal-day-cell"
+                  style={{
+                    minHeight: 96, borderRight: '1px solid var(--border)', borderBottom: '1px solid var(--border)',
+                    padding: '5px 5px 4px', overflow: 'hidden',
+                    background: (weekend || !inMonth) ? 'var(--surface2)' : 'var(--surface)',
+                    opacity: inMonth ? 1 : 0.55,
+                  }}>
+                  <div style={{ fontSize: 11.5, fontWeight: isTod ? 700 : 500, width: 21, height: 21, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: isTod ? '#0085C7' : 'transparent', color: isTod ? '#fff' : weekend ? 'var(--text3)' : 'var(--text)', marginBottom: 3 }}>{date.getDate()}</div>
+                  {visible.map(item => <CompactItem key={item.id} item={item} />)}
+                  {hiddenCount > 0 && (
+                    <div onClick={() => setDayDetail({ dateStr, items: dItems })}
+                      style={{ fontSize: 10, color: '#0085C7', fontWeight: 600, cursor: 'pointer', marginTop: 1 }}>
+                      +{hiddenCount} {L('more','أخرى')}
                     </div>
-                  )
-                })}
-                {/* Multi-day event bars, absolutely positioned across the week row */}
-                {lanes.map((lane, li) => lane.map(seg => (
-                  <div key={`${wi}-${li}-${seg.item.id}`}
-                    onClick={() => openItem(seg.item)}
-                    title={seg.item.title}
-                    style={{
-                      position: 'absolute', top: 27 + li * (BAR_H + BAR_GAP), left: `calc(${(seg.colStart/7)*100}% + 3px)`,
-                      width: `calc(${(seg.colSpan/7)*100}% - 6px)`, height: BAR_H, borderRadius: 5,
-                      background: isMuted(seg.item) ? KIND_COLORS.event + '15' : KIND_COLORS.event,
-                      color: isMuted(seg.item) ? 'var(--text3)' : '#fff',
-                      opacity: isMuted(seg.item) ? 0.65 : 1,
-                      textDecoration: isMuted(seg.item) ? 'line-through' : 'none',
-                      fontSize: 10, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4, padding: '0 6px',
-                      cursor: 'pointer', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', zIndex: 1,
-                    }}>
-                    <i className={`ti ${KIND_ICONS.event}`} style={{ fontSize: 10, flexShrink: 0 }} />
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{seg.item.title}</span>
-                  </div>
-                )))}
-              </div>
-            )
-          })}
+                  )}
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
 
@@ -396,9 +331,9 @@ export default function Calendar({ profile, events = [], onNav }) {
               const isTod = isToday(dateStr)
               const weekend = d.getDay() === 0 || d.getDay() === 6
               return (
-                <div key={dateStr} style={{ minHeight: 220, borderRight: '1px solid var(--border)', padding: '8px 6px', background: isTod ? '#0085C70c' : weekend ? 'var(--surface2)' : 'var(--surface)' }}>
+                <div key={dateStr} style={{ minHeight: 220, borderRight: '1px solid var(--border)', padding: '8px 6px', background: weekend ? 'var(--surface2)' : 'var(--surface)' }}>
                   <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', marginBottom: 4 }}>{dayNames[d.getDay()]}</div>
-                  <div style={{ fontSize: 13, fontWeight: isTod ? 700 : 500, color: isTod ? '#0085C7' : 'var(--text)', marginBottom: 6 }}>{d.getDate()}</div>
+                  <div style={{ fontSize: 13, fontWeight: isTod ? 700 : 500, width: 22, height: 22, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: isTod ? '#0085C7' : 'transparent', color: isTod ? '#fff' : 'var(--text)', marginBottom: 6 }}>{d.getDate()}</div>
                   {dItems.map(item => <CompactItem key={item.id} item={item} />)}
                 </div>
               )
