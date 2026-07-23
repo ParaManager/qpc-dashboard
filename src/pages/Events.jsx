@@ -56,54 +56,99 @@ function ApprovalBadge({ status, lang }) {
   )
 }
 
+// Shared person row — same layout as registered-athlete rows
+function PersonRow({ name, nameAr, id, subtitle, status, ar, canRemove, onRemove }) {
+  const displayName = ar && nameAr ? nameAr : name
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '7px 0', borderBottom: '1px solid var(--border)' }}>
+      <Avatar name={name} id={id} size={30} fs={10} />
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: 13, fontWeight: 500 }}>{displayName}</div>
+        {subtitle && <div style={{ fontSize: 11, color: 'var(--text3)' }}>{subtitle}</div>}
+      </div>
+      {status && <Badge label={status} />}
+      {canRemove && (
+        <button
+          onClick={onRemove}
+          style={{ background: 'none', border: '1px solid #fca5a5', color: '#dc2626', borderRadius: 6, padding: '2px 8px', fontSize: 11, cursor: 'pointer', flexShrink: 0 }}
+        >✕</button>
+      )}
+    </div>
+  )
+}
+
 function OfficialsPicker({ roleKey, title, officials, employees, eventId, canEditMode, canAdd, ar, onAdd, onRemove }) {
   const [adding, setAdding] = useState(false)
-  const [pick, setPick] = useState('')
+  const [pick, setPick]     = useState('')
+
   const assigned = officials[roleKey] || []
   const available = employees.filter(e => !assigned.find(o => o.employee_id === e.id))
+
   return (
-    <div style={{ marginBottom: 16 }}>
-      <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 8 }}>{title}</div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', minHeight: 28 }}>
-        {assigned.length === 0 && !adding && (
-          <span style={{ fontSize: 12, color: 'var(--text3)' }}>{ar ? 'لا يوجد موظفون معينون' : 'No employees assigned'}</span>
-        )}
-        {assigned.map(o => {
-          const emp = employees.find(e => e.id === o.employee_id)
-          if (!emp) return null
-          return (
-            <span key={o.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 20, padding: '3px 10px 3px 8px', fontSize: 12 }}>
-              <Avatar name={emp.name} id={emp.id} size={18} fs={7} />
-              {ar && emp.name_ar ? emp.name_ar : emp.name}
-              {canEditMode && (
-                <button onClick={() => onRemove(o.id)} style={{ background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', padding: '0 0 0 2px', fontSize: 13, lineHeight: 1, display: 'flex', alignItems: 'center' }}>×</button>
-              )}
-            </span>
-          )
-        })}
-        {canAdd && canEditMode && (
-          adding ? (
-            <div style={{ display: 'flex', gap: 5, alignItems: 'center', flexWrap: 'wrap' }}>
-              <select value={pick} onChange={e => setPick(e.target.value)}
-                style={{ fontSize: 12, padding: '3px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface1)', color: 'var(--text1)', maxWidth: 220 }}>
+    <div style={{ marginBottom: 18 }}>
+      <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 }}>
+        {title}
+      </div>
+
+      {assigned.length === 0 && (
+        <div className="empty" style={{ padding: '8px 0', fontSize: 12 }}>
+          {ar ? 'لا يوجد موظفون معينون' : 'No employees assigned'}
+        </div>
+      )}
+
+      {assigned.map(o => {
+        const emp = employees.find(e => e.id === o.employee_id)
+        if (!emp) return null
+        return (
+          <PersonRow
+            key={o.id}
+            name={emp.name}
+            nameAr={emp.name_ar}
+            id={emp.id}
+            subtitle={emp.designation || null}
+            status={emp.status || null}
+            ar={ar}
+            canRemove={canEditMode}
+            onRemove={() => onRemove(o.id)}
+          />
+        )
+      })}
+
+      {canAdd && canEditMode && (
+        <div style={{ marginTop: 8 }}>
+          {adding ? (
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+              <select
+                value={pick}
+                onChange={e => setPick(e.target.value)}
+                style={{ fontSize: 12, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface1)', color: 'var(--text1)', flex: 1, minWidth: 0 }}
+              >
                 <option value="">{ar ? '— اختر موظفاً —' : '— Select employee —'}</option>
-                {available.map(e => <option key={e.id} value={e.id}>{ar && e.name_ar ? e.name_ar : e.name}</option>)}
+                {available.map(e => (
+                  <option key={e.id} value={e.id}>{ar && e.name_ar ? e.name_ar : e.name}</option>
+                ))}
               </select>
-              <button onClick={async () => { if (pick) { await onAdd(eventId, parseInt(pick), roleKey); setPick(''); setAdding(false) } }}
-                style={{ fontSize: 12, padding: '4px 10px', borderRadius: 6, background: '#0085C7', color: '#fff', border: 'none', cursor: 'pointer' }}>
+              <button
+                onClick={async () => { if (pick) { await onAdd(eventId, parseInt(pick), roleKey); setPick(''); setAdding(false) } }}
+                style={{ background: '#0085C7', color: '#fff', border: 'none', borderRadius: 7, padding: '4px 10px', fontSize: 12, cursor: 'pointer', flexShrink: 0 }}
+              >
                 {ar ? 'إضافة' : 'Add'}
               </button>
-              <button onClick={() => { setAdding(false); setPick('') }}
-                style={{ fontSize: 12, padding: '3px 8px', borderRadius: 6, background: 'none', border: '1px solid var(--border)', color: 'var(--text2)', cursor: 'pointer' }}>✕</button>
+              <button
+                onClick={() => { setAdding(false); setPick('') }}
+                style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--text2)', borderRadius: 6, padding: '3px 8px', fontSize: 12, cursor: 'pointer', flexShrink: 0 }}
+              >✕</button>
             </div>
           ) : (
-            <button onClick={() => setAdding(true)}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#0085C7', color: '#fff', border: 'none', borderRadius: 7, padding: '4px 10px', fontSize: 12, cursor: 'pointer' }}>
+            <button
+              onClick={() => setAdding(true)}
+              style={{ background: '#0085C7', color: '#fff', border: 'none', borderRadius: 7, padding: '4px 10px', fontSize: 12, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+            >
               <i className="ti ti-plus" style={{ fontSize: 11 }} />{ar ? 'إضافة' : 'Add'}
             </button>
-          )
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -162,9 +207,7 @@ export default function Events({ events, athletes, results, registrations, onRef
     try {
       const ext  = file.name.split('.').pop().toLowerCase()
       const path = `${eventId}.${ext}`
-      await supabase.storage.from('event-photos').remove([
-        `${eventId}.jpg`, `${eventId}.jpeg`, `${eventId}.png`, `${eventId}.webp`
-      ])
+      await supabase.storage.from('event-photos').remove([`${eventId}.jpg`, `${eventId}.jpeg`, `${eventId}.png`, `${eventId}.webp`])
       const { error: upErr } = await supabase.storage.from('event-photos').upload(path, file)
       if (upErr) throw upErr
       const { data } = supabase.storage.from('event-photos').getPublicUrl(path)
@@ -284,14 +327,18 @@ export default function Events({ events, athletes, results, registrations, onRef
       administrative_staff: ar ? 'الجهاز الإداري' : 'Administrative Staff',
     }
 
-    const pickerProps = { officials, employees, eventId: ev.id, canEditMode: canEditProfile, canAdd: canManageOfficials, ar, onAdd: addOfficial, onRemove: removeOfficial }
+    const pickerProps = {
+      officials, employees, eventId: ev.id,
+      canEditMode: canEditProfile,
+      canAdd: canManageOfficials,
+      ar, onAdd: addOfficial, onRemove: removeOfficial,
+    }
 
     return (
       <div>
         {form && <FormModal type="event" record={form === 'edit' ? editRecord : null} onSave={handleSave} onClose={() => setForm(null)} eventCategories={eventCategories} />}
         {confirm && <ConfirmModal title={tx('confirm.deleteEvent', 'Delete event')} message={`Delete "${ev.name}"?`} onConfirm={() => handleDelete(ev.id, ev.name)} onCancel={() => setConfirm(null)} />}
 
-        {/* Hidden photo input */}
         <input ref={photoInputRef} type="file" accept="image/*" style={{ display: 'none' }}
           onChange={e => { if (e.target.files[0]) handlePhotoUpload(ev.id, e.target.files[0]) }} />
 
@@ -304,13 +351,13 @@ export default function Events({ events, athletes, results, registrations, onRef
         )}
 
         <div className="detail-grid">
-          {/* Left column — event info */}
+          {/* Left column */}
           <div>
             <div className="detail-profile" style={{ textAlign: 'left', padding: 0, overflow: 'hidden' }}>
-
-              {/* Event photo */}
-              <div style={{ position: 'relative', width: '100%', height: ev.photo_url ? 180 : (canEditProfile ? 110 : 0), background: ev.photo_url ? 'transparent' : 'var(--surface2)', borderRadius: ev.photo_url ? '12px 12px 0 0' : 12, overflow: 'hidden', marginBottom: ev.photo_url ? 0 : (canEditProfile ? 12 : 0), cursor: canEditProfile ? 'pointer' : 'default', flexShrink: 0 }}
-                onClick={() => canEditProfile && photoInputRef.current?.click()}>
+              <div
+                style={{ position: 'relative', width: '100%', height: ev.photo_url ? 180 : (canEditProfile ? 110 : 0), background: ev.photo_url ? 'transparent' : 'var(--surface2)', borderRadius: ev.photo_url ? '12px 12px 0 0' : 12, overflow: 'hidden', marginBottom: ev.photo_url ? 0 : (canEditProfile ? 12 : 0), cursor: canEditProfile ? 'pointer' : 'default', flexShrink: 0 }}
+                onClick={() => canEditProfile && photoInputRef.current?.click()}
+              >
                 {ev.photo_url ? (
                   <img src={ev.photo_url} alt={ev.name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                 ) : canEditProfile ? (
@@ -319,8 +366,6 @@ export default function Events({ events, athletes, results, registrations, onRef
                     <span style={{ fontSize: 12 }}>{ar ? 'انقر لإضافة صورة' : 'Click to add a photo'}</span>
                   </div>
                 ) : null}
-
-                {/* Overlay controls when photo exists */}
                 {ev.photo_url && canEditProfile && (
                   <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 6 }}>
                     <button onClick={e => { e.stopPropagation(); photoInputRef.current?.click() }}
@@ -340,8 +385,6 @@ export default function Events({ events, athletes, results, registrations, onRef
                   </div>
                 )}
               </div>
-
-              {/* Event info below photo */}
               <div style={{ padding: '16px 20px 20px' }}>
                 <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
                   <CatBadge catId={ev.category_id} eventCategories={eventCategories} lang={lang} />
