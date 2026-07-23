@@ -351,7 +351,6 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
               <Field label={T.endDate} type="date" {...f('endDate')} />
             </Row>
             <Row>
-              <Field label={T.maxPart} type="number" placeholder="60" {...f('maxParticipants')} />
               <Field label={T.status} options={statusOptsEvent} {...f('status')} />
             </Row>
           </>}
