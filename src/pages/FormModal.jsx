@@ -107,7 +107,7 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
       const defaults = {
         athlete: { gender: 'Male', nationality: 'Qatari', sport: SPORTS[0], status: 'Active' },
         coach:   { sport: SPORTS[0], status: 'Active' },
-        event:   { sport: SPORTS[0], type: 'National', status: 'Planning', maxParticipants: 30 },
+        event:   { sport: SPORTS[0], type: 'National', status: 'Planning' },
         result:  { medal: 'gold', position: 1 },
       }
       setForm(defaults[type] || {})
@@ -167,7 +167,6 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
     venue:            ar ? 'المكان'                          : 'Venue',
     startDate:        ar ? 'تاريخ البداية'                   : 'Start date',
     endDate:          ar ? 'تاريخ النهاية'                   : 'End date',
-    maxPart:          ar ? 'الحد الأقصى للمشاركين'           : 'Max participants',
     athlete:          ar ? 'الرياضي'                         : 'Athlete',
     medal:            ar ? 'الميدالية'                       : 'Medal',
     compName:         ar ? 'اسم المنافسة'                    : 'Competition name',
