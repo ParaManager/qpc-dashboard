@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import NationalitySelect from './NationalitySelect.jsx'
-import { SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, SPORT_CATEGORY_NAMES_AR, sportLabel } from '../lib/helpers'
+import { SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, SPORT_CATEGORY_NAMES_AR, SPORT_NAMES_AR, sportLabel } from '../lib/helpers'
 import { useLang } from '../lib/LangContext.jsx'
 
 const COLORS = { athlete: '#0085C7', coach: '#009F6B', event: '#EE334E', result: '#8b5cf6' }
@@ -76,6 +76,12 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
     label: sportLabel(s, form?.sportCategory, ar)
   }))
 
+  // All sports for event form — plain names, no Para/SO prefix, with Arabic
+  const allSportOpts = [
+    { value: '', label: ar ? '— اختر رياضة —' : '— Select sport —' },
+    ...SPORTS.map(s => ({ value: s, label: ar ? (SPORT_NAMES_AR[s] || s) : s })),
+  ]
+
   const athDesigOpts = ['','Player','Female Player','Coach','Female Coach','Referee','Female Referee','Admin Staff','Technical Staff','Medical Staff','Board Member','Female Board Member','Member','Female Member','Employee','Female Employee','Expert'].map(s => ({
     value: s,
     label: ar && s ? ({'Player':'لاعب','Female Player':'لاعبة','Coach':'مدرب','Female Coach':'مدربة','Referee':'حكم','Female Referee':'حكمة','Admin Staff':'جهاز إداري','Technical Staff':'جهاز في','Medical Staff':'جهاز طبي','Board Member':'عضو مجلس إدارة','Female Board Member':'عضوة مجلس إدارة','Member':'عضو','Female Member':'عضوة','Employee':'موظف','Female Employee':'موظفة','Expert':'خبير في'}[s]||s) : s
@@ -92,7 +98,7 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
       const defaults = {
         athlete: { gender: 'Male', nationality: 'Qatari', sportCategory: 'Summer Paralympic', sport: SPORTS[0], status: 'Active' },
         coach:   { sportCategory: 'Summer Paralympic', sport: SPORTS[0], status: 'Active' },
-        event:   { sport: SPORTS[0], status: 'Planning', approvalStatus: 'TBC', maxParticipants: 30 },
+        event:   { status: 'Planning', approvalStatus: 'TBC', maxParticipants: 30 },
         result:  { medal: 'gold', position: 1 },
       }
       setForm(defaults[type] || {})
@@ -114,8 +120,6 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
     sportClass:       ar ? 'الرياضة والتصنيف'               : 'Sport & Classification',
     clubRole:         ar ? 'النادي والدور'                   : 'Club & Role',
     passportID:       ar ? 'الجواز والهوية'                  : 'Passport & ID',
-    emergency:        ar ? 'جهة الاتصال في حالات الطوارئ'   : 'Emergency Contact',
-    medical:          ar ? 'المعلومات الطبية'                : 'Medical Information',
     employment:       ar ? 'التوظيف'                         : 'Employment',
     eventDetails:     ar ? 'تفاصيل الفعالية'                 : 'Event Details',
     resultInfo:       ar ? 'معلومات النتيجة'                 : 'Result Information',
@@ -131,7 +135,6 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
     sport:            ar ? 'الرياضة'                         : 'Sport',
     classification:   ar ? 'التصنيف'                         : 'Classification',
     disability:       ar ? 'نوع الإعاقة'                     : 'Disability type',
-    ageCategory:      ar ? 'الفئة العمرية'                   : 'Age category',
     coach:            ar ? 'المدرب'                          : 'Coach',
     status:           ar ? 'الحالة'                          : 'Status',
     medicalStatus:    ar ? 'الحالة الطبية'                   : 'Medical status',
@@ -179,13 +182,11 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
     result:  ar ? 'نتيجة'  : 'Result',
   }
 
-  const genderOpts = [
-    { value:'Male',   label: T.male },
-    { value:'Female', label: T.female },
-  ]
+  const genderOpts      = [{ value:'Male', label: T.male }, { value:'Female', label: T.female }]
   const genderOptsEmpty = [{ value:'', label:'' }, ...genderOpts]
 
   const DATE_STATUSES = ['On Leave','In Competition','In Training Camp']
+
   const statusOptsAthlete = ['','Active','On Leave','In Competition','In Training Camp','Inactive','Injured','Under Medical Review','Suspended','Retired'].map(s => ({
     value: s,
     label: s === '' ? '' : ar ? {'Active':'نشط','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي','Inactive':'غير نشط','Injured':'مصاب','Under Medical Review':'تحت المراجعة الطبية','Suspended':'موقوف','Retired':'متقاعد'}[s]||s : s
@@ -239,9 +240,9 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
               </Row>
               <Row>
                 <div className="form-group">
-                <label className="form-label">{T.nationality}<span style={{ color:'#dc2626' }}> *</span></label>
-                <NationalitySelect value={form.nationality} onChange={v => set('nationality', v)} lang={lang} />
-              </div>
+                  <label className="form-label">{T.nationality}<span style={{ color:'#dc2626' }}> *</span></label>
+                  <NationalitySelect value={form.nationality} onChange={v => set('nationality', v)} lang={lang} />
+                </div>
                 <Field label={T.phone} placeholder="+974 XXXX XXXX" {...f('phone')} />
               </Row>
               <Row>
@@ -408,7 +409,7 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
               <Field label={T.category} options={eventCatOpts} {...f('categoryId')} />
               <Field label={T.approvalStatus} options={approvalOpts} {...f('approvalStatus')} />
             </Row>
-            <Field label={T.sport} options={[{ value:'', label: ar ? '— اختر رياضة —' : '— Select sport —' }, ...SPORTS.map(s => ({ value: s, label: s }))]} {...f('sport')} />
+            <Field label={T.sport} options={allSportOpts} {...f('sport')} />
             <Field label={T.venue} placeholder={ar?"مثال: استاد خليفة الدولي":"e.g. Khalifa International Stadium"} {...f('venue')} />
             <Row>
               <Field label={T.startDate} type="date" {...f('startDate')} />
@@ -471,11 +472,7 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
                 }
               }
               setSaving(true)
-              try {
-                await onSave(form)
-              } finally {
-                setSaving(false)
-              }
+              try { await onSave(form) } finally { setSaving(false) }
             }}>
             {saving && <span style={{ width:12, height:12, border:'2px solid rgba(255,255,255,.4)', borderTopColor:'#fff', borderRadius:'50%', display:'inline-block', animation:'spin .7s linear infinite' }} />}
             {isEdit ? T.save : T.add}
