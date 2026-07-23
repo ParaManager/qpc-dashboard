@@ -338,6 +338,9 @@ body { overscroll-behavior: none; }
   [dir="rtl"] .detail-row .dv { text-align: right; }
   .detail-row .dk { white-space: normal; }
 
+  /* Calendar month grid — tighter cells on narrow screens */
+  .cal-day-cell { min-height: 74px !important; padding: 4px 3px 3px !important; }
+
   /* Athlete Overview grid specifically uses an inline ellipsis/nowrap
      style (needed on desktop for its 2-column layout) — !important is
      required here since inline styles otherwise always win, but this is
