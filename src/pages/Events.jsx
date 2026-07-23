@@ -16,16 +16,13 @@ export function computeEventStatus(startDate, endDate, deadline) {
   const start = startDate ? new Date(startDate) : null
   const effectiveEnd = endDate ? new Date(endDate) : (start ? new Date(startDate) : null)
   const dead = deadline ? new Date(deadline) : null
-
   if (!start) return 'Planning'
-
   if (dead) {
     if (today <= dead) return 'Planning'
     if (today < start) return 'Upcoming'
   } else {
     if (today < start) return 'Upcoming'
   }
-
   if (effectiveEnd && today > effectiveEnd) return 'Completed'
   return 'In Progress'
 }
@@ -59,7 +56,7 @@ function ApprovalBadge({ status, lang }) {
   )
 }
 
-function OfficialsPicker({ roleKey, title, officials, employees, eventId, canEditMode, ar, onAdd, onRemove }) {
+function OfficialsPicker({ roleKey, title, officials, employees, eventId, canEditMode, canAdd, ar, onAdd, onRemove }) {
   const [adding, setAdding] = useState(false)
   const [pick, setPick] = useState('')
 
@@ -88,7 +85,7 @@ function OfficialsPicker({ roleKey, title, officials, employees, eventId, canEdi
             </span>
           )
         })}
-        {canEditMode && (
+        {canAdd && canEditMode && (
           adding ? (
             <div style={{ display: 'flex', gap: 5, alignItems: 'center', flexWrap: 'wrap' }}>
               <select
@@ -103,7 +100,7 @@ function OfficialsPicker({ roleKey, title, officials, employees, eventId, canEdi
               </select>
               <button
                 onClick={async () => { if (pick) { await onAdd(eventId, parseInt(pick), roleKey); setPick(''); setAdding(false) } }}
-                style={{ fontSize: 12, padding: '3px 10px', borderRadius: 6, background: '#0085C7', color: '#fff', border: 'none', cursor: 'pointer' }}
+                style={{ fontSize: 12, padding: '4px 10px', borderRadius: 6, background: '#0085C7', color: '#fff', border: 'none', cursor: 'pointer' }}
               >
                 {ar ? 'إضافة' : 'Add'}
               </button>
@@ -115,7 +112,7 @@ function OfficialsPicker({ roleKey, title, officials, employees, eventId, canEdi
           ) : (
             <button
               onClick={() => setAdding(true)}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'none', border: '1px dashed var(--border)', borderRadius: 20, padding: '3px 10px', fontSize: 12, color: 'var(--text3)', cursor: 'pointer' }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: '#0085C7', color: '#fff', border: 'none', borderRadius: 7, padding: '4px 10px', fontSize: 12, cursor: 'pointer' }}
             >
               <i className="ti ti-plus" style={{ fontSize: 11 }} />{ar ? 'إضافة' : 'Add'}
             </button>
@@ -251,12 +248,13 @@ export default function Events({ events, athletes, results, registrations, onRef
   if (selected) {
     const ev = events.find(x => x.id === selected)
     if (!ev) { setSelected(null); return null }
-    const evStatus    = getEventStatus(ev)
-    const regIds      = registrations.filter(r => r.event_id === ev.id).map(r => r.athlete_id)
-    const regAthletes = athletes.filter(a => regIds.includes(a.id))
-    const eligible    = athletes.filter(a => ev.sport && a.sport === ev.sport && !regIds.includes(a.id))
-    const evResults   = results.filter(r => r.event_name === ev.name)
-    const canReg      = ['Upcoming', 'In Progress', 'Planning'].includes(evStatus)
+    const evStatus          = getEventStatus(ev)
+    const regIds            = registrations.filter(r => r.event_id === ev.id).map(r => r.athlete_id)
+    const regAthletes       = athletes.filter(a => regIds.includes(a.id))
+    const eligible          = athletes.filter(a => ev.sport && a.sport === ev.sport && !regIds.includes(a.id))
+    const evResults         = results.filter(r => r.event_name === ev.name)
+    const canReg            = ['Upcoming', 'In Progress', 'Planning'].includes(evStatus)
+    const canManageOfficials = ['Planning', 'Upcoming'].includes(evStatus)
 
     const editRecord = {
       id: ev.id, name: ev.name, nameAr: ev.name_ar,
@@ -268,13 +266,18 @@ export default function Events({ events, athletes, results, registrations, onRef
       notes: ev.notes,
     }
 
-    const pickerProps = { officials, employees, eventId: ev.id, canEditMode: canEdit(profile), ar, onAdd: addOfficial, onRemove: removeOfficial }
-
     const ROLE_TITLES = {
-      head_of_delegation:   ar ? 'رئيس الوفد'      : 'Head of Delegation',
-      medical_staff:        ar ? 'الجهاز الطبي'     : 'Medical Staff',
-      coach:                ar ? 'المدربون'          : 'Coaches',
-      administrative_staff: ar ? 'الجهاز الإداري'   : 'Administrative Staff',
+      head_of_delegation:   ar ? 'رئيس الوفد'    : 'Head of Delegation',
+      medical_staff:        ar ? 'الجهاز الطبي'   : 'Medical Staff',
+      coach:                ar ? 'المدربون'        : 'Coaches',
+      administrative_staff: ar ? 'الجهاز الإداري' : 'Administrative Staff',
+    }
+
+    const pickerProps = {
+      officials, employees, eventId: ev.id,
+      canEditMode: canEdit(profile),
+      canAdd: canManageOfficials,
+      ar, onAdd: addOfficial, onRemove: removeOfficial,
     }
 
     return (
@@ -291,8 +294,8 @@ export default function Events({ events, athletes, results, registrations, onRef
         )}
 
         <div className="detail-grid">
+          {/* Left column — event info only */}
           <div>
-            {/* Event info */}
             <div className="detail-profile" style={{ textAlign: 'left' }}>
               <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
                 <CatBadge catId={ev.category_id} eventCategories={eventCategories} lang={lang} />
@@ -314,22 +317,9 @@ export default function Events({ events, athletes, results, registrations, onRef
                 ) : null)}
               </div>
             </div>
-
-            {/* Team Officials */}
-            <div className="info-card" style={{ marginTop: 12 }}>
-              <div className="info-title">{ar ? 'المسؤولون الرسميون' : 'Team Officials'}</div>
-              <OfficialsPicker roleKey="head_of_delegation" title={ROLE_TITLES.head_of_delegation} {...pickerProps} />
-              <OfficialsPicker roleKey="medical_staff"      title={ROLE_TITLES.medical_staff}      {...pickerProps} />
-            </div>
-
-            {/* Technical Officials */}
-            <div className="info-card" style={{ marginTop: 12 }}>
-              <div className="info-title">{ar ? 'المسؤولون التقنيون' : 'Technical Officials'}</div>
-              <OfficialsPicker roleKey="coach"                title={ROLE_TITLES.coach}                {...pickerProps} />
-              <OfficialsPicker roleKey="administrative_staff" title={ROLE_TITLES.administrative_staff} {...pickerProps} />
-            </div>
           </div>
 
+          {/* Right column — athletes, officials, results */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {/* Registered athletes */}
             <div className="info-card">
@@ -355,6 +345,20 @@ export default function Events({ events, athletes, results, registrations, onRef
                   ))}
                 </div>
               )}
+            </div>
+
+            {/* Team Officials */}
+            <div className="info-card">
+              <div className="info-title">{ar ? 'المسؤولون الرسميون' : 'Team Officials'}</div>
+              <OfficialsPicker roleKey="head_of_delegation" title={ROLE_TITLES.head_of_delegation} {...pickerProps} />
+              <OfficialsPicker roleKey="medical_staff"      title={ROLE_TITLES.medical_staff}      {...pickerProps} />
+            </div>
+
+            {/* Technical Officials */}
+            <div className="info-card">
+              <div className="info-title">{ar ? 'المسؤولون التقنيون' : 'Technical Officials'}</div>
+              <OfficialsPicker roleKey="coach"                title={ROLE_TITLES.coach}                {...pickerProps} />
+              <OfficialsPicker roleKey="administrative_staff" title={ROLE_TITLES.administrative_staff} {...pickerProps} />
             </div>
 
             {/* Results */}
