@@ -88,7 +88,7 @@ export default function Events({ events, athletes, results, registrations, onRef
     const matchSearch   = e.name.toLowerCase().includes(search.toLowerCase())
       || (e.name_ar || '').includes(search)
       || (e.venue || '').toLowerCase().includes(search.toLowerCase())
-    return matchStatus && matchCategory && matchApproval && matchDate && matchSearch
+    return matchStatus && matchCategory && matchApproval && matchSearch
   })
 
   list = [...list].sort((a, b) => {
