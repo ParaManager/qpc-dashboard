@@ -1,6 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
 import NationalitySelect from './NationalitySelect.jsx'
-import { SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, SPORT_CATEGORY_NAMES_AR, SPORT_NAMES_AR, sportLabel } from '../lib/helpers'
+import {
+  SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, SPORT_CATEGORY_NAMES_AR, SPORT_NAMES_AR, sportLabel,
+  SUMMER_PARALYMPIC_SPORTS, WINTER_PARALYMPIC_SPORTS,
+  SUMMER_SPECIAL_OLYMPICS_SPORTS, WINTER_SPECIAL_OLYMPICS_SPORTS,
+  UNIFIED_SPORTS,
+} from '../lib/helpers'
 import { useLang } from '../lib/LangContext.jsx'
 
 const COLORS = { athlete: '#0085C7', coach: '#009F6B', event: '#EE334E', result: '#8b5cf6' }
@@ -55,6 +60,38 @@ function Section({ label, collapsible, open, onToggle }) {
   )
 }
 
+// Grouped sport select for event form — uses optgroups for Para / SO / Unified
+function EventSportSelect({ label, value, onChange, ar }) {
+  const sn = k => ar ? (SPORT_NAMES_AR[k] || k) : k
+
+  // Para: Summer + Winter combined, deduped
+  const paraSports = [...new Set([...SUMMER_PARALYMPIC_SPORTS, ...WINTER_PARALYMPIC_SPORTS])]
+  // SO: Summer + Winter combined, deduped
+  const soSports = [...new Set([...SUMMER_SPECIAL_OLYMPICS_SPORTS, ...WINTER_SPECIAL_OLYMPICS_SPORTS])]
+
+  return (
+    <div className="form-group">
+      <label className="form-label">{label}</label>
+      <select
+        className="form-input"
+        value={value ?? ''}
+        onChange={e => onChange('sport', e.target.value)}
+      >
+        <option value="">{ar ? '— اختر رياضة —' : '— Select sport —'}</option>
+        <optgroup label={ar ? 'الرياضات البارالمبية' : 'Paralympic Sports'}>
+          {paraSports.map(s => <option key={s} value={s}>{sn(s)}</option>)}
+        </optgroup>
+        <optgroup label={ar ? 'الأولمبياد الخاص' : 'Special Olympics Sports'}>
+          {soSports.map(s => <option key={s} value={s}>{sn(s)}</option>)}
+        </optgroup>
+        <optgroup label={ar ? 'الرياضات الموحدة' : 'Unified Sports'}>
+          {UNIFIED_SPORTS.map(s => <option key={s} value={s}>{sn(s)}</option>)}
+        </optgroup>
+      </select>
+    </div>
+  )
+}
+
 export default function FormModal({ type, record, coaches, athletes, onSave, onClose, eventCategories }) {
   const isEdit = !!record
   const { lang } = useLang()
@@ -75,12 +112,6 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
     value: s,
     label: sportLabel(s, form?.sportCategory, ar)
   }))
-
-  // All sports for event form — plain names, no Para/SO prefix, with Arabic
-  const allSportOpts = [
-    { value: '', label: ar ? '— اختر رياضة —' : '— Select sport —' },
-    ...SPORTS.map(s => ({ value: s, label: ar ? (SPORT_NAMES_AR[s] || s) : s })),
-  ]
 
   const athDesigOpts = ['','Player','Female Player','Coach','Female Coach','Referee','Female Referee','Admin Staff','Technical Staff','Medical Staff','Board Member','Female Board Member','Member','Female Member','Employee','Female Employee','Expert'].map(s => ({
     value: s,
@@ -409,7 +440,7 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
               <Field label={T.category} options={eventCatOpts} {...f('categoryId')} />
               <Field label={T.approvalStatus} options={approvalOpts} {...f('approvalStatus')} />
             </Row>
-            <Field label={T.sport} options={allSportOpts} {...f('sport')} />
+            <EventSportSelect label={T.sport} value={form.sport} onChange={set} ar={ar} />
             <Field label={T.venue} placeholder={ar?"مثال: استاد خليفة الدولي":"e.g. Khalifa International Stadium"} {...f('venue')} />
             <Row>
               <Field label={T.startDate} type="date" {...f('startDate')} />
