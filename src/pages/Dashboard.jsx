@@ -2,6 +2,15 @@ import { useState, useRef, useEffect } from 'react'
 import { Avatar, MedalDisplay, statusClass, statusDot, DashRow, SPORT_META, SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, sportLabel, initials, getCurrentSeason, computeAwayPeople } from '../lib/helpers'
 import { useLang } from '../lib/LangContext.jsx'
 import DashboardBanners from '../components/DashboardBanners'
+import { computeEventStatus } from './Events'
+
+// Derives effective display status for an event — mirrors Events.jsx getEventStatus.
+// Rejection maps to Canceled; manual Canceled is preserved; otherwise computed from dates.
+function getEventStatus(ev) {
+  if (ev.approval_status === 'Rejected') return 'Canceled'
+  if (ev.status === 'Canceled') return 'Canceled'
+  return computeEventStatus(ev.start_date, ev.end_date, ev.deadline)
+}
 
 // Role label shown under the welcome name in the hero banner
 function roleLabel(role, ar) {
@@ -36,8 +45,23 @@ export default function Dashboard({ athletes, coaches, employees, referees, even
     document.addEventListener('mousedown', handleOutsideClick)
     return () => document.removeEventListener('mousedown', handleOutsideClick)
   }, [])
-  const active   = athletes.filter(a => a.status === 'Active').length
-  const upcoming = events.filter(e => e.status === 'Upcoming' || e.status === 'Registration Open').length
+
+  const active = athletes.filter(a => a.status === 'Active').length
+
+  // Active Events = Approved + (Upcoming OR In Progress), using effective status
+  const activeEventsCount = events.filter(e => {
+    const st = getEventStatus(e)
+    return e.approval_status === 'Approved' && (st === 'Upcoming' || st === 'In Progress')
+  }).length
+
+  // Upcoming Events list: Approved + effective status = Upcoming, sorted soonest first
+  const upcomingEvents = events
+    .filter(e => {
+      const st = getEventStatus(e)
+      return e.approval_status === 'Approved' && st === 'Upcoming'
+    })
+    .sort((a, b) => new Date(a.start_date) - new Date(b.start_date))
+    .slice(0, 4)
 
   const leaders = [...athletes]
     .sort((a, b) => (b.medals_gold*3+b.medals_silver*2+b.medals_bronze) - (a.medals_gold*3+a.medals_silver*2+a.medals_bronze))
@@ -64,7 +88,13 @@ export default function Dashboard({ athletes, coaches, employees, referees, even
     { label: tx('nav.employees','Employees'), val: employees.length, hint: ar ? 'الموظفون' : 'staff', color: '#8b5cf6', icon: 'ti-id-badge-2', click: () => onNav('employees') },
     { label: tx('nav.referees','Referees'), val: referees.length, hint: ar ? 'الحكام' : 'officials', color: '#f59e0b', icon: 'ti-flag-2', click: () => onNav('referees') },
     { label: tx('dashboard.sports','Sports'), val: sportEntries.length, hint: ar ? 'قيد الاستخدام' : 'in use', color: '#0d9488', icon: 'ti-ball-football', click: () => onNav('sports') },
-    { label: tx('dashboard.activeEvents','Active Events'), val: upcoming, hint: ar ? 'قادمة' : 'upcoming', color: '#EE334E', icon: 'ti-calendar-event', click: () => onNav('events', { statusFilter:'Upcoming' }) },
+    {
+      label: tx('dashboard.activeEvents','Active Events'),
+      val: activeEventsCount,
+      hint: ar ? 'قادمة وجارية' : 'Upcoming & in progress',
+      color: '#EE334E', icon: 'ti-calendar-event',
+      click: () => onNav('events', { statusFilter:'Upcoming' }),
+    },
     { label: ar ? 'خارج المقر' : 'Away', val: allAway.length, hint: ar ? 'إجازة/معسكر/منافسة' : 'leave/camp/comp.', color: '#f97316', icon: 'ti-map-pin-off',
       click: () => onNav('away') },
     { isPending: true, label: tx('dashboard.pendingRequests','Pending Requests'), val: pendingRequestsCount + pendingAccountsCount,
@@ -168,15 +198,18 @@ export default function Dashboard({ athletes, coaches, employees, referees, even
       <div className="two-col">
         <div className="card">
           <div className="card-title"><i className="ti ti-calendar-event" /> {tx('dashboard.upcomingEvents','Upcoming events')}</div>
-          {events.filter(e => e.status !== 'Completed').slice(0, 4).map(ev => (
-            <DashRow key={ev.id} onClick={() => onNav('events', { eventId: ev.id })}>
-              <div style={{ width:8, height:8, borderRadius:'50%', background:statusDot(ev.status), flexShrink:0 }} />
-              <span style={{ flex:1, fontSize:13 }}>{ev.name}</span>
-              <span style={{ fontSize:11, color:'#9aa3b2' }}>{ev.start_date}</span>
-              <span className={`badge ${statusClass(ev.status)}`}>{ev.status}</span>
-            </DashRow>
-          ))}
-          {events.filter(e => e.status !== 'Completed').length === 0 && <div className="empty">{tx('dashboard.noUpcomingEvents','No upcoming events')}</div>}
+          {upcomingEvents.map(ev => {
+            const evStatus = getEventStatus(ev)
+            return (
+              <DashRow key={ev.id} onClick={() => onNav('events', { eventId: ev.id })}>
+                <div style={{ width:8, height:8, borderRadius:'50%', background:statusDot(evStatus), flexShrink:0 }} />
+                <span style={{ flex:1, fontSize:13 }}>{ev.name}</span>
+                <span style={{ fontSize:11, color:'#9aa3b2' }}>{ev.start_date}</span>
+                <span className={`badge ${statusClass(evStatus)}`}>{evStatus}</span>
+              </DashRow>
+            )
+          })}
+          {upcomingEvents.length === 0 && <div className="empty">{tx('dashboard.noUpcomingEvents','No upcoming events')}</div>}
         </div>
         <div className="card">
           <div className="card-title"><i className="ti ti-medal" /> {tx('dashboard.medalLeaders','Medal leaders')}</div>
