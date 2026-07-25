@@ -16,8 +16,6 @@ const DESIGNATION_AR = {
 export function generateEmployeeCard(emp) {
   const desigAr = emp.designation_ar || DESIGNATION_AR[emp.designation] || emp.designation || ''
   const staffId = emp.employee_number || '0000'
-  const jobId   = emp.job_id          || '0000'
-  const qssNum  = emp.qss_number      || '0000'
   const phone   = emp.phone           || '+974 44040200'
   const email   = emp.email           || 'info@qpc.qa'
   const photo   = emp.photo_url       || ''
@@ -136,20 +134,6 @@ body {
   display: block;
 }
 
-/* ID chips below staff pill */
-.id-chips {
-  display: flex; gap: 72px;
-  padding: 8px 24px;
-  border-top: 1px solid #edeae4;
-  border-bottom: 1px solid #edeae4;
-  flex-shrink: 0;
-}
-.id-chip {
-  display: flex; flex-direction: column; gap: 1px;
-}
-.id-chip .cl { font-size: 11px; color: #888; font-weight: 700; letter-spacing: .08em; }
-.id-chip .cv { font-size: 13px; font-weight: 700; color: #1a2340; }
-
 /* ── RIGHT CONTENT PANEL ── */
 .right {
   position: absolute;
@@ -158,10 +142,13 @@ body {
   z-index: 5;
 }
 
-/* Logos strip top */
+/* Logos strip top — equal 3-column grid so each logo gets identical
+   width and balanced spacing regardless of its own natural size. */
 .logos-strip {
   height: 90px;
-  display: flex; align-items: center; justify-content: space-evenly;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  align-items: center;
   padding: 0 16px;
   border-bottom: 1px solid #edeae4;
   position: relative;
@@ -173,19 +160,23 @@ body {
   bottom: 0; left: 0; right: 0; height: 2px;
   background: linear-gradient(90deg, #c9a84c, #f0d060 40%, #c9a84c 70%, rgba(201,168,76,.1));
 }
-.logo-img { object-fit: contain; display: block; }
-.logo-sep {
-  width: 1px; height: 58px;
-  background: linear-gradient(180deg, transparent, rgba(201,168,76,.65), transparent);
-  flex-shrink: 0;
+.logo-cell {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
+.logo-img { max-height: 60px; width: auto; object-fit: contain; display: block; margin: 0; transform: none; }
 
 /* Name + position content */
 .content {
   flex: 1;
-  padding: 20px 24px 0;
+  padding: 20px 24px;
   position: relative;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 /* subtle QPC watermark */
 .content::after {
@@ -227,12 +218,12 @@ body {
   line-height: 1.1; max-width: 100%;
 }
 .rule {
-  display: flex; align-items: center; gap: 8px;
-  margin: 12px 0; position: relative; z-index: 1;
+  height: 1px;
+  width: 100%;
+  background: #c9a84c;
+  margin: 12px 0;
+  position: relative; z-index: 1;
 }
-.rule-bar { height: 2.5px; width: 44px; background: #c9a84c; border-radius: 2px; flex-shrink: 0; }
-.rule-line { height: 1px; flex: 1; background: #edeae4; }
-.rule-dot { width: 10px; height: 10px; border-radius: 50%; background: #c9a84c; flex-shrink: 0; }
 /* Position EN */
 .pos-en {
   font-size: 24px; font-weight: 700;
@@ -318,11 +309,9 @@ body {
 
     <!-- Logos -->
     <div class="logos-strip">
-      <img src="/logo-qpc.png"   alt="QPC"             class="logo-img" style="height:70px;width:auto;max-width:90px"  onerror="this.style.display='none'"/>
-      <div class="logo-sep"></div>
-      <img src="/logo-qatar.png" alt="Qatar"            class="logo-img" style="height:74px;width:auto;max-width:76px"  onerror="this.style.display='none'"/>
-      <div class="logo-sep"></div>
-      <img src="/logo-so.png"    alt="Special Olympics" class="logo-img" style="height:46px;width:auto;max-width:150px" onerror="this.style.display='none'"/>
+      <div class="logo-cell"><img src="/logo-qpc.png"   alt="QPC"             class="logo-img" onerror="this.style.display='none'"/></div>
+      <div class="logo-cell"><img src="/logo-qatar.png" alt="Qatar"            class="logo-img" onerror="this.style.display='none'"/></div>
+      <div class="logo-cell"><img src="/logo-so.png"    alt="Special Olympics" class="logo-img" onerror="this.style.display='none'"/></div>
     </div>
 
     <!-- Name + position -->
@@ -331,25 +320,9 @@ body {
       <div class="eyebrow">QATAR PARALYMPIC COMMITTEE &nbsp;·&nbsp; بطاقة موظف</div>
       <div class="en-name">${name}</div>
       <div class="ar-name">${nameAr}</div>
-      <div class="rule">
-        <div class="rule-bar"></div>
-        <div class="rule-line"></div>
-        <div class="rule-dot"></div>
-      </div>
+      <div class="rule"></div>
       <div class="pos-en">${posEn}</div>
       <div class="pos-ar">${posAr}</div>
-    </div>
-
-    <!-- Job ID + QSS — above contact -->
-    <div class="id-chips">
-      <div class="id-chip">
-        <span class="cl">JOB ID</span>
-        <span class="cv">${jobId}</span>
-      </div>
-      <div class="id-chip">
-        <span class="cl">QSS NUMBER</span>
-        <span class="cv">${qssNum}</span>
-      </div>
     </div>
 
     <!-- Contact -->
