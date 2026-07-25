@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import MultiSelectFilter from '../components/MultiSelectFilter.jsx'
-import { Avatar, Badge, statusDot, statusClass, DashRow } from '../lib/helpers'
+import { Avatar, Badge, statusDot, statusClass, DashRow, sportLabel } from '../lib/helpers'
 import FormModal from '../components/FormModal'
 import EventCategoryModal from '../components/EventCategoryModal'
 import { ConfirmModal, toast } from '../components/Toast'
@@ -229,15 +229,19 @@ export default function Events({ events, athletes, results, registrations, onRef
 
   async function handleSave(formData) {
     const isEdit = !!formData.id
-    const selectedSports = Array.isArray(formData.sports) ? formData.sports : (formData.sport ? [formData.sport] : [])
+    // formData.sports is now an array of sports.id (never names) — see
+    // EventSportSelect, which is keyed by id precisely so visually similar
+    // sports (Para Athletics vs SO Athletics) can never be conflated.
+    const selectedSportIds = (Array.isArray(formData.sports) ? formData.sports : []).filter(Boolean)
+    const selectedSportNames = selectedSportIds.map(id => sportsList.find(s => s.id === id)?.name).filter(Boolean)
     const payload = {
       name:            formData.name,
       name_ar:         formData.nameAr || null,
       category_id:     formData.categoryId ? parseInt(formData.categoryId) : null,
-      // Kept in sync to the first selected sport purely for backward
+      // Kept in sync to the first selected sport's name purely for backward
       // compatibility with any read site not yet updated to `sports[]` —
-      // event_sports (below) is the real source of truth now.
-      sport:           selectedSports[0] || null,
+      // event_sports (below), keyed by id, is the real source of truth now.
+      sport:           selectedSportNames[0] || null,
       venue:           formData.venue || null,
       start_date:      formData.startDate || null,
       end_date:        formData.endDate || null,
@@ -247,7 +251,7 @@ export default function Events({ events, athletes, results, registrations, onRef
       notes:           formData.notes || null,
     }
     if (!payload.name) { toast(tx('form.nameRequired', 'Event name required'), 'error'); return }
-    if (selectedSports.length === 0) { toast(tx('events.sportRequired', 'Select at least one sport'), 'error'); return }
+    if (selectedSportIds.length === 0) { toast(tx('events.sportRequired', 'Select at least one sport'), 'error'); return }
 
     let eventId = formData.id
     if (isEdit) {
@@ -260,18 +264,13 @@ export default function Events({ events, athletes, results, registrations, onRef
     }
 
     // Sync event_sports: remove all, re-insert current selection (same
-    // simple pattern used for meeting attendees) — resolves each sport
-    // name to its sports.id, never duplicating the sport data itself.
-    const sportIds = selectedSports
-      .map(name => sportsList.find(s => s.name === name)?.id)
-      .filter(Boolean)
+    // simple pattern used for meeting attendees) — stores sport_id directly,
+    // never duplicating the sport data itself.
     const { error: delErr } = await supabase.from('event_sports').delete().eq('event_id', eventId)
     if (delErr) { toast(delErr.message, 'error'); return }
-    if (sportIds.length) {
-      const { error: insErr } = await supabase.from('event_sports')
-        .insert(sportIds.map(sportId => ({ event_id: eventId, sport_id: sportId })))
-      if (insErr) { toast(insErr.message, 'error'); return }
-    }
+    const { error: insErr } = await supabase.from('event_sports')
+      .insert(selectedSportIds.map(sportId => ({ event_id: eventId, sport_id: sportId })))
+    if (insErr) { toast(insErr.message, 'error'); return }
 
     toast(isEdit ? `${payload.name} updated` : `${payload.name} created`)
     if (isTrustedAdmin(profile)) {
@@ -313,13 +312,14 @@ export default function Events({ events, athletes, results, registrations, onRef
     const regAthletes        = athletes.filter(a => regIds.includes(a.id))
     // Union of athletes across every selected sport, deduplicated by id.
     // No sport selected → no eligible athletes (clear empty state below).
-    const eligible           = evSports.length === 0 ? [] : athletes.filter(a => evSports.includes(a.sport) && !regIds.includes(a.id))
+    const eligible           = evSports.length === 0 ? [] : athletes.filter(a => evSports.includes(sportLabel(a.sport, a.sport_category, false)) && !regIds.includes(a.id))
     const filteredEligible    = athleteSearch.trim()
       ? eligible.filter(a => {
           const q = athleteSearch.toLowerCase()
           return a.name.toLowerCase().includes(q)
             || (a.name_ar || '').includes(athleteSearch)
             || (a.sport || '').toLowerCase().includes(q)
+            || sportLabel(a.sport, a.sport_category, false).toLowerCase().includes(q)
         })
       : eligible
     const evResults          = results.filter(r => r.event_name === ev.name)
@@ -330,7 +330,7 @@ export default function Events({ events, athletes, results, registrations, onRef
     const editRecord = {
       id: ev.id, name: ev.name, nameAr: ev.name_ar,
       categoryId: ev.category_id ? String(ev.category_id) : '',
-      sports: evSports, venue: ev.venue,
+      sports: ev.sportIds?.length ? ev.sportIds : evSports.map(name => sportsList.find(s => s.name === name)?.id).filter(Boolean), venue: ev.venue,
       startDate: ev.start_date, endDate: ev.end_date,
       deadline: ev.deadline, status: ev.status,
       approvalStatus: ev.approval_status,
@@ -355,7 +355,7 @@ export default function Events({ events, athletes, results, registrations, onRef
 
     return (
       <div>
-        {form && <FormModal type="event" record={form === 'edit' ? editRecord : null} onSave={handleSave} onClose={() => setForm(null)} eventCategories={eventCategories} />}
+        {form && <FormModal type="event" record={form === 'edit' ? editRecord : null} onSave={handleSave} onClose={() => setForm(null)} eventCategories={eventCategories} sportsList={sportsList} />}
         {confirm && <ConfirmModal title={tx('confirm.deleteEvent', 'Delete event')} message={`Delete "${ev.name}"?`} onConfirm={() => handleDelete(ev.id, ev.name)} onCancel={() => setConfirm(null)} />}
 
         <button className="back-btn" onClick={() => setSelected(null)}>
@@ -411,7 +411,7 @@ export default function Events({ events, athletes, results, registrations, onRef
                 <span style={{ fontSize: 10, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}> — {tx('events.clickToView', 'click to view')}</span>
               </div>
               {regAthletes.map(a => {
-                const stillEligible = evSports.length === 0 || evSports.includes(a.sport)
+                const stillEligible = evSports.length === 0 || evSports.includes(sportLabel(a.sport, a.sport_category, false))
                 return (
                   <DashRow key={a.id} onClick={() => onNav('athletes', { athleteId: a.id })}>
                     <Avatar name={a.name} id={a.id} size={30} fs={10} />
@@ -421,7 +421,7 @@ export default function Events({ events, athletes, results, registrations, onRef
                         <span style={{ fontSize: 11, color: 'var(--text3)' }}>{a.classification}</span>
                         {a.sport && (
                           <span style={{ fontSize: 10, fontWeight: 600, padding: '1px 7px', borderRadius: 999, background: '#0085C718', color: '#0085C7', whiteSpace: 'nowrap' }}>
-                            {a.sport}
+                            {sportLabel(a.sport, a.sport_category, ar)}
                           </span>
                         )}
                       </div>
@@ -473,7 +473,7 @@ export default function Events({ events, athletes, results, registrations, onRef
                           <span style={{ fontSize: 11, color: 'var(--text3)' }}>{a.classification}</span>
                           {a.sport && (
                             <span style={{ fontSize: 10, fontWeight: 600, padding: '1px 7px', borderRadius: 999, background: '#0085C718', color: '#0085C7', whiteSpace: 'nowrap' }}>
-                              {a.sport}
+                              {sportLabel(a.sport, a.sport_category, ar)}
                             </span>
                           )}
                         </div>
@@ -537,7 +537,7 @@ export default function Events({ events, athletes, results, registrations, onRef
         .ev-gc-footer { display: flex; align-items: center; gap: 6px; margin-top: auto; padding-top: 8px; border-top: 1px solid var(--border); font-size: 11px; color: var(--text3); }
       `}</style>
 
-      {form && <FormModal type="event" record={null} onSave={handleSave} onClose={() => setForm(null)} eventCategories={eventCategories} />}
+      {form && <FormModal type="event" record={null} onSave={handleSave} onClose={() => setForm(null)} eventCategories={eventCategories} sportsList={sportsList} />}
       {showCatModal && <EventCategoryModal categories={eventCategories} onClose={() => setShowCatModal(false)} onRefresh={onRefresh} />}
 
       <div className="page-header">
