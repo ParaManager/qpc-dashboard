@@ -327,15 +327,24 @@ function exportIDCard(emp) {
     font-family: Arial;
   }
 
-  /* LOGOS row */
+  /* LOGOS row — equal-width 3-column grid so spacing stays balanced
+     regardless of each logo's own content width. */
   .logos {
     position: absolute;
     top: 28px; left: 270px;
-    display: flex;
-    align-items: center;
-    gap: 14px;
+    width: 540px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    align-items: stretch;
     z-index: 5;
   }
+  .logo-cell {
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .logo-cell img { max-height: 100%; width: auto; object-fit: contain; }
   .logo-qpc {
     display: flex;
     align-items: center;
@@ -347,7 +356,6 @@ function exportIDCard(emp) {
   .logo-qpc-text { line-height: 1.2; }
   .logo-qpc-text .en { font-size: 12px; font-weight: 700; color: #7b1432; }
   .logo-qpc-text .ar { font-size: 10px; color: #7b1432; }
-  .divider-v { width: 1px; height: 56px; background: #c9a84c; }
   .logo-qatar {
     display: flex;
     flex-direction: column;
@@ -363,7 +371,7 @@ function exportIDCard(emp) {
     line-height: 1.1;
   }
   .logo-so {
-    display: flex; flex-direction: column; align-items: flex-start; gap: 1px;
+    display: flex; flex-direction: column; align-items: center; gap: 1px;
   }
   .logo-so-text { font-size: 13px; font-weight: 900; color: #e8232a; font-style: italic; }
   .logo-so-sub { font-size: 10px; color: #555; }
@@ -391,19 +399,10 @@ function exportIDCard(emp) {
     direction: rtl;
   }
   .name-divider {
-    width: 280px;
-    height: 1.5px;
-    background: linear-gradient(to right, #c9a84c, #f0d060, #c9a84c);
-    margin: 10px 0;
-    position: relative;
-  }
-  .name-divider::after {
-    content: '';
-    position: absolute;
-    right: -6px; top: -4px;
-    width: 10px; height: 10px;
+    width: 100%;
+    height: 1px;
     background: #c9a84c;
-    border-radius: 50%;
+    margin: 10px 0;
   }
   .position-en {
     font-size: 20px;
@@ -539,35 +538,39 @@ function exportIDCard(emp) {
   <!-- Logos -->
   <div class="logos">
     <!-- QPC -->
-    <div class="logo-qpc">
-      <svg class="logo-qpc-icon" viewBox="0 0 44 52" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M22 2 L40 10 L40 36 L22 50 L4 36 L4 10 Z" fill="#7b1432" stroke="#c9a84c" stroke-width="1.5"/>
-        <text x="22" y="28" text-anchor="middle" fill="white" font-size="7" font-weight="bold" font-family="Arial">QPC</text>
-        <circle cx="22" cy="18" r="7" fill="none" stroke="white" stroke-width="1.2"/>
-        <path d="M19 15 L22 12 L25 15" fill="white"/>
-      </svg>
-      <div class="logo-qpc-text">
-        <div class="en">Qatar<br/>Paralympic<br/>Committee</div>
-        <div class="ar">اللجنة البارالمبية القطرية</div>
+    <div class="logo-cell">
+      <div class="logo-qpc">
+        <svg class="logo-qpc-icon" viewBox="0 0 44 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M22 2 L40 10 L40 36 L22 50 L4 36 L4 10 Z" fill="#7b1432" stroke="#c9a84c" stroke-width="1.5"/>
+          <text x="22" y="28" text-anchor="middle" fill="white" font-size="7" font-weight="bold" font-family="Arial">QPC</text>
+          <circle cx="22" cy="18" r="7" fill="none" stroke="white" stroke-width="1.2"/>
+          <path d="M19 15 L22 12 L25 15" fill="white"/>
+        </svg>
+        <div class="logo-qpc-text">
+          <div class="en">Qatar<br/>Paralympic<br/>Committee</div>
+          <div class="ar">اللجنة البارالمبية القطرية</div>
+        </div>
       </div>
     </div>
-    <div class="divider-v"></div>
     <!-- Qatar emblem -->
-    <div class="logo-qatar">
-      <div class="logo-qatar-badge">قطر<br/>QATAR</div>
-      <svg width="32" height="14" viewBox="0 0 32 14">
-        <circle cx="4" cy="7" r="4" fill="#0085C7"/>
-        <circle cx="12" cy="7" r="4" fill="#EE334E"/>
-        <circle cx="20" cy="7" r="4" fill="#009F6B"/>
-        <circle cx="28" cy="7" r="4" fill="#f1c40f"/>
-      </svg>
+    <div class="logo-cell">
+      <div class="logo-qatar">
+        <div class="logo-qatar-badge">قطر<br/>QATAR</div>
+        <svg width="32" height="14" viewBox="0 0 32 14">
+          <circle cx="4" cy="7" r="4" fill="#0085C7"/>
+          <circle cx="12" cy="7" r="4" fill="#EE334E"/>
+          <circle cx="20" cy="7" r="4" fill="#009F6B"/>
+          <circle cx="28" cy="7" r="4" fill="#f1c40f"/>
+        </svg>
+      </div>
     </div>
-    <div class="divider-v"></div>
     <!-- Special Olympics -->
-    <div class="logo-so">
-      <div class="logo-so-text">Special<br/>Olympics</div>
-      <div class="logo-so-sub">Qatar</div>
-      <div class="logo-so-sub-ar">الأولمبياد الخاص قطر</div>
+    <div class="logo-cell">
+      <div class="logo-so">
+        <div class="logo-so-text">Special<br/>Olympics</div>
+        <div class="logo-so-sub">Qatar</div>
+        <div class="logo-so-sub-ar">الأولمبياد الخاص قطر</div>
+      </div>
     </div>
   </div>
 
