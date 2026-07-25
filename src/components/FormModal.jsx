@@ -61,21 +61,48 @@ function EventSportSelect({ label, value, onChange, ar }) {
   const sn = k => ar ? (SPORT_NAMES_AR[k] || k) : k
   const paraSports = [...new Set([...SUMMER_PARALYMPIC_SPORTS, ...WINTER_PARALYMPIC_SPORTS])]
   const soSports   = [...new Set([...SUMMER_SPECIAL_OLYMPICS_SPORTS, ...WINTER_SPECIAL_OLYMPICS_SPORTS])]
+  const selected = Array.isArray(value) ? value : (value ? [value] : [])
+
+  function toggle(sport) {
+    const next = selected.includes(sport) ? selected.filter(s => s !== sport) : [...selected, sport]
+    onChange('sports', next)
+  }
+
+  function Group({ title, sports }) {
+    return (
+      <div style={{ marginBottom: 10 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 6 }}>{title}</div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {sports.map(s => {
+            const checked = selected.includes(s)
+            return (
+              <button key={s} type="button" onClick={() => toggle(s)}
+                style={{ padding: '5px 12px', borderRadius: 999, fontSize: 12.5, cursor: 'pointer',
+                  border: `1.5px solid ${checked ? '#0085C7' : 'var(--border)'}`,
+                  background: checked ? '#0085C7' : 'transparent',
+                  color: checked ? '#fff' : 'var(--text2)', fontWeight: checked ? 600 : 400 }}>
+                {sn(s)}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="form-group">
       <label className="form-label">{label}</label>
-      <select className="form-input" value={value ?? ''} onChange={e => onChange('sport', e.target.value)}>
-        <option value="">{ar ? '— اختر رياضة —' : '— Select sport —'}</option>
-        <optgroup label={ar ? 'الرياضات البارالمبية' : 'Paralympic Sports'}>
-          {paraSports.map(s => <option key={s} value={s}>{sn(s)}</option>)}
-        </optgroup>
-        <optgroup label={ar ? 'الأولمبياد الخاص' : 'Special Olympics Sports'}>
-          {soSports.map(s => <option key={s} value={s}>{sn(s)}</option>)}
-        </optgroup>
-        <optgroup label={ar ? 'الرياضات الموحدة' : 'Unified Sports'}>
-          {UNIFIED_SPORTS.map(s => <option key={s} value={s}>{sn(s)}</option>)}
-        </optgroup>
-      </select>
+      {selected.length === 0 && (
+        <div style={{ fontSize: 12, color: '#dc2626', marginBottom: 8 }}>
+          {ar ? 'يجب اختيار رياضة واحدة على الأقل' : 'Select at least one sport'}
+        </div>
+      )}
+      <div data-sports-group style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12, maxHeight: 260, overflowY: 'auto' }}>
+        <Group title={ar ? 'الرياضات البارالمبية' : 'Paralympic Sports'} sports={paraSports} />
+        <Group title={ar ? 'الأولمبياد الخاص' : 'Special Olympics Sports'} sports={soSports} />
+        <Group title={ar ? 'الرياضات الموحدة' : 'Unified Sports'} sports={UNIFIED_SPORTS} />
+      </div>
     </div>
   )
 }
@@ -112,7 +139,7 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
       const defaults = {
         athlete: { gender: 'Male', nationality: 'Qatari', sportCategory: 'Summer Paralympic', sport: SPORTS[0], status: 'Active' },
         coach:   { sportCategory: 'Summer Paralympic', sport: SPORTS[0], status: 'Active' },
-        event:   { status: 'Planning', approvalStatus: 'TBC' },
+        event:   { status: 'Planning', approvalStatus: 'TBC', sports: [] },
         result:  { medal: 'gold', position: 1 },
       }
       setForm(defaults[type] || {})
@@ -146,6 +173,7 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
     joinDate:       ar ? 'تاريخ الانضمام'        : 'Join date',
     sportCategory:  ar ? 'فئة الرياضة'           : 'Sport Category',
     sport:          ar ? 'الرياضة'               : 'Sport',
+    eventSports:    ar ? 'الرياضات'              : 'Sports',
     classification: ar ? 'التصنيف'               : 'Classification',
     disability:     ar ? 'نوع الإعاقة'           : 'Disability type',
     coach:          ar ? 'المدرب'                : 'Coach',
@@ -361,7 +389,7 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
               <Field label={T.category} options={eventCatOpts} {...f('categoryId')} />
               <Field label={T.approvalStatus} options={approvalOpts} {...f('approvalStatus')} />
             </Row>
-            <EventSportSelect label={T.sport} value={form.sport} onChange={set} ar={ar} />
+            <EventSportSelect label={T.eventSports} value={form.sports} onChange={set} ar={ar} />
             <Field label={T.venue} placeholder={ar?"مثال: استاد خليفة الدولي":"e.g. Khalifa International Stadium"} {...f('venue')} />
             <Row>
               <Field label={T.startDate} type="date" {...f('startDate')} />
@@ -416,6 +444,13 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
                     if (['sportCategory','sport','status'].includes(firstBad)) setOpenSections(s=>({...s,sport:true}))
                     setTimeout(()=>{ el.scrollIntoView({behavior:'smooth',block:'center'}); el.querySelector('input,select')?.focus() },50)
                   }
+                  return
+                }
+              }
+              if (type==='event') {
+                if (!form.sports || form.sports.length === 0) {
+                  const el = modalBodyRef.current?.querySelector('[data-sports-group]')
+                  el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
                   return
                 }
               }
