@@ -1,10 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import NationalitySelect from './NationalitySelect.jsx'
 import {
-  SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, SPORT_CATEGORY_NAMES_AR, SPORT_NAMES_AR, sportLabel,
-  SUMMER_PARALYMPIC_SPORTS, WINTER_PARALYMPIC_SPORTS,
-  SUMMER_SPECIAL_OLYMPICS_SPORTS, WINTER_SPECIAL_OLYMPICS_SPORTS,
-  UNIFIED_SPORTS,
+  SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, SPORT_CATEGORY_NAMES_AR, sportLabel,
 } from '../lib/helpers'
 import { useLang } from '../lib/LangContext.jsx'
 
@@ -57,31 +54,29 @@ function Section({ label, collapsible, open, onToggle }) {
   )
 }
 
-function EventSportSelect({ label, value, onChange, ar }) {
-  const sn = k => ar ? (SPORT_NAMES_AR[k] || k) : k
-  const paraSports = [...new Set([...SUMMER_PARALYMPIC_SPORTS, ...WINTER_PARALYMPIC_SPORTS])]
-  const soSports   = [...new Set([...SUMMER_SPECIAL_OLYMPICS_SPORTS, ...WINTER_SPECIAL_OLYMPICS_SPORTS])]
-  const selected = Array.isArray(value) ? value : (value ? [value] : [])
+function EventSportSelect({ label, value, onChange, ar, sports }) {
+  const selected = Array.isArray(value) ? value : []
 
-  function toggle(sport) {
-    const next = selected.includes(sport) ? selected.filter(s => s !== sport) : [...selected, sport]
+  function toggle(sportId) {
+    const next = selected.includes(sportId) ? selected.filter(id => id !== sportId) : [...selected, sportId]
     onChange('sports', next)
   }
 
-  function Group({ title, sports }) {
+  function Group({ title, list }) {
+    if (list.length === 0) return null
     return (
       <div style={{ marginBottom: 10 }}>
         <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 6 }}>{title}</div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-          {sports.map(s => {
-            const checked = selected.includes(s)
+          {list.map(s => {
+            const checked = selected.includes(s.id)
             return (
-              <button key={s} type="button" onClick={() => toggle(s)}
+              <button key={s.id} type="button" onClick={() => toggle(s.id)}
                 style={{ padding: '5px 12px', borderRadius: 999, fontSize: 12.5, cursor: 'pointer',
                   border: `1.5px solid ${checked ? '#0085C7' : 'var(--border)'}`,
                   background: checked ? '#0085C7' : 'transparent',
                   color: checked ? '#fff' : 'var(--text2)', fontWeight: checked ? 600 : 400 }}>
-                {sn(s)}
+                {s.name}
               </button>
             )
           })}
@@ -89,6 +84,8 @@ function EventSportSelect({ label, value, onChange, ar }) {
       </div>
     )
   }
+
+  const byCategory = cat => (sports || []).filter(s => s.category === cat)
 
   return (
     <div className="form-group">
@@ -99,15 +96,17 @@ function EventSportSelect({ label, value, onChange, ar }) {
         </div>
       )}
       <div data-sports-group style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12, maxHeight: 260, overflowY: 'auto' }}>
-        <Group title={ar ? 'الرياضات البارالمبية' : 'Paralympic Sports'} sports={paraSports} />
-        <Group title={ar ? 'الأولمبياد الخاص' : 'Special Olympics Sports'} sports={soSports} />
-        <Group title={ar ? 'الرياضات الموحدة' : 'Unified Sports'} sports={UNIFIED_SPORTS} />
+        <Group title={ar ? SPORT_CATEGORY_NAMES_AR['Summer Paralympic'] : 'Summer Paralympic'} list={byCategory('Summer Paralympic')} />
+        <Group title={ar ? SPORT_CATEGORY_NAMES_AR['Winter Paralympic'] : 'Winter Paralympic'} list={byCategory('Winter Paralympic')} />
+        <Group title={ar ? SPORT_CATEGORY_NAMES_AR['Summer Special Olympics'] : 'Summer Special Olympics'} list={byCategory('Summer Special Olympics')} />
+        <Group title={ar ? SPORT_CATEGORY_NAMES_AR['Winter Special Olympics'] : 'Winter Special Olympics'} list={byCategory('Winter Special Olympics')} />
+        <Group title={ar ? SPORT_CATEGORY_NAMES_AR['Unified Sports'] : 'Unified Sports'} list={byCategory('Unified Sports')} />
       </div>
     </div>
   )
 }
 
-export default function FormModal({ type, record, coaches, athletes, onSave, onClose, eventCategories }) {
+export default function FormModal({ type, record, coaches, athletes, onSave, onClose, eventCategories, sportsList = [] }) {
   const isEdit = !!record
   const { lang } = useLang()
   const ar = lang === 'ar'
@@ -389,7 +388,7 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
               <Field label={T.category} options={eventCatOpts} {...f('categoryId')} />
               <Field label={T.approvalStatus} options={approvalOpts} {...f('approvalStatus')} />
             </Row>
-            <EventSportSelect label={T.eventSports} value={form.sports} onChange={set} ar={ar} />
+            <EventSportSelect label={T.eventSports} value={form.sports} onChange={set} ar={ar} sports={sportsList} />
             <Field label={T.venue} placeholder={ar?"مثال: استاد خليفة الدولي":"e.g. Khalifa International Stadium"} {...f('venue')} />
             <Row>
               <Field label={T.startDate} type="date" {...f('startDate')} />
