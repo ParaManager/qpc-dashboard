@@ -150,6 +150,7 @@ export default function Events({ events, athletes, results, registrations, onRef
   const [search, setSearch]       = useState('')
   const [categoryF, setCategoryF] = useState('all')
   const [approvalF, setApprovalF] = useState('all')
+  const [sportF, setSportF]       = useState('all')
   const [statusF, setStatusF]     = useState(initStatusFilter || 'All')
   const [sort, setSort]           = useState('date-asc')
   const [selected, setSelected]   = useState(initEventId || null)
@@ -189,6 +190,7 @@ export default function Events({ events, athletes, results, registrations, onRef
   }
 
   const statuses = ['All', 'Planning', 'Upcoming', 'In Progress', 'Completed', 'Canceled']
+  const sportsList = [...new Set(events.map(e => e.sport).filter(Boolean))].sort()
 
   function pillLabel(s) {
     if (s === 'All') return tx('filters.all', 'All')
@@ -201,10 +203,11 @@ export default function Events({ events, athletes, results, registrations, onRef
     const matchStatus   = statusF === 'All' || evStatus === statusF
     const matchCategory = categoryF === 'all' || String(e.category_id) === categoryF
     const matchApproval = approvalF === 'all' || e.approval_status === approvalF
+    const matchSport    = sportF === 'all' || e.sport === sportF
     const matchSearch   = e.name.toLowerCase().includes(search.toLowerCase())
       || (e.name_ar || '').includes(search)
       || (e.venue || '').toLowerCase().includes(search.toLowerCase())
-    return matchStatus && matchCategory && matchApproval && matchSearch
+    return matchStatus && matchCategory && matchApproval && matchSport && matchSearch
   })
 
   list = [...list].sort((a, b) => {
@@ -477,6 +480,12 @@ export default function Events({ events, athletes, results, registrations, onRef
           <option value="Approved">{tx('events.approved', 'Approved')}</option>
           <option value="TBC">{tx('events.tbc', 'TBC')}</option>
           <option value="Rejected">{tx('events.rejected', 'Rejected')}</option>
+        </select>
+        <select className="filter" value={sportF} onChange={e => setSportF(e.target.value)}>
+          <option value="all">{tx('events.allSports', 'All sports')}</option>
+          {sportsList.map(s => (
+            <option key={s} value={s}>{s}</option>
+          ))}
         </select>
         <select className="filter" value={sort} onChange={e => setSort(e.target.value)}>
           <option value="date-asc">{tx('filters.dateAsc', 'Date ↑')}</option>
