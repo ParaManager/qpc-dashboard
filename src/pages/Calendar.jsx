@@ -4,7 +4,7 @@ import { useLang } from '../lib/LangContext.jsx'
 import { toast, ConfirmModal } from '../components/Toast'
 import MeetingFormModal from '../components/MeetingFormModal.jsx'
 
-const KIND_COLORS = { meeting: '#8b5cf6', event: '#EE334E', task: '#0085C7' }
+const KIND_COLORS = { meeting: '#8b5cf6', event: '#EE334E', task: '#0d9488' }
 const KIND_ICONS  = { meeting: 'ti-users-group', event: 'ti-calendar-event', task: 'ti-checklist' }
 
 function getDaysInMonth(year, month) { return new Date(year, month + 1, 0).getDate() }
@@ -137,6 +137,16 @@ export default function Calendar({ profile, events = [], onNav }) {
 
   function isToday(dateStr) { return dateStr === toDateStr(today) }
 
+  // Event items are colored by their own category (matching the filter pills)
+  // instead of one generic red — meetings/tasks keep their fixed kind color.
+  function itemColor(item) {
+    if (item.kind === 'event') {
+      const cat = eventCats.find(c => c.id === item.raw.category_id)
+      return cat?.color || KIND_COLORS.event
+    }
+    return KIND_COLORS[item.kind]
+  }
+
   // Completed tasks render muted. Events are never muted here — canceled ones
   // are already excluded above, and there's no other "dim but visible" state.
   function isMuted(item) {
@@ -172,14 +182,15 @@ export default function Calendar({ profile, events = [], onNav }) {
 
   function CompactItem({ item }) {
     const muted = isMuted(item)
+    const color = itemColor(item)
     return (
       <div onClick={(e) => { e.stopPropagation(); openItem(item) }}
         title={item.title}
         style={{
           display: 'flex', alignItems: 'center', gap: 4, fontSize: 10.5, fontWeight: 500,
           padding: '2px 5px', borderRadius: 5, marginBottom: 2, cursor: 'pointer',
-          background: KIND_COLORS[item.kind] + (muted ? '0c' : '18'),
-          color: muted ? 'var(--text3)' : KIND_COLORS[item.kind],
+          background: color + (muted ? '0c' : '18'),
+          color: muted ? 'var(--text3)' : color,
           opacity: muted ? 0.65 : 1,
           textDecoration: muted ? 'line-through' : 'none',
           overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '100%',
@@ -225,10 +236,11 @@ export default function Calendar({ profile, events = [], onNav }) {
               )}
               {dayDetail.items.map(item => {
                 const muted = isMuted(item)
+                const color = itemColor(item)
                 return (
                   <div key={item.id} onClick={() => openItem(item)}
                     style={{ display: 'flex', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--border)', cursor: 'pointer', alignItems: 'center', opacity: muted ? 0.6 : 1 }}>
-                    <div style={{ width: 26, height: 26, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', background: KIND_COLORS[item.kind] + '18', color: KIND_COLORS[item.kind], flexShrink: 0 }}>
+                    <div style={{ width: 26, height: 26, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', background: color + '18', color, flexShrink: 0 }}>
                       <i className={`ti ${KIND_ICONS[item.kind]}`} style={{ fontSize: 13 }} />
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -365,10 +377,11 @@ export default function Calendar({ profile, events = [], onNav }) {
               </div>
               {dItems.map(item => {
                 const muted = isMuted(item)
+                const color = itemColor(item)
                 return (
                   <div key={item.id} onClick={() => openItem(item)}
                     style={{ display: 'flex', gap: 12, padding: '8px 0', borderBottom: '1px solid var(--border)', cursor: 'pointer', alignItems: 'center', opacity: muted ? 0.6 : 1 }}>
-                    <div style={{ width: 4, borderRadius: 4, alignSelf: 'stretch', background: KIND_COLORS[item.kind], flexShrink: 0 }} />
+                    <div style={{ width: 4, borderRadius: 4, alignSelf: 'stretch', background: color, flexShrink: 0 }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 13, fontWeight: 600, textDecoration: muted ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title}</div>
                       <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
@@ -376,7 +389,7 @@ export default function Calendar({ profile, events = [], onNav }) {
                         {item.kind === 'meeting' && item.raw.location ? ` · ${item.raw.location}` : ''}
                       </div>
                     </div>
-                    <div style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 999, background: KIND_COLORS[item.kind] + '20', color: KIND_COLORS[item.kind], textTransform: 'capitalize', flexShrink: 0 }}>
+                    <div style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 999, background: color + '20', color, textTransform: 'capitalize', flexShrink: 0 }}>
                       {item.kind === 'meeting' ? L('Meeting','اجتماع') : item.kind === 'event' ? L('Event','فعالية') : L('Task','مهمة')}
                     </div>
                   </div>
