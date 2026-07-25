@@ -37,7 +37,7 @@ export default function Sports({ athletes, coaches, events, results, onNav, init
     // would also pull in Special Olympics athletes who happen to share that word.
     const myAths   = athletes.filter(a => a.sport === selSport && (a.sport_category === selCategory || !a.sport_category))
     const myCoaches = coaches.filter(c => c.sport === selSport && (c.sport_category === selCategory || !c.sport_category))
-    const myEvents = events.filter(e => e.sport === selSport)
+    const myEvents = events.filter(e => (e.sports || (e.sport ? [e.sport] : [])).includes(selSport))
     // Medal counts live directly on each athlete (medals_gold/silver/bronze), not in
     // the results table — summing those gives the real breakdown for this sport.
     const goldCount   = myAths.reduce((t,a) => t + (a.medals_gold   || 0), 0)
@@ -201,7 +201,7 @@ export default function Sports({ athletes, coaches, events, results, onNav, init
           // belong to either program, so without this an athlete would be counted
           // under both the Paralympic and Special Olympics tiles for that word.
           const myAths   = athletes.filter(a => a.sport === s && (a.sport_category === activeTab || !a.sport_category))
-          const myEvents = events.filter(e => e.sport === s)
+          const myEvents = events.filter(e => (e.sports || (e.sport ? [e.sport] : [])).includes(s))
           // Medal counts live directly on each athlete (medals_gold/silver/bronze), not
           // in the results table — summing those gives the real total for this sport.
           const myMedalsTotal = myAths.reduce((t,a) => t + (a.medals_gold||0) + (a.medals_silver||0) + (a.medals_bronze||0), 0)

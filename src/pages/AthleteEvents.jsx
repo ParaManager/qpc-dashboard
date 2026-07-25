@@ -37,7 +37,9 @@ export default function AthleteEvents({ athlete, events, registrations, results 
                 <div style={{ fontSize:12, color:'var(--text3)', marginTop:4, display:'flex', gap:12, flexWrap:'wrap' }}>
                   {ev.start_date && <span><i className="ti ti-calendar" style={{ fontSize:11, marginRight:3 }} />{ev.start_date}</span>}
                   {ev.venue     && <span><i className="ti ti-map-pin" style={{ fontSize:11, marginRight:3 }} />{ev.venue}</span>}
-                  {ev.sport     && <span><i className="ti ti-ball-football" style={{ fontSize:11, marginRight:3 }} />{ev.sport}</span>}
+                  {(ev.sports?.length ? ev.sports : (ev.sport ? [ev.sport] : [])).length > 0 && (
+                    <span><i className="ti ti-ball-football" style={{ fontSize:11, marginRight:3 }} />{(ev.sports?.length ? ev.sports : [ev.sport]).join(', ')}</span>
+                  )}
                 </div>
               </div>
               <span style={{ padding:'4px 12px', borderRadius:20, fontSize:12, fontWeight:600, background:color+'20', color }}>{ev.status}</span>

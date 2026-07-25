@@ -144,7 +144,7 @@ function OfficialsPicker({ roleKey, title, officials, employees, eventId, canEdi
 
 
 
-export default function Events({ events, athletes, results, registrations, onRefresh, onNav, initEventId, initStatusFilter, profile, eventCategories = [], employees = [] }) {
+export default function Events({ events, athletes, results, registrations, onRefresh, onNav, initEventId, initStatusFilter, profile, eventCategories = [], employees = [], sportsList = [] }) {
   const { lang, tx } = useLang()
   const ar = lang === 'ar'
 
@@ -191,7 +191,7 @@ export default function Events({ events, athletes, results, registrations, onRef
   }
 
   const statuses = ['All', 'Planning', 'Upcoming', 'In Progress', 'Completed', 'Canceled']
-  const sportsList = [...new Set(events.map(e => e.sport).filter(Boolean))].sort()
+  const filterSportOptions = [...new Set(events.flatMap(e => e.sports?.length ? e.sports : (e.sport ? [e.sport] : [])))].sort()
   const hasActiveFilters = !!search || categoryF.length > 0 || approvalF.length > 0 || sportF.length > 0 || statusF !== 'All'
   function clearFilters() { setSearch(''); setCategoryF([]); setApprovalF([]); setSportF([]); setStatusF('All') }
 
@@ -206,7 +206,8 @@ export default function Events({ events, athletes, results, registrations, onRef
     const matchStatus   = statusF === 'All' || evStatus === statusF
     const matchCategory = categoryF.length === 0 || categoryF.includes(String(e.category_id))
     const matchApproval = approvalF.length === 0 || approvalF.includes(e.approval_status)
-    const matchSport    = sportF.length === 0 || sportF.includes(e.sport)
+    const eSports        = e.sports?.length ? e.sports : (e.sport ? [e.sport] : [])
+    const matchSport     = sportF.length === 0 || eSports.some(s => sportF.includes(s))
     const matchSearch   = e.name.toLowerCase().includes(search.toLowerCase())
       || (e.name_ar || '').includes(search)
       || (e.venue || '').toLowerCase().includes(search.toLowerCase())
@@ -223,11 +224,15 @@ export default function Events({ events, athletes, results, registrations, onRef
 
   async function handleSave(formData) {
     const isEdit = !!formData.id
+    const selectedSports = Array.isArray(formData.sports) ? formData.sports : (formData.sport ? [formData.sport] : [])
     const payload = {
       name:            formData.name,
       name_ar:         formData.nameAr || null,
       category_id:     formData.categoryId ? parseInt(formData.categoryId) : null,
-      sport:           formData.sport || null,
+      // Kept in sync to the first selected sport purely for backward
+      // compatibility with any read site not yet updated to `sports[]` —
+      // event_sports (below) is the real source of truth now.
+      sport:           selectedSports[0] || null,
       venue:           formData.venue || null,
       start_date:      formData.startDate || null,
       end_date:        formData.endDate || null,
@@ -237,16 +242,38 @@ export default function Events({ events, athletes, results, registrations, onRef
       notes:           formData.notes || null,
     }
     if (!payload.name) { toast(tx('form.nameRequired', 'Event name required'), 'error'); return }
-    const { error } = isEdit
-      ? await supabase.from('events').update(payload).eq('id', formData.id)
-      : await supabase.from('events').insert(payload)
-    if (error) { toast(error.message, 'error'); return }
+    if (selectedSports.length === 0) { toast(tx('events.sportRequired', 'Select at least one sport'), 'error'); return }
+
+    let eventId = formData.id
+    if (isEdit) {
+      const { error } = await supabase.from('events').update(payload).eq('id', eventId)
+      if (error) { toast(error.message, 'error'); return }
+    } else {
+      const { data, error } = await supabase.from('events').insert(payload).select().single()
+      if (error) { toast(error.message, 'error'); return }
+      eventId = data.id
+    }
+
+    // Sync event_sports: remove all, re-insert current selection (same
+    // simple pattern used for meeting attendees) — resolves each sport
+    // name to its sports.id, never duplicating the sport data itself.
+    const sportIds = selectedSports
+      .map(name => sportsList.find(s => s.name === name)?.id)
+      .filter(Boolean)
+    const { error: delErr } = await supabase.from('event_sports').delete().eq('event_id', eventId)
+    if (delErr) { toast(delErr.message, 'error'); return }
+    if (sportIds.length) {
+      const { error: insErr } = await supabase.from('event_sports')
+        .insert(sportIds.map(sportId => ({ event_id: eventId, sport_id: sportId })))
+      if (insErr) { toast(insErr.message, 'error'); return }
+    }
+
     toast(isEdit ? `${payload.name} updated` : `${payload.name} created`)
     if (isTrustedAdmin(profile)) {
-      logAdminActivity({ actor: profile, action: isEdit ? 'updated' : 'created', entityType: 'event', entityId: formData.id || null, entityLabel: payload.name, module: 'events' })
+      logAdminActivity({ actor: profile, action: isEdit ? 'updated' : 'created', entityType: 'event', entityId: eventId || null, entityLabel: payload.name, module: 'events' })
     }
     setForm(null); await onRefresh()
-    if (isEdit) setSelected(formData.id)
+    if (isEdit) setSelected(eventId)
   }
 
   async function handleDelete(id, name) {
@@ -276,9 +303,12 @@ export default function Events({ events, athletes, results, registrations, onRef
     const ev = events.find(x => x.id === selected)
     if (!ev) { setSelected(null); return null }
     const evStatus           = getEventStatus(ev)
+    const evSports           = ev.sports?.length ? ev.sports : (ev.sport ? [ev.sport] : [])
     const regIds             = registrations.filter(r => r.event_id === ev.id).map(r => r.athlete_id)
     const regAthletes        = athletes.filter(a => regIds.includes(a.id))
-    const eligible           = athletes.filter(a => ev.sport && a.sport === ev.sport && !regIds.includes(a.id))
+    // Union of athletes across every selected sport, deduplicated by id.
+    // No sport selected → no eligible athletes (clear empty state below).
+    const eligible           = evSports.length === 0 ? [] : athletes.filter(a => evSports.includes(a.sport) && !regIds.includes(a.id))
     const evResults          = results.filter(r => r.event_name === ev.name)
     const canReg             = ['Upcoming', 'In Progress', 'Planning'].includes(evStatus)
     const canManageOfficials = ['Planning', 'Upcoming'].includes(evStatus)
@@ -287,7 +317,7 @@ export default function Events({ events, athletes, results, registrations, onRef
     const editRecord = {
       id: ev.id, name: ev.name, nameAr: ev.name_ar,
       categoryId: ev.category_id ? String(ev.category_id) : '',
-      sport: ev.sport, venue: ev.venue,
+      sports: evSports, venue: ev.venue,
       startDate: ev.start_date, endDate: ev.end_date,
       deadline: ev.deadline, status: ev.status,
       approvalStatus: ev.approval_status,
@@ -337,13 +367,21 @@ export default function Events({ events, athletes, results, registrations, onRef
               </div>
               <div className="detail-name">{ev.name}</div>
               {ev.name_ar && <div style={{ fontSize: 14, color: 'var(--text2)', marginTop: 4, direction: 'rtl' }}>{ev.name_ar}</div>}
+              {evSports.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 10 }}>
+                  {evSports.map(s => (
+                    <span key={s} style={{ background: '#0085C718', color: '#0085C7', border: '1px solid #0085C740', borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap' }}>
+                      {s}
+                    </span>
+                  ))}
+                </div>
+              )}
                 <div className="detail-fields" style={{ marginTop: 16 }}>
                   {[
                     [tx('events.venue',     'Venue'),      ev.venue],
                     [tx('events.startDate', 'Start date'), ev.start_date],
                     [tx('events.endDate',   'End date'),   ev.end_date],
                     [tx('events.deadline',  'Deadline'),   ev.deadline],
-                    [tx('events.sport',     'Sport'),      ev.sport],
                     [tx('events.notes',     'Notes'),      ev.notes],
                   ].map(([k, v]) => v ? <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv">{v}</span></div> : null)}
                 </div>
@@ -359,21 +397,37 @@ export default function Events({ events, athletes, results, registrations, onRef
                 {tx('events.registeredAthletes', 'Registered athletes')} ({regAthletes.length})
                 <span style={{ fontSize: 10, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}> — {tx('events.clickToView', 'click to view')}</span>
               </div>
-              {regAthletes.map(a => (
-                <DashRow key={a.id} onClick={() => onNav('athletes', { athleteId: a.id })}>
-                  <Avatar name={a.name} id={a.id} size={30} fs={10} />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13, fontWeight: 500 }}>{ar && a.name_ar ? a.name_ar : a.name}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text3)' }}>{a.classification}</div>
-                  </div>
-                  <Badge label={a.status} />
-                  {canReg && (
-                    <button onClick={e => { e.stopPropagation(); unregisterAthlete(ev.id, a.id) }}
-                      style={{ background: 'none', border: '1px solid #fca5a5', color: '#dc2626', borderRadius: 6, padding: '2px 8px', fontSize: 11, cursor: 'pointer', flexShrink: 0 }}>✕</button>
-                  )}
-                </DashRow>
-              ))}
+              {regAthletes.map(a => {
+                const stillEligible = evSports.length === 0 || evSports.includes(a.sport)
+                return (
+                  <DashRow key={a.id} onClick={() => onNav('athletes', { athleteId: a.id })}>
+                    <Avatar name={a.name} id={a.id} size={30} fs={10} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 13, fontWeight: 500 }}>{ar && a.name_ar ? a.name_ar : a.name}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text3)' }}>{a.classification}</div>
+                      {!stillEligible && (
+                        <div style={{ fontSize: 10.5, color: '#dc2626', marginTop: 2, display: 'flex', alignItems: 'center', gap: 3 }}>
+                          <i className="ti ti-alert-triangle" style={{ fontSize: 11 }} />
+                          {tx('events.notInSelectedSports', 'Not in a selected sport')}
+                        </div>
+                      )}
+                    </div>
+                    <Badge label={a.status} />
+                    {canReg && (
+                      <button onClick={e => { e.stopPropagation(); unregisterAthlete(ev.id, a.id) }}
+                        style={{ background: 'none', border: '1px solid #fca5a5', color: '#dc2626', borderRadius: 6, padding: '2px 8px', fontSize: 11, cursor: 'pointer', flexShrink: 0 }}>✕</button>
+                    )}
+                  </DashRow>
+                )
+              })}
               {regAthletes.length === 0 && <div className="empty" style={{ padding: 12 }}>{tx('events.noAthletes', 'No athletes registered')}</div>}
+              {canReg && eligible.length === 0 && (
+                <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)', fontSize: 12, color: 'var(--text3)' }}>
+                  {evSports.length === 0
+                    ? tx('events.selectSportForEligible', 'Select a sport for this event to see eligible athletes')
+                    : tx('events.noEligibleAthletes', 'No eligible athletes for the selected sports')}
+                </div>
+              )}
               {canReg && eligible.length > 0 && (
                 <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
                   <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '.05em', fontWeight: 600 }}>
@@ -491,7 +545,7 @@ export default function Events({ events, athletes, results, registrations, onRef
           style={{ minWidth: 160 }}
         />
         <MultiSelectFilter
-          options={sportsList.map(s => ({ value: s, label: s }))}
+          options={filterSportOptions.map(s => ({ value: s, label: s }))}
           selected={sportF}
           onChange={setSportF}
           allLabel={tx('events.allSports', 'All sports')}
@@ -555,10 +609,10 @@ export default function Events({ events, athletes, results, registrations, onRef
                       <span>{ev.start_date}{ev.end_date && ev.end_date !== ev.start_date ? ` → ${ev.end_date}` : ''}</span>
                     </div>
                   )}
-                  {ev.sport && (
+                  {(ev.sports?.length ? ev.sports : (ev.sport ? [ev.sport] : [])).length > 0 && (
                     <div className="ev-gc-meta-row">
                       <i className="ti ti-trophy" />
-                      <span>{ev.sport}</span>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{(ev.sports?.length ? ev.sports : [ev.sport]).join(', ')}</span>
                     </div>
                   )}
                 </div>
