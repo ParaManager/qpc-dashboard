@@ -159,6 +159,7 @@ export default function Events({ events, athletes, results, registrations, onRef
   const [confirm, setConfirm]     = useState(null)
   const [showCatModal, setShowCatModal] = useState(false)
   const [officials, setOfficials] = useState({ head_of_delegation: [], medical_staff: [], coach: [], administrative_staff: [] })
+  const [athleteSearch, setAthleteSearch] = useState('')
 
   useEffect(() => {
     if (initEventId)      setSelected(initEventId)
@@ -169,6 +170,10 @@ export default function Events({ events, athletes, results, registrations, onRef
     if (!selected) return
     loadOfficials(selected)
   }, [selected])
+
+  // Clear the eligible-athletes search whenever a different event is opened
+  // (or the detail view is left) so it never carries over stale text.
+  useEffect(() => { setAthleteSearch('') }, [selected])
 
   async function loadOfficials(eventId) {
     const { data } = await supabase.from('event_officials').select('id, employee_id, role').eq('event_id', eventId)
@@ -309,6 +314,14 @@ export default function Events({ events, athletes, results, registrations, onRef
     // Union of athletes across every selected sport, deduplicated by id.
     // No sport selected → no eligible athletes (clear empty state below).
     const eligible           = evSports.length === 0 ? [] : athletes.filter(a => evSports.includes(a.sport) && !regIds.includes(a.id))
+    const filteredEligible    = athleteSearch.trim()
+      ? eligible.filter(a => {
+          const q = athleteSearch.toLowerCase()
+          return a.name.toLowerCase().includes(q)
+            || (a.name_ar || '').includes(athleteSearch)
+            || (a.sport || '').toLowerCase().includes(q)
+        })
+      : eligible
     const evResults          = results.filter(r => r.event_name === ev.name)
     const canReg             = ['Upcoming', 'In Progress', 'Planning'].includes(evStatus)
     const canManageOfficials = ['Planning', 'Upcoming'].includes(evStatus)
@@ -402,9 +415,16 @@ export default function Events({ events, athletes, results, registrations, onRef
                 return (
                   <DashRow key={a.id} onClick={() => onNav('athletes', { athleteId: a.id })}>
                     <Avatar name={a.name} id={a.id} size={30} fs={10} />
-                    <div style={{ flex: 1 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 13, fontWeight: 500 }}>{ar && a.name_ar ? a.name_ar : a.name}</div>
-                      <div style={{ fontSize: 11, color: 'var(--text3)' }}>{a.classification}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 1 }}>
+                        <span style={{ fontSize: 11, color: 'var(--text3)' }}>{a.classification}</span>
+                        {a.sport && (
+                          <span style={{ fontSize: 10, fontWeight: 600, padding: '1px 7px', borderRadius: 999, background: '#0085C718', color: '#0085C7', whiteSpace: 'nowrap' }}>
+                            {a.sport}
+                          </span>
+                        )}
+                      </div>
                       {!stillEligible && (
                         <div style={{ fontSize: 10.5, color: '#dc2626', marginTop: 2, display: 'flex', alignItems: 'center', gap: 3 }}>
                           <i className="ti ti-alert-triangle" style={{ fontSize: 11 }} />
@@ -433,12 +453,30 @@ export default function Events({ events, athletes, results, registrations, onRef
                   <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '.05em', fontWeight: 600 }}>
                     {tx('events.registerAthlete', 'Register an athlete')}
                   </div>
-                  {eligible.map(a => (
+                  <div className="search-wrap" style={{ marginBottom: 8 }}>
+                    <i className="ti ti-search" />
+                    <input
+                      placeholder={tx('events.searchEligible', 'Search by name or sport…')}
+                      value={athleteSearch}
+                      onChange={e => setAthleteSearch(e.target.value)}
+                    />
+                  </div>
+                  {filteredEligible.length === 0 && (
+                    <div className="empty" style={{ padding: 12 }}>{tx('events.noSearchMatches', 'No athletes match your search')}</div>
+                  )}
+                  {filteredEligible.map(a => (
                     <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '7px 0', borderBottom: '1px solid var(--border)' }}>
                       <Avatar name={a.name} id={a.id} size={28} fs={9} />
-                      <div style={{ flex: 1 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 13 }}>{ar && a.name_ar ? a.name_ar : a.name}</div>
-                        <div style={{ fontSize: 11, color: 'var(--text3)' }}>{a.classification}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 1 }}>
+                          <span style={{ fontSize: 11, color: 'var(--text3)' }}>{a.classification}</span>
+                          {a.sport && (
+                            <span style={{ fontSize: 10, fontWeight: 600, padding: '1px 7px', borderRadius: 999, background: '#0085C718', color: '#0085C7', whiteSpace: 'nowrap' }}>
+                              {a.sport}
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <button onClick={() => registerAthlete(ev.id, a.id)}
                         style={{ background: '#0085C7', color: '#fff', border: 'none', borderRadius: 7, padding: '4px 10px', fontSize: 12, cursor: 'pointer' }}>
