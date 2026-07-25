@@ -3,8 +3,6 @@ import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
 import { toast, ConfirmModal } from '../components/Toast'
 import MeetingFormModal from '../components/MeetingFormModal.jsx'
-import { computeEventStatus } from './Events'
-import { statusClass } from '../lib/helpers'
 
 const KIND_COLORS = { meeting: '#8b5cf6', event: '#EE334E', task: '#0085C7' }
 const KIND_ICONS  = { meeting: 'ti-users-group', event: 'ti-calendar-event', task: 'ti-checklist' }
@@ -12,7 +10,6 @@ const KIND_ICONS  = { meeting: 'ti-users-group', event: 'ti-calendar-event', tas
 function getDaysInMonth(year, month) { return new Date(year, month + 1, 0).getDate() }
 function getFirstDay(year, month) { return new Date(year, month, 1).getDay() }
 function toDateStr(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` }
-function startOfWeek(d) { const r = new Date(d); r.setDate(r.getDate() - r.getDay()); return r }
 
 function isEventCanceled(ev) {
   return ev.status === 'Canceled' || ev.approval_status === 'Rejected'
@@ -26,7 +23,7 @@ export default function Calendar({ profile, events = [], onNav }) {
   const [meetings, setMeetings]   = useState([])
   const [tasks, setTasks]         = useState([])
   const [loading, setLoading]     = useState(true)
-  const [view, setView]           = useState('month') // month | week | agenda
+  const [view, setView]           = useState('month') // month | agenda
   const [filter, setFilter]       = useState('All')   // All | Meetings | Events | Tasks
   const [today]                   = useState(new Date())
   const [curDate, setCurDate]     = useState(new Date())
@@ -133,8 +130,6 @@ export default function Calendar({ profile, events = [], onNav }) {
 
   const daysInMonth = getDaysInMonth(year, month)
   const firstDay    = getFirstDay(year, month)
-  const weekStart   = startOfWeek(curDate)
-  const weekDays    = Array.from({ length: 7 }).map((_, i) => { const d = new Date(weekStart); d.setDate(d.getDate() + i); return d })
 
   // Full month grid including muted lead/trail days from adjacent months
   const weeksCount = Math.ceil((firstDay + daysInMonth) / 7)
@@ -242,11 +237,11 @@ export default function Calendar({ profile, events = [], onNav }) {
             <option value="Tasks">{L('Tasks','المهام')}</option>
           </select>
           <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 9, overflow: 'hidden' }}>
-            {['month', 'week', 'agenda'].map(v => (
+            {['month', 'agenda'].map(v => (
               <button key={v} onClick={() => setView(v)}
                 style={{ padding: '7px 14px', fontSize: 12.5, fontWeight: 600, border: 'none', cursor: 'pointer',
                   background: view === v ? '#0085C7' : 'var(--surface)', color: view === v ? '#fff' : 'var(--text2)' }}>
-                {v === 'month' ? L('Month','شهر') : v === 'week' ? L('Week','أسبوع') : L('Agenda','جدول الأعمال')}
+                {v === 'month' ? L('Month','شهر') : L('Agenda','جدول الأعمال')}
               </button>
             ))}
           </div>
@@ -269,19 +264,11 @@ export default function Calendar({ profile, events = [], onNav }) {
 
       {/* Nav */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-        <button className="tb-btn" onClick={() => {
-          if (view === 'week') setCurDate(new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() - 7))
-          else setCurDate(new Date(year, month - 1, 1))
-        }}><i className="ti ti-chevron-left" /></button>
+        <button className="tb-btn" onClick={() => setCurDate(new Date(year, month - 1, 1))}><i className="ti ti-chevron-left" /></button>
         <div style={{ fontSize: 16, fontWeight: 600, minWidth: 160, textAlign: 'center' }}>
-          {view === 'week'
-            ? `${weekDays[0].getDate()} ${monthNames[weekDays[0].getMonth()]} – ${weekDays[6].getDate()} ${monthNames[weekDays[6].getMonth()]}`
-            : `${monthNames[month]} ${year}`}
+          {monthNames[month]} {year}
         </div>
-        <button className="tb-btn" onClick={() => {
-          if (view === 'week') setCurDate(new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + 7))
-          else setCurDate(new Date(year, month + 1, 1))
-        }}><i className="ti ti-chevron-right" /></button>
+        <button className="tb-btn" onClick={() => setCurDate(new Date(year, month + 1, 1))}><i className="ti ti-chevron-right" /></button>
         <button className="tb-btn" onClick={() => setCurDate(new Date())}>{L('Today','اليوم')}</button>
       </div>
 
@@ -319,81 +306,6 @@ export default function Calendar({ profile, events = [], onNav }) {
               )
             })}
           </div>
-        </div>
-      )}
-
-      {/* WEEK VIEW — vertical weekly agenda: one full-width section per day */}
-      {view === 'week' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {weekDays.map(d => {
-            const dateStr = toDateStr(d)
-            const dItems = itemsOnDay(dateStr)
-            const isTod = isToday(dateStr)
-            const weekend = d.getDay() === 0 || d.getDay() === 6
-            return (
-              <div key={dateStr} className="card" style={{ padding: 0, overflow: 'hidden', border: isTod ? '1px solid #0085C755' : undefined }}>
-                <div style={{
-                  display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px',
-                  borderBottom: dItems.length ? '1px solid var(--border)' : 'none',
-                  background: isTod ? '#0085C70a' : weekend ? 'var(--surface2)' : 'transparent',
-                }}>
-                  <div style={{ fontSize: 13, fontWeight: isTod ? 700 : 600, width: 30, height: 30, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: isTod ? '#0085C7' : 'var(--surface2)', color: isTod ? '#fff' : 'var(--text)', flexShrink: 0 }}>
-                    {d.getDate()}
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 13.5, fontWeight: 700, color: isTod ? '#0085C7' : 'var(--text)' }}>
-                      {ar
-                        ? d.toLocaleDateString('ar', { weekday: 'long' })
-                        : d.toLocaleDateString('en-US', { weekday: 'long' })}
-                      {isTod && <span style={{ fontSize: 11, fontWeight: 600, marginLeft: 8, marginRight: 8 }}>· {L('Today','اليوم')}</span>}
-                    </div>
-                    <div style={{ fontSize: 11.5, color: 'var(--text3)' }}>{monthNames[d.getMonth()]} {d.getDate()}, {d.getFullYear()}</div>
-                  </div>
-                  <div style={{ marginLeft: 'auto', marginRight: ar ? 'auto' : 0, fontSize: 11, color: 'var(--text3)' }}>
-                    {dItems.length > 0 ? `${dItems.length} ${dItems.length === 1 ? L('item','عنصر') : L('items','عناصر')}` : ''}
-                  </div>
-                </div>
-
-                {dItems.length === 0 ? (
-                  <div style={{ padding: '14px 16px', fontSize: 12.5, color: 'var(--text3)' }}>{L('Nothing scheduled','لا يوجد شيء مجدول')}</div>
-                ) : (
-                  <div style={{ padding: '4px 8px' }}>
-                    {dItems.map(item => {
-                      const muted = isMuted(item)
-                      const statusLabel = item.kind === 'task'
-                        ? (item.raw.status === 'done' ? L('Done','منتهية') : item.raw.status === 'in_progress' ? L('In Progress','قيد التنفيذ') : L('To Do','للقيام به'))
-                        : item.kind === 'event'
-                          ? computeEventStatus(item.raw.start_date, item.raw.end_date, item.raw.deadline)
-                          : null
-                      return (
-                        <div key={item.id} onClick={() => openItem(item)}
-                          className="week-item-row"
-                          style={{
-                            display: 'flex', alignItems: 'center', gap: 10, padding: '8px 8px', borderRadius: 9,
-                            cursor: 'pointer', opacity: muted ? 0.6 : 1, minWidth: 0,
-                          }}>
-                          <div style={{ width: 28, height: 28, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', background: KIND_COLORS[item.kind] + '18', color: KIND_COLORS[item.kind], flexShrink: 0 }}>
-                            <i className={`ti ${KIND_ICONS[item.kind]}`} style={{ fontSize: 14 }} />
-                          </div>
-                          {item.startTime && (
-                            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', flexShrink: 0, minWidth: 44, fontVariantNumeric: 'tabular-nums' }}>
-                              {item.startTime.slice(0,5)}
-                            </div>
-                          )}
-                          <div style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 500, textDecoration: muted ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {item.title}
-                          </div>
-                          {statusLabel && (
-                            <span className={`badge ${statusClass(statusLabel)}`} style={{ flexShrink: 0 }}>{statusLabel}</span>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-            )
-          })}
         </div>
       )}
 
