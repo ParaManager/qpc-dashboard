@@ -22,9 +22,10 @@ export default function Calendar({ profile, events = [], onNav }) {
 
   const [meetings, setMeetings]   = useState([])
   const [tasks, setTasks]         = useState([])
+  const [eventCats, setEventCats] = useState([])
   const [loading, setLoading]     = useState(true)
   const [view, setView]           = useState('month') // month | agenda
-  const [filter, setFilter]       = useState('All')   // All | Meetings | Events | Tasks
+  const [activeFilters, setActiveFilters] = useState(['all']) // 'all' | 'meetings' | 'tasks' | 'cat-<id>', multi-select except 'all'
   const [today]                   = useState(new Date())
   const [curDate, setCurDate]     = useState(new Date())
   const [showMeetingForm, setShowMeetingForm] = useState(false)
@@ -50,9 +51,15 @@ export default function Calendar({ profile, events = [], onNav }) {
     setTasks(data || [])
   }
 
+  async function loadEventCats() {
+    const { data, error } = await supabase.from('event_categories').select('*').eq('is_active', true).order('name')
+    if (error) { toast(error.message, 'error'); return }
+    setEventCats(data || [])
+  }
+
   useEffect(() => {
     setLoading(true)
-    Promise.all([loadMeetings(), loadTasks()]).finally(() => setLoading(false))
+    Promise.all([loadMeetings(), loadTasks(), loadEventCats()]).finally(() => setLoading(false))
   }, [])
 
   async function handleDeleteMeeting(m) {
@@ -102,8 +109,24 @@ export default function Calendar({ profile, events = [], onNav }) {
     return items
   }, [meetings, events, tasks, ar])
 
-  const filterKind = filter === 'Meetings' ? 'meeting' : filter === 'Events' ? 'event' : filter === 'Tasks' ? 'task' : null
-  const visibleItems = filterKind ? allItems.filter(i => i.kind === filterKind) : allItems
+  const showAll        = activeFilters.includes('all')
+  const activeCatIds   = activeFilters.filter(f => f.startsWith('cat-')).map(f => f.slice(4))
+  const visibleItems = allItems.filter(i => {
+    if (showAll) return true
+    if (i.kind === 'meeting') return activeFilters.includes('meetings')
+    if (i.kind === 'task')    return activeFilters.includes('tasks')
+    if (i.kind === 'event')   return activeCatIds.includes(String(i.raw.category_id))
+    return false
+  })
+
+  function toggleFilter(key) {
+    setActiveFilters(prev => {
+      if (key === 'all') return ['all']
+      const withoutAll = prev.filter(f => f !== 'all')
+      const next = withoutAll.includes(key) ? withoutAll.filter(f => f !== key) : [...withoutAll, key]
+      return next.length ? next : ['all']
+    })
+  }
 
   // Each day only ever looks at its own date range — a multi-day event simply
   // appears again (compact, not spanning) on every date it covers.
@@ -230,25 +253,44 @@ export default function Calendar({ profile, events = [], onNav }) {
           <div className="page-sub">{monthNames[month]} {year}</div>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-          <select className="filter" value={filter} onChange={e => setFilter(e.target.value)}>
-            <option value="All">{L('All','الكل')}</option>
-            <option value="Meetings">{L('Meetings','الاجتماعات')}</option>
-            <option value="Events">{L('Events','الفعاليات')}</option>
-            <option value="Tasks">{L('Tasks','المهام')}</option>
-          </select>
-          <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 9, overflow: 'hidden' }}>
-            {['month', 'agenda'].map(v => (
-              <button key={v} onClick={() => setView(v)}
-                style={{ padding: '7px 14px', fontSize: 12.5, fontWeight: 600, border: 'none', cursor: 'pointer',
-                  background: view === v ? '#0085C7' : 'var(--surface)', color: view === v ? '#fff' : 'var(--text2)' }}>
-                {v === 'month' ? L('Month','شهر') : L('Agenda','جدول الأعمال')}
-              </button>
-            ))}
-          </div>
           <button className="btn" style={{ background: '#0085C7', fontSize: 13, padding: '6px 14px' }}
             onClick={() => { setEditingMeeting(null); setShowMeetingForm(true) }}>
             <i className="ti ti-plus" /> {L('New Meeting','اجتماع جديد')}
           </button>
+        </div>
+      </div>
+
+      {/* Filter pills — All / Meetings / Tasks / one per active Event Category */}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+        {[
+          { key: 'all',      label: L('All','الكل'),      color: '#0085C7' },
+          { key: 'meetings', label: L('Meetings','الاجتماعات'), color: KIND_COLORS.meeting },
+          { key: 'tasks',    label: L('Tasks','المهام'),   color: KIND_COLORS.task },
+          ...eventCats.map(c => ({ key: `cat-${c.id}`, label: ar && c.name_ar ? c.name_ar : c.name, color: c.color })),
+        ].map(({ key, label, color }) => {
+          const isActive = activeFilters.includes(key)
+          return (
+            <button key={key} onClick={() => toggleFilter(key)}
+              style={{ padding: '6px 16px', borderRadius: 20, fontSize: 13, cursor: 'pointer', transition: 'all .15s', fontWeight: isActive ? 600 : 400,
+                border: `1.5px solid ${isActive ? color : 'var(--border)'}`,
+                background: isActive ? color : 'transparent',
+                color: isActive ? '#fff' : 'var(--text2)',
+              }}>
+              {label}
+            </button>
+          )
+        })}
+      </div>
+
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 16 }}>
+        <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 9, overflow: 'hidden' }}>
+          {['month', 'agenda'].map(v => (
+            <button key={v} onClick={() => setView(v)}
+              style={{ padding: '7px 14px', fontSize: 12.5, fontWeight: 600, border: 'none', cursor: 'pointer',
+                background: view === v ? '#0085C7' : 'var(--surface)', color: view === v ? '#fff' : 'var(--text2)' }}>
+              {v === 'month' ? L('Month','شهر') : L('Agenda','جدول الأعمال')}
+            </button>
+          ))}
         </div>
       </div>
 
