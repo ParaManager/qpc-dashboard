@@ -98,6 +98,7 @@ export default function App() {
   const [personDocs, setPersonDocs]         = useState([])
   const [referees, setReferees]             = useState([])
   const [eventCategories, setEventCategories] = useState([])
+  const [sportsList, setSportsList] = useState([])
   const [pendingRequestsCount, setPendingRequestsCount] = useState(0)
   const [pendingAccountsCount, setPendingAccountsCount] = useState(0)
   const [dataLoading, setDataLoading]     = useState(true)
@@ -141,7 +142,7 @@ export default function App() {
     // this block repeatedly (multiple tabs, frequent reloads, etc.) can never
     // create a duplicate, since a conflicting dedup_key is simply rejected.
 
-   const [a, c, e, r, reg, docs, emp, pdocs, refs, reqSubs, profs, tasksRes, cats] = await Promise.all([
+   const [a, c, e, r, reg, docs, emp, pdocs, refs, reqSubs, profs, tasksRes, cats, sportsRes, evSportsRes] = await Promise.all([
       supabase.from('athletes').select('*').order('name'),
       supabase.from('coaches').select('*').order('name'),
       supabase.from('events').select('*').order('start_date'),
@@ -162,16 +163,38 @@ export default function App() {
       // Needed for the due-date reminder checks run below.
       supabase.from('tasks').select('*'),
       supabase.from('event_categories').select('*').order('name'),
+      supabase.from('sports').select('*').order('name'),
+      supabase.from('event_sports').select('event_id, sport_id'),
     ])
     if (a.data)    setAthletes(a.data)
     if (c.data)    setCoaches(c.data)
-    if (e.data)    setEvents(e.data)
+    if (e.data) {
+      // Events now support multiple sports via the event_sports junction
+      // table. `sports` (array of names) is the source of truth going
+      // forward; `sport` (singular) is kept in sync to the first selected
+      // sport purely so any not-yet-updated read site still degrades
+      // gracefully instead of breaking.
+      const sportsById = new Map((sportsRes.data || []).map(s => [s.id, s.name]))
+      const sportsByEvent = new Map()
+      for (const row of (evSportsRes.data || [])) {
+        const name = sportsById.get(row.sport_id)
+        if (!name) continue
+        if (!sportsByEvent.has(row.event_id)) sportsByEvent.set(row.event_id, [])
+        sportsByEvent.get(row.event_id).push(name)
+      }
+      const eventsWithSports = e.data.map(ev => {
+        const list = sportsByEvent.get(ev.id) || (ev.sport ? [ev.sport] : [])
+        return { ...ev, sports: list, sport: list[0] || ev.sport || null }
+      })
+      setEvents(eventsWithSports)
+    }
     if (r.data)    setResults(r.data)
     if (reg.data)  setRegistrations(reg.data)
     if (docs.data) setDocuments(docs.data)
     if (emp.data)   setEmployees(emp.data)
     if (pdocs.data) setPersonDocs(pdocs.data)
     if (refs.data)  setReferees(refs.data)
+    if (sportsRes.data) setSportsList(sportsRes.data)
     if (reqSubs.data) setPendingRequestsCount(reqSubs.data.filter(s => s.status === 'pending').length)
     if (profs.data)   setPendingAccountsCount(profs.data.filter(p => p.status === 'pending').length)
     if (cats.data)   setEventCategories(cats.data)
@@ -809,7 +832,7 @@ export default function App() {
           {page==='dashboard' && isCoach  && <CoachDashboard key={`dashboard-${refreshToken}`} coach={myCoachRecord} athletes={myAthletes} events={events} results={results} onNav={goTo} profile={profile} />}
           {page==='athletes'  && <Athletes  key={`athletes-${refreshToken}`} athletes={myAthletes} coaches={coaches} employees={employees} results={results} documents={documents} events={events} registrations={registrations} onRefresh={fetchAll} onNav={goTo} initAthleteId={navState.athleteId} initStatusFilter={navState.statusFilter} navState={navState} profile={profile} />}
           {page==='coaches'   && isAdmin && <Coaches   key={`coaches-${refreshToken}`} coaches={coaches} athletes={athletes} employees={employees} personDocs={personDocs} onRefresh={fetchAll} onNav={goTo} initCoachId={navState.coachId} navState={navState} profile={profile} />}
-          {page==='events' && <Events key={`events-${refreshToken}`} events={events} athletes={athletes} employees={employees} results={results} registrations={registrations} onRefresh={fetchAll} onNav={goTo} initEventId={navState.eventId} initStatusFilter={navState.statusFilter} profile={profile} eventCategories={eventCategories} />} {page==='schedule'  && <Schedule  key={`schedule-${refreshToken}`} profile={profile} coachId={isAdmin ? null : myCoachId} myAthletes={myAthletes} athletes={athletes} coaches={coaches} onNav={goTo} readOnly={isAthlete} viewOnly={isAdmin} athleteId={isAthlete ? myAthleteId : null} initSessionId={navState?.sessionId} initCoachFilter={navState?.coachFilter} />}
+          {page==='events' && <Events key={`events-${refreshToken}`} events={events} athletes={athletes} employees={employees} results={results} registrations={registrations} onRefresh={fetchAll} onNav={goTo} initEventId={navState.eventId} initStatusFilter={navState.statusFilter} profile={profile} eventCategories={eventCategories} sportsList={sportsList} />} {page==='schedule'  && <Schedule  key={`schedule-${refreshToken}`} profile={profile} coachId={isAdmin ? null : myCoachId} myAthletes={myAthletes} athletes={athletes} coaches={coaches} onNav={goTo} readOnly={isAthlete} viewOnly={isAdmin} athleteId={isAthlete ? myAthleteId : null} initSessionId={navState?.sessionId} initCoachFilter={navState?.coachFilter} />}
           {page==='calendar' && isAdmin && <Calendar key={`calendar-${refreshToken}`} profile={profile} events={events} onNav={goTo} />}
           {page==='attendance' && <Attendance key={`attendance-${refreshToken}`} profile={profile} coachId={isAdmin ? null : myCoachId} myAthletes={myAthletes} onNav={goTo} viewOnly={isAdmin} initSessionId={navState.sessionId} />}
           {page==='users'     && isAdmin && <UserManagement key={`users-${refreshToken}`} profile={profile} initUserId={navState?.userId} />}
