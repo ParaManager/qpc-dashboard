@@ -4,6 +4,7 @@ import { useLang } from '../lib/LangContext.jsx'
 import { toast, ConfirmModal } from '../components/Toast'
 import MeetingFormModal from '../components/MeetingFormModal.jsx'
 import { computeEventStatus } from './Events'
+import { statusClass } from '../lib/helpers'
 
 const KIND_COLORS = { meeting: '#8b5cf6', event: '#EE334E', task: '#0085C7' }
 const KIND_ICONS  = { meeting: 'ti-users-group', event: 'ti-calendar-event', task: 'ti-checklist' }
@@ -40,7 +41,7 @@ export default function Calendar({ profile, events = [], onNav }) {
   async function loadMeetings() {
     const { data, error } = await supabase
       .from('meetings')
-      .select('*, meeting_attendees(person_id, people(id, name, name_ar))')
+      .select('*, meeting_attendees(employee_id, employees(id, name, name_ar))')
       .order('meeting_date')
     if (error) { toast(error.message, 'error'); return }
     setMeetings(data || [])
@@ -321,24 +322,78 @@ export default function Calendar({ profile, events = [], onNav }) {
         </div>
       )}
 
-      {/* WEEK VIEW */}
+      {/* WEEK VIEW — vertical weekly agenda: one full-width section per day */}
       {view === 'week' && (
-        <div className="cal-wrap" style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', boxShadow: 'var(--shadow)' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)' }}>
-            {weekDays.map(d => {
-              const dateStr = toDateStr(d)
-              const dItems = itemsOnDay(dateStr)
-              const isTod = isToday(dateStr)
-              const weekend = d.getDay() === 0 || d.getDay() === 6
-              return (
-                <div key={dateStr} style={{ minHeight: 220, borderRight: '1px solid var(--border)', padding: '8px 6px', background: weekend ? 'var(--surface2)' : 'var(--surface)' }}>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', marginBottom: 4 }}>{dayNames[d.getDay()]}</div>
-                  <div style={{ fontSize: 13, fontWeight: isTod ? 700 : 500, width: 22, height: 22, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: isTod ? '#0085C7' : 'transparent', color: isTod ? '#fff' : 'var(--text)', marginBottom: 6 }}>{d.getDate()}</div>
-                  {dItems.map(item => <CompactItem key={item.id} item={item} />)}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {weekDays.map(d => {
+            const dateStr = toDateStr(d)
+            const dItems = itemsOnDay(dateStr)
+            const isTod = isToday(dateStr)
+            const weekend = d.getDay() === 0 || d.getDay() === 6
+            return (
+              <div key={dateStr} className="card" style={{ padding: 0, overflow: 'hidden', border: isTod ? '1px solid #0085C755' : undefined }}>
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px',
+                  borderBottom: dItems.length ? '1px solid var(--border)' : 'none',
+                  background: isTod ? '#0085C70a' : weekend ? 'var(--surface2)' : 'transparent',
+                }}>
+                  <div style={{ fontSize: 13, fontWeight: isTod ? 700 : 600, width: 30, height: 30, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: isTod ? '#0085C7' : 'var(--surface2)', color: isTod ? '#fff' : 'var(--text)', flexShrink: 0 }}>
+                    {d.getDate()}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 13.5, fontWeight: 700, color: isTod ? '#0085C7' : 'var(--text)' }}>
+                      {ar
+                        ? d.toLocaleDateString('ar', { weekday: 'long' })
+                        : d.toLocaleDateString('en-US', { weekday: 'long' })}
+                      {isTod && <span style={{ fontSize: 11, fontWeight: 600, marginLeft: 8, marginRight: 8 }}>· {L('Today','اليوم')}</span>}
+                    </div>
+                    <div style={{ fontSize: 11.5, color: 'var(--text3)' }}>{monthNames[d.getMonth()]} {d.getDate()}, {d.getFullYear()}</div>
+                  </div>
+                  <div style={{ marginLeft: 'auto', marginRight: ar ? 'auto' : 0, fontSize: 11, color: 'var(--text3)' }}>
+                    {dItems.length > 0 ? `${dItems.length} ${dItems.length === 1 ? L('item','عنصر') : L('items','عناصر')}` : ''}
+                  </div>
                 </div>
-              )
-            })}
-          </div>
+
+                {dItems.length === 0 ? (
+                  <div style={{ padding: '14px 16px', fontSize: 12.5, color: 'var(--text3)' }}>{L('Nothing scheduled','لا يوجد شيء مجدول')}</div>
+                ) : (
+                  <div style={{ padding: '4px 8px' }}>
+                    {dItems.map(item => {
+                      const muted = isMuted(item)
+                      const statusLabel = item.kind === 'task'
+                        ? (item.raw.status === 'done' ? L('Done','منتهية') : item.raw.status === 'in_progress' ? L('In Progress','قيد التنفيذ') : L('To Do','للقيام به'))
+                        : item.kind === 'event'
+                          ? computeEventStatus(item.raw.start_date, item.raw.end_date, item.raw.deadline)
+                          : null
+                      return (
+                        <div key={item.id} onClick={() => openItem(item)}
+                          className="week-item-row"
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 10, padding: '8px 8px', borderRadius: 9,
+                            cursor: 'pointer', opacity: muted ? 0.6 : 1, minWidth: 0,
+                          }}>
+                          <div style={{ width: 28, height: 28, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', background: KIND_COLORS[item.kind] + '18', color: KIND_COLORS[item.kind], flexShrink: 0 }}>
+                            <i className={`ti ${KIND_ICONS[item.kind]}`} style={{ fontSize: 14 }} />
+                          </div>
+                          {item.startTime && (
+                            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', flexShrink: 0, minWidth: 44, fontVariantNumeric: 'tabular-nums' }}>
+                              {item.startTime.slice(0,5)}
+                            </div>
+                          )}
+                          <div style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 500, textDecoration: muted ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {item.title}
+                          </div>
+                          {statusLabel && (
+                            <span className={`badge ${statusClass(statusLabel)}`} style={{ flexShrink: 0 }}>{statusLabel}</span>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
 
