@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import MultiSelectFilter from '../components/MultiSelectFilter.jsx'
 import { Avatar, Badge, statusDot, statusClass, DashRow } from '../lib/helpers'
 import FormModal from '../components/FormModal'
 import EventCategoryModal from '../components/EventCategoryModal'
@@ -148,9 +149,9 @@ export default function Events({ events, athletes, results, registrations, onRef
   const ar = lang === 'ar'
 
   const [search, setSearch]       = useState('')
-  const [categoryF, setCategoryF] = useState('all')
-  const [approvalF, setApprovalF] = useState('all')
-  const [sportF, setSportF]       = useState('all')
+  const [categoryF, setCategoryF] = useState([])
+  const [approvalF, setApprovalF] = useState([])
+  const [sportF, setSportF]       = useState([])
   const [statusF, setStatusF]     = useState(initStatusFilter || 'All')
   const [sort, setSort]           = useState('date-asc')
   const [selected, setSelected]   = useState(initEventId || null)
@@ -201,9 +202,9 @@ export default function Events({ events, athletes, results, registrations, onRef
   let list = events.filter(e => {
     const evStatus      = getEventStatus(e)
     const matchStatus   = statusF === 'All' || evStatus === statusF
-    const matchCategory = categoryF === 'all' || String(e.category_id) === categoryF
-    const matchApproval = approvalF === 'all' || e.approval_status === approvalF
-    const matchSport    = sportF === 'all' || e.sport === sportF
+    const matchCategory = categoryF.length === 0 || categoryF.includes(String(e.category_id))
+    const matchApproval = approvalF.length === 0 || approvalF.includes(e.approval_status)
+    const matchSport    = sportF.length === 0 || sportF.includes(e.sport)
     const matchSearch   = e.name.toLowerCase().includes(search.toLowerCase())
       || (e.name_ar || '').includes(search)
       || (e.venue || '').toLowerCase().includes(search.toLowerCase())
@@ -469,24 +470,31 @@ export default function Events({ events, athletes, results, registrations, onRef
           <i className="ti ti-search" />
           <input placeholder={tx('events.searchEvents', 'Search events…')} value={search} onChange={e => setSearch(e.target.value)} />
         </div>
-        <select className="filter" value={categoryF} onChange={e => setCategoryF(e.target.value)}>
-          <option value="all">{tx('events.allCategories', 'All categories')}</option>
-          {eventCategories.filter(c => c.is_active).map(c => (
-            <option key={c.id} value={String(c.id)}>{ar && c.name_ar ? c.name_ar : c.name}</option>
-          ))}
-        </select>
-        <select className="filter" value={approvalF} onChange={e => setApprovalF(e.target.value)}>
-          <option value="all">{tx('events.allApprovals', 'All approvals')}</option>
-          <option value="Approved">{tx('events.approved', 'Approved')}</option>
-          <option value="TBC">{tx('events.tbc', 'TBC')}</option>
-          <option value="Rejected">{tx('events.rejected', 'Rejected')}</option>
-        </select>
-        <select className="filter" value={sportF} onChange={e => setSportF(e.target.value)}>
-          <option value="all">{tx('events.allSports', 'All sports')}</option>
-          {sportsList.map(s => (
-            <option key={s} value={s}>{s}</option>
-          ))}
-        </select>
+        <MultiSelectFilter
+          options={eventCategories.filter(c => c.is_active).map(c => ({ value: String(c.id), label: ar && c.name_ar ? c.name_ar : c.name }))}
+          selected={categoryF}
+          onChange={setCategoryF}
+          allLabel={tx('events.allCategories', 'All categories')}
+          style={{ minWidth: 160 }}
+        />
+        <MultiSelectFilter
+          options={[
+            { value: 'Approved', label: tx('events.approved', 'Approved') },
+            { value: 'TBC',      label: tx('events.tbc', 'TBC') },
+            { value: 'Rejected', label: tx('events.rejected', 'Rejected') },
+          ]}
+          selected={approvalF}
+          onChange={setApprovalF}
+          allLabel={tx('events.allApprovals', 'All approvals')}
+          style={{ minWidth: 160 }}
+        />
+        <MultiSelectFilter
+          options={sportsList.map(s => ({ value: s, label: s }))}
+          selected={sportF}
+          onChange={setSportF}
+          allLabel={tx('events.allSports', 'All sports')}
+          style={{ minWidth: 160 }}
+        />
         <select className="filter" value={sort} onChange={e => setSort(e.target.value)}>
           <option value="date-asc">{tx('filters.dateAsc', 'Date ↑')}</option>
           <option value="date-desc">{tx('filters.dateDesc', 'Date ↓')}</option>
