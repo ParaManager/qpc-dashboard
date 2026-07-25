@@ -192,6 +192,8 @@ export default function Events({ events, athletes, results, registrations, onRef
 
   const statuses = ['All', 'Planning', 'Upcoming', 'In Progress', 'Completed', 'Canceled']
   const sportsList = [...new Set(events.map(e => e.sport).filter(Boolean))].sort()
+  const hasActiveFilters = !!search || categoryF.length > 0 || approvalF.length > 0 || sportF.length > 0 || statusF !== 'All'
+  function clearFilters() { setSearch(''); setCategoryF([]); setApprovalF([]); setSportF([]); setStatusF('All') }
 
   function pillLabel(s) {
     if (s === 'All') return tx('filters.all', 'All')
@@ -501,6 +503,11 @@ export default function Events({ events, athletes, results, registrations, onRef
           <option value="name-asc">{tx('filters.nameAZ', 'Name A→Z')}</option>
           <option value="participants-desc">{tx('filters.mostParticipants', 'Most participants')}</option>
         </select>
+        {hasActiveFilters && (
+          <button onClick={clearFilters} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '8px 12px', borderRadius: 9, border: '1px solid #fca5a5', background: '#fef2f2', color: '#dc2626', fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+            <i className="ti ti-x" style={{ fontSize: 13 }} /> {tx('actions.resetFilters', 'Reset filters')}
+          </button>
+        )}
       </div>
 
       <div className="pill-filters">
