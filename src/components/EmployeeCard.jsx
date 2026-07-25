@@ -198,8 +198,8 @@ body {
   background-size: 14px 14px;
 }
 .eyebrow {
-  font-size: 7.5px; font-weight: 700;
-  color: #c9a84c; letter-spacing: .22em;
+  font-size: 9.5px; font-weight: 700;
+  color: #c9a84c; letter-spacing: .18em;
   margin-bottom: 12px; position: relative; z-index: 1;
 }
 .en-name {
@@ -211,32 +211,36 @@ body {
 /* Arabic name — same size + weight as English */
 .ar-name {
   font-size: 28px; font-weight: 900;
-  color: #1a2340; margin-top: 4px;
+  color: #1a2340; margin-top: 8px;
   direction: rtl; text-align: left;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   position: relative; z-index: 1;
-  line-height: 1.1; max-width: 100%;
+  line-height: 1.35; max-width: 100%;
+  padding-bottom: 2px;
 }
 .rule {
   height: 1px;
   width: 100%;
   background: #c9a84c;
-  margin: 12px 0;
+  margin: 16px 0;
   position: relative; z-index: 1;
 }
 /* Position EN */
 .pos-en {
   font-size: 24px; font-weight: 700;
   color: #7b1325;
+  margin-top: 6px;
   position: relative; z-index: 1;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 /* Arabic position — same size + weight as English */
 .pos-ar {
   font-size: 24px; font-weight: 700;
-  color: #7b1325; margin-top: 4px;
+  color: #7b1325; margin-top: 8px;
   direction: rtl; text-align: left;
   position: relative; z-index: 1;
+  line-height: 1.35;
+  padding-bottom: 2px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
@@ -276,8 +280,6 @@ body {
 <body>
 
 <div class="btns">
-  <button class="btn" id="dlBtn" style="background:#7b1325;color:white">⬇ Download PNG</button>
-  <button class="btn" onclick="window.print()" style="background:#2d3748;color:white">🖨 Print</button>
   <button class="btn" onclick="window.close()" style="background:white;color:#555;border:1px solid #ddd">← Back</button>
 </div>
 
@@ -346,27 +348,6 @@ body {
   <div class="gold-bar"></div>
 </div>
 
-<script>
-document.getElementById('dlBtn').onclick = () => {
-  const btn = document.getElementById('dlBtn')
-  btn.textContent = 'Generating…'; btn.disabled = true
-  const s = document.createElement('script')
-  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'
-  s.onload = async () => {
-    try {
-      const canvas = await html2canvas(document.getElementById('card'), {
-        scale: 2, useCORS: true, backgroundColor: '#ffffff', width: 760, height: 460
-      })
-      const a = document.createElement('a')
-      a.download = '${name.replace(/[^a-zA-Z0-9]/g, '-')}-ID-Card.png'
-      a.href = canvas.toDataURL('image/png')
-      a.click()
-    } catch(e) { alert('Download error: ' + e.message) }
-    btn.textContent = '⬇ Download PNG'; btn.disabled = false
-  }
-  document.head.appendChild(s)
-}
-</script>
 </body>
 </html>`
 
