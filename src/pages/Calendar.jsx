@@ -263,7 +263,7 @@ export default function Calendar({ profile, events = [], onNav }) {
       {/* Filter pills — All / Meetings / Tasks / one per active Event Category */}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
         {[
-          { key: 'all',      label: L('All','الكل'),      color: '#0085C7' },
+          { key: 'all',      label: L('All','الكل'),      color: '#334155' },
           { key: 'meetings', label: L('Meetings','الاجتماعات'), color: KIND_COLORS.meeting },
           { key: 'tasks',    label: L('Tasks','المهام'),   color: KIND_COLORS.task },
           ...eventCats.map(c => ({ key: `cat-${c.id}`, label: ar && c.name_ar ? c.name_ar : c.name, color: c.color })),
