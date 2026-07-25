@@ -175,16 +175,19 @@ export default function App() {
       // sport purely so any not-yet-updated read site still degrades
       // gracefully instead of breaking.
       const sportsById = new Map((sportsRes.data || []).map(s => [s.id, s.name]))
-      const sportsByEvent = new Map()
+      const sportsByEvent = new Map()     // event_id -> [name, ...]
+      const sportIdsByEvent = new Map()   // event_id -> [id, ...]
       for (const row of (evSportsRes.data || [])) {
         const name = sportsById.get(row.sport_id)
         if (!name) continue
-        if (!sportsByEvent.has(row.event_id)) sportsByEvent.set(row.event_id, [])
+        if (!sportsByEvent.has(row.event_id)) { sportsByEvent.set(row.event_id, []); sportIdsByEvent.set(row.event_id, []) }
         sportsByEvent.get(row.event_id).push(name)
+        sportIdsByEvent.get(row.event_id).push(row.sport_id)
       }
       const eventsWithSports = e.data.map(ev => {
         const list = sportsByEvent.get(ev.id) || (ev.sport ? [ev.sport] : [])
-        return { ...ev, sports: list, sport: list[0] || ev.sport || null }
+        const ids  = sportIdsByEvent.get(ev.id) || []
+        return { ...ev, sports: list, sportIds: ids, sport: list[0] || ev.sport || null }
       })
       setEvents(eventsWithSports)
     }
