@@ -8,10 +8,15 @@ export default function Sports({ athletes, coaches, events, results, onNav, init
 
   const SPORT_NAMES = ar ? SPORT_NAMES_AR : {}
 
-  // SPORTS_BY_CATEGORY already groups every known sport (including the legacy flat
-  // 'Special Olympics' catch-all) by category — no separate construction needed now
-  // that helpers.jsx is the single source of truth for all five programs.
-  const sportsByCategorySection = SPORTS_BY_CATEGORY
+  // SPORTS_BY_CATEGORY groups every known sport by category, but its Summer
+  // Paralympic list still includes the legacy flat 'Special Olympics'
+  // catch-all — that entry belongs conceptually under the Special Olympics
+  // programs, not here, so it's filtered out for this page's tabs only.
+  // (Left untouched in helpers.jsx since athlete/coach forms still rely on it.)
+  const sportsByCategorySection = {
+    ...SPORTS_BY_CATEGORY,
+    'Summer Paralympic': SPORTS_BY_CATEGORY['Summer Paralympic'].filter(s => s !== 'Special Olympics'),
+  }
 
   const [activeTab, setActiveTab] = useState(initCategory || 'Summer Paralympic')
   const [selected, setSelected] = useState(initSport ? { sport: initSport, category: initCategory || 'Summer Paralympic' } : null)
