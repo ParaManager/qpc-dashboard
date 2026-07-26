@@ -105,11 +105,11 @@ export default function MeetingFormModal({ meeting, onClose, onSaved, onDelete, 
             <input className="form-input" type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} />
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
-            <div className="form-group" style={{ flex: 1 }}>
+            <div className="form-group" style={{ flex: 1, minWidth: 0 }}>
               <label>{L('Start time','وقت البدء')} *</label>
               <input className="form-input" type="time" value={form.startTime} onChange={e => setForm(f => ({ ...f, startTime: e.target.value }))} />
             </div>
-            <div className="form-group" style={{ flex: 1 }}>
+            <div className="form-group" style={{ flex: 1, minWidth: 0 }}>
               <label>{L('End time','وقت الانتهاء')}</label>
               <input className="form-input" type="time" value={form.endTime} onChange={e => setForm(f => ({ ...f, endTime: e.target.value }))} />
             </div>
