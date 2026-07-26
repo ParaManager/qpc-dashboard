@@ -178,7 +178,7 @@ export default function Events({ events, athletes, results, registrations, onRef
   const [form, setForm]           = useState(null)
   const [confirm, setConfirm]     = useState(null)
   const [showCatModal, setShowCatModal] = useState(false)
-  const [officials, setOfficials] = useState({ head_of_delegation: [], medical_staff: [], coach: [], administrative_staff: [] })
+  const [officials, setOfficials] = useState({ head_of_delegation: [], medical_staff: [], coach: [], administrative_staff: [], support_staff: [], technical_expert: [] })
   const [athleteSearch, setAthleteSearch] = useState('')
 
   useEffect(() => {
@@ -198,7 +198,7 @@ export default function Events({ events, athletes, results, registrations, onRef
   async function loadOfficials(eventId) {
     const { data } = await supabase.from('event_officials').select('id, employee_id, role').eq('event_id', eventId)
     if (!data) return
-    const grouped = { head_of_delegation: [], medical_staff: [], coach: [], administrative_staff: [] }
+    const grouped = { head_of_delegation: [], medical_staff: [], coach: [], administrative_staff: [], support_staff: [], technical_expert: [] }
     for (const row of data) { if (grouped[row.role]) grouped[row.role].push(row) }
     setOfficials(grouped)
   }
@@ -362,6 +362,8 @@ export default function Events({ events, athletes, results, registrations, onRef
       medical_staff:        tx('events.medicalStaff',       'Medical Staff'),
       coach:                tx('events.coaches',             'Coaches'),
       administrative_staff: tx('events.administrativeStaff','Administrative Staff'),
+      support_staff:        tx('events.supportStaff',       'Support Staff'),
+      technical_expert:     tx('events.technicalExpert',    'Technical Expert'),
     }
 
     const pickerProps = {
@@ -515,6 +517,8 @@ export default function Events({ events, athletes, results, registrations, onRef
               <OfficialsPicker roleKey="medical_staff"        title={ROLE_TITLES.medical_staff}        {...pickerProps} />
               <OfficialsPicker roleKey="coach"                title={ROLE_TITLES.coach}                {...pickerProps} />
               <OfficialsPicker roleKey="administrative_staff" title={ROLE_TITLES.administrative_staff} {...pickerProps} />
+              <OfficialsPicker roleKey="support_staff"        title={ROLE_TITLES.support_staff}        {...pickerProps} />
+              <OfficialsPicker roleKey="technical_expert"     title={ROLE_TITLES.technical_expert}     {...pickerProps} />
             </div>
 
             {/* Results */}
