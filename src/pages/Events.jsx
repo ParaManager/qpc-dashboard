@@ -148,6 +148,26 @@ export default function Events({ events, athletes, results, registrations, onRef
   const { lang, tx } = useLang()
   const ar = lang === 'ar'
 
+  // Bridges an athlete's (sport, sport_category) pair to the event's
+  // selected canonical sport names. Most athletes get an exact match via
+  // sportLabel (e.g. sport='Athletics' + category='Summer Paralympic' ->
+  // 'Para Athletics'). Special Olympics athletes in this system are only
+  // ever tagged with the generic 'Special Olympics' catch-all (no specific
+  // discipline is tracked per athlete yet), so they're treated as eligible
+  // for ANY selected Special Olympics sport, not just an exact-name match.
+  function athleteMatchesSports(a, sportNames) {
+    if (!sportNames.length) return false
+    const label = sportLabel(a.sport, a.sport_category, false)
+    if (sportNames.includes(label)) return true
+    if (a.sport === 'Special Olympics') {
+      return sportNames.some(name => {
+        const s = sportsList.find(sp => sp.name === name)
+        return s && (s.category === 'Summer Special Olympics' || s.category === 'Winter Special Olympics')
+      })
+    }
+    return false
+  }
+
   const [search, setSearch]       = useState('')
   const [categoryF, setCategoryF] = useState([])
   const [approvalF, setApprovalF] = useState([])
@@ -312,7 +332,7 @@ export default function Events({ events, athletes, results, registrations, onRef
     const regAthletes        = athletes.filter(a => regIds.includes(a.id))
     // Union of athletes across every selected sport, deduplicated by id.
     // No sport selected → no eligible athletes (clear empty state below).
-    const eligible           = evSports.length === 0 ? [] : athletes.filter(a => evSports.includes(sportLabel(a.sport, a.sport_category, false)) && !regIds.includes(a.id))
+    const eligible           = evSports.length === 0 ? [] : athletes.filter(a => athleteMatchesSports(a, evSports) && !regIds.includes(a.id))
     const filteredEligible    = athleteSearch.trim()
       ? eligible.filter(a => {
           const q = athleteSearch.toLowerCase()
@@ -411,7 +431,7 @@ export default function Events({ events, athletes, results, registrations, onRef
                 <span style={{ fontSize: 10, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}> — {tx('events.clickToView', 'click to view')}</span>
               </div>
               {regAthletes.map(a => {
-                const stillEligible = evSports.length === 0 || evSports.includes(sportLabel(a.sport, a.sport_category, false))
+                const stillEligible = evSports.length === 0 || athleteMatchesSports(a, evSports)
                 return (
                   <DashRow key={a.id} onClick={() => onNav('athletes', { athleteId: a.id })}>
                     <Avatar name={a.name} id={a.id} size={30} fs={10} />
