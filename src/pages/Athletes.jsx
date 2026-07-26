@@ -1213,7 +1213,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
         a.nationality, a.gender, coach?.name, coach?.name_ar,
         a.status, effectiveStatus(a), a.medical_status,
         a.phone, a.email, a.passport_number, a.passport_expiry, a.id_expiry,
-        a.join_date, a.age_category, a.sport_age_category,
+        a.join_date, a.age_category, a.sport_age_category, calcAge(a.dob),
       ]
       const text = parts
         .map(v => {
@@ -1338,6 +1338,10 @@ export default function Athletes({ athletes, coaches, employees, results, docume
         case 'nationality':            return textCompare(a.nationality, b.nationality, desc)
         case 'gender':                 return textCompare(a.gender, b.gender, desc)
         case 'dob':                    return dateCompare(a.dob, b.dob, desc)
+        case 'age': {
+          const ai = calcAge(a.dob) ?? -1, bi = calcAge(b.dob) ?? -1
+          return desc ? bi - ai : ai - bi
+        }
         case 'coach_id':                return textCompare(coachName(a), coachName(b), desc)
         // Status sort uses effectiveStatus(), matching display/filter logic.
         case 'status':                 return textCompare(effectiveStatus(a), effectiveStatus(b), desc)
@@ -1720,6 +1724,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
   <div class="section-title">${L('Personal Information','المعلومات الشخصية')}</div>
   <div class="grid-2">
     ${field(L('Date of birth','تاريخ الميلاد'), a.dob)}
+    ${field(L('Age','العمر'), calcAge(a.dob))}
     ${field(L('Gender','الجنس'), a.gender ? (isAr ? (a.gender==='Male'?'ذكر':'أنثى') : a.gender) : null)}
     ${field(L('Nationality','الجنسية'), isAr ? (COUNTRY_AR[a.nationality]||a.nationality) : a.nationality)}
     ${field(L('Phone','الهاتف'), a.phone)}
@@ -2480,6 +2485,7 @@ ${myDocs.length > 0 ? `<div class="section">
     { key:'nationality',     label:tx('athletes.nationality','Nationality'),  default:false,  editable:true  },
     { key:'gender',          label:tx('athletes.gender','Gender'),            default:false, editable:false },
     { key:'dob',             label:tx('athletes.dob','Date of Birth'),        default:false, editable:false },
+    { key:'age',             label:tx('athletes.age','Age'),                  default:false, editable:false },
     { key:'age_category',       label:tx('athletes.ageCategory','Age Category'),      default:false, editable:false },
     { key:'sport_age_category', label:tx('athletes.sportAgeCategory','Sport Age Cat.'), default:false, editable:false },
     { key:'coach_id',        label:tx('athletes.coach','Coach'),              default:true,  editable:true  },
@@ -2534,6 +2540,7 @@ ${myDocs.length > 0 ? `<div class="section">
       case 'nationality':      return <span style={{ color:'var(--text2)' }}>{tc(a.nationality) || '—'}</span>
       case 'gender':           return <span style={{ color:'var(--text2)' }}>{a.gender ? (lang==='ar' ? (a.gender==='Male'?'ذكر':'أنثى') : a.gender) : '—'}</span>
       case 'dob':              return <span style={{ color:'var(--text2)' }}>{a.dob || '—'}</span>
+      case 'age':              return <span style={{ color:'var(--text2)' }}>{calcAge(a.dob) ?? '—'}</span>
       case 'age_category':       return <span style={{ color:'var(--text2)' }}>{a.age_category || '—'}</span>
       case 'sport_age_category': return <span style={{ color:'var(--text2)' }}>{a.sport_age_category || '—'}</span>
       case 'coach_id': {
@@ -2628,6 +2635,7 @@ ${myDocs.length > 0 ? `<div class="section">
       case 'nationality':  return <input style={{ ...inlineInput, width:100 }} value={getVal(a,'nationality')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'nationality',e.target.value)} />
       case 'gender':       return <select style={inlineSelect} value={getVal(a,'gender')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'gender',e.target.value)}>{['','Male','Female'].map(s=><option key={s} value={s}>{s||'—'}</option>)}</select>
       case 'dob':          return <input style={inlineInput} type="date" value={getVal(a,'dob')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'dob',e.target.value)} />
+      case 'age':          return renderCell(a, key) // read-only: computed live from dob, not stored
       case 'age_category': return renderCell(a, key) // read-only: auto-computed from dob by a DB trigger
       case 'sport_age_category': return renderCell(a, key) // read-only: auto-computed from dob + gender
       case 'coach_id':     return <select style={inlineSelect} value={getVal(a,'coach_id')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'coach_id',e.target.value?parseInt(e.target.value):null)}><option value="">Unassigned</option>{coaches.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select>
@@ -2702,7 +2710,7 @@ ${myDocs.length > 0 ? `<div class="section">
                 const COL_GROUPS = [
                   { label: lang==='ar' ? 'الهوية' : 'Identity', keys: ['name','name_ar','qss_number','id_number','career_profile'] },
                   { label: lang==='ar' ? 'الرياضة' : 'Sport', keys: ['sport_category','sport','classification','disability','statistics_disability','coach_id'] },
-                  { label: lang==='ar' ? 'شخصي' : 'Personal', keys: ['nationality','gender','dob','age_category','sport_age_category','phone','email'] },
+                  { label: lang==='ar' ? 'شخصي' : 'Personal', keys: ['nationality','gender','dob','age','age_category','sport_age_category','phone','email'] },
                   { label: lang==='ar' ? 'الحالة' : 'Status', keys: ['status','medical_status','join_date'] },
                   { label: lang==='ar' ? 'الوثائق' : 'Documents', keys: ['passport_number','passport_expiry','id_expiry','documents','missing_documents'] },
                   { label: lang==='ar' ? 'الأداء' : 'Performance', keys: ['medals'] },
@@ -2820,7 +2828,7 @@ ${myDocs.length > 0 ? `<div class="section">
                 </th>
               )}
               {ALL_COLS.filter(c => isVisible(c.key)).map((c, i) => {
-                const isSortable = ['name','name_ar','qss_number','id_number','career_profile','sport_category','sport','classification','disability','statistics_disability','nationality','gender','dob','age_category','sport_age_category','coach_id','status','medical_status','phone','email','join_date','passport_number','passport_expiry','id_expiry','medals','documents','missing_documents'].includes(c.key)
+                const isSortable = ['name','name_ar','qss_number','id_number','career_profile','sport_category','sport','classification','disability','statistics_disability','nationality','gender','dob','age','age_category','sport_age_category','coach_id','status','medical_status','phone','email','join_date','passport_number','passport_expiry','id_expiry','medals','documents','missing_documents'].includes(c.key)
                 const isAsc  = sort === `${c.key}-asc`
                 const isDesc = sort === `${c.key}-desc`
                 const active = isAsc || isDesc
