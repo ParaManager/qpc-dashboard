@@ -268,15 +268,21 @@ select.filter { padding: 8px 12px; border-radius: 9px; border: 1px solid var(--b
 .form-label { font-size: 12px; font-weight: 500; color: var(--text2); display: block; margin-bottom: 5px; }
 .form-input { width: 100%; padding: 9px 12px; border-radius: 9px; border: 1px solid var(--border); background: var(--surface); font-size: 13px; color: var(--text); outline: none; transition: border .15s; }
 .form-input:focus { border-color: var(--blue); }
-/* Safari renders date/time/month/week inputs as inline-flex internally, which
-   ignores width:100% (a known WebKit quirk, not fixable via display changes
-   without introducing extra padding) — box-sizing + explicit min/max width
-   forces them to actually fill their container like every other input does. */
+/* iOS/WebKit renders date/time/month/week inputs with native chrome that
+   ignores width:100% and can overflow its container (reported: fields
+   bleeding past the screen edge on mobile, e.g. the Meeting form's
+   Start/End time row). Resetting appearance and forcing block layout makes
+   them render like a normal boxed input, respecting width like every
+   other field. */
 .form-input[type="date"], .form-input[type="time"], .form-input[type="datetime-local"],
 .form-input[type="month"], .form-input[type="week"] {
   box-sizing: border-box;
   min-width: 100%;
   max-width: 100%;
+  width: 100%;
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
 }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .form-section { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; margin: 18px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
