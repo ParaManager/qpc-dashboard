@@ -287,6 +287,21 @@ select.filter { padding: 8px 12px; border-radius: 9px; border: 1px solid var(--b
   line-height: 1.4;
   font-family: inherit;
   color: var(--text);
+  /* iOS ignores padding/line-height on these controls (its internal
+     ::-webkit-datetime-edit shadow part has its own fixed sizing), so the
+     box still rendered shorter than a text input despite matching padding —
+     forcing an explicit height is the only thing that actually works. */
+  height: 38px !important;
+  min-height: 38px !important;
+}
+.form-input[type="date"]::-webkit-date-and-time-value,
+.form-input[type="time"]::-webkit-date-and-time-value {
+  text-align: left;
+  height: 20px;
+}
+.form-input[type="date"]::-webkit-datetime-edit,
+.form-input[type="time"]::-webkit-datetime-edit {
+  padding: 0;
 }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .form-section { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; margin: 18px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
