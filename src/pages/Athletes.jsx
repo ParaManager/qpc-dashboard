@@ -1323,7 +1323,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
     const coachName = a => { const c = coaches.find(co => co.id === a.coach_id); return c ? c.name : '' }
     const docsRank = a => { const ds = athleteDocStatus(a.id, documents); return ds.key === 'complete' ? 2 : ds.key === 'missing' ? 1 : 0 }
     const AGE_ORDER = ['Under 5','5 - 9','10 - 14','15 - 19','20 - 24','25 - 29','30 - 34','35 - 39','40 - 44','45 - 49','50 - 54','55 - 59','60 - 64','65+']
-    const SPORT_AGE_ORDER = ['براعم (8-10)','أشبال (11-13)','شبلات (11-13)','ناشئين (14-17)','ناشئات (14-17)','شباب (17-20)','شابات (17-20)','رجال (20+)','سيدات (20+)']
+    const SPORT_AGE_ORDER = ['براعم (10-8) سنوات','اشبال (13-11) سنة','شبلات (13-11) سنة','ناشئين (17-14) سنة','ناشئات (17-14) سنة','شباب (20-17) سنة','شابات (20-17) سنة','رجال (20) سنة فما فوق','سيدات (20) سنة فما فوق']
 
     return [...filteredList].sort((a, b) => {
       switch (key) {
@@ -2891,7 +2891,7 @@ ${myDocs.length > 0 ? `<div class="section">
                     disability:            [...new Set(athletes.map(a => a.disability).filter(Boolean))],
                     statistics_disability: STATS_DIS_OPTIONS,
                     age_category:         ['Under 5', '5 - 9', '10 - 14', '15 - 19', '20 - 24', '25 - 29', '30 - 34', '35 - 39', '40 - 44', '45 - 49', '50 - 54', '55 - 59', '60 - 64', '65+'],
-                    sport_age_category:   ['براعم (8-10)', 'أشبال (11-13)', 'شبلات (11-13)', 'ناشئين (14-17)', 'ناشئات (14-17)', 'شباب (17-20)', 'شابات (17-20)', 'رجال (20+)', 'سيدات (20+)'],
+                    sport_age_category:   ['براعم (10-8) سنوات', 'اشبال (13-11) سنة', 'شبلات (13-11) سنة', 'ناشئين (17-14) سنة', 'ناشئات (17-14) سنة', 'شباب (20-17) سنة', 'شابات (20-17) سنة', 'رجال (20) سنة فما فوق', 'سيدات (20) سنة فما فوق'],
                   }
                   // status/medical_status/documents keep no "Blank" (never
                   // truly null — status defaults to Active, medical_status's
