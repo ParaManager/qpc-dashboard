@@ -903,6 +903,8 @@ function calcAge(dob) {
   return age
 }
 
+const RESIDENCY_AR = {'Qatari Male':'قطري','Qatari Female':'قطرية','Resident Male':'مقيم','Resident Female':'مقيمة','Professional Male':'محترف','Professional Female':'محترفة','Born in Qatar':'مواليد قطر','Qatari Mother':'أم قطرية'}
+
 function calcYearsActive(joinDate) {
   if (!joinDate) return null
   const today = new Date()
@@ -1213,7 +1215,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
         a.nationality, a.gender, coach?.name, coach?.name_ar,
         a.status, effectiveStatus(a), a.medical_status,
         a.phone, a.email, a.passport_number, a.passport_expiry, a.id_expiry,
-        a.join_date, a.age_category, a.sport_age_category, calcAge(a.dob),
+        a.join_date, a.age_category, a.sport_age_category, calcAge(a.dob), a.residency_status,
       ]
       const text = parts
         .map(v => {
@@ -1337,6 +1339,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
         case 'statistics_disability':  return textCompare(a.statistics_disability, b.statistics_disability, desc)
         case 'nationality':            return textCompare(a.nationality, b.nationality, desc)
         case 'gender':                 return textCompare(a.gender, b.gender, desc)
+        case 'residency_status':       return textCompare(a.residency_status, b.residency_status, desc)
         case 'dob':                    return dateCompare(a.dob, b.dob, desc)
         case 'age': {
           const ai = calcAge(a.dob) ?? -1, bi = calcAge(b.dob) ?? -1
@@ -2486,6 +2489,7 @@ ${myDocs.length > 0 ? `<div class="section">
     { key:'gender',          label:tx('athletes.gender','Gender'),            default:false, editable:false },
     { key:'dob',             label:tx('athletes.dob','Date of Birth'),        default:false, editable:false },
     { key:'age',             label:tx('athletes.age','Age'),                  default:false, editable:false },
+    { key:'residency_status', label:tx('athletes.residencyStatus','Residency Status'), default:false, editable:true },
     { key:'age_category',       label:tx('athletes.ageCategory','Age Category'),      default:false, editable:false },
     { key:'sport_age_category', label:tx('athletes.sportAgeCategory','Sport Age Cat.'), default:false, editable:false },
     { key:'coach_id',        label:tx('athletes.coach','Coach'),              default:true,  editable:true  },
@@ -2539,6 +2543,7 @@ ${myDocs.length > 0 ? `<div class="section">
       case 'statistics_disability': return <span style={{ color:'var(--text2)' }}>{tStatDis(a.statistics_disability) || '—'}</span>
       case 'nationality':      return <span style={{ color:'var(--text2)' }}>{tc(a.nationality) || '—'}</span>
       case 'gender':           return <span style={{ color:'var(--text2)' }}>{a.gender ? (lang==='ar' ? (a.gender==='Male'?'ذكر':'أنثى') : a.gender) : '—'}</span>
+      case 'residency_status': return <span style={{ color:'var(--text2)' }}>{a.residency_status ? (lang==='ar' ? (RESIDENCY_AR[a.residency_status]||a.residency_status) : a.residency_status) : '—'}</span>
       case 'dob':              return <span style={{ color:'var(--text2)' }}>{a.dob || '—'}</span>
       case 'age':              return <span style={{ color:'var(--text2)' }}>{calcAge(a.dob) ?? '—'}</span>
       case 'age_category':       return <span style={{ color:'var(--text2)' }}>{a.age_category || '—'}</span>
@@ -2634,6 +2639,7 @@ ${myDocs.length > 0 ? `<div class="section">
       )
       case 'nationality':  return <input style={{ ...inlineInput, width:100 }} value={getVal(a,'nationality')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'nationality',e.target.value)} />
       case 'gender':       return <select style={inlineSelect} value={getVal(a,'gender')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'gender',e.target.value)}>{['','Male','Female'].map(s=><option key={s} value={s}>{s||'—'}</option>)}</select>
+      case 'residency_status': return <select style={inlineSelect} value={getVal(a,'residency_status')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'residency_status',e.target.value)}>{['','Qatari Male','Qatari Female','Resident Male','Resident Female','Professional Male','Professional Female','Born in Qatar','Qatari Mother'].map(s=><option key={s} value={s}>{s||'—'}</option>)}</select>
       case 'dob':          return <input style={inlineInput} type="date" value={getVal(a,'dob')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'dob',e.target.value)} />
       case 'age':          return renderCell(a, key) // read-only: computed live from dob, not stored
       case 'age_category': return renderCell(a, key) // read-only: auto-computed from dob by a DB trigger
@@ -2710,7 +2716,7 @@ ${myDocs.length > 0 ? `<div class="section">
                 const COL_GROUPS = [
                   { label: lang==='ar' ? 'الهوية' : 'Identity', keys: ['name','name_ar','qss_number','id_number','career_profile'] },
                   { label: lang==='ar' ? 'الرياضة' : 'Sport', keys: ['sport_category','sport','classification','disability','statistics_disability','coach_id'] },
-                  { label: lang==='ar' ? 'شخصي' : 'Personal', keys: ['nationality','gender','dob','age','age_category','sport_age_category','phone','email'] },
+                  { label: lang==='ar' ? 'شخصي' : 'Personal', keys: ['nationality','gender','dob','age','age_category','sport_age_category','residency_status','phone','email'] },
                   { label: lang==='ar' ? 'الحالة' : 'Status', keys: ['status','medical_status','join_date'] },
                   { label: lang==='ar' ? 'الوثائق' : 'Documents', keys: ['passport_number','passport_expiry','id_expiry','documents','missing_documents'] },
                   { label: lang==='ar' ? 'الأداء' : 'Performance', keys: ['medals'] },
@@ -2828,7 +2834,7 @@ ${myDocs.length > 0 ? `<div class="section">
                 </th>
               )}
               {ALL_COLS.filter(c => isVisible(c.key)).map((c, i) => {
-                const isSortable = ['name','name_ar','qss_number','id_number','career_profile','sport_category','sport','classification','disability','statistics_disability','nationality','gender','dob','age','age_category','sport_age_category','coach_id','status','medical_status','phone','email','join_date','passport_number','passport_expiry','id_expiry','medals','documents','missing_documents'].includes(c.key)
+                const isSortable = ['name','name_ar','qss_number','id_number','career_profile','sport_category','sport','classification','disability','statistics_disability','nationality','gender','dob','age','age_category','sport_age_category','residency_status','coach_id','status','medical_status','phone','email','join_date','passport_number','passport_expiry','id_expiry','medals','documents','missing_documents'].includes(c.key)
                 const isAsc  = sort === `${c.key}-asc`
                 const isDesc = sort === `${c.key}-desc`
                 const active = isAsc || isDesc
