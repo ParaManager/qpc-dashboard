@@ -106,7 +106,7 @@ export function generateAthleteCard(athlete) {
         <table width="100%" cellpadding="0" cellspacing="0" style="direction:rtl">
           ${row('النادي', athlete.club || '')}
           ${row('الوظيفة', desigAr)}
-          ${row('الفئة', athlete.age_category || '')}
+          ${row('الفئة', athlete.sport_age_category || athlete.age_category || '')}
           ${row('الصفة', residAr)}
           ${row('تاريخ الميلاد', athlete.dob || '')}
           ${row('الموسم', SEASON)}
