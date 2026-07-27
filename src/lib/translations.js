@@ -95,6 +95,8 @@ export const AR = {
     modified:'معدّل', searchAthletes:'بحث عن رياضي...',
     ofAthletes:'من الرياضيين', noAthletesMatch:'لا يوجد رياضيون مطابقون',
     yearsActive:'سنة نشاط',
+    age:'العمر', sportAgeCategory:'الفئة العمرية الرياضية',
+    residencyStatus:'الصفة', sportCategory:'فئة الرياضة',
   },
   coaches: {
     assistantCoachLabel:'مدرب مساعد',
