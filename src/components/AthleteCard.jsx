@@ -26,7 +26,8 @@ const RESIDENCY_AR = {
 }
 
 export function generateAthleteCard(athlete) {
-  const desigAr  = DESIGNATION_AR[athlete.designation] || athlete.designation || ''
+  const genderedDesig = athlete.gender === 'Female' && athlete.designation ? `Female ${athlete.designation}` : athlete.designation
+  const desigAr  = DESIGNATION_AR[genderedDesig] || DESIGNATION_AR[athlete.designation] || athlete.designation || ''
   const residAr  = RESIDENCY_AR[athlete.residency_status] || athlete.residency_status || ''
   const photoSrc = athlete.photo_url || ''
 
