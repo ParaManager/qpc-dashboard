@@ -358,7 +358,7 @@ export default function Events({ events, athletes, results, registrations, onRef
     }
 
     const ROLE_TITLES = {
-      head_of_delegation:   tx('events.headOfDelegation',   'Head of Delegation'),
+      head_of_delegation:   tx('events.teamLeader',        'Team Leader'),
       medical_staff:        tx('events.medicalStaff',       'Medical Staff'),
       coach:                tx('events.coaches',             'Coaches'),
       administrative_staff: tx('events.administrativeStaff','Administrative Staff'),
@@ -425,6 +425,17 @@ export default function Events({ events, athletes, results, registrations, onRef
 
           {/* Right column */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+            {/* Officials — single card with all four roles */}
+            <div className="info-card">
+              <div className="info-title">{tx('events.officials', 'Officials')}</div>
+              <OfficialsPicker roleKey="head_of_delegation"   title={ROLE_TITLES.head_of_delegation}   {...pickerProps} />
+              <OfficialsPicker roleKey="technical_expert"     title={ROLE_TITLES.technical_expert}     {...pickerProps} />
+              <OfficialsPicker roleKey="medical_staff"        title={ROLE_TITLES.medical_staff}        {...pickerProps} />
+              <OfficialsPicker roleKey="coach"                title={ROLE_TITLES.coach}                {...pickerProps} />
+              <OfficialsPicker roleKey="administrative_staff" title={ROLE_TITLES.administrative_staff} {...pickerProps} />
+              <OfficialsPicker roleKey="support_staff"        title={ROLE_TITLES.support_staff}        {...pickerProps} />
+            </div>
 
             {/* Registered Athletes */}
             <div className="info-card">
@@ -508,17 +519,6 @@ export default function Events({ events, athletes, results, registrations, onRef
                   ))}
                 </div>
               )}
-            </div>
-
-            {/* Officials — single card with all four roles */}
-            <div className="info-card">
-              <div className="info-title">{tx('events.officials', 'Officials')}</div>
-              <OfficialsPicker roleKey="head_of_delegation"   title={ROLE_TITLES.head_of_delegation}   {...pickerProps} />
-              <OfficialsPicker roleKey="medical_staff"        title={ROLE_TITLES.medical_staff}        {...pickerProps} />
-              <OfficialsPicker roleKey="coach"                title={ROLE_TITLES.coach}                {...pickerProps} />
-              <OfficialsPicker roleKey="administrative_staff" title={ROLE_TITLES.administrative_staff} {...pickerProps} />
-              <OfficialsPicker roleKey="support_staff"        title={ROLE_TITLES.support_staff}        {...pickerProps} />
-              <OfficialsPicker roleKey="technical_expert"     title={ROLE_TITLES.technical_expert}     {...pickerProps} />
             </div>
 
             {/* Results */}
