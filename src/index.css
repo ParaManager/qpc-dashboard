@@ -22,7 +22,6 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 [dir="rtl"] .tb-breadcrumb { direction: rtl; }
 [dir="rtl"] th, [dir="rtl"] td { text-align: right; }
 [dir="rtl"] .detail-grid { direction: rtl; }
-[dir="rtl"] .detail-row { flex-direction: row-reverse; }
 [dir="rtl"] .detail-row .dv { text-align: left; }
 [dir="rtl"] .back-btn { flex-direction: row-reverse; }
 [dir="rtl"] .badge { direction: rtl; }
