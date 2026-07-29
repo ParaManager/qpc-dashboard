@@ -267,13 +267,21 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
     )
   }
 
+  // Coaches whose status is External or When needed are still full coach
+  // records (sport, athlete assignments, etc. all remain intact) — they're
+  // just not shown in this list. Direct lookups by id (detail view, edit
+  // form, role badges) still use the raw `coaches` prop below, so nothing
+  // about their coach functionality is lost, only their visibility here.
+  const HIDDEN_LIST_STATUSES = ['External', 'When needed']
+  const visibleCoaches = coaches.filter(c => !HIDDEN_LIST_STATUSES.includes(c.status))
+
   function computeCoachOptionCounts(colKey, getFieldValue, matchOption) {
     const q = search.toLowerCase()
-    const base = coaches.filter(c => passesCoachFilters(c, q, colKey))
+    const base = visibleCoaches.filter(c => passesCoachFilters(c, q, colKey))
     return (value) => base.filter(c => matchOption(getFieldValue(c), value)).length
   }
 
-  let list = coaches.filter(c => passesCoachFilters(c, search.toLowerCase(), null))
+  let list = visibleCoaches.filter(c => passesCoachFilters(c, search.toLowerCase(), null))
   list = [...list].sort((a, b) => {
     const aC = athletes.filter(x => x.coach_id === a.id).length
     const bC = athletes.filter(x => x.coach_id === b.id).length
