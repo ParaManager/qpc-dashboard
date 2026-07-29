@@ -22,8 +22,15 @@ export default function DesignationField({ employees = [], customDesignations = 
     function add(label, labelAr) {
       const clean = (label || '').trim()
       const key = clean.toLowerCase()
-      if (!key || seen.has(key)) return
-      seen.set(key, { label: clean, label_ar: (labelAr || '').trim() })
+      if (!key) return
+      const cleanAr = (labelAr || '').trim()
+      const existing = seen.get(key)
+      // Prefer whichever version actually has an Arabic label filled in,
+      // so one blank-Arabic import row doesn't blank out the option for
+      // everyone else who used the same English designation.
+      if (!existing || (!existing.label_ar && cleanAr)) {
+        seen.set(key, { label: clean, label_ar: cleanAr })
+      }
     }
     employees.forEach(e => add(e.designation, e.designation_ar))
     customDesignations.forEach(d => add(d.label, d.label_ar))
@@ -65,7 +72,7 @@ export default function DesignationField({ employees = [], customDesignations = 
         onSelect(e.target.value, chosen?.label_ar || '')
       }}>
         <option value="">{''}</option>
-        {allDesignations.map(d => <option key={d.label} value={d.label}>{ar ? (d.label_ar || d.label) : d.label}</option>)}
+        {allDesignations.map(d => <option key={d.label} value={d.label}>{ar ? (d.label_ar || '—') : d.label}</option>)}
         <option value="__add_new__">{ar ? '+ إضافة مسمى وظيفي جديد' : '+ Add New Designation'}</option>
       </select>
       {showNewDesig && (
