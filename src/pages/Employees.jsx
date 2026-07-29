@@ -1157,6 +1157,27 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
       ? await supabase.from('employees').update(payload).eq('id', formData.id)
       : await supabase.from('employees').insert(payload)
     if (error) { toast(error.message, 'error'); return }
+
+    // employeeStatusSource() (used everywhere this app decides what status a
+    // coach-type employee shows) reads the linked coaches row by
+    // qss_number/name — not person_id. So for the new status to actually be
+    // reflected there (and on the Coaches list itself), that same row must
+    // be updated directly whenever one exists, regardless of whether the
+    // person also happens to have a shared person_id link.
+    if (isEdit && COACH_DESIGNATIONS.includes(payload.designation) && coaches?.length) {
+      const coachRec = coaches.find(c =>
+        (payload.qss_number && c.qss_number && c.qss_number === payload.qss_number) ||
+        (payload.name && c.name && c.name.trim().toLowerCase() === payload.name.trim().toLowerCase())
+      )
+      if (coachRec && coachRec.status !== payload.status) {
+        await supabase.from('coaches').update({
+          status: payload.status,
+          status_start: payload.status_start,
+          status_end: payload.status_end,
+        }).eq('id', coachRec.id)
+      }
+    }
+
     toast(isEdit ? `${payload.name} updated` : `${payload.name} added`)
     if (isTrustedAdmin(profile)) {
       logAdminActivity({ actor: profile, action: isEdit ? 'updated' : 'created', entityType: 'employee', entityId: formData.id || null, entityLabel: payload.name, module: 'employees' })
@@ -1165,7 +1186,6 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
     await onRefresh()
     if (isEdit) setSelected(formData.id)
   }
-
   // Applies the confirmed status/date fields to whichever role types the
   // admin selected in the scope modal — the employee row (this page's own
   // role) always goes through commitSave's normal payload; any additional
