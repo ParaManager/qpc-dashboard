@@ -354,7 +354,7 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
             <Section label={T.employment} />
             <Row>
               <div className="form-group">
-                <label className="form-label">{ar?'المسمى الوظيفي (إنجليزي)':'Designation (English)'}</label>
+                <label className="form-label">{ar?'المسمى الوظيفي':'Designation'}</label>
                 <DesignationField
                   employees={employees}
                   customDesignations={customDesignations}
@@ -365,7 +365,6 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
                   ar={ar}
                 />
               </div>
-              <Field label={ar?'المسمى الوظيفي (عربي)':'Designation (Arabic)'} placeholder="e.g. مدرب" {...f('designationAr')} />
             </Row>
             <Row>
               <Field label={T.sportCategory} options={categoryOpts} {...f('sportCategory')}
