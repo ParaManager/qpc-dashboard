@@ -181,9 +181,9 @@ body {
   margin-bottom: 3px; position: relative; z-index: 1;
 }
 .eyebrow-ar {
-  font-size: 11.5px; font-weight: 600;
+  font-size: 15px; font-weight: 600;
   color: #c9a84c; letter-spacing: 0;
-  margin-bottom: 12px; position: relative; z-index: 1;
+  margin-bottom: 18px; position: relative; z-index: 1;
 }
 .en-name {
   font-size: 28px; font-weight: 900;
@@ -205,14 +205,14 @@ body {
   height: 1px;
   width: 100%;
   background: #c9a84c;
-  margin: 16px 0;
+  margin: 18px 0;
   position: relative; z-index: 1;
 }
 /* Position EN */
 .pos-en {
   font-size: 24px; font-weight: 700;
   color: #7b1325;
-  margin-top: 6px;
+  margin-top: 8px;
   position: relative; z-index: 1;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
