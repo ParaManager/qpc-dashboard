@@ -15,7 +15,6 @@ const DESIGNATION_AR = {
 
 export function generateEmployeeCard(emp) {
   const desigAr = emp.designation_ar || DESIGNATION_AR[emp.designation] || emp.designation || ''
-  const staffId = emp.employee_number || '0000'
   const phone   = emp.phone           || '+974 44040200'
   const email   = emp.email           || 'info@qpc.qa'
   const photo   = emp.photo_url       || ''
@@ -113,27 +112,6 @@ body {
 }
 .photo-wrap img { width: 100%; height: 100%; object-fit: cover; object-position: top center; }
 
-/* Staff ID pill below photo */
-.staff-pill {
-  position: absolute;
-  top: 210px; left: 26px;
-  width: 152px;
-  text-align: center;
-  z-index: 10;
-}
-.staff-pill .lbl {
-  font-size: 8px; font-weight: 700;
-  color: rgba(255,255,255,.55);
-  letter-spacing: .16em;
-  display: block; margin-bottom: 3px;
-}
-.staff-pill .val {
-  font-size: 18px; font-weight: 800;
-  color: #c9a84c;
-  letter-spacing: .04em;
-  display: block;
-}
-
 /* ── RIGHT CONTENT PANEL ── */
 .right {
   position: absolute;
@@ -198,8 +176,13 @@ body {
   background-size: 14px 14px;
 }
 .eyebrow {
-  font-size: 9.5px; font-weight: 700;
-  color: #c9a84c; letter-spacing: .18em;
+  font-size: 12.5px; font-weight: 700;
+  color: #c9a84c; letter-spacing: .14em;
+  margin-bottom: 3px; position: relative; z-index: 1;
+}
+.eyebrow-ar {
+  font-size: 10px; font-weight: 600;
+  color: #c9a84c; letter-spacing: 0;
   margin-bottom: 12px; position: relative; z-index: 1;
 }
 .en-name {
@@ -300,12 +283,6 @@ body {
     }
   </div>
 
-  <!-- Staff ID -->
-  <div class="staff-pill">
-    <span class="lbl">STAFF ID</span>
-    <span class="val">${staffId}</span>
-  </div>
-
   <!-- Right panel -->
   <div class="right">
 
@@ -319,7 +296,8 @@ body {
     <!-- Name + position -->
     <div class="content">
       <div class="hex-pattern"></div>
-      <div class="eyebrow">QATAR PARALYMPIC COMMITTEE &nbsp;·&nbsp; بطاقة موظف</div>
+      <div class="eyebrow">QATAR PARALYMPIC COMMITTEE</div>
+      <div class="eyebrow-ar">الاتحاد القطري لذوي الاحتياجات الخاصة</div>
       <div class="en-name">${name}</div>
       <div class="ar-name">${nameAr}</div>
       <div class="rule"></div>
