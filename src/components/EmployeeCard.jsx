@@ -149,7 +149,7 @@ body {
 /* Name + position content */
 .content {
   flex: 1;
-  padding: 20px 24px;
+  padding: 10px 24px 20px;
   position: relative;
   overflow: hidden;
   display: flex;
@@ -176,12 +176,12 @@ body {
   background-size: 14px 14px;
 }
 .eyebrow {
-  font-size: 12.5px; font-weight: 700;
-  color: #c9a84c; letter-spacing: .14em;
+  font-size: 14px; font-weight: 700;
+  color: #c9a84c; letter-spacing: .13em;
   margin-bottom: 3px; position: relative; z-index: 1;
 }
 .eyebrow-ar {
-  font-size: 10px; font-weight: 600;
+  font-size: 11.5px; font-weight: 600;
   color: #c9a84c; letter-spacing: 0;
   margin-bottom: 12px; position: relative; z-index: 1;
 }
