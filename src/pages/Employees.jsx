@@ -738,6 +738,8 @@ function EmpModal({ data, isEdit, onClose, onSave, customDesignations = [], onDe
     { value:'On Leave',          label: ar?'في إجازة':'On Leave' },
     { value:'In Competition',    label: ar?'في منافسة':'In Competition' },
     { value:'In Training Camp',  label: ar?'في معسكر تدريبي':'In Training Camp' },
+    { value:'When needed',       label: ar?'عند الحاجة':'When needed' },
+    { value:'External',          label: ar?'خارجي':'External' },
     { value:'Inactive',          label: ar?'غير نشط':'Inactive' },
     { value:'Retired',           label: ar?'متقاعد':'Retired' },
   ]
@@ -829,6 +831,19 @@ function EmpModal({ data, isEdit, onClose, onSave, customDesignations = [], onDe
           <div className="form-row">
             {grp(ar?'الهاتف':'Phone', inp("phone", "text", "+974 XXXX XXXX"))}
             {grp(ar?'البريد الإلكتروني':'Email', inp("email", "email", "name@qpc.qa"))}
+          </div>
+          <div className="form-section">{ar?'وثائق الهوية':'Identity Documents'}</div>
+          <div className="form-row">
+            {grp(ar?'تاريخ الميلاد':'Date of birth', inp("dob", "date"))}
+            {grp(ar?'الرقم الشخصي / رقم الهوية':'Qatar ID number', inp("id_number", "text", "e.g. 26263400099"))}
+          </div>
+          <div className="form-row">
+            {grp(ar?'تاريخ انتهاء الهوية':'ID expiry', inp("id_expiry", "date"))}
+            {grp(ar?'رقم جواز السفر':'Passport number', inp("passport_number", "text", "e.g. 01719522"))}
+          </div>
+          <div className="form-row">
+            {grp(ar?'تاريخ انتهاء الجواز':'Passport expiry', inp("passport_expiry", "date"))}
+            {grp(ar?'شهادة اديل':'ADEL Certificate', inp("adel_certificate", "text"))}
           </div>
           <div className="form-group">
             <label className="form-label">{ar?'ملاحظات':'Notes'}</label>
@@ -1014,6 +1029,12 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
       status_start: isDatedStatus ? (formData.status_start||null) : null,
       status_end:   isDatedStatus ? (formData.status_end||null)   : null,
       notes: formData.notes || null,
+      dob: formData.dob || null,
+      id_number: formData.id_number || null,
+      id_expiry: formData.id_expiry || null,
+      passport_number: formData.passport_number || null,
+      passport_expiry: formData.passport_expiry || null,
+      adel_certificate: formData.adel_certificate || null,
     }
     if (!payload.name) { toast('Name is required', 'error'); return }
 
@@ -1258,6 +1279,32 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
                       <div key={k} className="detail-row" style={{ minWidth:0 }}>
                         <span className="dk">{k}</span>
                         <span className="dv" style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{v}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            })()}
+
+            {(() => {
+              const idFields = [
+                [lang==='ar'?'تاريخ الميلاد':'Date of birth', emp.dob],
+                [lang==='ar'?'الرقم الشخصي / رقم الهوية':'Qatar ID number', emp.id_number],
+                [lang==='ar'?'تاريخ انتهاء الهوية':'ID expiry', emp.id_expiry],
+                [lang==='ar'?'رقم جواز السفر':'Passport number', emp.passport_number],
+                [lang==='ar'?'تاريخ انتهاء الجواز':'Passport expiry', emp.passport_expiry],
+                [lang==='ar'?'شهادة اديل':'ADEL Certificate', emp.adel_certificate],
+              ].filter(([, v]) => v)
+              if (idFields.length === 0) return null
+              const isExpired = d => d && new Date(d) < new Date()
+              return (
+                <div className="info-card">
+                  <div className="info-title" style={{ marginBottom:10 }}>{lang==='ar'?'وثائق الهوية':'Identity Documents'}</div>
+                  <div style={{ display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:'4px 16px' }}>
+                    {idFields.map(([k,v]) => (
+                      <div key={k} className="detail-row" style={{ minWidth:0 }}>
+                        <span className="dk">{k}</span>
+                        <span className="dv" style={{ color: k.toLowerCase().includes('expiry') && isExpired(v) ? '#dc2626' : undefined }}>{v}</span>
                       </div>
                     ))}
                   </div>
