@@ -360,7 +360,7 @@ body { overscroll-behavior: none; }
      this only applies inside the existing 768px breakpoint. */
   .detail-row { flex-wrap: wrap; }
   .detail-row .dv { max-width: 100%; word-break: normal; overflow-wrap: break-word; white-space: normal; text-align: left; }
-  [dir="rtl"] .detail-row .dv { text-align: right; }
+  [dir="rtl"] .detail-row .dv { text-align: left; }
   .detail-row .dk { white-space: normal; }
 
   /* Calendar month grid — tighter cells on narrow screens */
