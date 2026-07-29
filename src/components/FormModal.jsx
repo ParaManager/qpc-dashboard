@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import NationalitySelect from './NationalitySelect.jsx'
+import DesignationField from './DesignationField.jsx'
 import {
   SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, SPORT_CATEGORY_NAMES_AR, sportLabel,
 } from '../lib/helpers'
@@ -106,7 +107,7 @@ function EventSportSelect({ label, value, onChange, ar, sports }) {
   )
 }
 
-export default function FormModal({ type, record, coaches, athletes, onSave, onClose, eventCategories, sportsList = [] }) {
+export default function FormModal({ type, record, coaches, athletes, onSave, onClose, eventCategories, sportsList = [], employees = [], customDesignations = [], onDesignationAdded }) {
   const isEdit = !!record
   const { lang } = useLang()
   const ar = lang === 'ar'
@@ -351,6 +352,21 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
               <Field label={T.email} type="email" placeholder={ar?"مدرب@qpc.qa":"coach@qpc.qa"} {...f('email')} />
             </Row>
             <Section label={T.employment} />
+            <Row>
+              <div className="form-group">
+                <label className="form-label">{ar?'المسمى الوظيفي (إنجليزي)':'Designation (English)'}</label>
+                <DesignationField
+                  employees={employees}
+                  customDesignations={customDesignations}
+                  onDesignationAdded={onDesignationAdded}
+                  value={form.designation}
+                  valueAr={form.designationAr}
+                  onSelect={(label, labelAr) => setForm(p => ({ ...p, designation: label, designationAr: labelAr || p.designationAr }))}
+                  ar={ar}
+                />
+              </div>
+              <Field label={ar?'المسمى الوظيفي (عربي)':'Designation (Arabic)'} placeholder="e.g. مدرب" {...f('designationAr')} />
+            </Row>
             <Row>
               <Field label={T.sportCategory} options={categoryOpts} {...f('sportCategory')}
                 onChange={(name,v)=>{ const vs=SPORTS_BY_CATEGORY[v]||SPORTS; setForm(p=>({...p,sportCategory:v,sport:vs.includes(p.sport)?p.sport:(vs[0]||'')})) }} />
