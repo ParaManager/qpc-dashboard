@@ -129,6 +129,9 @@ export const AR = {
     backToEmployees:'العودة إلى الموظفين', ofEmployees:'من الموظفين',
     noEmployeesMatch:'لا يوجد موظفون مطابقون', searchEmployees:'بحث عن موظف...',
     arabicDesignation:'المسمى بالعربية', notes:'ملاحظات',
+    arabicName:'الاسم بالعربية', jobId:'رقم المنصب', phone:'الهاتف', email:'البريد الإلكتروني',
+    dob:'تاريخ الميلاد', idNumber:'الرقم الشخصي / رقم الهوية', idExpiry:'تاريخ انتهاء الهوية',
+    passportNumber:'رقم جواز السفر', passportExpiry:'تاريخ انتهاء الجواز', adelCertificate:'شهادة اديل',
   },
   events: {
     event:'الفعالية', sport:'الرياضة', venue:'المكان', date:'التاريخ',
