@@ -707,7 +707,7 @@ function EmpModal({ data, isEdit, onClose, onSave, employees = [], customDesigna
           </div>
           <div className="form-section">{ar?'الدور والتوظيف':'Role & Employment'}</div>
           <div className="form-row">
-            {grp(ar?'المسمى الوظيفي (إنجليزي)':'Designation (English)', (
+            {grp(ar?'المسمى الوظيفي':'Designation', (
               <DesignationField
                 employees={employees}
                 customDesignations={customDesignations}
@@ -718,7 +718,6 @@ function EmpModal({ data, isEdit, onClose, onSave, employees = [], customDesigna
                 ar={ar}
               />
             ))}
-            {grp(ar?'المسمى الوظيفي (عربي)':'Designation (Arabic)', inp("designation_ar", "text", "e.g. مدرب"))}
           </div>
           <div className="form-row">
             {grp(ar?'رقم الموظف':'Employee number', inp("employee_number", "text", "e.g. 12501"))}
