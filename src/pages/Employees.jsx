@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { initials, statusClass, effectiveStatus, COACH_DESIGNATIONS } from '../lib/helpers'
+import DesignationField from '../components/DesignationField'
 import { ConfirmModal, toast } from '../components/Toast'
 import { supabase } from '../lib/supabase'
 import { canEdit } from '../lib/useAuth'
@@ -16,32 +17,7 @@ import NationalitySelect from '../components/NationalitySelect.jsx'
 import MultiSelectFilter from '../components/MultiSelectFilter.jsx'
 import StatusScopeModal from '../components/StatusScopeModal.jsx'
 
-const DESIGNATIONS = [
-  'All designations',
-  'Coach', 'Assistant Coach', 'Technical Expert',
-  'Physiotherapist', 'Doctor',
-  'Secretary General', 'Executive Manager', 'Administration Secretary', 'Secretary Assistant',
-  'Administrative National Team', 'Administrative Youth Team', 'Administrative Center & Development',
-  'Accountant', 'Public Relation Officer', 'Receptionist',
-  'Board Member', 'Official', 'Delegate',
-  'Employee', 'Store Keeper', 'Waiter', 'Worker', 'Driver',
-]
-
-// Nationality now comes entirely from the shared nationalities table (NationalitySelect.jsx / useNationalities.js) — no hardcoded country lists here.
-
-const DESIG_AR = {
-  'Coach':'مدرب', 'Assistant Coach':'مدرب مساعد', 'Technical Expert':'خبير تقني',
-  'Physiotherapist':'معالج فيزيائي', 'Doctor':'طبيب',
-  'Secretary General':'الأمين العام', 'Executive Manager':'مدير تنفيذي',
-  'Administration Secretary':'سكرتير إداري', 'Secretary Assistant':'مساعد سكرتير',
-  'Administrative National Team':'إداري الفريق الوطني',
-  'Administrative Youth Team':'إداري فريق الشباب',
-  'Administrative Center & Development':'إداري المركز والتطوير',
-  'Accountant':'محاسب', 'Public Relation Officer':'مسؤول علاقات عامة',
-  'Receptionist':'موظف استقبال', 'Board Member':'عضو مجلس إدارة',
-  'Official':'مسؤول', 'Delegate':'مندوب', 'Employee':'موظف',
-  'Store Keeper':'أمين مخزن', 'Waiter':'نادل', 'Worker':'عامل', 'Driver':'سائق',
-}
+// Nationality comes entirely from the shared nationalities table (NationalitySelect.jsx / useNationalities.js) — no hardcoded country lists here.
 
 function formatFriendlyDate(dateStr, ar) {
   if (!dateStr) return null
@@ -671,55 +647,11 @@ function exportEmployeesExcel(list, lang, coaches) {
   XLSX.writeFile(wb, `QPC_${ar?'الموظفون':'Employees'}_${new Date().toISOString().slice(0,10)}.xlsx`)
 }
 
-function EmpModal({ data, isEdit, onClose, onSave, customDesignations = [], onDesignationAdded }) {
+function EmpModal({ data, isEdit, onClose, onSave, employees = [], customDesignations = [], onDesignationAdded }) {
   const [form, setForm] = useState(data || { status:'Active' })
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
   const { lang } = useLang()
   const ar = lang === 'ar'
-  const [showNewDesig, setShowNewDesig] = useState(false)
-  const [newDesigEn, setNewDesigEn] = useState('')
-  const [newDesigAr, setNewDesigAr] = useState('')
-  const [newDesigErr, setNewDesigErr] = useState('')
-  const [savingDesig, setSavingDesig] = useState(false)
-
-  // Merge the fixed built-in designations with any custom ones already saved
-  // in Supabase, de-duplicated case-insensitively so a custom entry that
-  // happens to match a built-in one doesn't show twice.
-  const allDesignations = (() => {
-    const base = DESIGNATIONS.slice(1).map(d => ({ label: d, label_ar: DESIG_AR[d] || '' }))
-    const seen = new Set(base.map(d => d.label.trim().toLowerCase()))
-    const extra = customDesignations.filter(d => {
-      const key = (d.label||'').trim().toLowerCase()
-      if (!key || seen.has(key)) return false
-      seen.add(key)
-      return true
-    })
-    return [...base, ...extra].sort((a, b) => a.label.localeCompare(b.label))
-  })()
-
-  async function handleAddDesignation() {
-    const label = newDesigEn.trim()
-    const labelAr = newDesigAr.trim()
-    if (!label) { setNewDesigErr(ar ? 'الرجاء إدخال المسمى الوظيفي' : 'Please enter a designation'); return }
-    const dupe = allDesignations.some(d => d.label.trim().toLowerCase() === label.toLowerCase())
-    if (dupe) { setNewDesigErr(ar ? 'هذا المسمى موجود بالفعل' : 'This designation already exists'); return }
-    setSavingDesig(true)
-    setNewDesigErr('')
-    const { data: inserted, error } = await supabase.from('employee_designations')
-      .insert({ label, label_ar: labelAr || null })
-      .select('label, label_ar')
-      .single()
-    setSavingDesig(false)
-    if (error) {
-      // Unique constraint race — another admin may have just added the same one.
-      setNewDesigErr(ar ? 'تعذر حفظ المسمى الوظيفي (قد يكون مكررًا)' : 'Could not save designation (it may already exist)')
-      return
-    }
-    onDesignationAdded?.(inserted)
-    set('designation', inserted.label)
-    setShowNewDesig(false)
-    setNewDesigEn(''); setNewDesigAr('')
-  }
   const inp = (name, type='text', placeholder='') => (
     <input className="form-input" type={type} placeholder={placeholder}
       value={form[name]||''} onChange={e => set(name, e.target.value)} />
@@ -776,30 +708,15 @@ function EmpModal({ data, isEdit, onClose, onSave, customDesignations = [], onDe
           <div className="form-section">{ar?'الدور والتوظيف':'Role & Employment'}</div>
           <div className="form-row">
             {grp(ar?'المسمى الوظيفي (إنجليزي)':'Designation (English)', (
-              <>
-                <select className="form-input" value={showNewDesig ? '__add_new__' : (form.designation||'')} onChange={e => {
-                  if (e.target.value === '__add_new__') { setShowNewDesig(true); return }
-                  setShowNewDesig(false)
-                  set('designation', e.target.value)
-                }}>
-                  <option value="">{''}</option>
-                  {allDesignations.map(d => <option key={d.label} value={d.label}>{ar ? (d.label_ar || d.label) : d.label}</option>)}
-                  <option value="__add_new__">{ar ? '+ إضافة مسمى وظيفي جديد' : '+ Add New Designation'}</option>
-                </select>
-                {showNewDesig && (
-                  <div style={{ marginTop: 8, padding: 10, border: '1px solid var(--border)', borderRadius: 10, background: 'var(--surface2)' }}>
-                    <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-                      <input className="form-input" placeholder={ar?'المسمى الجديد (إنجليزي)':'New designation (English)'} value={newDesigEn} onChange={e => setNewDesigEn(e.target.value)} />
-                      <input className="form-input" placeholder={ar?'المسمى الجديد (عربي)':'New designation (Arabic)'} value={newDesigAr} onChange={e => setNewDesigAr(e.target.value)} dir="rtl" />
-                    </div>
-                    {newDesigErr && <div style={{ color: '#dc2626', fontSize: 12, marginBottom: 8 }}>{newDesigErr}</div>}
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <button type="button" className="btn-cancel" onClick={() => { setShowNewDesig(false); setNewDesigEn(''); setNewDesigAr(''); setNewDesigErr('') }}>{ar?'إلغاء':'Cancel'}</button>
-                      <button type="button" className="btn" style={{ background:'#0085C7' }} disabled={savingDesig} onClick={handleAddDesignation}>{savingDesig ? (ar?'جارٍ الحفظ...':'Saving...') : (ar?'حفظ':'Save')}</button>
-                    </div>
-                  </div>
-                )}
-              </>
+              <DesignationField
+                employees={employees}
+                customDesignations={customDesignations}
+                onDesignationAdded={onDesignationAdded}
+                value={form.designation}
+                valueAr={form.designation_ar}
+                onSelect={(label, labelAr) => setForm(f => ({ ...f, designation: label, designation_ar: labelAr || f.designation_ar }))}
+                ar={ar}
+              />
             ))}
             {grp(ar?'المسمى الوظيفي (عربي)':'Designation (Arabic)', inp("designation_ar", "text", "e.g. مدرب"))}
           </div>
@@ -1160,21 +1077,36 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
 
     // employeeStatusSource() (used everywhere this app decides what status a
     // coach-type employee shows) reads the linked coaches row by
-    // qss_number/name — not person_id. So for the new status to actually be
-    // reflected there (and on the Coaches list itself), that same row must
-    // be updated directly whenever one exists, regardless of whether the
-    // person also happens to have a shared person_id link.
-    if (isEdit && COACH_DESIGNATIONS.includes(payload.designation) && coaches?.length) {
+    // qss_number/name — not person_id. So for the new status/designation to
+    // actually be reflected there (and on the Coaches list itself), that
+    // same row must be updated directly whenever one exists, regardless of
+    // whether the person also happens to have a shared person_id link.
+    if (COACH_DESIGNATIONS.includes(payload.designation) && coaches?.length) {
       const coachRec = coaches.find(c =>
         (payload.qss_number && c.qss_number && c.qss_number === payload.qss_number) ||
         (payload.name && c.name && c.name.trim().toLowerCase() === payload.name.trim().toLowerCase())
       )
-      if (coachRec && coachRec.status !== payload.status) {
-        await supabase.from('coaches').update({
-          status: payload.status,
-          status_start: payload.status_start,
-          status_end: payload.status_end,
-        }).eq('id', coachRec.id)
+      if (coachRec) {
+        const coachSets = {}
+        if (coachRec.status !== payload.status) {
+          coachSets.status = payload.status
+          coachSets.status_start = payload.status_start
+          coachSets.status_end = payload.status_end
+        }
+        if (coachRec.designation !== payload.designation) coachSets.designation = payload.designation
+        if (coachRec.designation_ar !== payload.designation_ar) coachSets.designation_ar = payload.designation_ar
+        if (Object.keys(coachSets).length) await supabase.from('coaches').update(coachSets).eq('id', coachRec.id)
+      } else if (['Coach', 'Assistant Coach'].includes(payload.designation)) {
+        // No linked Coach record yet for a Coach/Assistant Coach employee —
+        // create one, reusing this employee's own data rather than
+        // duplicating a new person.
+        await supabase.from('coaches').insert({
+          name: payload.name, name_ar: payload.name_ar, gender: payload.gender, nationality: payload.nationality,
+          designation: payload.designation, designation_ar: payload.designation_ar,
+          qss_number: payload.qss_number, employee_number: payload.employee_number,
+          phone: payload.phone, email: payload.email, status: payload.status,
+          status_start: payload.status_start, status_end: payload.status_end,
+        })
       }
     }
 
@@ -1252,7 +1184,7 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
     })()
     return (
       <div>
-        {editForm && <EmpModal data={editForm} isEdit={true} onClose={() => setEditForm(null)} onSave={handleSave} customDesignations={customDesignations} onDesignationAdded={d => setCustomDesignations(p => [...p, d])} />}
+        {editForm && <EmpModal data={editForm} isEdit={true} onClose={() => setEditForm(null)} onSave={handleSave} employees={employees} customDesignations={customDesignations} onDesignationAdded={d => setCustomDesignations(p => [...p, d])} />}
         {pendingStatusSave && (
           <StatusScopeModal
             roles={pendingStatusSave.roles}
@@ -1433,7 +1365,7 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
   return (
     <div>
       {(addModal || editForm) && (
-        <EmpModal data={editForm||{}} isEdit={!!editForm} onClose={() => { setAddModal(false); setEditForm(null) }} onSave={handleSave} customDesignations={customDesignations} onDesignationAdded={d => setCustomDesignations(p => [...p, d])} />
+        <EmpModal data={editForm||{}} isEdit={!!editForm} onClose={() => { setAddModal(false); setEditForm(null) }} onSave={handleSave} employees={employees} customDesignations={customDesignations} onDesignationAdded={d => setCustomDesignations(p => [...p, d])} />
       )}
       {pendingStatusSave && (
         <StatusScopeModal
