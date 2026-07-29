@@ -982,19 +982,22 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
   }
 
   const COL_FILTERS = {
-    designation: [...new Set([...DESIGNATIONS.slice(1), ...customDesignations.map(d => d.label)])],
+    designation: [...new Set(employees.map(e => e.designation).filter(Boolean))].sort(),
     nationality: [...new Set(employees.map(e => e.nationality).filter(Boolean))].sort(),
     gender:      ['Male','Female'],
     status:      ['Active','On Leave','In Competition','In Training Camp','When needed','External','Inactive','Retired'],
+    // Built from whatever values actually exist, so new values (beyond
+    // "Yes") added later automatically become filterable with no code change.
+    adel_certificate: [...new Set(employees.map(e => e.adel_certificate).filter(Boolean))].sort(),
   }
   const COL_FILTER_LABELS = {
     gender: { 'Male':tx('form.male','Male'), 'Female':tx('form.female','Female') },
     status: { 'Active':tx('status.active','Active'), 'On Leave':tx('status.onLeave','On Leave'), 'In Competition': lang==='ar' ? 'في منافسة' : 'In Competition', 'In Training Camp': lang==='ar' ? 'في معسكر تدريبي' : 'In Training Camp', 'When needed': lang==='ar' ? 'عند الحاجة' : 'When needed', 'External': lang==='ar' ? 'خارجي' : 'External', 'Inactive':tx('status.inactive','Inactive'), 'Retired': lang==='ar' ? 'متقاعد' : 'Retired' },
+    adel_certificate: { 'Yes': lang==='ar' ? 'نعم' : 'Yes' },
   }
 
   const ALL_COLS = [
     { key:'name',              label:tx('employees.employee','Employee') },
-    { key:'name_ar',           label:tx('employees.arabicName','Arabic Name') },
     { key:'employee_number',   label:tx('employees.employeeNum','Employee #') },
     { key:'qss_number',        label:tx('employees.qssNum','QSS #') },
     { key:'job_id',            label:tx('employees.jobId','Job ID') },
@@ -1039,7 +1042,8 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
       (skip('designation') || matchMulti(colFilters.designation, e.designation)) &&
       (skip('nationality') || matchMulti(colFilters.nationality, e.nationality)) &&
       (skip('gender') || matchMulti(colFilters.gender, e.gender)) &&
-      (skip('status') || !colFilters.status?.length || colFilters.status.includes(effectiveStatus(employeeStatusSource(e, coaches))))
+      (skip('status') || !colFilters.status?.length || colFilters.status.includes(effectiveStatus(employeeStatusSource(e, coaches)))) &&
+      (skip('adel_certificate') || matchMulti(colFilters.adel_certificate, e.adel_certificate))
     )
   }
 
@@ -1065,8 +1069,6 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
     if (sort === 'qss_number-desc')     return (b.qss_number||'').localeCompare(a.qss_number||'')
     if (sort === 'status-asc')   return (effectiveStatus(employeeStatusSource(a, coaches))||'').localeCompare(effectiveStatus(employeeStatusSource(b, coaches))||'')
     if (sort === 'status-desc')  return (effectiveStatus(employeeStatusSource(b, coaches))||'').localeCompare(effectiveStatus(employeeStatusSource(a, coaches))||'')
-    if (sort === 'name_ar-asc')          return (a.name_ar||'').localeCompare(b.name_ar||'')
-    if (sort === 'name_ar-desc')         return (b.name_ar||'').localeCompare(a.name_ar||'')
     if (sort === 'job_id-asc')           return (a.job_id||'').localeCompare(b.job_id||'')
     if (sort === 'job_id-desc')          return (b.job_id||'').localeCompare(a.job_id||'')
     if (sort === 'designation_ar-asc')   return (a.designation_ar||'').localeCompare(b.designation_ar||'')
@@ -1119,7 +1121,7 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
       id_expiry: formData.id_expiry || null,
       passport_number: formData.passport_number || null,
       passport_expiry: formData.passport_expiry || null,
-      adel_certificate: formData.adel_certificate || null,
+      adel_certificate: (formData.adel_certificate || '').replace(/[^\p{L}\p{N}\s]/gu, '').trim() || null,
     }
     if (!payload.name) { toast('Name is required', 'error'); return }
 
@@ -1434,7 +1436,7 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
             </button>
             {colPickerOpen && (() => {
               const COL_GROUPS = [
-                { label: lang==='ar' ? 'الهوية' : 'Identity', keys: ['name','name_ar','employee_number','qss_number','job_id'] },
+                { label: lang==='ar' ? 'الهوية' : 'Identity', keys: ['name','employee_number','qss_number','job_id'] },
                 { label: lang==='ar' ? 'الدور' : 'Role', keys: ['designation','designation_ar','status'] },
                 { label: lang==='ar' ? 'شخصي' : 'Personal', keys: ['nationality','gender','phone','email'] },
                 { label: lang==='ar' ? 'وثائق الهوية' : 'Identity Documents', keys: ['dob','id_number','id_expiry','passport_number','passport_expiry','adel_certificate'] },
@@ -1495,7 +1497,7 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
           <thead>
             <tr>
               {ALL_COLS.filter(c => isVisible(c.key)).map((c, i) => {
-                const isSortable = ['name','name_ar','employee_number','qss_number','job_id','designation','designation_ar','status','nationality','gender','phone','email','dob','id_number','id_expiry','passport_number','passport_expiry','adel_certificate'].includes(c.key)
+                const isSortable = ['name','employee_number','qss_number','job_id','designation','designation_ar','status','nationality','gender','phone','email','dob','id_number','id_expiry','passport_number','passport_expiry','adel_certificate'].includes(c.key)
                 const isAsc  = sort === `${c.key}-asc`
                 const isDesc = sort === `${c.key}-desc`
                 const active = isAsc || isDesc
@@ -1547,6 +1549,7 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
                         nationality: e => e.nationality,
                         gender: e => e.gender,
                         status: e => effectiveStatus(employeeStatusSource(e, coaches)),
+                        adel_certificate: e => e.adel_certificate,
                       }
                       const defaultMatch = (fieldVal, optionVal) => optionVal === 'Blank' ? !fieldVal : fieldVal === optionVal
                       const getCount = computeEmployeeOptionCounts(key, FIELD_GETTERS[key], defaultMatch)
@@ -1610,10 +1613,9 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
                       </td>
                     )
                   }
-                  if (c.key === 'name_ar') return <td key={c.key} style={{ fontSize:13, color:'#5a6272', direction:'rtl' }}>{emp.name_ar||'—'}</td>
                   if (c.key === 'designation') return (
                     <td key={c.key}>
-                      <div><DesigBadge label={emp.designation} displayLabel={DESIG_LABELS[emp.designation]} /></div>
+                      <div><DesigBadge label={emp.designation} displayLabel={lang==='ar' ? (emp.designation_ar || DESIG_LABELS[emp.designation] || emp.designation) : emp.designation} /></div>
                     </td>
                   )
                   if (c.key === 'designation_ar') return <td key={c.key} style={{ fontSize:11, color:'#9aa3b2', direction:'rtl' }}>{emp.designation_ar||'—'}</td>
