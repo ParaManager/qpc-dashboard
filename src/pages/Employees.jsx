@@ -82,7 +82,7 @@ function exportEmployeesPDF(emp, lang, coaches) {
   }
   const color = DESIG_COLORS[emp.designation] || '#9aa3b2'
   const DESIG_AR_MAP = {'Coach':'مدرب','Assistant Coach':'مدرب مساعد','Technical Expert':'خبير تقني','Physiotherapist':'معالج فيزيائي','Doctor':'طبيب','Secretary General':'الأمين العام','Executive Manager':'مدير تنفيذي','Administration Secretary':'سكرتير إداري','Secretary Assistant':'مساعد سكرتير','Administrative National Team':'إداري الفريق الوطني','Administrative Youth Team':'إداري فريق الشباب','Administrative Center & Development':'إداري المركز والتطوير','Accountant':'محاسب','Public Relation Officer':'مسؤول علاقات عامة','Receptionist':'موظف استقبال','Board Member':'عضو مجلس إدارة','Official':'مسؤول','Delegate':'مندوب','Employee':'موظف','Store Keeper':'أمين مخزن','Waiter':'نادل','Worker':'عامل','Driver':'سائق'}
-  const STATUS_AR = {'Active':'نشط','Inactive':'غير نشط','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي','Retired':'متقاعد'}
+  const STATUS_AR = {'Active':'نشط','Inactive':'غير نشط','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي','When needed':'عند الحاجة','External':'خارجي','Retired':'متقاعد'}
   const COUNTRY_AR = {'Qatar':'قطر','Egypt':'مصر','Algeria':'الجزائر','Jordan':'الأردن','Tunisia':'تونس','Morocco':'المغرب','Saudi Arabia':'المملكة العربية السعودية','Somalia':'الصومال','Ireland':'أيرلندا','Spain':'إسبانيا','France':'فرنسا','UK':'المملكة المتحدة','USA':'الولايات المتحدة','Sudan':'السودان','Libya':'ليبيا','Pakistan':'باكستان','India':'الهند'}
 
   const html = `<!DOCTYPE html>
@@ -644,7 +644,7 @@ function exportIDCard(emp) {
 
 function exportEmployeesExcel(list, lang, coaches) {
   const ar = lang === 'ar'
-  const STATUS_AR = {'Active':'نشط','Inactive':'غير نشط','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي','Retired':'متقاعد'}
+  const STATUS_AR = {'Active':'نشط','Inactive':'غير نشط','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي','When needed':'عند الحاجة','External':'خارجي','Retired':'متقاعد'}
   const DESIG_AR_MAP = {'Coach':'مدرب','Assistant Coach':'مدرب مساعد','Technical Expert':'خبير تقني','Physiotherapist':'معالج فيزيائي','Doctor':'طبيب','Secretary General':'الأمين العام','Executive Manager':'مدير تنفيذي','Administration Secretary':'سكرتير إداري','Secretary Assistant':'مساعد سكرتير','Administrative National Team':'إداري الفريق الوطني','Administrative Youth Team':'إداري فريق الشباب','Administrative Center & Development':'إداري المركز والتطوير','Accountant':'محاسب','Public Relation Officer':'مسؤول علاقات عامة','Receptionist':'موظف استقبال','Board Member':'عضو مجلس إدارة','Official':'مسؤول','Delegate':'مندوب','Employee':'موظف','Store Keeper':'أمين مخزن','Waiter':'نادل','Worker':'عامل','Driver':'سائق'}
   const COUNTRY_MAP = {'qatar':'قطر','egypt':'مصر','algeria':'الجزائر','morocco':'المغرب','jordan':'الأردن','saudi arabia':'المملكة العربية السعودية','uae':'الإمارات','kuwait':'الكويت','bahrain':'البحرين','oman':'عُمان','iraq':'العراق','syria':'سوريا','lebanon':'لبنان','yemen':'اليمن','somalia':'الصومال','sudan':'السودان','libya':'ليبيا','tunisia':'تونس','pakistan':'باكستان','india':'الهند','iran':'إيران','turkey':'تركيا','ireland':'أيرلندا','france':'فرنسا','spain':'إسبانيا','germany':'ألمانيا','uk':'المملكة المتحدة','usa':'الولايات المتحدة'}
   const tc = n => n ? (ar ? (COUNTRY_MAP[n.toLowerCase().trim()]||n) : n) : ''
@@ -900,6 +900,40 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
   const [addModal, setAddModal]     = useState(false)
   const photoInput = useRef(null)
   const [cropFile, setCropFile] = useState(null) // { empId, file } pending crop
+  const [hoveredRowId, setHoveredRowId] = useState(null)
+
+  // Column selection — same pattern as Athletes.jsx: localStorage-persisted,
+  // Name column always included and locked.
+  const DEFAULT_EMPLOYEE_COLS = ['name','designation','nationality','gender','employee_number','qss_number','status']
+  const EMP_COLS_STORAGE_KEY = 'qpc_employees_visible_cols_v1'
+  function loadStoredEmpCols(fallback) {
+    try {
+      const raw = localStorage.getItem(EMP_COLS_STORAGE_KEY)
+      if (!raw) return fallback
+      const parsed = JSON.parse(raw)
+      if (!Array.isArray(parsed) || parsed.length === 0) return fallback
+      if (!parsed.every(k => typeof k === 'string')) return fallback
+      return parsed.includes('name') ? parsed : ['name', ...parsed]
+    } catch {
+      return fallback
+    }
+  }
+  const [visibleCols, setVisibleColsRaw] = useState(loadStoredEmpCols(DEFAULT_EMPLOYEE_COLS))
+  function setVisibleCols(next) {
+    setVisibleColsRaw(prev => {
+      const resolved = typeof next === 'function' ? next(prev) : next
+      try { localStorage.setItem(EMP_COLS_STORAGE_KEY, JSON.stringify(resolved)) } catch {}
+      return resolved
+    })
+  }
+  const [colPickerOpen, setColPickerOpen] = useState(false)
+  const colPickerRef = useRef(null)
+  useEffect(() => {
+    if (!colPickerOpen) return
+    function onClickOutside(e) { if (colPickerRef.current && !colPickerRef.current.contains(e.target)) setColPickerOpen(false) }
+    document.addEventListener('mousedown', onClickOutside)
+    return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [colPickerOpen])
 
   useEffect(() => { if (initEmployeeId) setSelected(initEmployeeId) }, [initEmployeeId])
 
@@ -951,12 +985,41 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
     designation: [...new Set([...DESIGNATIONS.slice(1), ...customDesignations.map(d => d.label)])],
     nationality: [...new Set(employees.map(e => e.nationality).filter(Boolean))].sort(),
     gender:      ['Male','Female'],
-    status:      ['Active','On Leave','In Competition','In Training Camp','Inactive','Retired'],
+    status:      ['Active','On Leave','In Competition','In Training Camp','When needed','External','Inactive','Retired'],
   }
   const COL_FILTER_LABELS = {
     gender: { 'Male':tx('form.male','Male'), 'Female':tx('form.female','Female') },
-    status: { 'Active':tx('status.active','Active'), 'On Leave':tx('status.onLeave','On Leave'), 'In Competition': lang==='ar' ? 'في منافسة' : 'In Competition', 'In Training Camp': lang==='ar' ? 'في معسكر تدريبي' : 'In Training Camp', 'Inactive':tx('status.inactive','Inactive'), 'Retired': lang==='ar' ? 'متقاعد' : 'Retired' },
+    status: { 'Active':tx('status.active','Active'), 'On Leave':tx('status.onLeave','On Leave'), 'In Competition': lang==='ar' ? 'في منافسة' : 'In Competition', 'In Training Camp': lang==='ar' ? 'في معسكر تدريبي' : 'In Training Camp', 'When needed': lang==='ar' ? 'عند الحاجة' : 'When needed', 'External': lang==='ar' ? 'خارجي' : 'External', 'Inactive':tx('status.inactive','Inactive'), 'Retired': lang==='ar' ? 'متقاعد' : 'Retired' },
   }
+
+  const ALL_COLS = [
+    { key:'name',              label:tx('employees.employee','Employee') },
+    { key:'name_ar',           label:tx('employees.arabicName','Arabic Name') },
+    { key:'employee_number',   label:tx('employees.employeeNum','Employee #') },
+    { key:'qss_number',        label:tx('employees.qssNum','QSS #') },
+    { key:'job_id',            label:tx('employees.jobId','Job ID') },
+    { key:'designation',       label:tx('employees.designation','Designation') },
+    { key:'designation_ar',    label:tx('employees.arabicDesignation','Arabic Designation') },
+    { key:'status',            label:tx('employees.status','Status') },
+    { key:'nationality',       label:tx('employees.nationality','Nationality') },
+    { key:'gender',            label:tx('employees.gender','Gender') },
+    { key:'phone',             label:tx('employees.phone','Phone') },
+    { key:'email',             label:tx('employees.email','Email') },
+    { key:'dob',               label:tx('employees.dob','Date of Birth') },
+    { key:'id_number',         label:tx('employees.idNumber','Qatar ID') },
+    { key:'id_expiry',         label:tx('employees.idExpiry','ID Expiry') },
+    { key:'passport_number',   label:tx('employees.passportNumber','Passport No') },
+    { key:'passport_expiry',   label:tx('employees.passportExpiry','Passport Expiry') },
+    { key:'adel_certificate',  label:tx('employees.adelCertificate','ADEL Certificate') },
+  ]
+  function toggleCol(key) {
+    if (key === 'name') return // always visible
+    setVisibleCols(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key])
+  }
+  const isVisible = key => visibleCols.includes(key)
+  // Fixed width for the sticky Employee column so its sticky offset never
+  // shifts based on content length (matches Athletes.jsx exactly).
+  const STICKY_NAME_COL_WIDTH = 220
 
   function matchMulti(selectedValues, fieldValue) {
     if (!selectedValues || selectedValues.length === 0) return true
@@ -990,18 +1053,40 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
   list = [...list].sort((a, b) => {
     if (sort === 'name-asc')   return a.name.localeCompare(b.name)
     if (sort === 'name-desc')  return b.name.localeCompare(a.name)
-    if (sort === 'desig-asc')  return (a.designation||'').localeCompare(b.designation||'')
-    if (sort === 'desig-desc') return (b.designation||'').localeCompare(a.designation||'')
-    if (sort === 'nat-asc')    return (a.nationality||'').localeCompare(b.nationality||'')
-    if (sort === 'nat-desc')   return (b.nationality||'').localeCompare(a.nationality||'')
+    if (sort === 'designation-asc')  return (a.designation||'').localeCompare(b.designation||'')
+    if (sort === 'designation-desc') return (b.designation||'').localeCompare(a.designation||'')
+    if (sort === 'nationality-asc')    return (a.nationality||'').localeCompare(b.nationality||'')
+    if (sort === 'nationality-desc')   return (b.nationality||'').localeCompare(a.nationality||'')
     if (sort === 'gender-asc')   return (a.gender||'').localeCompare(b.gender||'')
     if (sort === 'gender-desc')  return (b.gender||'').localeCompare(a.gender||'')
-    if (sort === 'emp-asc')      return (a.employee_number||'').localeCompare(b.employee_number||'')
-    if (sort === 'emp-desc')     return (b.employee_number||'').localeCompare(a.employee_number||'')
-    if (sort === 'qss-asc')      return (a.qss_number||'').localeCompare(b.qss_number||'')
-    if (sort === 'qss-desc')     return (b.qss_number||'').localeCompare(a.qss_number||'')
+    if (sort === 'employee_number-asc')      return (a.employee_number||'').localeCompare(b.employee_number||'')
+    if (sort === 'employee_number-desc')     return (b.employee_number||'').localeCompare(a.employee_number||'')
+    if (sort === 'qss_number-asc')      return (a.qss_number||'').localeCompare(b.qss_number||'')
+    if (sort === 'qss_number-desc')     return (b.qss_number||'').localeCompare(a.qss_number||'')
     if (sort === 'status-asc')   return (effectiveStatus(employeeStatusSource(a, coaches))||'').localeCompare(effectiveStatus(employeeStatusSource(b, coaches))||'')
     if (sort === 'status-desc')  return (effectiveStatus(employeeStatusSource(b, coaches))||'').localeCompare(effectiveStatus(employeeStatusSource(a, coaches))||'')
+    if (sort === 'name_ar-asc')          return (a.name_ar||'').localeCompare(b.name_ar||'')
+    if (sort === 'name_ar-desc')         return (b.name_ar||'').localeCompare(a.name_ar||'')
+    if (sort === 'job_id-asc')           return (a.job_id||'').localeCompare(b.job_id||'')
+    if (sort === 'job_id-desc')          return (b.job_id||'').localeCompare(a.job_id||'')
+    if (sort === 'designation_ar-asc')   return (a.designation_ar||'').localeCompare(b.designation_ar||'')
+    if (sort === 'designation_ar-desc')  return (b.designation_ar||'').localeCompare(a.designation_ar||'')
+    if (sort === 'phone-asc')            return (a.phone||'').localeCompare(b.phone||'')
+    if (sort === 'phone-desc')           return (b.phone||'').localeCompare(a.phone||'')
+    if (sort === 'email-asc')            return (a.email||'').localeCompare(b.email||'')
+    if (sort === 'email-desc')           return (b.email||'').localeCompare(a.email||'')
+    if (sort === 'dob-asc')              return (a.dob||'').localeCompare(b.dob||'')
+    if (sort === 'dob-desc')             return (b.dob||'').localeCompare(a.dob||'')
+    if (sort === 'id_number-asc')        return (a.id_number||'').localeCompare(b.id_number||'')
+    if (sort === 'id_number-desc')       return (b.id_number||'').localeCompare(a.id_number||'')
+    if (sort === 'id_expiry-asc')        return (a.id_expiry||'').localeCompare(b.id_expiry||'')
+    if (sort === 'id_expiry-desc')       return (b.id_expiry||'').localeCompare(a.id_expiry||'')
+    if (sort === 'passport_number-asc')  return (a.passport_number||'').localeCompare(b.passport_number||'')
+    if (sort === 'passport_number-desc') return (b.passport_number||'').localeCompare(a.passport_number||'')
+    if (sort === 'passport_expiry-asc')  return (a.passport_expiry||'').localeCompare(b.passport_expiry||'')
+    if (sort === 'passport_expiry-desc') return (b.passport_expiry||'').localeCompare(a.passport_expiry||'')
+    if (sort === 'adel_certificate-asc')  return (a.adel_certificate||'').localeCompare(b.adel_certificate||'')
+    if (sort === 'adel_certificate-desc') return (b.adel_certificate||'').localeCompare(a.adel_certificate||'')
     return 0
   })
 
@@ -1118,22 +1203,6 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
     finally { setUploading(false) }
   }
 
-  function SortTh({ field, children }) {
-    const isAsc  = sort === `${field}-asc`
-    const isDesc = sort === `${field}-desc`
-    return (
-      <th onClick={() => isAsc ? setSort(`${field}-desc`) : setSort(`${field}-asc`)}
-        style={{ cursor:'pointer', userSelect:'none', whiteSpace:'nowrap' }}>
-        <div style={{ display:'flex', alignItems:'center', gap:4 }}>
-          {children}
-          <span style={{ fontSize:9, color:(isAsc||isDesc)?'#0085C7':'#ccc' }}>
-            {isAsc?'▲':isDesc?'▼':'▲▼'}
-          </span>
-        </div>
-      </th>
-    )
-  }
-
   // ── DETAIL VIEW ──
   if (selected) {
     const emp = employees.find(x => x.id === selected)
@@ -1234,7 +1303,7 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
               const src = employeeStatusSource(emp, coaches)
               const ds = effectiveStatus(src)
               const dl = lang==='ar'
-                ? ({'Active':'نشط','Inactive':'غير نشط','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي'}[ds]||ds)
+                ? ({'Active':'نشط','Inactive':'غير نشط','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي','When needed':'عند الحاجة','External':'خارجي'}[ds]||ds)
                 : (ds||'—')
               const expired = src.status_end && new Date(src.status_end) < new Date(new Date().toDateString())
               return (
@@ -1359,6 +1428,47 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
           <button className="btn" style={{ background:'#009F6B' }} onClick={() => exportEmployeesExcel(list, lang, coaches)}>
             <i className="ti ti-table-export" /> {tx('actions.exportExcel','Export Excel')}
           </button>
+          <div style={{ position:'relative' }} ref={colPickerRef}>
+            <button className="action-btn action-btn-edit" style={{ padding:'8px 14px', fontSize:13 }} onClick={() => setColPickerOpen(o => !o)}>
+              <i className="ti ti-columns" /> {lang==='ar' ? 'أعمدة' : 'Columns'} {visibleCols.length !== ALL_COLS.length && `(${visibleCols.length})`}
+            </button>
+            {colPickerOpen && (() => {
+              const COL_GROUPS = [
+                { label: lang==='ar' ? 'الهوية' : 'Identity', keys: ['name','name_ar','employee_number','qss_number','job_id'] },
+                { label: lang==='ar' ? 'الدور' : 'Role', keys: ['designation','designation_ar','status'] },
+                { label: lang==='ar' ? 'شخصي' : 'Personal', keys: ['nationality','gender','phone','email'] },
+                { label: lang==='ar' ? 'وثائق الهوية' : 'Identity Documents', keys: ['dob','id_number','id_expiry','passport_number','passport_expiry','adel_certificate'] },
+              ]
+              return (
+                <div style={{ position:'absolute', top:'calc(100% + 6px)', right:0, background:'var(--surface)', border:'1px solid var(--border)', borderRadius:12, zIndex:200, boxShadow:'0 8px 24px rgba(0,0,0,.12)', minWidth:220, maxHeight:420, display:'flex', flexDirection:'column', overflow:'hidden' }}>
+                  <div style={{ padding:'10px 12px 8px', borderBottom:'1px solid var(--border)', display:'flex', gap:6, flexWrap:'wrap', flexShrink:0 }}>
+                    <button onClick={() => setVisibleCols(ALL_COLS.map(c=>c.key))} style={{ flex:1, padding:'5px', fontSize:11, background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:7, cursor:'pointer', color:'var(--text2)' }}>{tx('filters.all','All')}</button>
+                    <button onClick={() => setVisibleCols(DEFAULT_EMPLOYEE_COLS)} style={{ flex:1, padding:'5px', fontSize:11, background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:7, cursor:'pointer', color:'var(--text2)' }}>{tx('filters.default','Default')}</button>
+                    <button onClick={() => setVisibleCols(['name'])} style={{ flex:1, padding:'5px', fontSize:11, background:'#fef2f2', border:'1px solid #fca5a5', borderRadius:7, cursor:'pointer', color:'#dc2626' }}>{tx('filters.none','None')}</button>
+                  </div>
+                  <div style={{ overflowY:'auto', padding:'8px 4px' }}>
+                    {COL_GROUPS.map(group => (
+                      <div key={group.label}>
+                        <div style={{ fontSize:10.5, fontWeight:700, color:'var(--text3)', textTransform:'uppercase', letterSpacing:'.06em', padding:'8px 12px 4px' }}>{group.label}</div>
+                        {group.keys.map(key => {
+                          const col = ALL_COLS.find(c => c.key === key)
+                          if (!col) return null
+                          return (
+                            <label key={col.key} style={{ display:'flex', alignItems:'center', gap:10, padding:'6px 12px', cursor:col.key==='name'?'not-allowed':'pointer', borderRadius:8 }}>
+                              <input type="checkbox" checked={isVisible(col.key)} disabled={col.key==='name'} onChange={() => toggleCol(col.key)}
+                                style={{ width:14, height:14, cursor:col.key==='name'?'not-allowed':'pointer', accentColor:'#0085C7' }} />
+                              <span style={{ fontSize:13, color:col.key==='name'?'var(--text3)':'var(--text)' }}>{col.label}</span>
+                              {col.key==='name' && <span style={{ fontSize:10, color:'var(--text3)', marginLeft:'auto' }}>{tx('filters.always','always')}</span>}
+                            </label>
+                          )
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            })()}
+          </div>
           {hasFilters && (
             <button onClick={() => { setSearch(''); setColFilters({}) }}
               style={{ display:'flex', alignItems:'center', gap:5, padding:'8px 12px', borderRadius:9, border:'1px solid #fca5a5', background:'#fef2f2', color:'#dc2626', fontSize:12, cursor:'pointer', fontFamily:'DM Sans, sans-serif' }}>
@@ -1384,106 +1494,160 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
         <table>
           <thead>
             <tr>
-              <SortTh field="name">{tx('employees.employee','Employee')}</SortTh>
-              <SortTh field="desig">{tx('employees.designation','Designation')}</SortTh>
-              <SortTh field="nat">{tx('employees.nationality','Nationality')}</SortTh>
-              <th onClick={() => setSort(sort==='gender-asc'?'gender-desc':'gender-asc')} style={{ cursor:'pointer', userSelect:'none', whiteSpace:'nowrap' }}>{tx('employees.gender','Gender')} <span style={{ fontSize:9, color: sort.startsWith('gender')?'#0085C7':'#ccc' }}>{sort==='gender-asc'?'▲':sort==='gender-desc'?'▼':'▲▼'}</span></th>
-              <th onClick={() => setSort(sort==='emp-asc'?'emp-desc':'emp-asc')} style={{ cursor:'pointer', userSelect:'none', whiteSpace:'nowrap' }}>{tx('employees.employeeNum','Employee #')} <span style={{ fontSize:9, color: sort.startsWith('emp')?'#0085C7':'#ccc' }}>{sort==='emp-asc'?'▲':sort==='emp-desc'?'▼':'▲▼'}</span></th>
-              <th onClick={() => setSort(sort==='qss-asc'?'qss-desc':'qss-asc')} style={{ cursor:'pointer', userSelect:'none', whiteSpace:'nowrap' }}>{tx('employees.qssNum','QSS #')} <span style={{ fontSize:9, color: sort.startsWith('qss')?'#0085C7':'#ccc' }}>{sort==='qss-asc'?'▲':sort==='qss-desc'?'▼':'▲▼'}</span></th>
-              <th onClick={() => setSort(sort==='status-asc'?'status-desc':'status-asc')} style={{ cursor:'pointer', userSelect:'none', whiteSpace:'nowrap' }}>{tx('employees.status','Status')} <span style={{ fontSize:9, color: sort.startsWith('status')?'#0085C7':'#ccc' }}>{sort==='status-asc'?'▲':sort==='status-desc'?'▼':'▲▼'}</span></th>
-              <th />
+              {ALL_COLS.filter(c => isVisible(c.key)).map((c, i) => {
+                const isSortable = ['name','name_ar','employee_number','qss_number','job_id','designation','designation_ar','status','nationality','gender','phone','email','dob','id_number','id_expiry','passport_number','passport_expiry','adel_certificate'].includes(c.key)
+                const isAsc  = sort === `${c.key}-asc`
+                const isDesc = sort === `${c.key}-desc`
+                const active = isAsc || isDesc
+                const isFirstCol = i === 0 && c.key === 'name'
+                return (
+                  <th key={c.key}
+                    onClick={() => isSortable && (isAsc ? setSort(`${c.key}-desc`) : setSort(`${c.key}-asc`))}
+                    style={{
+                      cursor: isSortable ? 'pointer' : 'default', userSelect:'none', whiteSpace:'nowrap',
+                      position:'sticky', top:0, zIndex: isFirstCol ? 23 : 21, background:'var(--surface)',
+                      ...(isFirstCol ? (lang==='ar'
+                        ? { right:0, minWidth:STICKY_NAME_COL_WIDTH, boxShadow:'-2px 0 4px rgba(0,0,0,.06)' }
+                        : { left:0, minWidth:STICKY_NAME_COL_WIDTH, boxShadow:'2px 0 4px rgba(0,0,0,.06)' }
+                      ) : {}),
+                    }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:4 }}>
+                      {c.label}
+                      {isSortable && (
+                        <span style={{ fontSize:9, color: active ? '#0085C7' : '#ccc' }}>
+                          {isAsc ? '▲' : isDesc ? '▼' : '▲▼'}
+                        </span>
+                      )}
+                    </div>
+                  </th>
+                )
+              })}
+              <th style={{ position:'sticky', top:0, zIndex:21, background:'var(--surface)' }} />
             </tr>
             <tr style={{ background:'#f8f9fb' }}>
-              <th />
-              {[
-                { key:'designation', span:1 },
-                { key:'nationality', span:1 },
-                { key:'gender',      span:1 },
-                { key:null,          span:1 },
-                { key:null,          span:1 },
-                { key:'status',      span:1 },
-              ].map(({ key }, i) => (
-                <th key={i} style={{ padding:'4px 8px' }}>
-                  {key && COL_FILTERS[key] ? (() => {
-                    const dropdownOptions = [
-                      ...COL_FILTERS[key].map(o => ({
-                        value: o,
-                        label: key==='designation' ? (DESIG_LABELS[o]||o)
-                          : key==='nationality' ? tc(o)
-                          : key==='gender' ? ({'Male':lang==='ar'?'ذكر':'Male','Female':lang==='ar'?'أنثى':'Female'}[o]||o)
-                          : (COL_FILTER_LABELS[key]?.[o]||o),
-                      })),
-                      ...(key==='status' ? [] : [{ value: 'Blank', label: lang==='ar'?'فارغ':'Blank' }]),
-                    ]
-                    const FIELD_GETTERS = {
-                      designation: e => e.designation,
-                      nationality: e => e.nationality,
-                      gender: e => e.gender,
-                      status: e => effectiveStatus(employeeStatusSource(e, coaches)),
-                    }
-                    const defaultMatch = (fieldVal, optionVal) => optionVal === 'Blank' ? !fieldVal : fieldVal === optionVal
-                    const getCount = computeEmployeeOptionCounts(key, FIELD_GETTERS[key], defaultMatch)
-                    const filterCounts = dropdownOptions.reduce((acc, o) => { acc[o.value] = getCount(o.value); return acc }, {})
-                    return (
-                      <MultiSelectFilter
-                        options={dropdownOptions}
-                        selected={colFilters[key] || []}
-                        allLabel={lang==='ar'?'الكل':'All'}
-                        onChange={vals => setColFilters(f => ({ ...f, [key]: vals }))}
-                        style={{ maxWidth: 130 }}
-                        counts={filterCounts}
-                      />
-                    )
-                  })() : null}
-                </th>
-              ))}
-              <th />
+              {ALL_COLS.filter(c => isVisible(c.key)).map((c, i) => {
+                const isFirstCol = i === 0 && c.key === 'name'
+                return (
+                  <th key={c.key} style={{ padding:'4px 8px', position:'sticky', top:32, zIndex: isFirstCol ? 22 : 20, background:'#f8f9fb',
+                      ...(isFirstCol ? (lang==='ar' ? { right:0, minWidth:STICKY_NAME_COL_WIDTH } : { left:0, minWidth:STICKY_NAME_COL_WIDTH }) : {}) }}>
+                    {COL_FILTERS[c.key] ? (() => {
+                      const key = c.key
+                      const dropdownOptions = [
+                        ...COL_FILTERS[key].map(o => ({
+                          value: o,
+                          label: key==='designation' ? (DESIG_LABELS[o]||o)
+                            : key==='nationality' ? tc(o)
+                            : key==='gender' ? ({'Male':lang==='ar'?'ذكر':'Male','Female':lang==='ar'?'أنثى':'Female'}[o]||o)
+                            : (COL_FILTER_LABELS[key]?.[o]||o),
+                        })),
+                        ...(key==='status' ? [] : [{ value: 'Blank', label: lang==='ar'?'فارغ':'Blank' }]),
+                      ]
+                      const FIELD_GETTERS = {
+                        designation: e => e.designation,
+                        nationality: e => e.nationality,
+                        gender: e => e.gender,
+                        status: e => effectiveStatus(employeeStatusSource(e, coaches)),
+                      }
+                      const defaultMatch = (fieldVal, optionVal) => optionVal === 'Blank' ? !fieldVal : fieldVal === optionVal
+                      const getCount = computeEmployeeOptionCounts(key, FIELD_GETTERS[key], defaultMatch)
+                      const filterCounts = dropdownOptions.reduce((acc, o) => { acc[o.value] = getCount(o.value); return acc }, {})
+                      return (
+                        <MultiSelectFilter
+                          options={dropdownOptions}
+                          selected={colFilters[key] || []}
+                          allLabel={lang==='ar'?'الكل':'All'}
+                          onChange={vals => setColFilters(f => ({ ...f, [key]: vals }))}
+                          style={{ maxWidth: 130 }}
+                          counts={filterCounts}
+                        />
+                      )
+                    })() : null}
+                  </th>
+                )
+              })}
+              <th style={{ position:'sticky', top:32, zIndex:20, background:'#f8f9fb' }} />
             </tr>
           </thead>
           <tbody>
-            {list.map(emp => (
-              <tr key={emp.id} onClick={() => {
-              if (COACH_DESIGNATIONS.includes(emp.designation) && coaches?.length) {
-                const coach = coaches.find(c =>
-                  c.status !== 'Inactive' && (
-                    (emp.qss_number && c.qss_number && c.qss_number === emp.qss_number) ||
-                    (emp.name && c.name && c.name.trim().toLowerCase() === emp.name.trim().toLowerCase())
+            {list.map(emp => {
+              const cols = ALL_COLS.filter(c => isVisible(c.key))
+              const stickyCellBg = hoveredRowId === emp.id ? 'var(--surface2)' : 'var(--surface)'
+              return (
+                <tr key={emp.id} onClick={() => {
+                if (COACH_DESIGNATIONS.includes(emp.designation) && coaches?.length) {
+                  const coach = coaches.find(c =>
+                    c.status !== 'Inactive' && (
+                      (emp.qss_number && c.qss_number && c.qss_number === emp.qss_number) ||
+                      (emp.name && c.name && c.name.trim().toLowerCase() === emp.name.trim().toLowerCase())
+                    )
                   )
-                )
-                if (coach) { onNav('coaches', { coachId: coach.id, returnTo: 'employees' }); return }
-              }
-              setSelected(emp.id)
-            }} style={{ cursor:'pointer' }}>
-                <td>
-                  <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                    {emp.photo_url
-                      ? <img src={emp.photo_url} alt={emp.name} style={{ width:32, height:32, borderRadius:'50%', objectFit:'cover', flexShrink:0 }} />
-                      : <div className="av" style={{ width:32, height:32, fontSize:11, background:DESIG_COLORS[emp.designation]||'#9aa3b2', flexShrink:0 }}>{initials(emp.name)}</div>
-                    }
-                    <div>
-                      <div style={{ fontWeight:500, fontSize:13 }}>{lang==='ar' && emp.name_ar ? emp.name_ar : emp.name}</div>
-                      <div style={{ fontSize:11, color:'#9aa3b2' }}>{lang==='ar' ? emp.name : (emp.name_ar||tc(emp.nationality))}</div>
-                    </div>
-                  </div>
-                </td>
-                <td>
-                  <div><DesigBadge label={emp.designation} displayLabel={DESIG_LABELS[emp.designation]} /></div>
-                  {emp.designation_ar && <div style={{ fontSize:11, color:'#9aa3b2', marginTop:3, direction:'rtl' }}>{emp.designation_ar}</div>}
-                </td>
-                <td style={{ fontSize:13, color:'#5a6272' }}>{tc(emp.nationality)||'—'}</td>
-                <td style={{ fontSize:13, color:'#5a6272' }}>{emp.gender ? (lang==='ar' ? (emp.gender==='Male'?'ذكر':'أنثى') : emp.gender) : '—'}</td>
-                <td style={{ fontSize:12, color:'#5a6272', fontFamily:'monospace' }}>{emp.employee_number||'—'}</td>
-                <td style={{ fontSize:12, color:'#5a6272', fontFamily:'monospace' }}>{emp.qss_number||'—'}</td>
-                <td>{(() => {
-                  const src = employeeStatusSource(emp, coaches)
-                  const ds = effectiveStatus(src)
-                  const dl = lang==='ar' ? ({'Active':'نشط','Inactive':'غير نشط','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي'}[ds]||ds) : (ds||'—')
-                  return <span className={`badge ${statusClass(ds)}`}>{dl}</span>
-                })()}</td>
+                  if (coach) { onNav('coaches', { coachId: coach.id, returnTo: 'employees' }); return }
+                }
+                setSelected(emp.id)
+              }}
+                onMouseEnter={() => setHoveredRowId(emp.id)}
+                onMouseLeave={() => setHoveredRowId(prev => prev === emp.id ? null : prev)}
+                style={{ cursor:'pointer' }}>
+                {cols.map((c, i) => {
+                  const isFirstCol = i === 0 && c.key === 'name'
+                  const stickyStyle = isFirstCol ? {
+                    position:'sticky', ...(lang==='ar' ? { right:0 } : { left:0 }), zIndex:10, minWidth:STICKY_NAME_COL_WIDTH,
+                    background:stickyCellBg, boxShadow: lang==='ar' ? '-2px 0 4px rgba(0,0,0,.06)' : '2px 0 4px rgba(0,0,0,.06)',
+                  } : undefined
+                  if (c.key === 'name') {
+                    return (
+                      <td key={c.key} style={stickyStyle}>
+                        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                          {emp.photo_url
+                            ? <img src={emp.photo_url} alt={emp.name} style={{ width:32, height:32, borderRadius:'50%', objectFit:'cover', flexShrink:0 }} />
+                            : <div className="av" style={{ width:32, height:32, fontSize:11, background:DESIG_COLORS[emp.designation]||'#9aa3b2', flexShrink:0 }}>{initials(emp.name)}</div>
+                          }
+                          <div>
+                            <div style={{ fontWeight:500, fontSize:13 }}>{lang==='ar' && emp.name_ar ? emp.name_ar : emp.name}</div>
+                            <div style={{ fontSize:11, color:'#9aa3b2' }}>{lang==='ar' ? emp.name : (emp.name_ar||tc(emp.nationality))}</div>
+                          </div>
+                        </div>
+                      </td>
+                    )
+                  }
+                  if (c.key === 'name_ar') return <td key={c.key} style={{ fontSize:13, color:'#5a6272', direction:'rtl' }}>{emp.name_ar||'—'}</td>
+                  if (c.key === 'designation') return (
+                    <td key={c.key}>
+                      <div><DesigBadge label={emp.designation} displayLabel={DESIG_LABELS[emp.designation]} /></div>
+                    </td>
+                  )
+                  if (c.key === 'designation_ar') return <td key={c.key} style={{ fontSize:11, color:'#9aa3b2', direction:'rtl' }}>{emp.designation_ar||'—'}</td>
+                  if (c.key === 'nationality') return <td key={c.key} style={{ fontSize:13, color:'#5a6272' }}>{tc(emp.nationality)||'—'}</td>
+                  if (c.key === 'gender') return <td key={c.key} style={{ fontSize:13, color:'#5a6272' }}>{emp.gender ? (lang==='ar' ? (emp.gender==='Male'?'ذكر':'أنثى') : emp.gender) : '—'}</td>
+                  if (c.key === 'employee_number') return <td key={c.key} style={{ fontSize:12, color:'#5a6272', fontFamily:'monospace' }}>{emp.employee_number||'—'}</td>
+                  if (c.key === 'qss_number') return <td key={c.key} style={{ fontSize:12, color:'#5a6272', fontFamily:'monospace' }}>{emp.qss_number||'—'}</td>
+                  if (c.key === 'job_id') return <td key={c.key} style={{ fontSize:12, color:'#5a6272', fontFamily:'monospace' }}>{emp.job_id||'—'}</td>
+                  if (c.key === 'phone') return <td key={c.key} style={{ fontSize:13, color:'#5a6272' }}>{emp.phone||'—'}</td>
+                  if (c.key === 'email') return <td key={c.key} style={{ fontSize:13, color:'#5a6272' }}>{emp.email||'—'}</td>
+                  if (c.key === 'dob') return <td key={c.key} style={{ fontSize:13, color:'#5a6272' }}>{emp.dob||'—'}</td>
+                  if (c.key === 'id_number') return <td key={c.key} style={{ fontSize:12, color:'#5a6272', fontFamily:'monospace' }}>{emp.id_number||'—'}</td>
+                  if (c.key === 'id_expiry') return <td key={c.key} style={{ fontSize:13, color: emp.id_expiry && new Date(emp.id_expiry) < new Date() ? '#dc2626' : '#5a6272' }}>{emp.id_expiry||'—'}</td>
+                  if (c.key === 'passport_number') return <td key={c.key} style={{ fontSize:12, color:'#5a6272', fontFamily:'monospace' }}>{emp.passport_number||'—'}</td>
+                  if (c.key === 'passport_expiry') return <td key={c.key} style={{ fontSize:13, color: emp.passport_expiry && new Date(emp.passport_expiry) < new Date() ? '#dc2626' : '#5a6272' }}>{emp.passport_expiry||'—'}</td>
+                  if (c.key === 'adel_certificate') return <td key={c.key} style={{ fontSize:13, color:'#5a6272' }}>{emp.adel_certificate||'—'}</td>
+                  if (c.key === 'status') return (
+                    <td key={c.key}>{(() => {
+                      const src = employeeStatusSource(emp, coaches)
+                      const ds = effectiveStatus(src)
+                      const dl = lang==='ar' ? ({'Active':'نشط','Inactive':'غير نشط','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي','When needed':'عند الحاجة','External':'خارجي'}[ds]||ds) : (ds||'—')
+                      return <span className={`badge ${statusClass(ds)}`}>{dl}</span>
+                    })()}</td>
+                  )
+                  return <td key={c.key}>—</td>
+                })}
                 <td><i className="ti ti-chevron-right" style={{ color:'#ccc', fontSize:16 }} /></td>
               </tr>
-            ))}
-            {list.length === 0 && <tr><td colSpan={8}><div className="empty">{tx('employees.noEmployeesMatch','No employees match')}</div></td></tr>}
+              )
+            })}
+            {list.length === 0 && (() => {
+              const cols = ALL_COLS.filter(c => isVisible(c.key))
+              return <tr><td colSpan={cols.length + 1}><div className="empty">{tx('employees.noEmployeesMatch','No employees match')}</div></td></tr>
+            })()}
           </tbody>
         </table>
       </div>
