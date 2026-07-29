@@ -222,8 +222,8 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
   const statusOptsAthlete = ['','Active','On Leave','In Competition','In Training Camp','Inactive','Injured','Under Medical Review','Suspended','Retired'].map(s => ({
     value: s, label: s===''?'': ar?({'Active':'نشط','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي','Inactive':'غير نشط','Injured':'مصاب','Under Medical Review':'تحت المراجعة الطبية','Suspended':'موقوف','Retired':'متقاعد'}[s]||s):s
   }))
-  const statusOptsCoach = ['Active','On Leave','In Competition','In Training Camp','Inactive','Retired'].map(s => ({
-    value: s, label: ar?({'Active':'نشط','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي','Inactive':'غير نشط','Retired':'متقاعد'}[s]||s):s
+  const statusOptsCoach = ['Active','On Leave','In Competition','In Training Camp','When needed','External','Inactive','Retired'].map(s => ({
+    value: s, label: ar?({'Active':'نشط','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي','When needed':'عند الحاجة','External':'خارجي','Inactive':'غير نشط','Retired':'متقاعد'}[s]||s):s
   }))
   const statusOptsEvent = ['Planning','Upcoming','In Progress','Completed','Canceled'].map(s => ({
     value: s, label: ar?({'Planning':'قيد التخطيط','Upcoming':'قادم','In Progress':'جارٍ','Completed':'مكتمل','Canceled':'ملغى'}[s]||s):s
