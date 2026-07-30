@@ -1149,7 +1149,22 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
       const { error: upErr } = await supabase.storage.from('coach-photos').upload(path, file, { upsert: true })
       if (upErr) throw upErr
       const { data } = supabase.storage.from('coach-photos').getPublicUrl(path)
-      await supabase.from('employees').update({ photo_url: data.publicUrl + '?t=' + Date.now() }).eq('id', empId)
+      const newPhotoUrl = data.publicUrl + '?t=' + Date.now()
+      await supabase.from('employees').update({ photo_url: newPhotoUrl }).eq('id', empId)
+
+      // Keep the linked Coach record's photo in sync too, if it doesn't
+      // already have its own (never overwrite a photo a coach set directly).
+      const emp = employees.find(e => e.id === empId)
+      if (emp && COACH_DESIGNATIONS.includes(emp.designation) && coaches?.length) {
+        const coachRec = coaches.find(c =>
+          (emp.qss_number && c.qss_number && c.qss_number === emp.qss_number) ||
+          (emp.name && c.name && c.name.trim().toLowerCase() === emp.name.trim().toLowerCase())
+        )
+        if (coachRec && !coachRec.photo_url) {
+          await supabase.from('coaches').update({ photo_url: newPhotoUrl }).eq('id', coachRec.id)
+        }
+      }
+
       toast('Photo updated!'); await onRefresh()
     } catch (err) { toast(err.message || 'Upload failed', 'error') }
     finally { setUploading(false) }
