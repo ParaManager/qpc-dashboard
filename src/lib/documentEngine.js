@@ -12,6 +12,7 @@ export const CANONICAL_TYPES = {
   MDF: 'MDF',
   IPC: 'IPC Athlete Eligibility Agreement',
   SDMS: 'SDMS License',
+  ADEL_CERT: 'ADEL Certificate',
   OTHER: 'Other',
 }
 
@@ -46,28 +47,60 @@ const ATHLETE_OPTIONAL_COMMON = [CANONICAL_TYPES.QSRSN, CANONICAL_TYPES.HEALTH_C
 // hasMissionPassportDoc is the sole trigger moving MDF/IPC/SDMS between
 // Required and Not Applicable, for Paralympic athletes only. Special
 // Olympics athletes never require Mission Passport/MDF/IPC/SDMS.
+//
+// ADEL Certificate:
+//   - Required for Qatari Paralympic athletes, and for ANY Paralympic
+//     athlete once they have a Mission Passport on file (regardless of
+//     nationality — Mission Passport status takes priority here).
+//   - Optional for Non-Qatari Paralympic athletes (without Mission
+//     Passport) and for all Special Olympics athletes (Qatari or not).
 export function getAthleteDocumentRules(athleteType, hasMissionPassportDoc) {
   const isParalympic = athleteType === 'qatari_paralympic' || athleteType === 'non_qatari_paralympic'
+  const isQatari = athleteType === 'qatari_paralympic' || athleteType === 'qatari_special_olympics'
 
   if (isParalympic) {
+    const adelRequired = hasMissionPassportDoc || isQatari
     return hasMissionPassportDoc
-      ? { required: [...BASE_REQUIRED, CANONICAL_TYPES.MISSION_PASSPORT, ...MISSION_TRIO], optional: ATHLETE_OPTIONAL_COMMON, notApplicable: [] }
-      : { required: BASE_REQUIRED, optional: ATHLETE_OPTIONAL_COMMON, notApplicable: [CANONICAL_TYPES.MISSION_PASSPORT, ...MISSION_TRIO] }
+      ? {
+          required: [...BASE_REQUIRED, CANONICAL_TYPES.MISSION_PASSPORT, ...MISSION_TRIO, CANONICAL_TYPES.ADEL_CERT],
+          optional: ATHLETE_OPTIONAL_COMMON,
+          notApplicable: [],
+        }
+      : {
+          required: adelRequired ? [...BASE_REQUIRED, CANONICAL_TYPES.ADEL_CERT] : BASE_REQUIRED,
+          optional: adelRequired ? ATHLETE_OPTIONAL_COMMON : [...ATHLETE_OPTIONAL_COMMON, CANONICAL_TYPES.ADEL_CERT],
+          notApplicable: [CANONICAL_TYPES.MISSION_PASSPORT, ...MISSION_TRIO],
+        }
   }
-  return { required: BASE_REQUIRED, optional: ATHLETE_OPTIONAL_COMMON, notApplicable: [CANONICAL_TYPES.MISSION_PASSPORT, ...MISSION_TRIO] }
+  // Special Olympics (Qatari or Non-Qatari): ADEL Certificate optional.
+  return {
+    required: BASE_REQUIRED,
+    optional: [...ATHLETE_OPTIONAL_COMMON, CANONICAL_TYPES.ADEL_CERT],
+    notApplicable: [CANONICAL_TYPES.MISSION_PASSPORT, ...MISSION_TRIO],
+  }
 }
 
-export function getNonAthleteDocumentRules() {
-  return { required: [...SHARED_TYPES], optional: [CANONICAL_TYPES.OTHER], notApplicable: [] }
+// ADEL Certificate: Required for Coaches/Assistant Coaches/Technical Experts
+// (the "Technical Staff" bucket) and Physiotherapists/Doctors (the "Medical
+// Staff" bucket) — i.e. every designation in COACH_DESIGNATIONS. Not
+// applicable for every other employee designation.
+const ADEL_REQUIRED_DESIGNATIONS = ['Coach', 'Assistant Coach', 'Technical Expert', 'Physiotherapist', 'Doctor']
+export function getNonAthleteDocumentRules(designation) {
+  const adelRequired = ADEL_REQUIRED_DESIGNATIONS.includes(designation)
+  return {
+    required: adelRequired ? [...SHARED_TYPES, CANONICAL_TYPES.ADEL_CERT] : [...SHARED_TYPES],
+    optional: [CANONICAL_TYPES.OTHER],
+    notApplicable: adelRequired ? [] : [CANONICAL_TYPES.ADEL_CERT],
+  }
 }
 
 export const ALL_ATHLETE_TYPES = [
   CANONICAL_TYPES.PHOTO, CANONICAL_TYPES.PASSPORT, CANONICAL_TYPES.MISSION_PASSPORT, CANONICAL_TYPES.QID,
   CANONICAL_TYPES.BIRTH_CERT, CANONICAL_TYPES.MEDICAL_CERT, CANONICAL_TYPES.MEDICAL_REPORT, CANONICAL_TYPES.QSS_REG,
   CANONICAL_TYPES.QSRSN, CANONICAL_TYPES.HEALTH_CARD, CANONICAL_TYPES.MDF, CANONICAL_TYPES.IPC, CANONICAL_TYPES.SDMS,
-  CANONICAL_TYPES.OTHER,
+  CANONICAL_TYPES.ADEL_CERT, CANONICAL_TYPES.OTHER,
 ]
-export const ALL_NON_ATHLETE_TYPES = [...SHARED_TYPES, CANONICAL_TYPES.OTHER]
+export const ALL_NON_ATHLETE_TYPES = [...SHARED_TYPES, CANONICAL_TYPES.ADEL_CERT, CANONICAL_TYPES.OTHER]
 
 export function mergeDocuments(sharedDocs, roleDocs, applicableTypes) {
   const sharedTypesPresent = new Set((sharedDocs || []).map(d => d.type))
