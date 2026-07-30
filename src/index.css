@@ -177,7 +177,6 @@ select.filter { padding: 8px 12px; border-radius: 9px; border: 1px solid var(--b
 
 /* DETAIL */
 .detail-grid { display: grid; grid-template-columns: 260px 1fr; gap: 16px; }
-.coach-detail-grid { grid-template-columns: 320px 1fr; }
 .detail-profile { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px 18px; text-align: center; align-self: start; box-shadow: var(--shadow); }
 .detail-av { width: 68px; height: 68px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 600; color: #fff; margin: 0 auto 14px; }
 .detail-name { font-size: 16px; font-weight: 600; }
