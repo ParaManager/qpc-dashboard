@@ -526,7 +526,7 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
           {matchedEmployee && <EmployeeCardButton emp={matchedEmployee} />}
         </div>
 
-        <div className="detail-grid coach-detail-grid">
+        <div className="detail-grid">
           <div className="detail-profile">
             {/* PHOTO */}
             <div style={{ position:'relative', width:90, height:90, margin:'0 auto 14px' }}>
@@ -584,46 +584,57 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
             </div>
             <RoleBadges roles={personRolesCoach} lang={lang} excludeType="coach" />
 
-            {[
-              { title: lang==='ar'?'التوظيف':'Employment', fields: [
+            <div className="detail-fields">
+              {[
+                [lang==='ar'?'الجنسية':'Nationality', tc(c.nationality)],
+                [lang==='ar'?'الجنس':'Gender', lang==='ar'&&c.gender?(c.gender==='Male'?'ذكر':'أنثى'):c.gender],
+                [lang==='ar'?'الهاتف':'Phone', c.phone],
+                [lang==='ar'?'البريد الإلكتروني':'Email', c.email],
+              ].filter(([,v]) => v).map(([k,v]) => (
+                <div key={k} className="detail-row">
+                  <span className="dk">{k}</span>
+                  <span className="dv" style={{ fontSize: 12, overflowWrap: 'anywhere' }}>{v}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {/* COACH INFORMATION — mirrors Employees.jsx's Employee Information
+                card: only populated fields, 2-column grid, no fixed height. */}
+            {(() => {
+              const yearsOfService = (() => {
+                if (!c.created_at) return null
+                const start = new Date(c.created_at)
+                const now = new Date()
+                const months = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth())
+                if (months < 12) return lang==='ar' ? `${months} شهر` : `${months} mo`
+                const y = Math.floor(months / 12), m = months % 12
+                return m > 0 ? `${y}y ${m}mo` : (lang==='ar' ? `${y} سنة` : `${y} yr${y!==1?'s':''}`)
+              })()
+              const fields = [
                 [lang==='ar'?'رقم الموظف':'Employee #', c.employee_number],
                 [lang==='ar'?'رقم QSS':'QSS #', c.qss_number],
                 [lang==='ar'?'مع QPC منذ':'With QPC since', c.since],
-              ]},
-              { title: lang==='ar'?'الهوية':'Identity', fields: [
-                [lang==='ar'?'رقم الجواز':'Passport #', c.passport_number],
-                [lang==='ar'?'انتهاء الجواز':'Passport expiry', c.passport_expiry],
-                [lang==='ar'?'الرقم الشخصي':'ID / Residence #', c.id_number],
-                [lang==='ar'?'انتهاء الهوية':'ID expiry', c.id_expiry],
-              ]},
-              { title: lang==='ar'?'التواصل':'Contact', fields: [
-                [lang==='ar'?'البريد الإلكتروني':'Email', c.email],
-                [lang==='ar'?'الهاتف':'Phone', c.phone],
-              ]},
-              { title: lang==='ar'?'بيانات شخصية':'Personal', fields: [
-                [lang==='ar'?'الجنسية':'Nationality', tc(c.nationality)],
-                [lang==='ar'?'الجنس':'Gender', lang==='ar'&&c.gender?(c.gender==='Male'?'ذكر':'أنثى'):c.gender],
-              ]},
-            ].map(group => {
-              const visible = group.fields.filter(([,v]) => v)
-              if (visible.length === 0) return null
+                [lang==='ar'?'سنوات الخدمة':'Years of Service', yearsOfService],
+              ].filter(([,v]) => v)
+              if (fields.length === 0) return null
               return (
-                <div key={group.title} style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
-                  <div style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 }}>{group.title}</div>
-                  <div className="detail-fields">
-                    {visible.map(([k,v]) => (
-                      <div key={k} className="detail-row">
+                <div className="info-card">
+                  <div className="info-title" style={{ marginBottom:10 }}>{lang==='ar'?'معلومات المدرب':'Coach Information'}</div>
+                  <div style={{ display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:'4px 16px' }}>
+                    {fields.map(([k,v]) => (
+                      <div key={k} className="detail-row" style={{ minWidth:0 }}>
                         <span className="dk">{k}</span>
-                        <span className="dv" style={{ fontSize: 12, overflowWrap: 'anywhere' }}>{v}</span>
+                        <span className="dv" style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{v}</span>
                       </div>
                     ))}
                   </div>
                 </div>
               )
-            })}
-          </div>
+            })()}
 
-          <div className="info-card">
+            <div className="info-card">
             {/* Medals summary — compact KPI cards, evenly spaced, direction-aware */}
             <div style={{ display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap:8, paddingBottom:14, marginBottom:14, borderBottom:'1px solid var(--border)' }}>
               {[
@@ -675,25 +686,54 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
             }
           </div>
 
+            {/* IDENTITY DOCUMENTS — mirrors Employees.jsx's Identity Documents
+                card exactly (same fields where they exist on coaches). */}
+            {(() => {
+              const idFields = [
+                [lang==='ar'?'تاريخ الميلاد':'Date of birth', c.dob],
+                [lang==='ar'?'الرقم الشخصي / رقم الهوية':'Qatar ID / Residence #', c.id_number],
+                [lang==='ar'?'تاريخ انتهاء الهوية':'ID expiry', c.id_expiry],
+                [lang==='ar'?'رقم جواز السفر':'Passport number', c.passport_number],
+                [lang==='ar'?'تاريخ انتهاء الجواز':'Passport expiry', c.passport_expiry],
+              ].filter(([,v]) => v)
+              if (idFields.length === 0) return null
+              const isExpired = d => d && new Date(d) < new Date()
+              return (
+                <div className="info-card">
+                  <div className="info-title" style={{ marginBottom:10 }}>{lang==='ar'?'وثائق الهوية':'Identity Documents'}</div>
+                  <div style={{ display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:'4px 16px' }}>
+                    {idFields.map(([k,v]) => (
+                      <div key={k} className="detail-row" style={{ minWidth:0 }}>
+                        <span className="dk">{k}</span>
+                        <span className="dv" style={{ color: k.toLowerCase().includes('expiry') && isExpired(v) ? '#dc2626' : undefined }}>{v}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* DOCUMENTS — shared identity documents (Photo/Original Passport/
+                Qatar ID) merged in via sharedPersonId, same width as the rest
+                of this column instead of breaking out full-page-width. */}
+            <PersonDocuments
+              personId={c.id}
+              personType="coach"
+              personName={c.name}
+              docs={personDocs}
+              onRefresh={onRefresh}
+              profile={profile}
+              sharedPersonId={c.person_id}
+              designation={c.designation}
+            />
+
+            <CareerHistory personId={c.id} personType="coach" personName={c.name} />
+
+            {/* FORMER ATHLETES — any other coach-specific section */}
+            <FormerAthletes coachId={c.id} athletes={athletes} lang={lang} onNav={onNav} />
+          </div>
+
         </div>
-
-        {/* FORMER ATHLETES */}
-        <FormerAthletes coachId={c.id} athletes={athletes} lang={lang} onNav={onNav} />
-
-        {/* DOCUMENTS - full width below both columns; shared identity
-            documents (Photo/Original Passport/Qatar ID) merged in via
-            sharedPersonId, no separate card. */}
-        <PersonDocuments
-          personId={c.id}
-          personType="coach"
-          personName={c.name}
-          docs={personDocs}
-          onRefresh={onRefresh}
-          profile={profile}
-          sharedPersonId={c.person_id}
-          designation={c.designation}
-        />
-      <CareerHistory personId={c.id} personType="coach" personName={c.name} />
 
         <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
       </div>
