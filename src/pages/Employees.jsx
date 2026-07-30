@@ -106,9 +106,8 @@ function exportEmployeesPDF(emp, lang, coaches) {
     <div style="font-size:22px;font-weight:700">${isAr && emp.name_ar ? emp.name_ar : emp.name}</div>
     <div style="font-size:14px;color:#5a6272;margin-top:3px">${isAr && emp.name_ar ? emp.name : (emp.name_ar||'')}</div>
     <div style="margin-top:8px;font-size:13px;font-weight:600;color:${color}">
-      ${isAr ? (DESIG_AR_MAP[emp.designation]||emp.designation||'') : (emp.designation||'')}
+      ${isAr ? (emp.designation_ar||emp.designation||'') : (emp.designation||'')}
     </div>
-    ${emp.designation_ar ? `<div style="font-size:12px;color:#5a6272;margin-top:2px">${emp.designation_ar}</div>` : ''}
   </div>
 </div>
 
@@ -629,7 +628,7 @@ function exportEmployeesExcel(list, lang, coaches) {
   const rows = list.map(e => ({
     [L('Name','الاسم')]:                  ar && e.name_ar ? e.name_ar : (e.name||''),
     [L('English Name','الاسم بالإنجليزي')]:  ar && e.name_ar ? e.name : (e.name_ar||''),
-    [L('Designation','المسمى الوظيفي')]: ar ? (DESIG_AR_MAP[e.designation]||e.designation||'') : (e.designation||''),
+    [L('Designation','المسمى الوظيفي')]: ar ? (e.designation_ar||e.designation||'') : (e.designation||''),
     [L('Designation AR','المسمى بالعربي')]: e.designation_ar || '',
     [L('Gender','الجنس')]:             e.gender ? (ar?(e.gender==='Male'?'ذكر':'أنثى'):e.gender) : '',
     [L('Nationality','الجنسية')]:      tc(e.nationality),
