@@ -612,11 +612,17 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
                 const y = Math.floor(months / 12), m = months % 12
                 return m > 0 ? `${y}y ${m}mo` : (lang==='ar' ? `${y} سنة` : `${y} yr${y!==1?'s':''}`)
               })()
+              const statusDates = [c.status_start, c.status_end].filter(Boolean).join(' → ')
               const fields = [
+                [lang==='ar'?'المسمى الوظيفي':'Designation', lang==='ar' ? (c.designation_ar||c.designation) : c.designation],
+                [lang==='ar'?'الرياضة':'Sport', c.sport ? sportLabel(c.sport, c.sport_category, lang==='ar') : null],
+                [lang==='ar'?'البرنامج/الفئة':'Program/Category', c.sport_category ? (lang==='ar' ? (SPORT_CATEGORY_NAMES_AR[c.sport_category]||c.sport_category) : c.sport_category) : null],
                 [lang==='ar'?'رقم الموظف':'Employee #', c.employee_number],
                 [lang==='ar'?'رقم QSS':'QSS #', c.qss_number],
                 [lang==='ar'?'مع QPC منذ':'With QPC since', c.since],
                 [lang==='ar'?'سنوات الخدمة':'Years of Service', yearsOfService],
+                [lang==='ar'?'الحالة':'Status', lang==='ar'?(STATUS_AR[effectiveStatus(c)]||effectiveStatus(c)):effectiveStatus(c)],
+                [lang==='ar'?'تواريخ الحالة':'Status dates', statusDates || null],
               ].filter(([,v]) => v)
               if (fields.length === 0) return null
               return (
@@ -627,6 +633,32 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
                       <div key={k} className="detail-row" style={{ minWidth:0 }}>
                         <span className="dk">{k}</span>
                         <span className="dv" style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{v}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* IDENTITY DOCUMENTS — mirrors Employees.jsx's Identity Documents
+                card exactly (same fields where they exist on coaches). */}
+            {(() => {
+              const idFields = [
+                [lang==='ar'?'الرقم الشخصي / رقم الهوية':'Qatar ID / Residence #', c.id_number],
+                [lang==='ar'?'تاريخ انتهاء الهوية':'ID expiry', c.id_expiry],
+                [lang==='ar'?'رقم جواز السفر':'Passport number', c.passport_number],
+                [lang==='ar'?'تاريخ انتهاء الجواز':'Passport expiry', c.passport_expiry],
+              ].filter(([,v]) => v)
+              if (idFields.length === 0) return null
+              const isExpired = d => d && new Date(d) < new Date()
+              return (
+                <div className="info-card">
+                  <div className="info-title" style={{ marginBottom:10 }}>{lang==='ar'?'وثائق الهوية':'Identity Documents'}</div>
+                  <div style={{ display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:'4px 16px' }}>
+                    {idFields.map(([k,v]) => (
+                      <div key={k} className="detail-row" style={{ minWidth:0 }}>
+                        <span className="dk">{k}</span>
+                        <span className="dv" style={{ color: k.toLowerCase().includes('expiry') && isExpired(v) ? '#dc2626' : undefined }}>{v}</span>
                       </div>
                     ))}
                   </div>
@@ -685,33 +717,6 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
                 </>
             }
           </div>
-
-            {/* IDENTITY DOCUMENTS — mirrors Employees.jsx's Identity Documents
-                card exactly (same fields where they exist on coaches). */}
-            {(() => {
-              const idFields = [
-                [lang==='ar'?'تاريخ الميلاد':'Date of birth', c.dob],
-                [lang==='ar'?'الرقم الشخصي / رقم الهوية':'Qatar ID / Residence #', c.id_number],
-                [lang==='ar'?'تاريخ انتهاء الهوية':'ID expiry', c.id_expiry],
-                [lang==='ar'?'رقم جواز السفر':'Passport number', c.passport_number],
-                [lang==='ar'?'تاريخ انتهاء الجواز':'Passport expiry', c.passport_expiry],
-              ].filter(([,v]) => v)
-              if (idFields.length === 0) return null
-              const isExpired = d => d && new Date(d) < new Date()
-              return (
-                <div className="info-card">
-                  <div className="info-title" style={{ marginBottom:10 }}>{lang==='ar'?'وثائق الهوية':'Identity Documents'}</div>
-                  <div style={{ display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:'4px 16px' }}>
-                    {idFields.map(([k,v]) => (
-                      <div key={k} className="detail-row" style={{ minWidth:0 }}>
-                        <span className="dk">{k}</span>
-                        <span className="dv" style={{ color: k.toLowerCase().includes('expiry') && isExpired(v) ? '#dc2626' : undefined }}>{v}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )
-            })()}
 
             {/* DOCUMENTS — shared identity documents (Photo/Original Passport/
                 Qatar ID) merged in via sharedPersonId, same width as the rest
