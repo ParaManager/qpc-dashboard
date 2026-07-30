@@ -279,7 +279,10 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
   // form, role badges) still use the raw `coaches` prop below, so nothing
   // about their coach functionality is lost, only their visibility here.
   const HIDDEN_LIST_STATUSES = ['External', 'When needed']
-  const visibleCoaches = coaches.filter(c => !HIDDEN_LIST_STATUSES.includes(c.status))
+  // Assistant Coaches keep their designation exactly as "Assistant Coach"
+  // and remain full coach records (sports, assigned athletes, schedules,
+  // documents, etc. all untouched) — they're just not shown in this list.
+  const visibleCoaches = coaches.filter(c => !HIDDEN_LIST_STATUSES.includes(c.status) && c.designation !== 'Assistant Coach')
 
   function computeCoachOptionCounts(colKey, getFieldValue, matchOption) {
     const q = search.toLowerCase()
