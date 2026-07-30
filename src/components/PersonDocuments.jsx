@@ -10,7 +10,7 @@ const DOC_TYPES_AR = {
   'Original Passport':'جواز السفر', 'Qatar ID':'الرقم الشخصي',
   'Residence Permit':'تصريح الإقامة', 'Contract':'العقد',
   'Certificate':'الشهادة', 'Medical Report':'التقرير الطبي',
-  'Photo':'صورة', 'Other':'أخرى',
+  'Photo':'صورة', 'ADEL Certificate':'شهادة ADEL', 'Other':'أخرى',
 }
 
 // 'Original Passport' matches Athletes.jsx/documentEngine's canonical name
@@ -19,7 +19,7 @@ const DOC_TYPES_AR = {
 const DOC_TYPES = [
   'Original Passport', 'Qatar ID', 'Residence Permit',
   'Contract', 'Certificate', 'Medical Report',
-  'Photo', 'Other'
+  'Photo', 'ADEL Certificate', 'Other'
 ]
 
 const DOC_ICONS  = {
@@ -30,6 +30,7 @@ const DOC_ICONS  = {
   'Certificate':      'ti-certificate',
   'Medical Report':   'ti-heart-rate-monitor',
   'Photo':            'ti-photo',
+  'ADEL Certificate': 'ti-award',
   'Other':            'ti-file',
 }
 
@@ -41,6 +42,7 @@ const DOC_COLORS = {
   'Certificate':      '#e67e22',
   'Medical Report':   '#EE334E',
   'Photo':            '#0085C7',
+  'ADEL Certificate': '#009F6B',
   'Other':            '#9aa3b2',
 }
 
@@ -108,7 +110,7 @@ async function downloadAllDocuments(personName, myDocs, setDownloadingAll, ar) {
 // used for person_shared_documents — may be null if this role isn't linked
 // to a person yet, in which case shared-type uploads are blocked with a
 // clear message rather than silently going nowhere.
-export default function PersonDocuments({ personId, personType, personName, docs, onRefresh, profile, sharedPersonId }) {
+export default function PersonDocuments({ personId, personType, personName, docs, onRefresh, profile, sharedPersonId, designation }) {
   const { tx, lang } = useLang()
   const ar = lang === 'ar'
   const [docType, setDocType]         = useState('')
@@ -142,7 +144,7 @@ export default function PersonDocuments({ personId, personType, personName, docs
     acc[t] = myDocs.filter(d => d.type === t)
     return acc
   }, {})
-  const rules = getNonAthleteDocumentRules()
+  const rules = getNonAthleteDocumentRules(designation)
   const completion = computeCompletion(myDocs, rules)
 
   async function handleUpload(file) {
