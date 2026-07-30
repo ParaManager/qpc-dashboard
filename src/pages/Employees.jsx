@@ -1286,7 +1286,7 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
                 here only, not duplicated on the profile card. */}
             {(() => {
               const fields = [
-                [tx('form.designation','Designation'), emp.designation_ar && lang==='ar' ? emp.designation_ar : (DESIG_LABELS[emp.designation] || emp.designation)],
+                [tx('form.designation','Designation'), lang==='ar' ? (emp.designation_ar || emp.designation) : emp.designation],
                 [tx('profile.employeeNum','Employee #'), emp.employee_number],
                 [tx('profile.qssNumber','QSS #'), emp.qss_number],
                 [lang==='ar'?'تاريخ الانضمام':'Join Date', formatFriendlyDate(emp.created_at, lang==='ar')],
@@ -1489,7 +1489,7 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
                       const dropdownOptions = [
                         ...COL_FILTERS[key].map(o => ({
                           value: o,
-                          label: key==='designation' ? (DESIG_LABELS[o]||o)
+                          label: key==='designation' ? (lang==='ar' ? (employees.find(e => e.designation === o)?.designation_ar || o) : o)
                             : key==='nationality' ? tc(o)
                             : key==='gender' ? ({'Male':lang==='ar'?'ذكر':'Male','Female':lang==='ar'?'أنثى':'Female'}[o]||o)
                             : (COL_FILTER_LABELS[key]?.[o]||o),
@@ -1567,7 +1567,7 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
                   }
                   if (c.key === 'designation') return (
                     <td key={c.key}>
-                      <div><DesigBadge label={emp.designation} displayLabel={lang==='ar' ? (emp.designation_ar || DESIG_LABELS[emp.designation] || emp.designation) : emp.designation} /></div>
+                      <div><DesigBadge label={emp.designation} displayLabel={lang==='ar' ? (emp.designation_ar || emp.designation) : emp.designation} /></div>
                     </td>
                   )
                   if (c.key === 'designation_ar') return <td key={c.key} style={{ fontSize:11, color:'#9aa3b2', direction:'rtl' }}>{emp.designation_ar||'—'}</td>
