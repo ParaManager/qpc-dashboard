@@ -33,6 +33,7 @@ const DOC_TYPES  = [
   'MDF',
   'IPC Athlete Eligibility Agreement',
   'SDMS License',
+  'ADEL Certificate',
   'Other',
 ]
 // Required document types for completeness checks — same list the athlete
@@ -496,7 +497,7 @@ const DOC_TYPES_AR = {
   'Birth Certificate':'شهادة ميلاد', 'QSRSN Membership':'عضوية QSRSN',
   'Health Card':'بطاقة صحية', 'MDF':'MDF',
   'IPC Athlete Eligibility Agreement':'اتفاقية أهلية IPC',
-  'SDMS License':'رخصة SDMS', 'Other':'أخرى',
+  'SDMS License':'رخصة SDMS', 'ADEL Certificate':'شهادة ADEL', 'Other':'أخرى',
 }
 
 // ── Export Documents (admin only) ──────────────────────────────────
@@ -696,6 +697,7 @@ const DOC_ICONS  = {
   'MDF':                            'ti-file-description',
   'IPC Athlete Eligibility Agreement': 'ti-file-check',
   'SDMS License':                   'ti-license',
+  'ADEL Certificate':                'ti-award',
   'Other':                          'ti-file',
 }
 const DOC_COLORS = {
@@ -712,6 +714,7 @@ const DOC_COLORS = {
   'MDF':                            '#16a085',
   'IPC Athlete Eligibility Agreement': '#0085C7',
   'SDMS License':                   '#e67e22',
+  'ADEL Certificate':                '#009F6B',
   'Other':                          '#9aa3b2',
 }
 

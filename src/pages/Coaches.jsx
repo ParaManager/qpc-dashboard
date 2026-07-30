@@ -210,6 +210,12 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
   const [sportCategory, setSportCategory] = useState([])
   const [status, setStatus]     = useState([])
   const [sort, setSort]         = useState('name-asc')
+  const [customDesignations, setCustomDesignations] = useState([])
+  useEffect(() => {
+    supabase.from('employee_designations').select('label, label_ar').order('label').then(({ data }) => {
+      if (data) setCustomDesignations(data)
+    })
+  }, [])
   const sortBtn = (key, label) => {
     const isAsc = sort === `${key}-asc`
     const isDesc = sort === `${key}-desc`
@@ -359,6 +365,7 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
       nationality: formData.nationality, gender: formData.gender,
       sport_category: formData.sportCategory,
       sport: formData.sport,
+      designation: formData.designation || 'Coach', designation_ar: formData.designationAr || null,
       license: formData.license, since: formData.since || null,
       email: formData.email, phone: formData.phone, status: formData.status,
       status_start: isDatedStatus ? (formData.statusStart||null) : null,
@@ -370,10 +377,37 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
       id_expiry: formData.idExpiry || null,
     }
     if (!payload.name) { toast('Name is required', 'error'); return }
+    let coachId = formData.id
     const { error } = isEdit
       ? await supabase.from('coaches').update(payload).eq('id', formData.id)
-      : await supabase.from('coaches').insert(payload)
+      : await supabase.from('coaches').insert(payload).select().single().then(r => { coachId = r.data?.id; return r })
     if (error) { toast(error.message, 'error'); return }
+
+    // Employee ↔ Coach sync: find an existing linked Employee (same
+    // qss_number, falling back to name match) — reuse it if found, keeping
+    // its designation/status in sync; otherwise create one so every coach
+    // also has an Employee record, per the existing shared architecture.
+    const empMatch = employees?.find(e =>
+      (payload.qss_number && e.qss_number && e.qss_number === payload.qss_number) ||
+      (payload.name && e.name && e.name.trim().toLowerCase() === payload.name.trim().toLowerCase())
+    )
+    if (empMatch) {
+      await supabase.from('employees').update({
+        designation: payload.designation, designation_ar: payload.designation_ar,
+        status: payload.status, status_start: payload.status_start, status_end: payload.status_end,
+      }).eq('id', empMatch.id)
+    } else {
+      await supabase.from('employees').insert({
+        name: payload.name, name_ar: payload.name_ar, gender: payload.gender, nationality: payload.nationality,
+        designation: payload.designation, designation_ar: payload.designation_ar,
+        qss_number: payload.qss_number, employee_number: payload.employee_number,
+        phone: payload.phone, email: payload.email, status: payload.status,
+        status_start: payload.status_start, status_end: payload.status_end,
+        passport_number: payload.passport_number, passport_expiry: payload.passport_expiry,
+        id_number: payload.id_number, id_expiry: payload.id_expiry,
+      })
+    }
+
     toast(isEdit ? `${payload.name} updated` : `${payload.name} added`)
     if (isTrustedAdmin(profile)) {
       logAdminActivity({ actor: profile, action: isEdit ? 'updated' : 'created', entityType: 'coach', entityId: formData.id || null, entityLabel: payload.name, module: 'coaches' })
@@ -447,12 +481,13 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
             record={form==='edit' ? {
               id:c.id, name:c.name, nameAr:c.name_ar, nationality:c.nationality,
               gender:c.gender, sportCategory:c.sport_category, sport:c.sport,
+              designation:c.designation, designationAr:c.designation_ar,
               license:c.license, since:c.since, email:c.email, phone:c.phone,
               status:c.status, statusStart:c.status_start||'', statusEnd:c.status_end||'', qssNumber:c.qss_number, employeeNumber:c.employee_number,
               passportNumber:c.passport_number, passportExpiry:c.passport_expiry,
               idNumber:c.id_number, idExpiry:c.id_expiry,
             } : null}
-            coaches={coaches} athletes={athletes} onSave={handleSave} onClose={() => setForm(null)} />
+            coaches={coaches} athletes={athletes} employees={employees} customDesignations={customDesignations} onDesignationAdded={d => setCustomDesignations(p => [...p, d])} onSave={handleSave} onClose={() => setForm(null)} />
         )}
         {pendingStatusSave && (
           <StatusScopeModal
@@ -627,6 +662,7 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
           onRefresh={onRefresh}
           profile={profile}
           sharedPersonId={c.person_id}
+          designation={c.designation}
         />
       <CareerHistory personId={c.id} personType="coach" personName={c.name} />
 
@@ -638,7 +674,7 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
   // ── LIST VIEW ──
   return (
     <div>
-      {form && <FormModal type="coach" record={null} coaches={coaches} athletes={athletes} onSave={handleSave} onClose={() => setForm(null)} />}
+      {form && <FormModal type="coach" record={null} coaches={coaches} athletes={athletes} employees={employees} customDesignations={customDesignations} onDesignationAdded={d => setCustomDesignations(p => [...p, d])} onSave={handleSave} onClose={() => setForm(null)} />}
       {pendingStatusSave && (
         <StatusScopeModal
           roles={pendingStatusSave.roles}

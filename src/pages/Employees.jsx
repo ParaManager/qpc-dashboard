@@ -1349,6 +1349,7 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
               onRefresh={onRefresh}
               profile={profile}
               sharedPersonId={emp.person_id}
+              designation={emp.designation}
             />
 
             <CareerHistory personId={emp.id} personType="employee" personName={emp.name} />
