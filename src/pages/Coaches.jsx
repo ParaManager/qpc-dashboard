@@ -526,7 +526,7 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
           {matchedEmployee && <EmployeeCardButton emp={matchedEmployee} />}
         </div>
 
-        <div className="detail-grid">
+        <div className="detail-grid coach-detail-grid">
           <div className="detail-profile">
             {/* PHOTO */}
             <div style={{ position:'relative', width:90, height:90, margin:'0 auto 14px' }}>
@@ -561,11 +561,20 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
 
             <div className="detail-name">{lang==='ar' && c.name_ar ? c.name_ar : c.name}</div>
             <div className="detail-sub">{lang==='ar' && c.name_ar ? c.name : c.name_ar}</div>
-            <div className="detail-sub">
-              {c.sport ? sportLabel(c.sport, c.sport_category, lang==='ar') : ''} {tx('nav.coaches','Coach')}
-              {c.sport_category && <span style={{ marginLeft:6, fontSize:11, color:'var(--text3)' }}>· {lang==='ar' ? (SPORT_CATEGORY_NAMES_AR[c.sport_category]||c.sport_category) : c.sport_category}</span>}
+
+            <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'center' }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{tx('nav.coaches','Coach')}</div>
+              {c.sport && (
+                <div style={{ fontSize: 12, color: 'var(--text2)' }}>{sportLabel(c.sport, c.sport_category, lang==='ar')}</div>
+              )}
+              {c.sport_category && (
+                <span style={{ fontSize: 10.5, fontWeight: 600, padding: '2px 9px', borderRadius: 999, background: '#0085C718', color: '#0085C7' }}>
+                  {lang==='ar' ? (SPORT_CATEGORY_NAMES_AR[c.sport_category]||c.sport_category) : c.sport_category}
+                </span>
+              )}
             </div>
-            <div className="detail-badges">
+
+            <div className="detail-badges" style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
               <Badge label={lang==='ar'?(STATUS_AR[effectiveStatus(c)]||effectiveStatus(c)):effectiveStatus(c)} />
               {/* Rule 5: hide the date range once status_end has actually
                   passed (stale); a future-scheduled range is still shown. */}
@@ -574,47 +583,67 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
               )}
             </div>
             <RoleBadges roles={personRolesCoach} lang={lang} excludeType="coach" />
-            <div className="detail-fields">
-              {[
+
+            {[
+              { title: lang==='ar'?'التوظيف':'Employment', fields: [
                 [lang==='ar'?'رقم الموظف':'Employee #', c.employee_number],
                 [lang==='ar'?'رقم QSS':'QSS #', c.qss_number],
-                  [lang==='ar'?'الجنسية':'Nationality', tc(c.nationality)],
-                [lang==='ar'?'الجنس':'Gender', lang==='ar'&&c.gender?(c.gender==='Male'?'ذكر':'أنثى'):c.gender],
                 [lang==='ar'?'مع QPC منذ':'With QPC since', c.since],
+              ]},
+              { title: lang==='ar'?'الهوية':'Identity', fields: [
                 [lang==='ar'?'رقم الجواز':'Passport #', c.passport_number],
                 [lang==='ar'?'انتهاء الجواز':'Passport expiry', c.passport_expiry],
                 [lang==='ar'?'الرقم الشخصي':'ID / Residence #', c.id_number],
                 [lang==='ar'?'انتهاء الهوية':'ID expiry', c.id_expiry],
+              ]},
+              { title: lang==='ar'?'التواصل':'Contact', fields: [
                 [lang==='ar'?'البريد الإلكتروني':'Email', c.email],
                 [lang==='ar'?'الهاتف':'Phone', c.phone],
-              ].map(([k,v]) => (
-                <div key={k} className="detail-row">
-                  <span className="dk">{k}</span>
-                  <span className="dv" style={{ fontSize:12 }}>{v||'—'}</span>
+              ]},
+              { title: lang==='ar'?'بيانات شخصية':'Personal', fields: [
+                [lang==='ar'?'الجنسية':'Nationality', tc(c.nationality)],
+                [lang==='ar'?'الجنس':'Gender', lang==='ar'&&c.gender?(c.gender==='Male'?'ذكر':'أنثى'):c.gender],
+              ]},
+            ].map(group => {
+              const visible = group.fields.filter(([,v]) => v)
+              if (visible.length === 0) return null
+              return (
+                <div key={group.title} style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 }}>{group.title}</div>
+                  <div className="detail-fields">
+                    {visible.map(([k,v]) => (
+                      <div key={k} className="detail-row">
+                        <span className="dk">{k}</span>
+                        <span className="dv" style={{ fontSize: 12, overflowWrap: 'anywhere' }}>{v}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              ))}
-            </div>
+              )
+            })}
           </div>
 
           <div className="info-card">
-            {/* Medals summary */}
-            <div style={{ display:'flex', justifyContent:'space-around', padding:'10px 0 16px', borderBottom:'1px solid var(--border)', marginBottom:14 }}>
+            {/* Medals summary — compact KPI cards, evenly spaced, direction-aware */}
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap:8, paddingBottom:14, marginBottom:14, borderBottom:'1px solid var(--border)' }}>
               {[
                 [lang==='ar'?'الرياضيون':'Athletes', myAthletes.length, '#0085C7'],
                 [lang==='ar'?'ذهب':'Gold', myAthletes.reduce((s,a)=>s+(a.medals_gold||0),0), '#f1c40f'],
                 [lang==='ar'?'فضة':'Silver', myAthletes.reduce((s,a)=>s+(a.medals_silver||0),0), '#aaa'],
                 [lang==='ar'?'برونز':'Bronze', myAthletes.reduce((s,a)=>s+(a.medals_bronze||0),0), '#cd7f32'],
               ].map(([label, val, color]) => (
-                <div key={label} style={{ textAlign:'center' }}>
-                  <div style={{ fontSize:22, fontWeight:600, color }}>{val}</div>
-                  <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>{label}</div>
+                <div key={label} style={{ textAlign:'center', background:'var(--surface2)', borderRadius:10, padding:'10px 4px' }}>
+                  <div style={{ fontSize:20, fontWeight:700, color }}>{val}</div>
+                  <div style={{ fontSize:10.5, color:'var(--text3)', marginTop:2 }}>{label}</div>
                 </div>
               ))}
             </div>
 
-            <div className="info-title">
-              {lang==='ar'?'الرياضيون المعينون':'Assigned athletes'} ({myAthletes.length})
-              <span style={{ fontSize:10, fontWeight:400, textTransform:'none', letterSpacing:0, marginLeft:4 }}>— {lang==='ar'?'انقر للعرض':'click to view'}</span>
+            <div style={{ display:'flex', alignItems:'baseline', justifyContent:'space-between', flexWrap:'wrap', gap:4, marginBottom:8 }}>
+              <div className="info-title" style={{ margin:0 }}>
+                {lang==='ar'?'الرياضيون المعينون':'Assigned athletes'} ({myAthletes.length})
+              </div>
+              <span style={{ fontSize:11, color:'var(--text3)' }}>{lang==='ar'?'انقر للعرض':'click to view'}</span>
             </div>
             {myAthletes.length === 0
               ? <div className="empty">{lang==='ar'?'لا يوجد رياضيون معينون':'No athletes assigned'}</div>
@@ -625,12 +654,12 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
                         ? <img src={a.photo_url} alt={a.name} style={{ width:32, height:32, borderRadius:'50%', objectFit:'cover', flexShrink:0 }} />
                         : <Avatar name={a.name} id={a.id} size={32} fs={10} />
                       }
-                      <div style={{ flex:1 }}>
-                        <div style={{ fontSize:13, fontWeight:500 }}>{lang==='ar' && a.name_ar ? a.name_ar : a.name}</div>
-                        <div style={{ fontSize:11, color:'#9aa3b2' }}>{a.sport ? sportLabel(a.sport, a.sport_category, lang==='ar') : ''} · {a.classification}</div>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontSize:13, fontWeight:500, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{lang==='ar' && a.name_ar ? a.name_ar : a.name}</div>
+                        <div style={{ fontSize:11, color:'#9aa3b2', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{a.sport ? sportLabel(a.sport, a.sport_category, lang==='ar') : ''} · {a.classification}</div>
                       </div>
-                      <MedalDisplay gold={a.medals_gold} silver={a.medals_silver} bronze={a.medals_bronze} />
-                      <Badge label={lang==='ar' ? (STATUS_AR[effectiveStatus(a)]||effectiveStatus(a)) : effectiveStatus(a)} />
+                      <div style={{ flexShrink:0 }}><MedalDisplay gold={a.medals_gold} silver={a.medals_silver} bronze={a.medals_bronze} /></div>
+                      <div style={{ flexShrink:0 }}><Badge label={lang==='ar' ? (STATUS_AR[effectiveStatus(a)]||effectiveStatus(a)) : effectiveStatus(a)} /></div>
                     </DashRow>
                   ))}
                   {myAthletes.length > 5 && (
