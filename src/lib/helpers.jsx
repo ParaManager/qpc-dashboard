@@ -85,6 +85,52 @@ export const SPORTS_BY_CATEGORY = {
   'Unified Sports':           UNIFIED_SPORTS,
 }
 
+// Shared search normalizer — used everywhere a page filters a list by a
+// free-text search box, so behavior stays identical/language-independent
+// across Athletes, Employees, Coaches, Referees, Events, Results, Tasks,
+// Resources, Calendar, Requests, Attendance, etc. instead of every page
+// re-implementing its own ad-hoc lowercase/trim logic.
+//
+// Normalizes: case, leading/trailing/repeated whitespace, Arabic letter
+// variants (أ/إ/آ/ٱ -> ا, ى -> ي, ة -> ه), Arabic diacritics (removed), and
+// Arabic-Indic / Extended-Arabic-Indic digits -> Western digits — so a
+// search for "مدرب" matches "مدرّب", "قصي" matches "قصى", and "١٢٣" matches
+// records stored as "123".
+const AR_DIACRITICS = /[\u064B-\u065F\u0670\u06D6-\u06ED]/g
+const AR_DIGIT_MAP = {
+  '٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9', // Arabic-Indic
+  '۰':'0','۱':'1','۲':'2','۳':'3','۴':'4','۵':'5','۶':'6','۷':'7','۸':'8','۹':'9', // Extended (Persian/Urdu)
+}
+export function normalizeSearch(value) {
+  if (value === null || value === undefined) return ''
+  let s = String(value)
+  s = s.replace(AR_DIACRITICS, '')
+  s = s.replace(/[٠-٩۰-۹]/g, d => AR_DIGIT_MAP[d] || d)
+  s = s.replace(/[أإآٱ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه')
+  s = s.toLowerCase()
+  s = s.replace(/\s+/g, ' ').trim()
+  return s
+}
+// Joins any number of field values into one normalized, space-separated
+// search haystack for a single record.
+export function buildSearchText(...fields) {
+  return normalizeSearch(fields
+    .map(v => {
+      if (v === null || v === undefined) return ''
+      if (v instanceof Date) return isNaN(v.getTime()) ? '' : v.toISOString().slice(0, 10)
+      return String(v)
+    })
+    .join(' '))
+}
+// True if every word in the (already-typed) query appears somewhere in the
+// normalized haystack — use with buildSearchText/normalizeSearch together:
+//   matchesSearch(buildSearchText(a.name, a.name_ar, ...), query)
+export function matchesSearch(haystack, query) {
+  const q = normalizeSearch(query)
+  if (!q) return true
+  return q.split(' ').every(word => haystack.includes(word))
+}
+
 export function sportLabel(sport, category, ar) {
   if (!sport) return ''
   const base = ar ? (SPORT_NAMES_AR[sport] || sport) : sport
