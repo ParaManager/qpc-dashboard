@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
 import { toast, ConfirmModal } from '../components/Toast'
-import { Avatar, initials } from '../lib/helpers'
+import { Avatar, initials, buildSearchText, matchesSearch } from '../lib/helpers'
 import { isMainAdminEmail } from '../lib/permissions'
 import MultiSelectFilter from '../components/MultiSelectFilter.jsx'
 
@@ -229,18 +229,18 @@ export default function Tasks({ profile, isMainAdmin, onNav }) {
   function passesTaskFilters(t, q, skipKey) {
     const skip = (key) => key === skipKey
     return (
-      (!q || t.title.toLowerCase().includes(q) || (t.notes||'').toLowerCase().includes(q)) &&
+      (!q || matchesSearch(buildSearchText(t.title, t.notes, t.category, t.priority, t.status), q)) &&
       (skip('assignee') || !isMainAdmin || viewScope !== 'all' || assigneeFilter.length === 0 || assigneeFilter.includes(t.assigned_to)) &&
       (skip('category') || categoryFilter.length === 0 || categoryFilter.some(v => v === 'blank' ? !t.category : (t.category || '') === v))
     )
   }
   function computeTaskOptionCounts(colKey, getFieldValue, matchOption) {
-    const q = search.toLowerCase()
+    const q = search
     const base = scoped.filter(t => passesTaskFilters(t, q, colKey))
     return (value) => base.filter(t => matchOption(getFieldValue(t), value)).length
   }
 
-  const filtered = scoped.filter(t => passesTaskFilters(t, search.toLowerCase(), null))
+  const filtered = scoped.filter(t => passesTaskFilters(t, search, null))
 
   const byStatus = STATUSES.reduce((acc, s) => {
     acc[s] = filtered.filter(t => t.status === s).sort((a, b) => {

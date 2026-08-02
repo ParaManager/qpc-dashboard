@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Avatar, MedalDisplay, Badge, initials, avColor, DashRow, SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, SPORT_CATEGORY_NAMES_AR, SPORT_NAMES_AR, sportLabel, effectiveStatus } from '../lib/helpers'
+import { Avatar, MedalDisplay, Badge, initials, avColor, DashRow, SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, SPORT_CATEGORY_NAMES_AR, SPORT_NAMES_AR, sportLabel, effectiveStatus, buildSearchText, matchesSearch } from '../lib/helpers'
 import FormModal from '../components/FormModal'
 import { ConfirmModal, toast } from '../components/Toast'
 import { supabase } from '../lib/supabase'
@@ -269,7 +269,12 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
       (skip('sport') || sport.length === 0 || sport.some(v => v === 'Blank' ? !c.sport : c.sport === v)) &&
       (skip('sportCategory') || sportCategory.length === 0 || sportCategory.some(v => v === 'Blank' ? !c.sport_category : c.sport_category === v)) &&
       (skip('status') || status.length === 0 || status.includes(c.status)) &&
-      (!q || c.name.toLowerCase().includes(q) || (c.name_ar||'').toLowerCase().includes(q) || (c.sport||'').toLowerCase().includes(q))
+      (!q || matchesSearch(buildSearchText(
+        c.name, c.name_ar, c.designation, c.designation_ar,
+        c.sport, c.sport_category, c.employee_number, c.qss_number,
+        c.id_number, c.nationality, c.gender, c.status,
+        c.phone, c.email, c.passport_number, c.id_expiry, c.passport_expiry,
+      ), q))
     )
   }
 
@@ -285,12 +290,12 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
   const visibleCoaches = coaches.filter(c => !HIDDEN_LIST_STATUSES.includes(c.status) && c.designation !== 'Assistant Coach')
 
   function computeCoachOptionCounts(colKey, getFieldValue, matchOption) {
-    const q = search.toLowerCase()
+    const q = search
     const base = visibleCoaches.filter(c => passesCoachFilters(c, q, colKey))
     return (value) => base.filter(c => matchOption(getFieldValue(c), value)).length
   }
 
-  let list = visibleCoaches.filter(c => passesCoachFilters(c, search.toLowerCase(), null))
+  let list = visibleCoaches.filter(c => passesCoachFilters(c, search, null))
   list = [...list].sort((a, b) => {
     const aC = athletes.filter(x => x.coach_id === a.id).length
     const bC = athletes.filter(x => x.coach_id === b.id).length

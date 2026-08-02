@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import MultiSelectFilter from '../components/MultiSelectFilter.jsx'
-import { Avatar, Badge, statusDot, statusClass, DashRow, sportLabel } from '../lib/helpers'
+import { Avatar, Badge, statusDot, statusClass, DashRow, sportLabel, buildSearchText, matchesSearch } from '../lib/helpers'
 import FormModal from '../components/FormModal'
 import EventCategoryModal from '../components/EventCategoryModal'
 import { ConfirmModal, toast } from '../components/Toast'
@@ -233,9 +233,9 @@ export default function Events({ events, athletes, results, registrations, onRef
     const matchApproval = approvalF.length === 0 || approvalF.includes(e.approval_status)
     const eSports        = e.sports?.length ? e.sports : (e.sport ? [e.sport] : [])
     const matchSport     = sportF.length === 0 || eSports.some(s => sportF.includes(s))
-    const matchSearch   = e.name.toLowerCase().includes(search.toLowerCase())
-      || (e.name_ar || '').includes(search)
-      || (e.venue || '').toLowerCase().includes(search.toLowerCase())
+    const matchSearch   = matchesSearch(buildSearchText(
+      e.name, e.name_ar, e.venue, e.notes, evStatus, e.approval_status, ...eSports,
+    ), search)
     return matchStatus && matchCategory && matchApproval && matchSport && matchSearch
   })
 

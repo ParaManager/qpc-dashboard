@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
-import { Avatar } from '../lib/helpers'
+import { Avatar, buildSearchText, matchesSearch } from '../lib/helpers'
 import { toast } from '../components/Toast'
 import { toLocalDateStr, exportAttendanceXlsx } from './Timetable'
 
@@ -226,7 +226,7 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
     : []
 
   const filteredAthletes = myAthletes.filter(a =>
-    (ar && a.name_ar ? a.name_ar : a.name).toLowerCase().includes(search.toLowerCase())
+    matchesSearch(buildSearchText(a.name, a.name_ar, a.qss_number, a.sport, a.classification), search)
   )
 
   if (viewMode === 'session' && selSession) {

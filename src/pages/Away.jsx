@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useLang } from '../lib/LangContext.jsx'
-import { Avatar, Badge, statusClass, computeAwayPeople, AWAY_STATUSES } from '../lib/helpers'
+import { Avatar, Badge, statusClass, computeAwayPeople, AWAY_STATUSES, buildSearchText, matchesSearch } from '../lib/helpers'
 import MultiSelectFilter from '../components/MultiSelectFilter.jsx'
 
 const STATUS_LABEL = {
@@ -44,23 +44,21 @@ export default function Away({ athletes, coaches, employees, onNav }) {
   function matchesAwaySearch(p, q) {
     if (!q) return true
     const type = p._isCoach ? 'Coach' : p._isEmployee ? 'Employee' : 'Athlete'
-    const name = (p.name || '').toLowerCase()
-    const nameAr = (p.name_ar || '').toLowerCase()
-    const typeEn = TYPE_LABEL[type].en.toLowerCase()
-    const typeAr = TYPE_LABEL[type].ar.toLowerCase()
-    const statusEn = (STATUS_LABEL[p.status]?.en || p.status || '').toLowerCase()
-    const statusAr = (STATUS_LABEL[p.status]?.ar || p.status || '').toLowerCase()
-    return [name, nameAr, typeEn, typeAr, statusEn, statusAr].some(v => v.includes(q))
+    const typeEn = TYPE_LABEL[type].en
+    const typeAr = TYPE_LABEL[type].ar
+    const statusEn = STATUS_LABEL[p.status]?.en || p.status || ''
+    const statusAr = STATUS_LABEL[p.status]?.ar || p.status || ''
+    return matchesSearch(buildSearchText(p.name, p.name_ar, typeEn, typeAr, statusEn, statusAr), q)
   }
 
   const filtered = allAway.filter(p => {
     if (statusFilter.length > 0 && !statusFilter.includes(p.status)) return false
-    return matchesAwaySearch(p, search.toLowerCase())
+    return matchesAwaySearch(p, search)
   })
 
   // Status is the only column filter here, so "excluding the filter being
   // opened" just means counting against search alone.
-  const statusCountsBase = allAway.filter(p => matchesAwaySearch(p, search.toLowerCase()))
+  const statusCountsBase = allAway.filter(p => matchesAwaySearch(p, search))
   function computeAwayStatusCount(statusValue) {
     return statusCountsBase.filter(p => p.status === statusValue).length
   }

@@ -2,7 +2,7 @@
 import { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react'
 import * as XLSX from 'xlsx'
 import { generateStatisticsReport } from '../lib/statisticsReport'
-import { Avatar, MedalDisplay, Badge, avColor, initials, DashRow, SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, SPORT_CATEGORY_NAMES_AR, SPORT_NAMES_AR, sportLabel, effectiveStatus } from '../lib/helpers'
+import { Avatar, MedalDisplay, Badge, avColor, initials, DashRow, SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, SPORT_CATEGORY_NAMES_AR, SPORT_NAMES_AR, sportLabel, effectiveStatus, buildSearchText, matchesSearch, normalizeSearch } from '../lib/helpers'
 import PhotoCropModal from '../components/PhotoCropModal'
 import FormModal from '../components/FormModal'
 import { ConfirmModal, toast } from '../components/Toast'
@@ -1215,20 +1215,12 @@ export default function Athletes({ athletes, coaches, employees, results, docume
       const parts = [
         a.name, a.name_ar, a.qss_number, a.id_number, a.career_profile,
         a.sport_category, a.sport, a.classification, a.disability, a.statistics_disability,
-        a.nationality, a.gender, coach?.name, coach?.name_ar,
+        a.nationality, a.gender, coach?.name, coach?.name_ar, a.club,
         a.status, effectiveStatus(a), a.medical_status,
         a.phone, a.email, a.passport_number, a.passport_expiry, a.id_expiry,
         a.join_date, a.age_category, a.sport_age_category, calcAge(a.dob), a.residency_status,
       ]
-      const text = parts
-        .map(v => {
-          if (v === null || v === undefined) return ''
-          if (v instanceof Date) return isNaN(v.getTime()) ? '' : v.toISOString().slice(0, 10)
-          return String(v)
-        })
-        .join(' ')
-        .toLowerCase()
-        .trim()
+      const text = buildSearchText(...parts)
       map.set(a.id, text)
     }
     return map
@@ -1256,7 +1248,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
       (status === 'All statuses' || effectiveStatus(a) === status) &&
       (gender === 'All genders'  || a.gender === gender) &&
       !!a.name && // exclude blank names
-      (!q || (searchableValues.get(a.id) || '').includes(q)) &&
+      (!q || matchesSearch(searchableValues.get(a.id) || '', q)) &&
       (skip('sport_category') || matchMulti(colFilters.sport_category, a.sport_category)) &&
       (skip('sport') || matchMulti(colFilters.sport, a.sport)) &&
       (skip('status') || matchMulti(colFilters.status, effectiveStatus(a))) &&
@@ -1276,8 +1268,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
   }
 
   const filteredList = useMemo(() => {
-    const q = search.toLowerCase().trim()
-    return athletes.filter(a => passesAthleteFilters(a, q, null))
+    return athletes.filter(a => passesAthleteFilters(a, search, null))
   }, [athletes, coaches, documents, search, sport, sportCategory, status, gender, colFilters, searchableValues])
 
   // Per-column option counts for the MultiSelectFilter dropdowns — computed
@@ -1285,8 +1276,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
   // updating instantly as any other filter changes since it's derived
   // fresh on every render from the same live filter state.
   function computeOptionCounts(colKey, getFieldValue, matchOption) {
-    const q = search.toLowerCase().trim()
-    const base = athletes.filter(a => passesAthleteFilters(a, q, colKey))
+    const base = athletes.filter(a => passesAthleteFilters(a, search, colKey))
     return (value) => base.filter(a => matchOption(getFieldValue(a), value)).length
   }
 

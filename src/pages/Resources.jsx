@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { buildSearchText, matchesSearch } from '../lib/helpers'
 import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
 import { toast, ConfirmModal } from '../components/Toast'
@@ -88,13 +89,7 @@ export default function Resources({ profile, onRefresh }) {
   const visible = resources.filter(r => {
     if (activeCat !== 'All' && (r.category || 'General') !== activeCat) return false
     if (!search) return true
-    const q = search.toLowerCase()
-    return (
-      r.title.toLowerCase().includes(q) ||
-      (r.title_ar||'').toLowerCase().includes(q) ||
-      (r.description||'').toLowerCase().includes(q) ||
-      (r.description_ar||'').toLowerCase().includes(q)
-    )
+    return matchesSearch(buildSearchText(r.title, r.title_ar, r.description, r.description_ar, r.category), search)
   }).sort((a, b) => {
     // Pinned resources always first; within each group, preserve the
     // existing created_at ordering already applied by the query, and among
@@ -112,13 +107,7 @@ export default function Resources({ profile, onRefresh }) {
     acc[cat] = resources.filter(r => {
       if (cat !== 'All' && (r.category || 'General') !== cat) return false
       if (!search) return true
-      const q = search.toLowerCase()
-      return (
-        r.title.toLowerCase().includes(q) ||
-        (r.title_ar||'').toLowerCase().includes(q) ||
-        (r.description||'').toLowerCase().includes(q) ||
-        (r.description_ar||'').toLowerCase().includes(q)
-      )
+      return matchesSearch(buildSearchText(r.title, r.title_ar, r.description, r.description_ar, r.category), search)
     }).length
     return acc
   }, {})

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Avatar, MedalDisplay, Badge } from '../lib/helpers'
+import { Avatar, MedalDisplay, Badge, buildSearchText, matchesSearch } from '../lib/helpers'
 import FormModal from '../components/FormModal'
 import { ConfirmModal, toast } from '../components/Toast'
 import { canEdit } from '../lib/useAuth'
@@ -25,9 +25,7 @@ export default function Results({ results, athletes, onRefresh, onNav, profile }
     return (
       (medal === 'All medals' || r.medal === medal) &&
       (sport === tx('filters.allSports','All sports') || as === sport) &&
-      ((r.athlete_name||'').toLowerCase().includes(search.toLowerCase()) ||
-       (r.discipline||'').toLowerCase().includes(search.toLowerCase()) ||
-       (r.event_name||'').toLowerCase().includes(search.toLowerCase()))
+      matchesSearch(buildSearchText(r.athlete_name, r.discipline, r.event_name, r.medal, r.classification, r.venue, r.notes), search)
     )
   })
   list = [...list].sort((a, b) => {

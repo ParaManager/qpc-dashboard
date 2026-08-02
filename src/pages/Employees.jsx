@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { initials, statusClass, effectiveStatus, COACH_DESIGNATIONS } from '../lib/helpers'
+import { initials, statusClass, effectiveStatus, COACH_DESIGNATIONS, buildSearchText, matchesSearch } from '../lib/helpers'
 import DesignationField from '../components/DesignationField'
 import { ConfirmModal, toast } from '../components/Toast'
 import { supabase } from '../lib/supabase'
@@ -950,10 +950,13 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
   function passesEmployeeFilters(e, q, skipColKey) {
     const skip = (key) => key === skipColKey
     return (
-      (!q || e.name.toLowerCase().includes(q) ||
-             (e.name_ar||'').toLowerCase().includes(q) ||
-             (e.designation||'').toLowerCase().includes(q) ||
-             (e.designation_ar||'').toLowerCase().includes(q)) &&
+      (!q || matchesSearch(buildSearchText(
+        e.name, e.name_ar, e.designation, e.designation_ar,
+        e.employee_number, e.qss_number, e.job_id, e.id_number,
+        e.passport_number, e.nationality, e.gender,
+        effectiveStatus(employeeStatusSource(e, coaches)), e.phone, e.email,
+        e.dob, e.id_expiry, e.passport_expiry, e.adel_certificate,
+      ), q)) &&
       (skip('designation') || matchMulti(colFilters.designation, e.designation)) &&
       (skip('nationality') || matchMulti(colFilters.nationality, e.nationality)) &&
       (skip('gender') || matchMulti(colFilters.gender, e.gender)) &&
@@ -963,12 +966,12 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
   }
 
   function computeEmployeeOptionCounts(colKey, getFieldValue, matchOption) {
-    const q = search.toLowerCase()
+    const q = search
     const base = employees.filter(e => passesEmployeeFilters(e, q, colKey))
     return (value) => base.filter(e => matchOption(getFieldValue(e), value)).length
   }
 
-  let list = employees.filter(e => passesEmployeeFilters(e, search.toLowerCase(), null))
+  let list = employees.filter(e => passesEmployeeFilters(e, search, null))
   list = [...list].sort((a, b) => {
     if (sort === 'name-asc')   return a.name.localeCompare(b.name)
     if (sort === 'name-desc')  return b.name.localeCompare(a.name)

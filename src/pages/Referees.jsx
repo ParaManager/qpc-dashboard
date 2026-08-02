@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
-import { Avatar, avColor, initials } from '../lib/helpers'
+import { Avatar, avColor, initials, buildSearchText, matchesSearch } from '../lib/helpers'
 import { toast, ConfirmModal } from '../components/Toast'
 import { canEdit } from '../lib/useAuth'
 import { usePersonRoles, RoleBadges } from '../components/RoleBadges.jsx'
@@ -329,25 +329,23 @@ export default function Referees({ referees, onRefresh, profile }) {
   // Shared predicate reused by the main list and per-option counts.
   function passesRefFilters(r, q, skipKey) {
     const skip = (key) => key === skipKey
-    const matchesSearch = !q ||
-      (r.name||'').toLowerCase().includes(q) ||
-      (r.name_ar||'').toLowerCase().includes(q) ||
-      (r.id_number||'').includes(q) ||
-      (r.nationality||'').toLowerCase().includes(q)
+    const searchOk = !q || matchesSearch(buildSearchText(
+      r.name, r.name_ar, r.id_number, r.nationality, r.number, r.gender, r.phone, r.email,
+    ), q)
     return (
-      matchesSearch &&
+      searchOk &&
       (skip('nat') || natF.length === 0 || natF.some(v => v === 'Blank' ? !r.nationality : r.nationality?.toLowerCase() === v.toLowerCase())) &&
       (skip('gender') || genderF.length === 0 || genderF.some(v => v === 'Blank' ? !r.gender : r.gender === v))
     )
   }
   function computeRefOptionCounts(colKey, getFieldValue, matchOption) {
-    const q = search.toLowerCase()
+    const q = search
     const base = (referees||[]).filter(r => passesRefFilters(r, q, colKey))
     return (value) => base.filter(r => matchOption(getFieldValue(r), value)).length
   }
 
   const list = useMemo(() => {
-    const q = search.toLowerCase()
+    const q = search
     let d = (referees||[]).filter(r => passesRefFilters(r, q, null))
     d.sort((a,b) => {
       if (sort==='name-asc')  return (a.name||'').localeCompare(b.name||'')
