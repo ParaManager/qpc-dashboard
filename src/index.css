@@ -364,6 +364,7 @@ body { overscroll-behavior: none; }
 
   /* Calendar month grid — tighter cells on narrow screens */
   .cal-day-cell { min-height: 74px !important; padding: 4px 3px 3px !important; }
+  [dir="rtl"] .cal-header-cell { font-size: 9.5px !important; padding: 8px 1px !important; }
 
   /* Athlete Overview grid specifically uses an inline ellipsis/nowrap
      style (needed on desktop for its 2-column layout) — !important is
