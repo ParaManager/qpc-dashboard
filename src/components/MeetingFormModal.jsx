@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
 import { toast } from './Toast'
-import { Avatar } from '../lib/helpers'
+import { Avatar, buildSearchText, matchesSearch } from '../lib/helpers'
 
 export default function MeetingFormModal({ meeting, onClose, onSaved, onDelete, profile }) {
   const { lang } = useLang()
@@ -82,10 +82,9 @@ export default function MeetingFormModal({ meeting, onClose, onSaved, onDelete, 
     onSaved()
   }
 
-  const filteredEmployees = employees.filter(p => {
-    const name = ar && p.name_ar ? p.name_ar : p.name
-    return !search || (name || '').toLowerCase().includes(search.toLowerCase())
-  })
+  const filteredEmployees = employees.filter(p =>
+    matchesSearch(buildSearchText(p.name, p.name_ar, p.designation), search)
+  )
   const selectedEmployees = employees.filter(p => form.attendeeIds.includes(p.id))
 
   return (

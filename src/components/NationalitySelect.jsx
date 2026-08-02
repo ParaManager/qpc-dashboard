@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNationalities } from '../lib/useNationalities'
+import { buildSearchText, matchesSearch } from '../lib/helpers'
 
 // Dropdown for the Nationality field on every create/edit form. Backed
 // entirely by the shared nationalities table (useNationalities) — typing a
@@ -26,9 +27,7 @@ export default function NationalitySelect({ value, onChange, lang, placeholder }
   }, [open])
 
   const filtered = search
-    ? nationalities.filter(n =>
-        n.name_en.toLowerCase().includes(search.toLowerCase()) ||
-        (n.name_ar || '').includes(search))
+    ? nationalities.filter(n => matchesSearch(buildSearchText(n.name_en, n.name_ar), search))
     : nationalities
 
   const exactMatch = nationalities.some(n =>

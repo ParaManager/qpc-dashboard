@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useLang } from '../lib/LangContext.jsx'
+import { matchesSearch } from '../lib/helpers'
 
 // Searchable multi-select checkbox dropdown for inline table filters.
 // `selected` is an array of chosen values (empty array = no filter / "All").
@@ -33,9 +34,9 @@ export default function MultiSelectFilter({ options, selected, onChange, allLabe
   const regularOptions = options.filter(o => o !== blankOption)
 
   const filteredRegular = search
-    ? regularOptions.filter(o => o.label.toLowerCase().includes(search.toLowerCase()))
+    ? regularOptions.filter(o => matchesSearch(o.label, search))
     : regularOptions
-  const blankMatchesSearch = !search || (blankOption && blankOption.label.toLowerCase().includes(search.toLowerCase()))
+  const blankMatchesSearch = !search || (blankOption && matchesSearch(blankOption.label, search))
 
   const allValues = regularOptions.map(o => o.value)
   const allSelected = allValues.length > 0 && allValues.every(v => selected.includes(v))
