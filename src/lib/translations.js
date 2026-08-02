@@ -22,6 +22,7 @@ export const AR = {
     employees:'الموظفون', sports:'الرياضات', events:'الفعاليات',
     results:'النتائج', signOut:'تسجيل الخروج', adminPortal:'بوابة الإدارة', season:'موسم',
     schedule:'الجدول الزمني', attendance:'الحضور والغياب',
+    calendar:'التقويم', schedules:'الجداول',
     users:'إدارة المستخدمين', admin:'الإدارة', referees:'الحكام',
     profile:'ملفي الشخصي', settings:'الإعدادات', account:'الحساب',
     mycompetitions:'منافساتي',
@@ -33,6 +34,7 @@ export const AR = {
   pages: {
     dashboard:'لوحة التحكم', athletes:'الرياضيون', coaches:'المدربون',
     employees:'الموظفون', sports:'الرياضات', events:'الفعاليات', results:'النتائج',
+    calendar:'التقويم', schedule:'الجداول',
   },
   roles: { admin:'مسؤول', coach:'مدرب', athlete:'رياضي', guest:'زائر' },
   dashboard: {
