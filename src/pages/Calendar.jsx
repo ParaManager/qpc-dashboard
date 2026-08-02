@@ -77,7 +77,7 @@ export default function Calendar({ profile, events = [], onNav }) {
     ? ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر']
     : ['January','February','March','April','May','June','July','August','September','October','November','December']
   const dayNames = ar
-    ? ['أح','اث','ثل','أر','خم','جم','سب']
+    ? ['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت']
     : ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
 
   const allItems = useMemo(() => {
@@ -331,7 +331,7 @@ export default function Calendar({ profile, events = [], onNav }) {
         <div className="cal-wrap" style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', boxShadow: 'var(--shadow)' }}>
           <div className="cal-headers" style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)', borderBottom: '1px solid var(--border)' }}>
             {dayNames.map((d, i) => (
-              <div key={d} style={{ padding: '10px 0', textAlign: 'center', fontSize: 12, fontWeight: 600, color: (i === 0 || i === 6) ? 'var(--text3)' : 'var(--text2)', textTransform: 'uppercase', letterSpacing: '.05em', opacity: (i === 0 || i === 6) ? 0.75 : 1 }}>{d}</div>
+              <div key={d} className="cal-header-cell" style={{ padding: '10px 2px', textAlign: 'center', fontSize: ar ? 11 : 12, fontWeight: 600, color: (i === 0 || i === 6) ? 'var(--text3)' : 'var(--text2)', textTransform: ar ? 'none' : 'uppercase', letterSpacing: ar ? 0 : '.05em', opacity: (i === 0 || i === 6) ? 0.75 : 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{d}</div>
             ))}
           </div>
           <div className="cal-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(7,1fr)' }}>
