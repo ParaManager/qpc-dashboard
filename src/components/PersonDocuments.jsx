@@ -121,7 +121,7 @@ export default function PersonDocuments({ personId, personType, personName, docs
     if (file.size > 20 * 1024 * 1024) { toast('File must be under 20MB', 'error'); return }
     const isSharedType = SHARED_TYPES.includes(docType)
     if (isSharedType && !sharedPersonId) {
-      toast(ar ? 'لا يوجد سجل شخصي مرتبط بعد' : 'No linked person record yet', 'error'); return
+      toast(ar ? 'لا يوجد سجل شخصي مرتبط. يرجى ربط هذا الموظف قبل رفع وثائق الهوية المشتركة.' : 'No linked person record. Please link this employee before uploading shared identity documents.', 'error'); return
     }
     setUploading(true)
     try {
