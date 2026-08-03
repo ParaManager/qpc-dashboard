@@ -131,6 +131,71 @@ export function matchesSearch(haystack, query) {
   return q.split(' ').every(word => haystack.includes(word))
 }
 
+// Shared by the Athlete and Employee bulk document importers: the part of
+// Real-world filenames aren't always underscore-separated (e.g.
+// "27378800325 NABIL MESSELMANI Photo.pdf" uses spaces). The Qatar ID is
+// always the leading continuous run of digits at the very start of the
+// filename, so extraction grabs exactly that — stopping at the first
+// non-digit character, whatever it is (space, underscore, hyphen, letter).
+// Arabic-Indic/Persian digits are converted to Western first so a QID
+// typed in Arabic numerals is still recognized as a leading digit run.
+// This is a strict superset of the old "before first underscore" rule
+// (a pure-digit QID immediately followed by "_" already terminates the
+// digit run at that underscore), so existing Athlete filenames still
+// extract identically — this change is backward-compatible.
+export function extractQidFromFilename(filename) {
+  const base = filename.split('.').slice(0, -1).join('.') || filename
+  const westernized = base.replace(/[٠-٩۰-۹]/g, d => AR_DIGIT_MAP[d] || d)
+  const match = westernized.match(/^\s*(\d+)/)
+  return match ? match[1] : ''
+}
+// Normalizes a Qatar ID / Residence number for exact-match comparison:
+// strips spaces/hyphens, converts Arabic-Indic/Persian digits to Western,
+// trims. Used by the Employee bulk importer (per its explicit requirement
+// for more robust matching than a plain filename QID needs) — the Athlete
+// importer's own plain-trim matching is untouched.
+export function normalizeQid(value) {
+  if (value === null || value === undefined) return ''
+  let s = String(value).replace(/[\s-]/g, '')
+  s = s.replace(/[٠-٩۰-۹]/g, d => AR_DIGIT_MAP[d] || d)
+  return s.trim()
+}
+
+// Detects a document type from the free-text part of a filename that
+// follows the Qatar ID (e.g. "27378800325 NABIL MESSELMANI Photo.pdf" ->
+// 'Photo'). Matching is alias-based, case-insensitive, and ignores
+// underscores/hyphens/repeated spaces/emoji so it's resilient to however
+// the file was actually named. Returns null (Unknown) if no alias matches.
+// More specific aliases (e.g. "original passport") are checked before
+// shorter ones so longer phrases win when both could match.
+const DOC_TYPE_ALIASES = [
+  { type: 'Photo', words: ['photo', 'photograph', 'صورة'] },
+  { type: 'Original Passport', words: ['original passport', 'passport', 'جواز السفر', 'جواز'] },
+  { type: 'Qatar ID', words: ['qatar id', 'qid', 'البطاقة الشخصية', 'الرقم الشخصي', 'قطر id', 'id card', 'id'] },
+  { type: 'ADEL Certificate', words: ['adel certificate', 'adel cert', 'adel', 'شهادة adel', 'شهادة اديل', 'اديل'] },
+  { type: 'Residence Permit', words: ['residence permit', 'residence', 'تصريح الإقامة'] },
+  { type: 'Contract', words: ['contract', 'العقد'] },
+  { type: 'Certificate', words: ['certificate', 'الشهادة'] },
+  { type: 'Medical Report', words: ['medical report', 'medical', 'التقرير الطبي'] },
+]
+export function detectDocTypeFromFilename(filename, qid) {
+  const base = filename.split('.').slice(0, -1).join('.') || filename
+  // Strip the leading QID digits so a QID like "123" can't accidentally
+  // match the "id"/"qid" alias, then normalize separators to spaces.
+  let rest = qid ? base.replace(new RegExp('^\\s*' + qid), '') : base
+  rest = rest.replace(/[_\-]+/g, ' ')
+  rest = rest.replace(/[^\p{L}\p{N}\s]/gu, ' ') // strip emoji/symbols
+  rest = normalizeSearch(rest)
+  for (const { type, words } of DOC_TYPE_ALIASES) {
+    for (const w of words) {
+      if (rest.includes(normalizeSearch(w))) return type
+    }
+  }
+  return null
+}
+export const SUPPORTED_DOC_FILE_TYPES = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png']
+export const MAX_DOC_FILE_SIZE_BYTES = 20 * 1024 * 1024 // matches the individual-upload limit
+
 export function sportLabel(sport, category, ar) {
   if (!sport) return ''
   const base = ar ? (SPORT_NAMES_AR[sport] || sport) : sport
