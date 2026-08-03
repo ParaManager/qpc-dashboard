@@ -2,7 +2,7 @@
 import { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react'
 import * as XLSX from 'xlsx'
 import { generateStatisticsReport } from '../lib/statisticsReport'
-import { Avatar, MedalDisplay, Badge, avColor, initials, DashRow, SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, SPORT_CATEGORY_NAMES_AR, SPORT_NAMES_AR, sportLabel, effectiveStatus, buildSearchText, matchesSearch, normalizeSearch, extractQidFromFilename } from '../lib/helpers'
+import { Avatar, MedalDisplay, Badge, avColor, initials, DashRow, SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, SPORT_CATEGORY_NAMES_AR, SPORT_NAMES_AR, sportLabel, effectiveStatus, buildSearchText, matchesSearch, normalizeSearch, extractQidFromFilename, TARGET_CATEGORY_OPTIONS } from '../lib/helpers'
 import PhotoCropModal from '../components/PhotoCropModal'
 import ImportCompletionSummary from '../components/ImportCompletionSummary'
 import FormModal from '../components/FormModal'
@@ -76,6 +76,7 @@ const ATHLETE_FIELD_MAP = [
   ['club', 'club'],
   ['designation', 'designation'],
   ['residencyStatus', 'residency_status'],
+  ['targetCategory', 'target_category'],
   ['qssNumber', 'qss_number'],
   ['passportNumber', 'passport_number'],
   ['passportExpiry', 'passport_expiry'],
@@ -793,6 +794,7 @@ function exportExcel(athletes, coaches, documents, visibleCols, allCols, lang) {
     medals:          a => (a.medals_gold||0) + (a.medals_silver||0) + (a.medals_bronze||0),
     documents:       a => { const ds = athleteDocStatus(a.id, documents, a); return ds.key==='complete' ? (ar?'مكتمل':'Complete') : ds.key==='missing' ? (ar?`${ds.missing} ناقص`:`${ds.missing} Missing`) : (ar?'لا يوجد وثائق':'No Documents') },
     missing_documents: a => { const ds = athleteDocStatus(a.id, documents, a); return ds.key==='complete' ? '' : ds.key==='none' ? (ar?'جميع الوثائق مفقودة':'All documents missing') : ds.missingTypes.map(t => ar ? (DOC_TYPES_AR[t]||t) : t).join(', ') },
+    target_category: a => a.target_category || '',
   }
 
   // Preserve ALL_COLS' own order (identity → sport → personal → status →
@@ -1221,7 +1223,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
         a.nationality, a.gender, coach?.name, coach?.name_ar, a.club,
         a.status, effectiveStatus(a), a.medical_status,
         a.phone, a.email, a.passport_number, a.passport_expiry, a.id_expiry,
-        a.join_date, a.age_category, a.sport_age_category, calcAge(a.dob), a.residency_status,
+        a.join_date, a.age_category, a.sport_age_category, calcAge(a.dob), a.residency_status, a.target_category,
       ]
       const text = buildSearchText(...parts)
       map.set(a.id, text)
@@ -1261,6 +1263,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
       (skip('statistics_disability') || matchMulti(colFilters.statistics_disability, a.statistics_disability)) &&
       (skip('age_category') || matchMulti(colFilters.age_category, a.age_category)) &&
       (skip('sport_age_category') || matchMulti(colFilters.sport_age_category, a.sport_age_category)) &&
+      (skip('target_category') || matchMulti(colFilters.target_category, a.target_category)) &&
       (skip('medical_status') || !colFilters.medical_status?.length || colFilters.medical_status.some(v => v === 'None' ? (!a.medical_status || a.medical_status === 'None') : a.medical_status === v)) &&
       (skip('coachName') || !colFilters.coachName?.length || colFilters.coachName.some(v => v === 'Blank' ? !a.coach_id : coaches.find(c => c.id === a.coach_id)?.name === v)) &&
       (skip('documents') || !colFilters.documents?.length || colFilters.documents.some(v => {
@@ -1336,6 +1339,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
         case 'nationality':            return textCompare(a.nationality, b.nationality, desc)
         case 'gender':                 return textCompare(a.gender, b.gender, desc)
         case 'residency_status':       return textCompare(a.residency_status, b.residency_status, desc)
+        case 'target_category':        return textCompare(a.target_category, b.target_category, desc)
         case 'dob':                    return dateCompare(a.dob, b.dob, desc)
         case 'age': {
           const ai = calcAge(a.dob) ?? -1, bi = calcAge(b.dob) ?? -1
@@ -1469,6 +1473,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
       club: formData.club || null,
       designation: formData.designation || null,
       residency_status: formData.residencyStatus || null,
+      target_category: formData.targetCategory || null,
       qss_number: formData.qssNumber || null,
       passport_number: formData.passportNumber || null,
       passport_expiry: formData.passportExpiry || null,
@@ -1753,6 +1758,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
     ${field(L('Club','النادي'), a.club)}
     ${field(L('Designation','الوظيفة'), isAr ? (DESIG_AR[a.designation]||a.designation) : a.designation)}
     ${field(L('Residency status','الصفة'), isAr ? (RESID_AR[a.residency_status]||a.residency_status) : a.residency_status)}
+    ${field('الفئات المستهدفة', a.target_category)}
   </div>
 </div>
 
@@ -2049,6 +2055,7 @@ ${myDocs.length > 0 ? `<div class="section">
                 [tx('form.club','Club'), a.club],
                 [lang==='ar'?'الوظيفة':'Designation', a.designation ? (lang==='ar' ? (DESIG_AR[a.designation]||a.designation) : a.designation) : null],
                 [tx('form.residencyStatus','Residency status'), a.residency_status],
+                ['الفئات المستهدفة', a.target_category],
                 [tx('form.qssNumber','QSS number'), a.qss_number],
                 [tx('athletes.joinedQPC','Joined QPC'), formatFriendlyDate(a.join_date, lang==='ar')],
                 [lang==='ar'?'فترة الحالة المؤقتة':'Temporary status dates', statusDates],
@@ -2486,6 +2493,7 @@ ${myDocs.length > 0 ? `<div class="section">
     { key:'dob',             label:tx('athletes.dob','Date of Birth'),        default:false, editable:false },
     { key:'age',             label:tx('athletes.age','Age'),                  default:false, editable:false },
     { key:'residency_status', label:tx('athletes.residencyStatus','Residency Status'), default:false, editable:true },
+    { key:'target_category',  label:'الفئات المستهدفة', default:false, editable:true },
     { key:'age_category',       label:tx('athletes.ageCategory','Age Category'),      default:false, editable:false },
     { key:'sport_age_category', label:tx('athletes.sportAgeCategory','Sport Age Cat.'), default:false, editable:false },
     { key:'coach_id',        label:tx('athletes.coach','Coach'),              default:true,  editable:true  },
@@ -2540,6 +2548,7 @@ ${myDocs.length > 0 ? `<div class="section">
       case 'nationality':      return <span style={{ color:'var(--text2)' }}>{tc(a.nationality) || '—'}</span>
       case 'gender':           return <span style={{ color:'var(--text2)' }}>{a.gender ? (lang==='ar' ? (a.gender==='Male'?'ذكر':'أنثى') : a.gender) : '—'}</span>
       case 'residency_status': return <span style={{ color:'var(--text2)' }}>{a.residency_status ? (lang==='ar' ? (RESIDENCY_AR[a.residency_status]||a.residency_status) : a.residency_status) : '—'}</span>
+      case 'target_category':  return <span style={{ color:'var(--text2)' }}>{a.target_category || '—'}</span>
       case 'dob':              return <span style={{ color:'var(--text2)' }}>{a.dob || '—'}</span>
       case 'age':              return <span style={{ color:'var(--text2)' }}>{calcAge(a.dob) ?? '—'}</span>
       case 'age_category':       return <span style={{ color:'var(--text2)' }}>{a.age_category || '—'}</span>
@@ -2636,6 +2645,7 @@ ${myDocs.length > 0 ? `<div class="section">
       case 'nationality':  return <input style={{ ...inlineInput, width:100 }} value={getVal(a,'nationality')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'nationality',e.target.value)} />
       case 'gender':       return <select style={inlineSelect} value={getVal(a,'gender')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'gender',e.target.value)}>{['','Male','Female'].map(s=><option key={s} value={s}>{s||'—'}</option>)}</select>
       case 'residency_status': return <select style={inlineSelect} value={getVal(a,'residency_status')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'residency_status',e.target.value)}>{['','Qatari Male','Qatari Female','Resident Male','Resident Female','Professional Male','Professional Female','Born in Qatar','Qatari Mother'].map(s=><option key={s} value={s}>{s||'—'}</option>)}</select>
+      case 'target_category':  return <select style={inlineSelect} value={getVal(a,'target_category')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'target_category',e.target.value)}>{['', ...TARGET_CATEGORY_OPTIONS].map(s=><option key={s} value={s}>{s||'—'}</option>)}</select>
       case 'dob':          return <input style={inlineInput} type="date" value={getVal(a,'dob')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'dob',e.target.value)} />
       case 'age':          return renderCell(a, key) // read-only: computed live from dob, not stored
       case 'age_category': return renderCell(a, key) // read-only: auto-computed from dob by a DB trigger
@@ -2712,7 +2722,7 @@ ${myDocs.length > 0 ? `<div class="section">
                 const COL_GROUPS = [
                   { label: lang==='ar' ? 'الهوية' : 'Identity', keys: ['name','name_ar','qss_number','id_number','career_profile'] },
                   { label: lang==='ar' ? 'الرياضة' : 'Sport', keys: ['sport_category','sport','classification','disability','statistics_disability','coach_id'] },
-                  { label: lang==='ar' ? 'شخصي' : 'Personal', keys: ['nationality','gender','dob','age','age_category','sport_age_category','residency_status','phone','email'] },
+                  { label: lang==='ar' ? 'شخصي' : 'Personal', keys: ['nationality','gender','dob','age','age_category','sport_age_category','residency_status','target_category','phone','email'] },
                   { label: lang==='ar' ? 'الحالة' : 'Status', keys: ['status','medical_status','join_date'] },
                   { label: lang==='ar' ? 'الوثائق' : 'Documents', keys: ['passport_number','passport_expiry','id_expiry','documents','missing_documents'] },
                   { label: lang==='ar' ? 'الأداء' : 'Performance', keys: ['medals'] },
@@ -2830,7 +2840,7 @@ ${myDocs.length > 0 ? `<div class="section">
                 </th>
               )}
               {ALL_COLS.filter(c => isVisible(c.key)).map((c, i) => {
-                const isSortable = ['name','name_ar','qss_number','id_number','career_profile','sport_category','sport','classification','disability','statistics_disability','nationality','gender','dob','age','age_category','sport_age_category','residency_status','coach_id','status','medical_status','phone','email','join_date','passport_number','passport_expiry','id_expiry','medals','documents','missing_documents'].includes(c.key)
+                const isSortable = ['name','name_ar','qss_number','id_number','career_profile','sport_category','sport','classification','disability','statistics_disability','nationality','gender','dob','age','age_category','sport_age_category','residency_status','target_category','coach_id','status','medical_status','phone','email','join_date','passport_number','passport_expiry','id_expiry','medals','documents','missing_documents'].includes(c.key)
                 const isAsc  = sort === `${c.key}-asc`
                 const isDesc = sort === `${c.key}-desc`
                 const active = isAsc || isDesc
@@ -2888,6 +2898,7 @@ ${myDocs.length > 0 ? `<div class="section">
                     statistics_disability: STATS_DIS_OPTIONS,
                     age_category:         ['Under 5', '5 - 9', '10 - 14', '15 - 19', '20 - 24', '25 - 29', '30 - 34', '35 - 39', '40 - 44', '45 - 49', '50 - 54', '55 - 59', '60 - 64', '65+'],
                     sport_age_category:   ['براعم (10-8) سنوات', 'اشبال (13-11) سنة', 'شبلات (13-11) سنة', 'ناشئين (17-14) سنة', 'ناشئات (17-14) سنة', 'شباب (20-17) سنة', 'شابات (20-17) سنة', 'رجال (20) سنة فما فوق', 'سيدات (20) سنة فما فوق'],
+                    target_category:      TARGET_CATEGORY_OPTIONS,
                   }
                   // status/medical_status/documents keep no "Blank" (never
                   // truly null — status defaults to Active, medical_status's
