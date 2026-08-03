@@ -93,11 +93,19 @@ function athleteToFormFields(a) {
   }
   return out
 }
-function athleteDocStatus(athleteId, documents) {
+// Mirrors the detail view's completion-card logic exactly (classifyAthleteType
+// + getAthleteDocumentRules), so the table's Missing Documents column always
+// agrees with the completion card and missing-document badges — no separate
+// hardcoded rule set. `athlete` is required so the engine can classify by
+// nationality/sport_category the same way everywhere.
+function athleteDocStatus(athleteId, documents, athlete) {
   const myDocs = (documents || []).filter(d => d.athlete_id === athleteId)
-  if (myDocs.length === 0) return { key: 'none', missing: REQUIRED_DOC_TYPES.length, missingTypes: REQUIRED_DOC_TYPES }
+  const athleteType = classifyAthleteType(athlete)
+  const hasMissionPassportDoc = myDocs.some(d => d.type === 'Mission Passport')
+  const required = getAthleteDocumentRules(athleteType, hasMissionPassportDoc).required
+  if (myDocs.length === 0) return { key: 'none', missing: required.length, missingTypes: required }
   const present = new Set(myDocs.map(d => d.type))
-  const missingTypes = REQUIRED_DOC_TYPES.filter(t => !present.has(t))
+  const missingTypes = required.filter(t => !present.has(t))
   if (missingTypes.length === 0) return { key: 'complete', missing: 0, missingTypes: [] }
   return { key: 'missing', missing: missingTypes.length, missingTypes }
 }
@@ -783,8 +791,8 @@ function exportExcel(athletes, coaches, documents, visibleCols, allCols, lang) {
     passport_expiry: a => a.passport_expiry || '',
     id_expiry:       a => a.id_expiry || '',
     medals:          a => (a.medals_gold||0) + (a.medals_silver||0) + (a.medals_bronze||0),
-    documents:       a => { const ds = athleteDocStatus(a.id, documents); return ds.key==='complete' ? (ar?'مكتمل':'Complete') : ds.key==='missing' ? (ar?`${ds.missing} ناقص`:`${ds.missing} Missing`) : (ar?'لا يوجد وثائق':'No Documents') },
-    missing_documents: a => { const ds = athleteDocStatus(a.id, documents); return ds.key==='complete' ? '' : ds.key==='none' ? (ar?'جميع الوثائق مفقودة':'All documents missing') : ds.missingTypes.map(t => ar ? (DOC_TYPES_AR[t]||t) : t).join(', ') },
+    documents:       a => { const ds = athleteDocStatus(a.id, documents, a); return ds.key==='complete' ? (ar?'مكتمل':'Complete') : ds.key==='missing' ? (ar?`${ds.missing} ناقص`:`${ds.missing} Missing`) : (ar?'لا يوجد وثائق':'No Documents') },
+    missing_documents: a => { const ds = athleteDocStatus(a.id, documents, a); return ds.key==='complete' ? '' : ds.key==='none' ? (ar?'جميع الوثائق مفقودة':'All documents missing') : ds.missingTypes.map(t => ar ? (DOC_TYPES_AR[t]||t) : t).join(', ') },
   }
 
   // Preserve ALL_COLS' own order (identity → sport → personal → status →
@@ -1256,7 +1264,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
       (skip('medical_status') || !colFilters.medical_status?.length || colFilters.medical_status.some(v => v === 'None' ? (!a.medical_status || a.medical_status === 'None') : a.medical_status === v)) &&
       (skip('coachName') || !colFilters.coachName?.length || colFilters.coachName.some(v => v === 'Blank' ? !a.coach_id : coaches.find(c => c.id === a.coach_id)?.name === v)) &&
       (skip('documents') || !colFilters.documents?.length || colFilters.documents.some(v => {
-        const ds = athleteDocStatus(a.id, documents).key
+        const ds = athleteDocStatus(a.id, documents, a).key
         return v === 'Complete' ? ds === 'complete' : v === 'Missing' ? ds === 'missing' : v === 'None' ? ds === 'none' : true
       }))
     )
@@ -1309,7 +1317,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
     const [key, dir] = sort.split(/-(asc|desc)$/).filter(Boolean)
     const desc = dir === 'desc'
     const coachName = a => { const c = coaches.find(co => co.id === a.coach_id); return c ? c.name : '' }
-    const docsRank = a => { const ds = athleteDocStatus(a.id, documents); return ds.key === 'complete' ? 2 : ds.key === 'missing' ? 1 : 0 }
+    const docsRank = a => { const ds = athleteDocStatus(a.id, documents, a); return ds.key === 'complete' ? 2 : ds.key === 'missing' ? 1 : 0 }
     const AGE_ORDER = ['Under 5','5 - 9','10 - 14','15 - 19','20 - 24','25 - 29','30 - 34','35 - 39','40 - 44','45 - 49','50 - 54','55 - 59','60 - 64','65+']
     const SPORT_AGE_ORDER = ['براعم (10-8) سنوات','اشبال (13-11) سنة','شبلات (13-11) سنة','ناشئين (17-14) سنة','ناشئات (17-14) سنة','شباب (20-17) سنة','شابات (20-17) سنة','رجال (20) سنة فما فوق','سيدات (20) سنة فما فوق']
 
@@ -1345,7 +1353,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
         case 'id_expiry':              return dateCompare(a.id_expiry, b.id_expiry, desc)
         case 'medals':                 return numCompare((a.medals_gold||0)+(a.medals_silver||0)+(a.medals_bronze||0), (b.medals_gold||0)+(b.medals_silver||0)+(b.medals_bronze||0), desc)
         case 'documents':              return numCompare(docsRank(a), docsRank(b), desc)
-        case 'missing_documents':      return numCompare(athleteDocStatus(a.id, documents).missing, athleteDocStatus(b.id, documents).missing, desc)
+        case 'missing_documents':      return numCompare(athleteDocStatus(a.id, documents, a).missing, athleteDocStatus(b.id, documents, b).missing, desc)
         case 'age_category': {
           const ai = AGE_ORDER.indexOf(a.age_category ?? ''), bi = AGE_ORDER.indexOf(b.age_category ?? '')
           if (ai === -1 && bi === -1) return 0
@@ -2561,7 +2569,7 @@ ${myDocs.length > 0 ? `<div class="section">
       case 'id_expiry':        return <span style={{ color: expired(a.id_expiry) ? '#dc2626' : 'var(--text2)' }}>{a.id_expiry || '—'}{expired(a.id_expiry) && <span style={{ marginLeft:4, fontSize:10, color:'#dc2626' }}>⚠</span>}</span>
       case 'medals':           return <MedalDisplay gold={a.medals_gold} silver={a.medals_silver} bronze={a.medals_bronze} />
       case 'documents': {
-        const ds = athleteDocStatus(a.id, documents)
+        const ds = athleteDocStatus(a.id, documents, a)
         const cls = ds.key === 'complete' ? 'badge-green' : ds.key === 'missing' ? 'badge-amber' : 'badge-gray'
         const text = ds.key === 'complete'
           ? (lang==='ar' ? 'مكتمل' : 'Complete')
@@ -2576,7 +2584,7 @@ ${myDocs.length > 0 ? `<div class="section">
         )
       }
       case 'missing_documents': {
-        const ds = athleteDocStatus(a.id, documents)
+        const ds = athleteDocStatus(a.id, documents, a)
         if (ds.key === 'complete') {
           return <span style={{ color:'var(--text3)' }}>—</span>
         }
@@ -2946,7 +2954,7 @@ ${myDocs.length > 0 ? `<div class="section">
                     sport_age_category: a => a.sport_age_category,
                     medical_status: a => a.medical_status,
                     coach_id: a => coaches.find(c => c.id === a.coach_id)?.name,
-                    documents: a => athleteDocStatus(a.id, documents).key,
+                    documents: a => athleteDocStatus(a.id, documents, a).key,
                   }
                   const MATCH_RULES = {
                     medical_status: (fieldVal, optionVal) => optionVal === 'None' ? (!fieldVal || fieldVal === 'None') : fieldVal === optionVal,
