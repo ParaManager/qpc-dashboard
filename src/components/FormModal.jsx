@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import NationalitySelect from './NationalitySelect.jsx'
 import DesignationField from './DesignationField.jsx'
 import {
-  SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, SPORT_CATEGORY_NAMES_AR, sportLabel,
+  SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, SPORT_CATEGORY_NAMES_AR, sportLabel, TARGET_CATEGORY_OPTIONS,
 } from '../lib/helpers'
 import { useLang } from '../lib/LangContext.jsx'
 
@@ -132,6 +132,10 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
     value: s,
     label: ar && s ? ({'Qatari Male':'قطري','Qatari Female':'قطرية','Resident Male':'مقيم','Resident Female':'مقيمة','Professional Male':'محترف','Professional Female':'محترفة','Born in Qatar':'مواليد قطر','Qatari Mother':'أم قطرية'}[s]||s) : s
   }))
+
+  // الفئات المستهدفة — same Arabic label/values used in both languages
+  // (no English translation provided yet), values match athletes.target_category exactly.
+  const targetCategoryOpts = ['', ...TARGET_CATEGORY_OPTIONS].map(s => ({ value: s, label: s || '' }))
 
   useEffect(() => {
     if (record) { setForm({ ...record }) }
@@ -320,6 +324,9 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
               <Row>
                 <Field label={T.residency} options={residencyOpts} {...f('residencyStatus')} />
                 <Field label={T.qss} placeholder="e.g. 12345" {...f('qssNumber')} />
+              </Row>
+              <Row>
+                <Field label="الفئات المستهدفة" options={targetCategoryOpts} {...f('targetCategory')} />
               </Row>
             </>}
 
