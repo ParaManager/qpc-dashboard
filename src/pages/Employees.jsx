@@ -1431,12 +1431,27 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
     return 0
   })
 
+  // Same safe matching priority as the delete_coach_and_employee RPC —
+  // used here only to decide which confirmation message to show, never to
+  // delete anything directly (the RPC re-resolves and verifies server-side).
+  function findLinkedCoach(emp) {
+    return coaches.find(c =>
+      (emp.person_id && c.person_id === emp.person_id) ||
+      (emp.qss_number && c.qss_number === emp.qss_number) ||
+      (emp.employee_number && c.employee_number === emp.employee_number) ||
+      (emp.id_number && c.id_number === emp.id_number)
+    ) || null
+  }
+
   async function handleDelete(id, name) {
-    const { error } = await supabase.from('employees').delete().eq('id', id)
+    const { data, error } = await supabase.rpc('delete_coach_and_employee', { p_employee_id: id })
     if (error) { toast(error.message, 'error'); return }
-    toast(`${name} deleted`)
+    toast(data?.coach_deleted ? `${name} (Employee + Coach) deleted` : `${name} deleted`)
     if (isTrustedAdmin(profile)) {
       logAdminActivity({ actor: profile, action: 'deleted', entityType: 'employee', entityId: id, entityLabel: name, module: 'employees' })
+      if (data?.coach_deleted) {
+        logAdminActivity({ actor: profile, action: 'deleted', entityType: 'coach', entityId: data.coach_id, entityLabel: data.coach_name || name, module: 'coaches' })
+      }
     }
     setSelected(null); setConfirm(null); onRefresh()
   }
@@ -1631,10 +1646,18 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
             onCancel={() => setPendingStatusSave(null)}
           />
         )}
-        {confirm && (
-          <ConfirmModal title="Delete employee" message={`Delete ${emp.name}?`}
-            onConfirm={() => handleDelete(emp.id, emp.name)} onCancel={() => setConfirm(null)} />
-        )}
+        {confirm && (() => {
+          const linkedCoach = findLinkedCoach(emp)
+          const message = linkedCoach
+            ? (lang==='ar'
+                ? 'هذا الشخص مسجل كمدرب وموظف. سيؤدي الحذف إلى إزالة السجلين. هل تريد المتابعة؟'
+                : 'This person exists as both a Coach and an Employee. Deleting will remove both records. Continue?')
+            : `Delete ${emp.name}?`
+          return (
+            <ConfirmModal title="Delete employee" message={message}
+              onConfirm={() => handleDelete(emp.id, emp.name)} onCancel={() => setConfirm(null)} />
+          )
+        })()}
         <button className="back-btn" onClick={() => setSelected(null)}><i className="ti ti-arrow-left" /> {tx('actions.back','Back')}</button>
         <div style={{ display:'flex', gap:10, marginBottom:16, flexWrap:'wrap' }}>
           {canEdit(profile) && (
