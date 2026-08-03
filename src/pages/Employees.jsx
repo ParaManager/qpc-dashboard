@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { initials, statusClass, effectiveStatus, COACH_DESIGNATIONS, buildSearchText, matchesSearch, extractQidFromFilename, normalizeQid, SUPPORTED_DOC_FILE_TYPES, MAX_DOC_FILE_SIZE_BYTES } from '../lib/helpers'
 import DesignationField from '../components/DesignationField'
 import PersonDocuments from '../components/PersonDocuments'
+import ImportCompletionSummary from '../components/ImportCompletionSummary'
 import { DOC_TYPES, DOC_TYPES_AR } from '../lib/documentTypes'
 import { SHARED_TYPES } from '../lib/documentEngine'
 import { ConfirmModal, toast } from '../components/Toast'
@@ -1007,19 +1008,7 @@ function BulkImportEmployeeDocsModal({ employees, personDocs, lang, profile, onC
 
         <div className="modal-body">
           {summary ? (
-            <div>
-              <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 12 }}>{L('Import complete', 'اكتمل الاستيراد')}</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
-                <div className="badge badge-green" style={{ padding: '10px 14px', fontSize: 13, justifyContent: 'flex-start' }}>{L('Imported', 'تم الاستيراد')}: {summary.imported}</div>
-                <div className="badge badge-blue" style={{ padding: '10px 14px', fontSize: 13, justifyContent: 'flex-start' }}>{L('Replaced', 'تم الاستبدال')}: {summary.replaced}</div>
-                <div className="badge badge-gray" style={{ padding: '10px 14px', fontSize: 13, justifyContent: 'flex-start' }}>{L('Skipped duplicates', 'تم تخطي المكرر')}: {summary.skippedDuplicates}</div>
-                <div className="badge badge-amber" style={{ padding: '10px 14px', fontSize: 13, justifyContent: 'flex-start' }}>{L('Unmatched', 'غير مطابق')}: {summary.unmatched}</div>
-                <div className="badge badge-amber" style={{ padding: '10px 14px', fontSize: 13, justifyContent: 'flex-start' }}>{L('Ambiguous', 'غير مؤكد')}: {summary.ambiguous}</div>
-                <div className="badge badge-amber" style={{ padding: '10px 14px', fontSize: 13, justifyContent: 'flex-start' }}>{L('No linked person', 'لا يوجد سجل مرتبط')}: {summary.noPersonLink}</div>
-                <div className="badge badge-red" style={{ padding: '10px 14px', fontSize: 13, justifyContent: 'flex-start' }}>{L('Invalid file', 'ملف غير صالح')}: {summary.invalid}</div>
-                <div className="badge badge-red" style={{ padding: '10px 14px', fontSize: 13, justifyContent: 'flex-start' }}>{L('Failed', 'فشل')}: {summary.failed}</div>
-              </div>
-            </div>
+            <ImportCompletionSummary summary={summary} L={L} />
           ) : (
             <>
               <div className="form-group">

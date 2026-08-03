@@ -2,8 +2,9 @@
 import { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react'
 import * as XLSX from 'xlsx'
 import { generateStatisticsReport } from '../lib/statisticsReport'
-import { Avatar, MedalDisplay, Badge, avColor, initials, DashRow, SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, SPORT_CATEGORY_NAMES_AR, SPORT_NAMES_AR, sportLabel, effectiveStatus, buildSearchText, matchesSearch, normalizeSearch } from '../lib/helpers'
+import { Avatar, MedalDisplay, Badge, avColor, initials, DashRow, SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, SPORT_CATEGORY_NAMES_AR, SPORT_NAMES_AR, sportLabel, effectiveStatus, buildSearchText, matchesSearch, normalizeSearch, extractQidFromFilename } from '../lib/helpers'
 import PhotoCropModal from '../components/PhotoCropModal'
+import ImportCompletionSummary from '../components/ImportCompletionSummary'
 import FormModal from '../components/FormModal'
 import { ConfirmModal, toast } from '../components/Toast'
 import { supabase } from '../lib/supabase'
@@ -105,12 +106,8 @@ function athleteDocStatus(athleteId, documents) {
 // Filenames are used ONLY to extract the QID (the part before the first
 // underscore) to match an athlete via athletes.id_number. The document type
 // is always whatever the admin explicitly selected — never inferred from
-// the filename.
-function extractQidFromFilename(filename) {
-  const base = filename.split('.').slice(0, -1).join('.') || filename
-  const qid = base.split('_')[0].trim()
-  return qid
-}
+// the filename. extractQidFromFilename now lives in helpers.jsx so the
+// Employee bulk importer can reuse the exact same logic.
 
 function BulkImportDocsModal({ athletes, documents, lang, profile, onClose, onDone }) {
   const ar = lang === 'ar'
@@ -309,17 +306,7 @@ function BulkImportDocsModal({ athletes, documents, lang, profile, onClose, onDo
 
         <div className="modal-body">
           {summary ? (
-            <div>
-              <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 12 }}>{L('Import complete', 'اكتمل الاستيراد')}</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
-                <div className="badge badge-green" style={{ padding: '10px 14px', fontSize: 13, justifyContent: 'flex-start' }}>{L('Imported', 'تم الاستيراد')}: {summary.imported}</div>
-                <div className="badge badge-blue" style={{ padding: '10px 14px', fontSize: 13, justifyContent: 'flex-start' }}>{L('Replaced', 'تم الاستبدال')}: {summary.replaced}</div>
-                <div className="badge badge-gray" style={{ padding: '10px 14px', fontSize: 13, justifyContent: 'flex-start' }}>{L('Skipped duplicates', 'تم تخطي المكرر')}: {summary.skippedDuplicates}</div>
-                <div className="badge badge-amber" style={{ padding: '10px 14px', fontSize: 13, justifyContent: 'flex-start' }}>{L('Unmatched', 'غير مطابق')}: {summary.unmatched}</div>
-                <div className="badge badge-amber" style={{ padding: '10px 14px', fontSize: 13, justifyContent: 'flex-start' }}>{L('Ambiguous', 'غير مؤكد')}: {summary.ambiguous}</div>
-                <div className="badge badge-red" style={{ padding: '10px 14px', fontSize: 13, justifyContent: 'flex-start' }}>{L('Failed', 'فشل')}: {summary.failed}</div>
-              </div>
-            </div>
+            <ImportCompletionSummary summary={summary} L={L} />
           ) : (
             <>
               <div className="form-group">
