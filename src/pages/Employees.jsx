@@ -995,15 +995,21 @@ function BulkImportEmployeeDocsModal({ employees, personDocs, lang, profile, onC
       module: 'employees',
       metadata: { imported, replaced, failed, skipped: skippedDuplicates, unmatched: preview.unmatched.length, noPersonLink: preview.noPersonLink.length },
     })
-    await onDone()
+    // Deliberately NOT calling onDone() here — refresh waits until the
+    // user explicitly dismisses the completion screen via Close/X.
+  }
+
+  async function handleClose() {
+    if (summary) await onDone()
+    onClose()
   }
 
   return (
-    <div className="modal-overlay" onClick={() => !importing && onClose()}>
+    <div className="modal-overlay" onClick={() => !importing && !summary && onClose()}>
       <div className="modal-box" style={{ width: 720 }} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <div className="modal-title">{L('Upload Documents', 'رفع المستندات')}</div>
-          <button className="modal-close" onClick={() => !importing && onClose()}><i className="ti ti-x" /></button>
+          <div className="modal-title">{L('Upload Documents', 'رفع مستندات')}</div>
+          <button className="modal-close" onClick={() => !importing && handleClose()}><i className="ti ti-x" /></button>
         </div>
 
         <div className="modal-body">
@@ -1183,7 +1189,7 @@ function BulkImportEmployeeDocsModal({ employees, personDocs, lang, profile, onC
 
         <div className="modal-footer">
           {summary ? (
-            <button className="btn btn-blue" onClick={onClose}>{L('Close', 'إغلاق')}</button>
+            <button className="btn btn-blue" onClick={handleClose}>{L('Close', 'إغلاق')}</button>
           ) : (
             <>
               <button className="btn-cancel" onClick={onClose} disabled={importing}>{L('Cancel', 'إلغاء')}</button>
@@ -1192,7 +1198,7 @@ function BulkImportEmployeeDocsModal({ employees, personDocs, lang, profile, onC
                 const totalActionable = preview.matched.length + replaceCount
                 return (
                   <button className="btn btn-blue" disabled={importing || totalActionable === 0} onClick={handleImport}>
-                    {importing ? L('Importing…', 'جارٍ الاستيراد…') : `${L('Import', 'استيراد')} (${totalActionable})`}
+                    {importing ? L('Uploading…', 'جارٍ الرفع…') : `${L('Upload', 'رفع')} (${totalActionable})`}
                   </button>
                 )
               })()}
@@ -1806,7 +1812,7 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
           lang={lang}
           profile={profile}
           onClose={() => setBulkDocsOpen(false)}
-          onDone={async () => { await onRefresh() }}
+          onDone={onRefresh}
         />
       )}
       {pendingStatusSave && (
@@ -1873,7 +1879,7 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
           )}
           {canEdit(profile) && (
             <button className="action-btn action-btn-edit" style={{ padding:'8px 14px', fontSize:13 }} onClick={() => setBulkDocsOpen(true)}>
-              <i className="ti ti-file-upload" /> {lang==='ar' ? 'رفع المستندات' : 'Upload Documents'}
+              <i className="ti ti-file-upload" /> {lang==='ar' ? 'رفع مستندات' : 'Upload Documents'}
             </button>
           )}
           {canEdit(profile) && (

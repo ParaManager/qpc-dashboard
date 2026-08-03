@@ -293,15 +293,23 @@ function BulkImportDocsModal({ athletes, documents, lang, profile, onClose, onDo
       module: 'athletes',
       metadata: { imported, replaced, failed, skipped: skippedDuplicates, unmatched: preview.unmatched.length },
     })
-    await onDone()
+    // Deliberately NOT calling onDone() here — refreshing (and, for the
+    // parent's onDone wiring, closing) must wait until the user explicitly
+    // dismisses this completion screen via Close/X, so the summary stays
+    // visible and unchanged until then.
+  }
+
+  async function handleClose() {
+    if (summary) await onDone()
+    onClose()
   }
 
   return (
-    <div className="modal-overlay" onClick={() => !importing && onClose()}>
+    <div className="modal-overlay" onClick={() => !importing && !summary && onClose()}>
       <div className="modal-box" style={{ width: 720 }} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <div className="modal-title">{L('Import Documents', 'استيراد وثائق')}</div>
-          <button className="modal-close" onClick={() => !importing && onClose()}><i className="ti ti-x" /></button>
+          <div className="modal-title">{L('Upload Documents', 'رفع مستندات')}</div>
+          <button className="modal-close" onClick={() => !importing && handleClose()}><i className="ti ti-x" /></button>
         </div>
 
         <div className="modal-body">
@@ -456,7 +464,7 @@ function BulkImportDocsModal({ athletes, documents, lang, profile, onClose, onDo
 
         <div className="modal-footer">
           {summary ? (
-            <button className="btn btn-blue" onClick={onClose}>{L('Close', 'إغلاق')}</button>
+            <button className="btn btn-blue" onClick={handleClose}>{L('Close', 'إغلاق')}</button>
           ) : (
             <>
               <button className="btn-cancel" onClick={onClose} disabled={importing}>{L('Cancel', 'إلغاء')}</button>
@@ -465,7 +473,7 @@ function BulkImportDocsModal({ athletes, documents, lang, profile, onClose, onDo
                 const totalActionable = preview.matched.length + replaceCount
                 return (
                   <button className="btn btn-blue" disabled={importing || totalActionable === 0} onClick={handleImport}>
-                    {importing ? L('Importing…', 'جارٍ الاستيراد...') : `${L('Import', 'استيراد')} (${totalActionable})`}
+                    {importing ? L('Uploading…', 'جارٍ الرفع...') : `${L('Upload', 'رفع')} (${totalActionable})`}
                   </button>
                 )
               })()}
@@ -2661,7 +2669,7 @@ ${myDocs.length > 0 ? `<div class="section">
           lang={lang}
           profile={profile}
           onClose={() => setBulkOpen(false)}
-          onDone={async () => { setBulkOpen(false); await onRefresh() }}
+          onDone={onRefresh}
         />
       )}
       {bulkExportOpen && canEdit(profile) && (
@@ -2758,7 +2766,7 @@ ${myDocs.length > 0 ? `<div class="section">
           )}
           {canEdit(profile) && !editMode && (
             <button className="action-btn action-btn-edit" style={{ padding:'8px 14px', fontSize:13 }} onClick={() => setBulkOpen(true)}>
-              <i className="ti ti-file-upload" /> {lang==='ar' ? 'استيراد وثائق' : 'Import Documents'}
+              <i className="ti ti-file-upload" /> {lang==='ar' ? 'رفع مستندات' : 'Upload Documents'}
             </button>
           )}
           {/* Export Documents button removed from this page per spec. The
