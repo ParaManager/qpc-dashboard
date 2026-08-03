@@ -506,6 +506,11 @@ export function statusDot(status) {
   }[status] || '#9aa3b2'
 }
 
+// الفئات المستهدفة — allowed values only, no free text. Single shared
+// source used by the Add/Edit form dropdown, the table column filter, and
+// exports, so nothing hardcodes this list a second time.
+export const TARGET_CATEGORY_OPTIONS = ['اللاعب الواعد', 'اللاعب الأمل', 'اللاعب المميز', 'اللاعب النخبة']
+
 export const COACH_DESIGNATIONS = ['Coach', 'Assistant Coach', 'Technical Expert', 'Physiotherapist', 'Doctor']
 
 export function effectiveStatus(person) {
