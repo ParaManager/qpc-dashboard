@@ -5,46 +5,14 @@ import { toast } from './Toast'
 import { canEdit } from '../lib/useAuth'
 import JSZip from 'jszip'
 import { SHARED_TYPES, getNonAthleteDocumentRules, mergeDocuments, computeCompletion, normalizeType } from '../lib/documentEngine'
+import { DOC_TYPES, DOC_TYPES_AR, DOC_ICONS, DOC_COLORS } from '../lib/documentTypes'
 
-const DOC_TYPES_AR = {
-  'Original Passport':'جواز السفر', 'Qatar ID':'الرقم الشخصي',
-  'Residence Permit':'تصريح الإقامة', 'Contract':'العقد',
-  'Certificate':'الشهادة', 'Medical Report':'التقرير الطبي',
-  'Photo':'صورة', 'ADEL Certificate':'شهادة ADEL', 'Other':'أخرى',
-}
-
-// 'Original Passport' matches Athletes.jsx/documentEngine's canonical name
-// (was 'Passport' here before — normalized so shared-document merging
-// across roles works off one consistent vocabulary).
-const DOC_TYPES = [
-  'Original Passport', 'Qatar ID', 'Residence Permit',
-  'Contract', 'Certificate', 'Medical Report',
-  'Photo', 'ADEL Certificate', 'Other'
-]
-
-const DOC_ICONS  = {
-  'Original Passport':'ti-id',
-  'Qatar ID':         'ti-id-badge',
-  'Residence Permit': 'ti-home',
-  'Contract':         'ti-file-text',
-  'Certificate':      'ti-certificate',
-  'Medical Report':   'ti-heart-rate-monitor',
-  'Photo':            'ti-photo',
-  'ADEL Certificate': 'ti-award',
-  'Other':            'ti-file',
-}
-
-const DOC_COLORS = {
-  'Original Passport':'#0085C7',
-  'Qatar ID':         '#009F6B',
-  'Residence Permit': '#16a085',
-  'Contract':         '#8b5cf6',
-  'Certificate':      '#e67e22',
-  'Medical Report':   '#EE334E',
-  'Photo':            '#0085C7',
-  'ADEL Certificate': '#009F6B',
-  'Other':            '#9aa3b2',
-}
+// Re-exported so any existing import of these from this file keeps working
+// without change — the canonical definitions now live in
+// src/lib/documentTypes.js (a plain data module, not a UI component), so
+// other files (e.g. Employees.jsx) should prefer importing from there
+// directly instead of through this component.
+export { DOC_TYPES, DOC_TYPES_AR }
 
 function formatSize(bytes) {
   if (!bytes) return ''
