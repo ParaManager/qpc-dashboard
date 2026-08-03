@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { initials, statusClass, effectiveStatus, COACH_DESIGNATIONS, buildSearchText, matchesSearch, extractQidFromFilename, normalizeQid, detectDocTypeFromFilename, SUPPORTED_DOC_FILE_TYPES, MAX_DOC_FILE_SIZE_BYTES } from '../lib/helpers'
+import { initials, statusClass, effectiveStatus, COACH_DESIGNATIONS, buildSearchText, matchesSearch, extractQidFromFilename, normalizeQid, SUPPORTED_DOC_FILE_TYPES, MAX_DOC_FILE_SIZE_BYTES } from '../lib/helpers'
 import DesignationField from '../components/DesignationField'
 import PersonDocuments from '../components/PersonDocuments'
 import { DOC_TYPES, DOC_TYPES_AR } from '../lib/documentTypes'
@@ -808,6 +808,7 @@ function BulkImportEmployeeDocsModal({ employees, personDocs, lang, profile, onC
   const ar = lang === 'ar'
   const L = (en, arText) => ar ? arText : en
 
+  const [docType, setDocType] = useState(DOC_TYPES[0])
   const [files, setFiles] = useState([])
   const [dragOver, setDragOver] = useState(false)
   const [importing, setImporting] = useState(false)
@@ -816,6 +817,8 @@ function BulkImportEmployeeDocsModal({ employees, personDocs, lang, profile, onC
   const [sharedDocs, setSharedDocs] = useState([])
   const fileInputRef = useRef(null)
   const [dupeActions, setDupeActions] = useState({})
+
+  const isSharedType = SHARED_TYPES.includes(docType)
 
   // Shared-type duplicate checks need person_shared_documents, which
   // Employees.jsx doesn't hold globally — fetch once for every employee
@@ -836,7 +839,7 @@ function BulkImportEmployeeDocsModal({ employees, personDocs, lang, profile, onC
   }
 
   const preview = (() => {
-    const matched = [], unmatched = [], ambiguous = [], duplicates = [], noPersonLink = [], unknownType = [], invalid = []
+    const matched = [], unmatched = [], ambiguous = [], duplicates = [], noPersonLink = [], invalid = []
     const seenInBatch = new Set()
     for (const file of files) {
       // Invalid File: unsupported format or over the size limit — checked
@@ -853,10 +856,6 @@ function BulkImportEmployeeDocsModal({ employees, personDocs, lang, profile, onC
       if (matches.length > 1) { ambiguous.push({ file, qid, matches }); continue }
       const employee = matches[0]
 
-      const docType = detectDocTypeFromFilename(file.name, qid)
-      if (!docType) { unknownType.push({ file, qid, employee }); continue }
-      const isSharedType = SHARED_TYPES.includes(docType)
-
       if (isSharedType && !employee.person_id) { noPersonLink.push({ file, qid, employee, docType }); continue }
       const batchKey = `${employee.id}|${docType}|${file.name}|${file.size}`
       const existingDoc = isSharedType
@@ -867,7 +866,7 @@ function BulkImportEmployeeDocsModal({ employees, personDocs, lang, profile, onC
       seenInBatch.add(batchKey)
       matched.push({ file, qid, employee, docType })
     }
-    return { matched, unmatched, ambiguous, duplicates, noPersonLink, unknownType, invalid }
+    return { matched, unmatched, ambiguous, duplicates, noPersonLink, invalid }
   })()
 
   function dupeAction(i) { return dupeActions[i] || 'skip' }
@@ -953,7 +952,6 @@ function BulkImportEmployeeDocsModal({ employees, personDocs, lang, profile, onC
       unmatched: preview.unmatched.length,
       ambiguous: preview.ambiguous.length,
       noPersonLink: preview.noPersonLink.length,
-      unknownType: preview.unknownType.length,
       invalid: preview.invalid.length,
     })
     const { data: admins } = await supabase.from('profiles').select('id').eq('role', 'admin')
@@ -1003,7 +1001,7 @@ function BulkImportEmployeeDocsModal({ employees, personDocs, lang, profile, onC
     <div className="modal-overlay" onClick={() => !importing && onClose()}>
       <div className="modal-box" style={{ width: 720 }} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <div className="modal-title">{L('Bulk Upload Documents', 'استيراد وثائق بالجملة')}</div>
+          <div className="modal-title">{L('Upload Documents', 'رفع المستندات')}</div>
           <button className="modal-close" onClick={() => !importing && onClose()}><i className="ti ti-x" /></button>
         </div>
 
@@ -1018,7 +1016,6 @@ function BulkImportEmployeeDocsModal({ employees, personDocs, lang, profile, onC
                 <div className="badge badge-amber" style={{ padding: '10px 14px', fontSize: 13, justifyContent: 'flex-start' }}>{L('Unmatched', 'غير مطابق')}: {summary.unmatched}</div>
                 <div className="badge badge-amber" style={{ padding: '10px 14px', fontSize: 13, justifyContent: 'flex-start' }}>{L('Ambiguous', 'غير مؤكد')}: {summary.ambiguous}</div>
                 <div className="badge badge-amber" style={{ padding: '10px 14px', fontSize: 13, justifyContent: 'flex-start' }}>{L('No linked person', 'لا يوجد سجل مرتبط')}: {summary.noPersonLink}</div>
-                <div className="badge badge-amber" style={{ padding: '10px 14px', fontSize: 13, justifyContent: 'flex-start' }}>{L('Unknown document type', 'نوع مستند غير معروف')}: {summary.unknownType}</div>
                 <div className="badge badge-red" style={{ padding: '10px 14px', fontSize: 13, justifyContent: 'flex-start' }}>{L('Invalid file', 'ملف غير صالح')}: {summary.invalid}</div>
                 <div className="badge badge-red" style={{ padding: '10px 14px', fontSize: 13, justifyContent: 'flex-start' }}>{L('Failed', 'فشل')}: {summary.failed}</div>
               </div>
@@ -1027,11 +1024,11 @@ function BulkImportEmployeeDocsModal({ employees, personDocs, lang, profile, onC
             <>
               <div className="form-group">
                 <label className="form-label">{L('Document Type', 'نوع الوثيقة')}</label>
-                <div style={{ fontSize: 12, color: 'var(--text3)' }}>
-                  {L(
-                    'Detected automatically per file from its filename (Photo, Qatar ID, Original Passport, ADEL Certificate, etc.). Files whose type can\'t be detected are flagged as Unknown and skipped.',
-                    'يُكتشف نوع كل ملف تلقائياً من اسمه (صورة، الرقم الشخصي، جواز السفر، شهادة ADEL، إلخ). الملفات التي لا يمكن تحديد نوعها تُصنَّف كغير معروفة ويتم تخطيها.'
-                  )}
+                <select className="form-input" value={docType} onChange={e => setDocType(e.target.value)} disabled={importing}>
+                  {DOC_TYPES.map(t => <option key={t} value={t}>{ar ? (DOC_TYPES_AR[t] || t) : t}</option>)}
+                </select>
+                <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 6 }}>
+                  {L('All imported files will be saved as this document type, regardless of filename.', 'سيتم حفظ جميع الملفات المستوردة بهذا النوع من الوثائق، بغض النظر عن اسم الملف.')}
                 </div>
               </div>
 
@@ -1076,7 +1073,7 @@ function BulkImportEmployeeDocsModal({ employees, personDocs, lang, profile, onC
                           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{m.file.name}</span>
                           <span style={{ color: 'var(--text2)' }}>{ar && m.employee.name_ar ? m.employee.name_ar : m.employee.name}</span>
                           <span style={{ color: 'var(--text3)', fontFamily: 'monospace' }}>{m.qid}</span>
-                          <span className="badge badge-green" style={{ fontSize: 10 }}>{ar ? (DOC_TYPES_AR[m.docType] || m.docType) : m.docType}</span>
+                          <span className="badge badge-green" style={{ fontSize: 10 }}>{ar ? (DOC_TYPES_AR[docType] || docType) : docType}</span>
                         </div>
                       ))}
                     </div>
@@ -1115,21 +1112,7 @@ function BulkImportEmployeeDocsModal({ employees, personDocs, lang, profile, onC
                             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{m.file.name}</span>
                             <span style={{ color: 'var(--text2)' }}>{ar && m.employee.name_ar ? m.employee.name_ar : m.employee.name}</span>
                           </div>
-                          <div style={{ color: 'var(--text3)', marginTop: 2 }}>{L(`${m.docType} is a shared document type but this employee has no linked person record yet.`, `${ar ? (DOC_TYPES_AR[m.docType]||m.docType) : m.docType} من الوثائق المشتركة ولكن لا يوجد سجل شخصي مرتبط بهذا الموظف بعد.`)}</div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {preview.unknownType.length > 0 && (
-                    <div>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: '#d97706', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 6 }}>{L('Unknown document type', 'نوع مستند غير معروف')} ({preview.unknownType.length})</div>
-                      {preview.unknownType.map((m, i) => (
-                        <div key={i} style={{ padding: '8px 10px', background: 'var(--surface2)', borderRadius: 8, marginBottom: 4, fontSize: 12 }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{m.file.name}</span>
-                            <span style={{ color: 'var(--text2)' }}>{ar && m.employee.name_ar ? m.employee.name_ar : m.employee.name}</span>
-                          </div>
-                          <div style={{ color: 'var(--text3)', marginTop: 2 }}>{L('Matched the employee, but the document type couldn\'t be recognized from the filename.', 'تم مطابقة الموظف، ولكن تعذر التعرف على نوع المستند من اسم الملف.')}</div>
+                          <div style={{ color: 'var(--text3)', marginTop: 2 }}>{L(`${docType} is a shared document type but this employee has no linked person record yet.`, `${ar ? (DOC_TYPES_AR[docType]||docType) : docType} من الوثائق المشتركة ولكن لا يوجد سجل شخصي مرتبط بهذا الموظف بعد.`)}</div>
                         </div>
                       ))}
                     </div>
@@ -1169,7 +1152,7 @@ function BulkImportEmployeeDocsModal({ employees, personDocs, lang, profile, onC
                               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, fontWeight: 500 }}>{m.file.name}</span>
                               <span style={{ color: 'var(--text2)' }}>{ar && m.employee?.name_ar ? m.employee.name_ar : m.employee?.name}</span>
                               <span style={{ color: 'var(--text3)', fontFamily: 'monospace' }}>{m.qid}</span>
-                              <span className="badge badge-blue" style={{ fontSize: 10 }}>{ar ? (DOC_TYPES_AR[m.docType] || m.docType) : m.docType}</span>
+                              <span className="badge badge-blue" style={{ fontSize: 10 }}>{ar ? (DOC_TYPES_AR[docType] || docType) : docType}</span>
                             </div>
                             {m.existingDoc && (
                               <div style={{ color: 'var(--text3)', marginBottom: 6 }}>
@@ -1901,7 +1884,7 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
           )}
           {canEdit(profile) && (
             <button className="action-btn action-btn-edit" style={{ padding:'8px 14px', fontSize:13 }} onClick={() => setBulkDocsOpen(true)}>
-              <i className="ti ti-file-upload" /> {lang==='ar' ? 'استيراد وثائق بالجملة' : 'Bulk Upload Documents'}
+              <i className="ti ti-file-upload" /> {lang==='ar' ? 'رفع المستندات' : 'Upload Documents'}
             </button>
           )}
           {canEdit(profile) && (
