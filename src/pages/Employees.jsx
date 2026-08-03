@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
-import { initials, statusClass, effectiveStatus, COACH_DESIGNATIONS, buildSearchText, matchesSearch } from '../lib/helpers'
+import { initials, statusClass, effectiveStatus, COACH_DESIGNATIONS, buildSearchText, matchesSearch, extractQidFromFilename, normalizeQid, detectDocTypeFromFilename, SUPPORTED_DOC_FILE_TYPES, MAX_DOC_FILE_SIZE_BYTES } from '../lib/helpers'
 import DesignationField from '../components/DesignationField'
+import PersonDocuments, { DOC_TYPES, DOC_TYPES_AR } from '../components/PersonDocuments'
+import { SHARED_TYPES } from '../lib/documentEngine'
 import { ConfirmModal, toast } from '../components/Toast'
 import { supabase } from '../lib/supabase'
 import { canEdit } from '../lib/useAuth'
@@ -8,7 +10,6 @@ import { isTrustedAdmin } from '../lib/permissions'
 import { logAdminActivity } from '../lib/adminActivity'
 import CareerHistory from '../components/CareerHistory.jsx'
 import { useLang } from '../lib/LangContext.jsx'
-import PersonDocuments from '../components/PersonDocuments'
 import * as XLSX from 'xlsx'
 import EmployeeCardButton from '../components/EmployeeCard'
 import PhotoCropModal from '../components/PhotoCropModal'
@@ -790,6 +791,446 @@ function employeeStatusSource(emp, coaches) {
   return coachRec || emp
 }
 
+// ── Bulk Import Documents (admin only) ──────────────────────────────
+// Mirrors BulkImportDocsModal in Athletes.jsx exactly: one admin-selected
+// document type applies to the whole batch (never inferred per-file),
+// filenames are used only to extract the QID prefix (extractQidFromFilename,
+// shared with the Athlete importer), and files are classified into
+// matched/unmatched/ambiguous/duplicate before anything is written.
+// Employee-specific differences: QID matching uses normalizeQid (spaces,
+// hyphens, Arabic/Western digits) against employees.id_number, and shared
+// document types (Photo/Qatar ID/Original Passport) are written to
+// person_shared_documents via the employee's person_id — the same table
+// PersonDocuments.jsx already reads, so the document shows on a linked
+// Coach's page automatically with no separate copy ever created.
+function BulkImportEmployeeDocsModal({ employees, personDocs, lang, profile, onClose, onDone }) {
+  const ar = lang === 'ar'
+  const L = (en, arText) => ar ? arText : en
+
+  const [files, setFiles] = useState([])
+  const [dragOver, setDragOver] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const [progress, setProgress] = useState({ done: 0, total: 0 })
+  const [summary, setSummary] = useState(null)
+  const [sharedDocs, setSharedDocs] = useState([])
+  const fileInputRef = useRef(null)
+  const [dupeActions, setDupeActions] = useState({})
+
+  // Shared-type duplicate checks need person_shared_documents, which
+  // Employees.jsx doesn't hold globally — fetch once for every employee
+  // that actually has a linked person_id (the rest can never use shared
+  // types anyway; caught below as noPersonLink).
+  useEffect(() => {
+    const personIds = [...new Set(employees.map(e => e.person_id).filter(Boolean))]
+    if (personIds.length === 0) { setSharedDocs([]); return }
+    let cancelled = false
+    supabase.from('person_shared_documents').select('*').in('person_id', personIds)
+      .then(({ data }) => { if (!cancelled) setSharedDocs(data || []) })
+    return () => { cancelled = true }
+  }, [employees])
+
+  function addFiles(fileList) {
+    const arr = Array.from(fileList || [])
+    if (arr.length) setFiles(prev => [...prev, ...arr])
+  }
+
+  const preview = (() => {
+    const matched = [], unmatched = [], ambiguous = [], duplicates = [], noPersonLink = [], unknownType = [], invalid = []
+    const seenInBatch = new Set()
+    for (const file of files) {
+      // Invalid File: unsupported format or over the size limit — checked
+      // before anything else, same limit as the individual uploader (20MB).
+      if (!SUPPORTED_DOC_FILE_TYPES.includes(file.type)) { invalid.push({ file, reason: L('Unsupported file type — PDF, JPG, or PNG only', 'نوع ملف غير مدعوم — PDF أو JPG أو PNG فقط') }); continue }
+      if (file.size > MAX_DOC_FILE_SIZE_BYTES) { invalid.push({ file, reason: L('File exceeds the 20MB limit', 'الملف يتجاوز الحد الأقصى 20 ميجابايت') }); continue }
+      if (file.size === 0) { invalid.push({ file, reason: L('File is empty or corrupted', 'الملف فارغ أو تالف') }); continue }
+
+      const qid = extractQidFromFilename(file.name)
+      if (!qid) { unmatched.push({ file, qid }); continue }
+      const qidNorm = normalizeQid(qid)
+      const matches = employees.filter(e => e.id_number && normalizeQid(e.id_number) === qidNorm)
+      if (matches.length === 0) { unmatched.push({ file, qid }); continue }
+      if (matches.length > 1) { ambiguous.push({ file, qid, matches }); continue }
+      const employee = matches[0]
+
+      const docType = detectDocTypeFromFilename(file.name, qid)
+      if (!docType) { unknownType.push({ file, qid, employee }); continue }
+      const isSharedType = SHARED_TYPES.includes(docType)
+
+      if (isSharedType && !employee.person_id) { noPersonLink.push({ file, qid, employee, docType }); continue }
+      const batchKey = `${employee.id}|${docType}|${file.name}|${file.size}`
+      const existingDoc = isSharedType
+        ? sharedDocs.find(d => d.person_id === employee.person_id && d.type === docType && d.name === file.name && d.file_size === file.size)
+        : personDocs.find(d => String(d.person_id) === String(employee.id) && d.person_type === 'employee' && d.type === docType && d.name === file.name && d.file_size === file.size)
+      if (existingDoc) { duplicates.push({ file, qid, employee, docType, existingDoc }); continue }
+      if (seenInBatch.has(batchKey)) { duplicates.push({ file, qid, employee, docType, existingDoc: null }); continue }
+      seenInBatch.add(batchKey)
+      matched.push({ file, qid, employee, docType })
+    }
+    return { matched, unmatched, ambiguous, duplicates, noPersonLink, unknownType, invalid }
+  })()
+
+  function dupeAction(i) { return dupeActions[i] || 'skip' }
+  function setAllDupeActions(action) {
+    const next = {}
+    preview.duplicates.forEach((_, i) => { next[i] = action })
+    setDupeActions(next)
+  }
+
+  async function uploadOne(employee, file, docType) {
+    const isSharedType = SHARED_TYPES.includes(docType)
+    const ext = file.name.split('.').pop()
+    const path = `employee_${employee.id}/${Date.now()}_${Math.random().toString(36).slice(2,8)}.${ext}`
+    const { error: upErr } = await supabase.storage.from('athlete-documents').upload(path, file)
+    if (upErr) throw upErr
+    const { data } = supabase.storage.from('athlete-documents').getPublicUrl(path)
+    if (isSharedType) {
+      const { error: dbErr } = await supabase.from('person_shared_documents').insert({
+        person_id: employee.person_id, name: file.name, type: docType,
+        file_url: data.publicUrl, file_path: path, file_size: file.size,
+      })
+      if (dbErr) throw dbErr
+    } else {
+      const { error: dbErr } = await supabase.from('person_documents').insert({
+        person_id: employee.id, person_type: 'employee',
+        name: file.name, type: docType,
+        file_url: data.publicUrl, file_path: path, file_size: file.size,
+      })
+      if (dbErr) throw dbErr
+    }
+  }
+
+  async function handleImport() {
+    const toReplace = preview.duplicates
+      .map((d, i) => ({ d, i }))
+      .filter(({ d, i }) => dupeAction(i) === 'replace' && d.existingDoc)
+    if (preview.matched.length === 0 && toReplace.length === 0) return
+    const operationId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2,10)}`
+    setImporting(true)
+    setProgress({ done: 0, total: preview.matched.length + toReplace.length })
+    let imported = 0, replaced = 0, failed = 0
+
+    for (const item of preview.matched) {
+      try {
+        await uploadOne(item.employee, item.file, item.docType)
+        imported++
+      } catch { failed++ }
+      setProgress(p => ({ ...p, done: p.done + 1 }))
+    }
+
+    for (const { d } of toReplace) {
+      let newPath = null
+      try {
+        const isSharedType = SHARED_TYPES.includes(d.docType)
+        const ext = d.file.name.split('.').pop()
+        newPath = `employee_${d.employee.id}/${Date.now()}_${Math.random().toString(36).slice(2,8)}.${ext}`
+        const { error: upErr } = await supabase.storage.from('athlete-documents').upload(newPath, d.file)
+        if (upErr) throw upErr
+        const { data } = supabase.storage.from('athlete-documents').getPublicUrl(newPath)
+        if (isSharedType) {
+          const { error: updErr } = await supabase.from('person_shared_documents').update({
+            name: d.file.name, file_url: data.publicUrl, file_path: newPath, file_size: d.file.size, uploaded_at: new Date().toISOString(),
+          }).eq('person_id', d.existingDoc.person_id).eq('type', d.existingDoc.type).eq('name', d.existingDoc.name)
+          if (updErr) { await supabase.storage.from('athlete-documents').remove([newPath]); throw updErr }
+        } else {
+          const { error: updErr } = await supabase.from('person_documents').update({
+            name: d.file.name, file_url: data.publicUrl, file_path: newPath, file_size: d.file.size, uploaded_at: new Date().toISOString(),
+          }).eq('id', d.existingDoc.id)
+          if (updErr) { await supabase.storage.from('athlete-documents').remove([newPath]); throw updErr }
+        }
+        if (d.existingDoc.file_path) {
+          await supabase.storage.from('athlete-documents').remove([d.existingDoc.file_path])
+        }
+        replaced++
+      } catch { failed++ }
+      setProgress(p => ({ ...p, done: p.done + 1 }))
+    }
+
+    setImporting(false)
+    const skippedDuplicates = preview.duplicates.filter((_, i) => dupeAction(i) !== 'replace').length
+    setSummary({
+      imported, replaced, failed, skippedDuplicates,
+      unmatched: preview.unmatched.length,
+      ambiguous: preview.ambiguous.length,
+      noPersonLink: preview.noPersonLink.length,
+      unknownType: preview.unknownType.length,
+      invalid: preview.invalid.length,
+    })
+    const { data: admins } = await supabase.from('profiles').select('id').eq('role', 'admin')
+    if (admins?.length) {
+      const nothingHappened = imported === 0 && replaced === 0 && failed === 0
+      const succeeded = (imported + replaced) > 0 && failed === 0
+      const partial = (imported + replaced) > 0 && failed > 0
+      const type = nothingHappened ? 'import_succeeded' : (succeeded || partial ? 'import_succeeded' : 'import_failed')
+      const summaryText = nothingHappened
+        ? (ar ? 'لم يتم استيراد أي وثائق جديدة لأن جميع الملفات المحددة تم تخطيها.' : 'No new documents were imported because all selected files were skipped.')
+        : (ar
+            ? `تم استيراد ${imported}، استبدال ${replaced}، تخطي ${skippedDuplicates}، غير مطابق ${preview.unmatched.length}، فشل ${failed}`
+            : `Imported ${imported}, replaced ${replaced}, skipped ${skippedDuplicates}, unmatched ${preview.unmatched.length}, failed ${failed}`)
+      const { error: notifErr } = await supabase.from('notifications').insert(admins.map(a => ({
+        user_id: a.id,
+        type,
+        title: nothingHappened
+          ? (ar ? 'اكتمل الاستيراد — لا جديد' : 'Import completed — nothing new')
+          : succeeded
+            ? (ar ? 'اكتمل استيراد الوثائق' : 'Document import completed')
+            : partial
+              ? (ar ? 'اكتمل استيراد الوثائق جزئياً' : 'Document import completed with errors')
+              : (ar ? 'فشل استيراد الوثائق' : 'Document import failed'),
+        body: summaryText,
+        data: { page: 'employees' },
+        read: false,
+        category: 'Documents', target_path: 'employees', related_entity_type: 'import_batch', related_entity_id: operationId,
+        dedup_key: `doc-import-${type === 'import_failed' ? 'failed' : 'succeeded'}-${operationId}-${a.id}`,
+      })))
+      if (notifErr) console.error('[notifications] failed to insert import result notification:', notifErr)
+    }
+    await supabase.from('activity_log').insert({
+      actor_id: profile?.id || null,
+      actor_name: profile?.full_name || profile?.email || 'Someone',
+      actor_email: (profile?.email || '').toLowerCase() || null,
+      action: failed > 0 && (imported + replaced) === 0 ? 'import_failed' : 'import_succeeded',
+      entity_type: 'import',
+      entity_id: operationId,
+      entity_label: `${imported} imported, ${replaced} replaced, ${failed} failed`,
+      module: 'employees',
+      metadata: { imported, replaced, failed, skipped: skippedDuplicates, unmatched: preview.unmatched.length, noPersonLink: preview.noPersonLink.length },
+    })
+    await onDone()
+  }
+
+  return (
+    <div className="modal-overlay" onClick={() => !importing && onClose()}>
+      <div className="modal-box" style={{ width: 720 }} onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <div className="modal-title">{L('Bulk Upload Documents', 'استيراد وثائق بالجملة')}</div>
+          <button className="modal-close" onClick={() => !importing && onClose()}><i className="ti ti-x" /></button>
+        </div>
+
+        <div className="modal-body">
+          {summary ? (
+            <div>
+              <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 12 }}>{L('Import complete', 'اكتمل الاستيراد')}</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
+                <div className="badge badge-green" style={{ padding: '10px 14px', fontSize: 13, justifyContent: 'flex-start' }}>{L('Imported', 'تم الاستيراد')}: {summary.imported}</div>
+                <div className="badge badge-blue" style={{ padding: '10px 14px', fontSize: 13, justifyContent: 'flex-start' }}>{L('Replaced', 'تم الاستبدال')}: {summary.replaced}</div>
+                <div className="badge badge-gray" style={{ padding: '10px 14px', fontSize: 13, justifyContent: 'flex-start' }}>{L('Skipped duplicates', 'تم تخطي المكرر')}: {summary.skippedDuplicates}</div>
+                <div className="badge badge-amber" style={{ padding: '10px 14px', fontSize: 13, justifyContent: 'flex-start' }}>{L('Unmatched', 'غير مطابق')}: {summary.unmatched}</div>
+                <div className="badge badge-amber" style={{ padding: '10px 14px', fontSize: 13, justifyContent: 'flex-start' }}>{L('Ambiguous', 'غير مؤكد')}: {summary.ambiguous}</div>
+                <div className="badge badge-amber" style={{ padding: '10px 14px', fontSize: 13, justifyContent: 'flex-start' }}>{L('No linked person', 'لا يوجد سجل مرتبط')}: {summary.noPersonLink}</div>
+                <div className="badge badge-amber" style={{ padding: '10px 14px', fontSize: 13, justifyContent: 'flex-start' }}>{L('Unknown document type', 'نوع مستند غير معروف')}: {summary.unknownType}</div>
+                <div className="badge badge-red" style={{ padding: '10px 14px', fontSize: 13, justifyContent: 'flex-start' }}>{L('Invalid file', 'ملف غير صالح')}: {summary.invalid}</div>
+                <div className="badge badge-red" style={{ padding: '10px 14px', fontSize: 13, justifyContent: 'flex-start' }}>{L('Failed', 'فشل')}: {summary.failed}</div>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="form-group">
+                <label className="form-label">{L('Document Type', 'نوع الوثيقة')}</label>
+                <div style={{ fontSize: 12, color: 'var(--text3)' }}>
+                  {L(
+                    'Detected automatically per file from its filename (Photo, Qatar ID, Original Passport, ADEL Certificate, etc.). Files whose type can\'t be detected are flagged as Unknown and skipped.',
+                    'يُكتشف نوع كل ملف تلقائياً من اسمه (صورة، الرقم الشخصي، جواز السفر، شهادة ADEL، إلخ). الملفات التي لا يمكن تحديد نوعها تُصنَّف كغير معروفة ويتم تخطيها.'
+                  )}
+                </div>
+              </div>
+
+              <div
+                onDragOver={e => { e.preventDefault(); setDragOver(true) }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={e => { e.preventDefault(); setDragOver(false); addFiles(e.dataTransfer.files) }}
+                onClick={() => fileInputRef.current?.click()}
+                style={{
+                  border: `2px dashed ${dragOver ? '#0085C7' : 'var(--border)'}`,
+                  borderRadius: 12, padding: '24px 16px', textAlign: 'center', cursor: 'pointer',
+                  background: dragOver ? 'rgba(0,133,199,.05)' : 'var(--surface2)', marginBottom: 16, marginTop: 12,
+                }}>
+                <i className="ti ti-upload" style={{ fontSize: 26, color: 'var(--text3)' }} />
+                <div style={{ fontSize: 13, marginTop: 8 }}>{L('Click or drag files here', 'انقر أو اسحب الملفات هنا')}</div>
+                <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>{L('Filenames must start with the employee Qatar ID, e.g. 28163400725_id.pdf', 'يجب أن يبدأ اسم الملف بالرقم الشخصي للموظف، مثال: 28163400725_id.pdf')}</div>
+                <input ref={fileInputRef} type="file" multiple style={{ display: 'none' }} onChange={e => { addFiles(e.target.files); e.target.value = '' }} />
+              </div>
+
+              {files.length > 0 && (
+                <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 12 }}>
+                  {files.length} {L('file(s) selected', 'ملف تم اختياره')} — {preview.matched.length} {L('matched', 'مطابق')}, {preview.unmatched.length} {L('unmatched', 'غير مطابق')}, {preview.ambiguous.length} {L('ambiguous', 'غير مؤكد')}, {preview.duplicates.length} {L('duplicates', 'مكرر')}, {preview.noPersonLink.length} {L('no linked person', 'بدون سجل مرتبط')}
+                </div>
+              )}
+
+              {importing && (
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ height: 8, background: 'var(--surface2)', borderRadius: 6, overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${progress.total ? (progress.done / progress.total) * 100 : 0}%`, background: '#0085C7', transition: 'width .2s' }} />
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 6 }}>{progress.done} / {progress.total} {L('uploaded', 'تم الرفع')}</div>
+                </div>
+              )}
+
+              {files.length > 0 && (
+                <div style={{ maxHeight: 320, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  {preview.matched.length > 0 && (
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#00875a', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 6 }}>{L('Matched', 'مطابق')} ({preview.matched.length})</div>
+                      {preview.matched.map((m, i) => (
+                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, padding: '8px 10px', background: 'var(--surface2)', borderRadius: 8, marginBottom: 4, fontSize: 12 }}>
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{m.file.name}</span>
+                          <span style={{ color: 'var(--text2)' }}>{ar && m.employee.name_ar ? m.employee.name_ar : m.employee.name}</span>
+                          <span style={{ color: 'var(--text3)', fontFamily: 'monospace' }}>{m.qid}</span>
+                          <span className="badge badge-green" style={{ fontSize: 10 }}>{ar ? (DOC_TYPES_AR[m.docType] || m.docType) : m.docType}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {preview.unmatched.length > 0 && (
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#d97706', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 6 }}>{L('Unmatched', 'غير مطابق')} ({preview.unmatched.length})</div>
+                      {preview.unmatched.map((m, i) => (
+                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, padding: '8px 10px', background: 'var(--surface2)', borderRadius: 8, marginBottom: 4, fontSize: 12 }}>
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{m.file.name}</span>
+                          <span style={{ color: 'var(--text3)', fontFamily: 'monospace' }}>{m.qid || '—'}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {preview.ambiguous.length > 0 && (
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#d97706', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 6 }}>{L('Ambiguous matches', 'تطابقات غير مؤكدة')} ({preview.ambiguous.length})</div>
+                      {preview.ambiguous.map((m, i) => (
+                        <div key={i} style={{ padding: '8px 10px', background: 'var(--surface2)', borderRadius: 8, marginBottom: 4, fontSize: 12 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{m.file.name}</span>
+                            <span style={{ color: 'var(--text3)', fontFamily: 'monospace' }}>{m.qid}</span>
+                          </div>
+                          <div style={{ color: 'var(--text3)', marginTop: 2 }}>{m.matches.length} {L('employees share this Qatar ID', 'موظفون يشتركون في هذا الرقم')}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {preview.noPersonLink.length > 0 && (
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#d97706', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 6 }}>{L('No linked person record', 'بدون سجل شخصي مرتبط')} ({preview.noPersonLink.length})</div>
+                      {preview.noPersonLink.map((m, i) => (
+                        <div key={i} style={{ padding: '8px 10px', background: 'var(--surface2)', borderRadius: 8, marginBottom: 4, fontSize: 12 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{m.file.name}</span>
+                            <span style={{ color: 'var(--text2)' }}>{ar && m.employee.name_ar ? m.employee.name_ar : m.employee.name}</span>
+                          </div>
+                          <div style={{ color: 'var(--text3)', marginTop: 2 }}>{L(`${m.docType} is a shared document type but this employee has no linked person record yet.`, `${ar ? (DOC_TYPES_AR[m.docType]||m.docType) : m.docType} من الوثائق المشتركة ولكن لا يوجد سجل شخصي مرتبط بهذا الموظف بعد.`)}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {preview.unknownType.length > 0 && (
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#d97706', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 6 }}>{L('Unknown document type', 'نوع مستند غير معروف')} ({preview.unknownType.length})</div>
+                      {preview.unknownType.map((m, i) => (
+                        <div key={i} style={{ padding: '8px 10px', background: 'var(--surface2)', borderRadius: 8, marginBottom: 4, fontSize: 12 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{m.file.name}</span>
+                            <span style={{ color: 'var(--text2)' }}>{ar && m.employee.name_ar ? m.employee.name_ar : m.employee.name}</span>
+                          </div>
+                          <div style={{ color: 'var(--text3)', marginTop: 2 }}>{L('Matched the employee, but the document type couldn\'t be recognized from the filename.', 'تم مطابقة الموظف، ولكن تعذر التعرف على نوع المستند من اسم الملف.')}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {preview.invalid.length > 0 && (
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#dc2626', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 6 }}>{L('Invalid file', 'ملف غير صالح')} ({preview.invalid.length})</div>
+                      {preview.invalid.map((m, i) => (
+                        <div key={i} style={{ padding: '8px 10px', background: 'var(--surface2)', borderRadius: 8, marginBottom: 4, fontSize: 12 }}>
+                          <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.file.name}</div>
+                          <div style={{ color: '#dc2626', marginTop: 2 }}>{m.reason}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {preview.duplicates.length > 0 && (
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.04em' }}>{L('Duplicates', 'مكرر')} ({preview.duplicates.length})</div>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button type="button" onClick={() => setAllDupeActions('skip')} disabled={importing}
+                            style={{ fontSize: 11, padding: '4px 10px', borderRadius: 20, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text2)', cursor: 'pointer' }}>
+                            {L('Skip All Duplicates', 'تخطي كل المكررات')}
+                          </button>
+                          <button type="button" onClick={() => setAllDupeActions('replace')} disabled={importing}
+                            style={{ fontSize: 11, padding: '4px 10px', borderRadius: 20, border: '1px solid #0085C7', background: 'rgba(0,133,199,.08)', color: '#0085C7', cursor: 'pointer' }}>
+                            {L('Replace All Duplicates', 'استبدال كل المكررات')}
+                          </button>
+                        </div>
+                      </div>
+                      {preview.duplicates.map((m, i) => {
+                        const action = dupeAction(i)
+                        const canReplace = !!m.existingDoc
+                        return (
+                          <div key={i} style={{ padding: '10px 10px', background: 'var(--surface2)', borderRadius: 8, marginBottom: 6, fontSize: 12 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 4 }}>
+                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, fontWeight: 500 }}>{m.file.name}</span>
+                              <span style={{ color: 'var(--text2)' }}>{ar && m.employee?.name_ar ? m.employee.name_ar : m.employee?.name}</span>
+                              <span style={{ color: 'var(--text3)', fontFamily: 'monospace' }}>{m.qid}</span>
+                              <span className="badge badge-blue" style={{ fontSize: 10 }}>{ar ? (DOC_TYPES_AR[m.docType] || m.docType) : m.docType}</span>
+                            </div>
+                            {m.existingDoc && (
+                              <div style={{ color: 'var(--text3)', marginBottom: 6 }}>
+                                {L('Existing', 'الحالي')}: {m.existingDoc.name} — {m.existingDoc.uploaded_at ? new Date(m.existingDoc.uploaded_at).toLocaleDateString() : '—'}
+                              </div>
+                            )}
+                            {!canReplace && (
+                              <div style={{ color: 'var(--text3)', marginBottom: 6 }}>
+                                {L('Duplicate within this batch — only the first occurrence can be imported.', 'مكرر ضمن هذه الدفعة — يمكن استيراد النسخة الأولى فقط.')}
+                              </div>
+                            )}
+                            <div style={{ display: 'flex', gap: 6 }}>
+                              <button type="button" disabled={importing} onClick={() => setDupeActions(prev => ({ ...prev, [i]: 'skip' }))}
+                                style={{ fontSize: 11, padding: '4px 10px', borderRadius: 20, cursor: 'pointer',
+                                  border: `1px solid ${action === 'skip' ? 'var(--text3)' : 'var(--border)'}`,
+                                  background: action === 'skip' ? 'var(--surface)' : 'transparent',
+                                  color: action === 'skip' ? 'var(--text)' : 'var(--text3)', fontWeight: action === 'skip' ? 600 : 400 }}>
+                                {L('Skip', 'تخطي')}
+                              </button>
+                              <button type="button" disabled={importing || !canReplace} onClick={() => canReplace && setDupeActions(prev => ({ ...prev, [i]: 'replace' }))}
+                                style={{ fontSize: 11, padding: '4px 10px', borderRadius: 20, cursor: canReplace ? 'pointer' : 'not-allowed',
+                                  border: `1px solid ${action === 'replace' ? '#0085C7' : 'var(--border)'}`,
+                                  background: action === 'replace' ? 'rgba(0,133,199,.1)' : 'transparent',
+                                  color: action === 'replace' ? '#0085C7' : 'var(--text3)', fontWeight: action === 'replace' ? 600 : 400,
+                                  opacity: canReplace ? 1 : .5 }}>
+                                {L('Replace', 'استبدال')}
+                              </button>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        <div className="modal-footer">
+          {summary ? (
+            <button className="btn btn-blue" onClick={onClose}>{L('Close', 'إغلاق')}</button>
+          ) : (
+            <>
+              <button className="btn-cancel" onClick={onClose} disabled={importing}>{L('Cancel', 'إلغاء')}</button>
+              {(() => {
+                const replaceCount = preview.duplicates.filter((_, i) => dupeAction(i) === 'replace' && preview.duplicates[i].existingDoc).length
+                const totalActionable = preview.matched.length + replaceCount
+                return (
+                  <button className="btn btn-blue" disabled={importing || totalActionable === 0} onClick={handleImport}>
+                    {importing ? L('Importing…', 'جارٍ الاستيراد…') : `${L('Import', 'استيراد')} (${totalActionable})`}
+                  </button>
+                )
+              })()}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function Employees({ employees, coaches, personDocs, onRefresh, onNav, initEmployeeId, navState, profile, isMyProfile }) {
   const [customDesignations, setCustomDesignations] = useState([])
   useEffect(() => {
@@ -813,6 +1254,7 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
   const [editForm, setEditForm]     = useState(null)
   const [pendingStatusSave, setPendingStatusSave] = useState(null) // { formData, isEdit } awaiting scope confirmation
   const [addModal, setAddModal]     = useState(false)
+  const [bulkDocsOpen, setBulkDocsOpen] = useState(false)
   const photoInput = useRef(null)
   const [cropFile, setCropFile] = useState(null) // { empId, file } pending crop
   const [hoveredRowId, setHoveredRowId] = useState(null)
@@ -1384,6 +1826,16 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
       {(addModal || editForm) && (
         <EmpModal data={editForm||{}} isEdit={!!editForm} onClose={() => { setAddModal(false); setEditForm(null) }} onSave={handleSave} employees={employees} customDesignations={customDesignations} onDesignationAdded={d => setCustomDesignations(p => [...p, d])} />
       )}
+      {bulkDocsOpen && (
+        <BulkImportEmployeeDocsModal
+          employees={employees}
+          personDocs={personDocs || []}
+          lang={lang}
+          profile={profile}
+          onClose={() => setBulkDocsOpen(false)}
+          onDone={async () => { await onRefresh() }}
+        />
+      )}
       {pendingStatusSave && (
         <StatusScopeModal
           roles={pendingStatusSave.roles}
@@ -1444,6 +1896,11 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
             <button onClick={() => { setSearch(''); setColFilters({}) }}
               style={{ display:'flex', alignItems:'center', gap:5, padding:'8px 12px', borderRadius:9, border:'1px solid #fca5a5', background:'#fef2f2', color:'#dc2626', fontSize:12, cursor:'pointer', fontFamily:'DM Sans, sans-serif' }}>
               <i className="ti ti-x" style={{ fontSize:13 }} /> {tx('actions.resetFilters','Reset filters')}
+            </button>
+          )}
+          {canEdit(profile) && (
+            <button className="action-btn action-btn-edit" style={{ padding:'8px 14px', fontSize:13 }} onClick={() => setBulkDocsOpen(true)}>
+              <i className="ti ti-file-upload" /> {lang==='ar' ? 'استيراد وثائق بالجملة' : 'Bulk Upload Documents'}
             </button>
           )}
           {canEdit(profile) && (
