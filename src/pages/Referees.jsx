@@ -498,9 +498,11 @@ export default function Referees({ referees, onRefresh, profile }) {
           <button className="btn" style={{ background:'#009F6B' }} onClick={() => exportExcel(list, lang)}>
             <i className="ti ti-table-export" /> {L('Export Excel','تصدير Excel')}
           </button>
-          <button className="btn" style={{ background:'#EE334E' }} onClick={() => { setEditData(null); setShowForm(true) }}>
-            <i className="ti ti-plus" /> {L('Add referee','إضافة حكم')}
-          </button>
+          {canEdit(profile) && (
+            <button className="btn" style={{ background:'#EE334E' }} onClick={() => { setEditData(null); setShowForm(true) }}>
+              <i className="ti ti-plus" /> {L('Add referee','إضافة حكم')}
+            </button>
+          )}
         </div>
       </div>
 
