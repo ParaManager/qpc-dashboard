@@ -49,14 +49,55 @@ export default function DashboardBanners({ profile, onNav, extraBanners = [], ma
     if (!profile?.id) return
     // Dashboard banners exist to keep nagging about unresolved items, so they ignore
     // both `read` and `dismissed` — those only control the bell dropdown / list view.
-    // A notification only disappears from here once it's actually resolved (i.e. its
-    // row is deleted by the relevant resync/cleanup logic elsewhere).
-    function refresh() {
-      supabase.from('notifications')
+    // A notification only disappears from here once it's actually resolved.
+    //
+    // "Resolved" is verified against the LIVE underlying record, not just the
+    // notification row's own existence — an excuse_request notification whose
+    // training_session_requests row has since been approved/rejected/deleted
+    // (e.g. by an admin, while this coach wasn't around to trigger the
+    // resync in CoachDashboard.jsx) would otherwise stay stuck showing
+    // forever, since nothing else would ever clean it up. So every fetch
+    // re-checks request status here too, and quietly deletes any
+    // notification whose request is confirmed no longer pending — this is
+    // a read-time self-heal, not a one-off cleanup, so it keeps working
+    // regardless of which coach's dashboard the stale row is caught on.
+    async function refresh() {
+      const { data } = await supabase.from('notifications')
         .select('*')
         .eq('user_id', String(profile.id))
         .order('created_at', { ascending: false })
-        .then(({ data }) => setActiveNotifs(data || []))
+      let notifs = data || []
+
+      const excuseNotifs = notifs.filter(n => n.type === 'excuse_request')
+      if (excuseNotifs.length > 0) {
+        // Notifications with no data.request_id at all are legacy/orphan
+        // rows (predate the current convention of always storing
+        // request_id) — they can never be verified against a live
+        // request, so they're treated as stale outright.
+        const withRequestId = excuseNotifs.filter(n => n.data?.request_id)
+        const withoutRequestId = excuseNotifs.filter(n => !n.data?.request_id)
+
+        let stillPending = new Set()
+        if (withRequestId.length > 0) {
+          const requestIds = [...new Set(withRequestId.map(n => n.data.request_id))]
+          const { data: liveRequests } = await supabase
+            .from('training_session_requests')
+            .select('id, status')
+            .in('id', requestIds)
+          stillPending = new Set((liveRequests || []).filter(r => r.status === 'pending').map(r => r.id))
+        }
+
+        const staleIds = [
+          ...withRequestId.filter(n => !stillPending.has(n.data.request_id)).map(n => n.id),
+          ...withoutRequestId.map(n => n.id),
+        ]
+        if (staleIds.length > 0) {
+          notifs = notifs.filter(n => !staleIds.includes(n.id))
+          await supabase.from('notifications').delete().in('id', staleIds)
+        }
+      }
+
+      setActiveNotifs(notifs)
     }
     refresh()
     const sub = supabase.channel(`dash-notifs-${profile.id}`)
