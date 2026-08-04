@@ -66,6 +66,7 @@ export const AR = {
     unsavedChanges:'تغييرات غير محفوظة', saving:'جارٍ الحفظ', uploading:'جارٍ الرفع',
   },
   athletes: {
+    myAthletes:'الرياضيون المسندون إليّ',
     disVisual:'إعاقة بصرية', disHearing:'إعاقة سمعية',
     disPhysical:'إعاقة جسدية', disIntellectual:'إعاقة ذهنية',
     disSpinal:'إصابة الحبل الشوكي', disCerebral:'شلل دماغي',
