@@ -15,10 +15,25 @@ function isEventCanceled(ev) {
   return ev.status === 'Canceled' || ev.approval_status === 'Rejected'
 }
 
-export default function Calendar({ profile, events = [], onNav }) {
+export default function Calendar({ profile, events = [], employees = [], onNav, readOnly = false }) {
   const { lang } = useLang()
   const ar = lang === 'ar'
   const L = (en, a) => ar ? a : en
+
+  // Resolves the logged-in coach's linked Employee record strictly via the
+  // verified profile relationship — profiles.employee_id if already set,
+  // else a person_id match against the employees list. Never falls back to
+  // matching by name. Only meaningful in readOnly (Coach) mode; unused for
+  // the Admin calendar.
+  const myEmployeeId = (() => {
+    if (!readOnly) return null
+    if (profile?.employee_id) return profile.employee_id
+    if (profile?.person_id) {
+      const match = employees.find(e => e.person_id === profile.person_id)
+      if (match) return match.id
+    }
+    return null
+  })()
 
   const [meetings, setMeetings]   = useState([])
   const [tasks, setTasks]         = useState([])
@@ -42,11 +57,27 @@ export default function Calendar({ profile, events = [], onNav }) {
       .select('*, meeting_attendees(employee_id, employees(id, name, name_ar))')
       .order('meeting_date')
     if (error) { toast(error.message, 'error'); return }
+    if (readOnly) {
+      // Coach view: only meetings where the resolved employee id is an
+      // attendee. No linked employee -> no meetings, never a name-based guess.
+      const scoped = myEmployeeId
+        ? (data || []).filter(m => (m.meeting_attendees || []).some(a => a.employee_id === myEmployeeId))
+        : []
+      setMeetings(scoped)
+      return
+    }
     setMeetings(data || [])
   }
 
   async function loadTasks() {
-    const { data, error } = await supabase.from('tasks').select('*').eq('archived', false)
+    let q = supabase.from('tasks').select('*').eq('archived', false)
+    // Coach view: only tasks assigned directly to this authenticated user —
+    // never another coach's tasks.
+    if (readOnly) {
+      if (!profile?.id) { setTasks([]); return }
+      q = q.eq('assigned_to', profile.id)
+    }
+    const { data, error } = await q
     if (error) { toast(error.message, 'error'); return }
     setTasks(data || [])
   }
@@ -156,7 +187,7 @@ export default function Calendar({ profile, events = [], onNav }) {
   function openItem(item) {
     if (item.kind === 'event') onNav('events', { eventId: item.raw.id })
     else if (item.kind === 'task') onNav('tasks')
-    else { setDayDetail(null); setEditingMeeting(item.raw); setShowMeetingForm(true) }
+    else if (!readOnly) { setDayDetail(null); setEditingMeeting(item.raw); setShowMeetingForm(true) }
   }
 
   if (loading) return <div style={{ padding: 40, textAlign: 'center', color: 'var(--text3)' }}>{L('Loading…','جاري التحميل…')}</div>
@@ -265,10 +296,12 @@ export default function Calendar({ profile, events = [], onNav }) {
           <div className="page-sub">{monthNames[month]} {year}</div>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-          <button className="btn" style={{ background: '#0085C7', fontSize: 13, padding: '6px 14px' }}
-            onClick={() => { setEditingMeeting(null); setShowMeetingForm(true) }}>
-            <i className="ti ti-plus" /> {L('New Meeting','اجتماع جديد')}
-          </button>
+          {!readOnly && (
+            <button className="btn" style={{ background: '#0085C7', fontSize: 13, padding: '6px 14px' }}
+              onClick={() => { setEditingMeeting(null); setShowMeetingForm(true) }}>
+              <i className="ti ti-plus" /> {L('New Meeting','اجتماع جديد')}
+            </button>
+          )}
         </div>
       </div>
 
