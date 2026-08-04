@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useLang } from '../lib/LangContext.jsx'
 import { usePersonRoles, RoleBadges } from '../components/RoleBadges.jsx'
-import { effectiveStatus, statusClass, Avatar, SPORT_NAMES_AR } from '../lib/helpers'
+import { effectiveStatus, statusClass, Avatar, SPORT_NAMES_AR, SPORT_CATEGORY_NAMES_AR } from '../lib/helpers'
 import { supabase } from '../lib/supabase'
 
 const STATUS_AR = {
@@ -131,20 +131,118 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
             ? <img src={photoUrl} alt={displayName} style={{ width: 90, height: 90, borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--border)', margin: '0 auto 14px' }} />
             : <div style={{ width: 90, height: 90, margin: '0 auto 14px' }}><Avatar name={displayName || '?'} id={Math.abs([...String(personId||'')].reduce((h,c)=>(h*31+c.charCodeAt(0))|0,0))} size={90} fs={26} /></div>
           }
-          <div className="detail-name">{displayName}</div>
-          {!loading && <RoleBadges roles={roles} lang={lang} />}
-          <div className="detail-fields">
-            {[
-              [ar ? 'الجنسية' : 'Nationality', nationalityLabel(nationality)],
-              [ar ? 'الهاتف' : 'Phone', myEmployee?.phone || myAthlete?.phone || myCoach?.phone],
-              [ar ? 'البريد الإلكتروني' : 'Email', myEmployee?.email || myAthlete?.email || myCoach?.email || profile?.email],
-            ].filter(([, v]) => v).map(([k, v]) => (
-              <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv" style={{ fontSize: 12 }}>{v}</span></div>
-            ))}
-          </div>
+          {myCoach ? (
+            <>
+              <div className="detail-name">{ar && myCoach.name_ar ? myCoach.name_ar : myCoach.name}</div>
+              <div className="detail-sub">{ar ? myCoach.name : (myCoach.name_ar || '')}</div>
+              <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)' }}>{ar ? 'مدرب' : 'Coach'}</span>
+                <span className={`badge ${statusClass(effectiveStatus(myCoach))}`} style={{ fontSize: 10.5 }}>{statusLabel(myCoach)}</span>
+              </div>
+              <div className="detail-fields" style={{ marginTop: 10 }}>
+                {[
+                  [ar ? 'الرياضة' : 'Sport', sportLabel(myCoach.sport)],
+                  [ar ? 'فئة الرياضة' : 'Sport category', myCoach.sport_category ? (ar ? (SPORT_CATEGORY_NAMES_AR[myCoach.sport_category]||myCoach.sport_category) : myCoach.sport_category) : null],
+                  [ar ? 'الجنسية' : 'Nationality', nationalityLabel(myCoach.nationality)],
+                  [ar ? 'الجنس' : 'Gender', myCoach.gender ? (ar ? (myCoach.gender==='Male'?'ذكر':'أنثى') : myCoach.gender) : null],
+                  [ar ? 'الهاتف' : 'Phone', myCoach.phone || myEmployee?.phone],
+                  [ar ? 'البريد الإلكتروني' : 'Email', myCoach.email || myEmployee?.email || profile?.email],
+                ].filter(([, v]) => v).map(([k, v]) => (
+                  <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv" style={{ fontSize: 12 }}>{v}</span></div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="detail-name">{displayName}</div>
+              {!loading && <RoleBadges roles={roles} lang={lang} />}
+              <div className="detail-fields">
+                {[
+                  [ar ? 'الجنسية' : 'Nationality', nationalityLabel(nationality)],
+                  [ar ? 'الهاتف' : 'Phone', myEmployee?.phone || myAthlete?.phone || myCoach?.phone],
+                  [ar ? 'البريد الإلكتروني' : 'Email', myEmployee?.email || myAthlete?.email || myCoach?.email || profile?.email],
+                ].filter(([, v]) => v).map(([k, v]) => (
+                  <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv" style={{ fontSize: 12 }}>{v}</span></div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {myCoach ? (
+            <>
+              {(() => {
+                const yearsOfService = (() => {
+                  const startDate = myEmployee?.created_at || myCoach.created_at
+                  if (!startDate) return null
+                  const start = new Date(startDate)
+                  const now = new Date()
+                  const months = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth())
+                  if (months < 12) return ar ? `${months} شهر` : `${months} mo`
+                  const y = Math.floor(months / 12), m = months % 12
+                  return m > 0 ? `${y}y ${m}mo` : (ar ? `${y} سنة` : `${y} yr${y!==1?'s':''}`)
+                })()
+                const statusDates = (myCoach.status_start || myCoach.status_end) && !(myCoach.status_end && new Date(myCoach.status_end) < new Date(new Date().toDateString()))
+                  ? [myCoach.status_start, myCoach.status_end].filter(Boolean).join(' → ') : null
+                const infoFields = [
+                  [ar ? 'المسمى الوظيفي' : 'Designation', ar ? (DESIGNATION_AR[myCoach.designation || myEmployee?.designation] || myCoach.designation || myEmployee?.designation) : (myCoach.designation || myEmployee?.designation)],
+                  [ar ? 'رقم الموظف' : 'Employee #', myCoach.employee_number || myEmployee?.employee_number],
+                  [ar ? 'رقم QSS' : 'QSS #', myCoach.qss_number || myEmployee?.qss_number],
+                  [ar ? 'الرياضة' : 'Sport', sportLabel(myCoach.sport)],
+                  [ar ? 'فئة الرياضة' : 'Sport category', myCoach.sport_category ? (ar ? (SPORT_CATEGORY_NAMES_AR[myCoach.sport_category]||myCoach.sport_category) : myCoach.sport_category) : null],
+                  [ar ? 'تاريخ الانضمام' : 'Join date', myEmployee?.created_at ? new Date(myEmployee.created_at).toISOString().slice(0,10) : null],
+                  [ar ? 'سنوات الخدمة' : 'Years of Service', yearsOfService],
+                  [ar ? 'الحالة' : 'Status', statusLabel(myCoach)],
+                  [ar ? 'تواريخ الحالة' : 'Status dates', statusDates],
+                ].filter(([, v]) => v)
+                return (
+                  <div className="info-card">
+                    <div className="info-title" style={{ marginBottom: 10 }}>{ar ? 'معلومات المدرب' : 'Coach Information'}</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '4px 16px' }}>
+                      {infoFields.map(([k, v]) => (
+                        <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv">{v}</span></div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })()}
+
+              {(() => {
+                const isExpired = d => d && new Date(d) < new Date()
+                const idFields = [
+                  [ar ? 'تاريخ الميلاد' : 'Date of birth', myEmployee?.dob],
+                  [ar ? 'الرقم الشخصي / رقم الهوية' : 'Qatar ID / Residence #', myCoach.id_number || myEmployee?.id_number],
+                  [ar ? 'تاريخ انتهاء الهوية' : 'ID expiry', myCoach.id_expiry || myEmployee?.id_expiry],
+                  [ar ? 'رقم جواز السفر' : 'Passport number', myCoach.passport_number || myEmployee?.passport_number],
+                  [ar ? 'تاريخ انتهاء الجواز' : 'Passport expiry', myCoach.passport_expiry || myEmployee?.passport_expiry],
+                  [ar ? 'الجنسية' : 'Nationality', nationalityLabel(myCoach.nationality)],
+                  [ar ? 'الجنس' : 'Gender', myCoach.gender ? (ar ? (myCoach.gender==='Male'?'ذكر':'أنثى') : myCoach.gender) : null],
+                ].filter(([, v]) => v)
+                if (idFields.length === 0) return null
+                return (
+                  <div className="info-card">
+                    <div className="info-title" style={{ marginBottom: 10 }}>{ar ? 'معلومات الهوية' : 'Identity Information'}</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '4px 16px' }}>
+                      {idFields.map(([k, v]) => (
+                        <div key={k} className="detail-row" style={{ minWidth: 0 }}>
+                          <span className="dk">{k}</span>
+                          <span className="dv" style={{ color: k.toLowerCase().includes('expiry') && isExpired(v) ? '#dc2626' : undefined }}>{v}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })()}
+
+              <button onClick={() => onNav('coaches', { coachId: myCoach.id })}
+                className="info-card"
+                style={{ textAlign: ar ? 'right' : 'left', cursor: 'pointer', background: 'none', border: '1px solid var(--border)', fontSize: 12, color: '#0085C7', padding: '10px 14px', fontFamily: 'DM Sans, sans-serif' }}>
+                {ar ? 'عرض ملف المدرب الكامل ←' : 'View full coach profile →'}
+              </button>
+            </>
+          ) : (
+            <>
           {myEmployee && (
             <div className="info-card">
               <div className="info-title" style={{ marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -165,6 +263,8 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
               </button>
             </div>
           )}
+            </>
+          )}
 
           {myAthlete && (
             <div className="info-card">
@@ -181,23 +281,6 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
                 ))}
               </div>
               <button onClick={() => onNav('athletes', { athleteId: myAthlete.id })} style={{ marginTop: 10, fontSize: 12, color: '#0085C7', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                {ar ? 'عرض التفاصيل الكاملة ←' : 'View full details →'}
-              </button>
-            </div>
-          )}
-
-          {myCoach && (
-            <div className="info-card">
-              <div className="info-title" style={{ marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span>{ar ? 'قسم المدرب' : 'Coach'}{myCoach.is_historical ? (ar ? ' (سابق)' : ' (Former)') : ''}</span>
-                {!myCoach.is_historical && <span className={`badge ${statusClass(effectiveStatus(myCoach))}`} style={{ fontSize: 10.5 }}>{statusLabel(myCoach)}</span>}
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '4px 16px' }}>
-                {[[ar ? 'الرياضة' : 'Sport', sportLabel(myCoach.sport)]].filter(([, v]) => v).map(([k, v]) => (
-                  <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv">{v}</span></div>
-                ))}
-              </div>
-              <button onClick={() => onNav('coaches', { coachId: myCoach.id })} style={{ marginTop: 10, fontSize: 12, color: '#0085C7', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
                 {ar ? 'عرض التفاصيل الكاملة ←' : 'View full details →'}
               </button>
             </div>
