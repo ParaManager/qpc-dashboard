@@ -428,16 +428,26 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
   // used here only to decide which confirmation message to show, never to
   // delete anything directly (the RPC re-resolves and verifies server-side).
   function findLinkedEmployee(coach) {
-    return employees.find(e =>
+    const byIdentifier = employees.find(e =>
       (coach.person_id && e.person_id === coach.person_id) ||
       (coach.qss_number && e.qss_number === coach.qss_number) ||
       (coach.employee_number && e.employee_number === coach.employee_number) ||
       (coach.id_number && e.id_number === coach.id_number)
-    ) || null
+    )
+    if (byIdentifier) return { employee: byIdentifier, byName: false }
+    // Reviewed fallback: only reached when the coach has literally no QSS
+    // number, employee number, Qatar ID, or person_id to match on (e.g. a
+    // record created with just a name). Matched by exact normalized name
+    // only, and always surfaced to the user for explicit confirmation —
+    // never auto-deleted silently.
+    const nameMatch = !coach.qss_number && !coach.employee_number && !coach.id_number && !coach.person_id
+      ? employees.find(e => e.name && coach.name && e.name.trim().toLowerCase() === coach.name.trim().toLowerCase())
+      : null
+    return nameMatch ? { employee: nameMatch, byName: true } : null
   }
 
-  async function handleDelete(id, name) {
-    const { data, error } = await supabase.rpc('delete_coach_and_employee', { p_coach_id: id })
+  async function handleDelete(id, name, linkedEmployeeId) {
+    const { data, error } = await supabase.rpc('delete_coach_and_employee', { p_coach_id: id, p_employee_id: linkedEmployeeId || null })
     if (error) { toast(error.message, 'error'); return }
     toast(data?.employee_deleted ? `${name} (Coach + Employee) deleted` : `${name} deleted`)
     if (isTrustedAdmin(profile)) {
@@ -536,15 +546,15 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
           />
         )}
         {confirm && (() => {
-          const linkedEmployee = findLinkedEmployee(c)
-          const message = linkedEmployee
+          const linked = findLinkedEmployee(c)
+          const message = linked
             ? (lang==='ar'
                 ? 'هذا الشخص مسجل كمدرب وموظف. سيؤدي الحذف إلى إزالة السجلين. هل تريد المتابعة؟'
                 : 'This person exists as both a Coach and an Employee. Deleting will remove both records. Continue?')
             : `Delete ${c.name}? Athletes will be unassigned.`
           return (
             <ConfirmModal title="Delete coach" message={message}
-              onConfirm={() => handleDelete(c.id, c.name)} onCancel={() => setConfirm(null)} />
+              onConfirm={() => handleDelete(c.id, c.name, linked?.employee?.id)} onCancel={() => setConfirm(null)} />
           )
         })()}
 
