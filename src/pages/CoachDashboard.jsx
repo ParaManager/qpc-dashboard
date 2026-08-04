@@ -1,12 +1,21 @@
 import { useState, useEffect } from 'react'
 import { useLang } from '../lib/LangContext.jsx'
 import { supabase } from '../lib/supabase'
-import { initials, avColor, sportLabel } from '../lib/helpers'
+import { Avatar, MedalDisplay, statusClass, statusDot, DashRow, SPORT_META, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, sportLabel, initials, effectiveStatus, getCurrentSeason } from '../lib/helpers'
 import DashboardBanners from '../components/DashboardBanners'
 import { formatDateWithDay } from './Timetable'
+import { computeEventStatus } from './Events'
 
-export default function CoachDashboard({ coach, athletes, events, results, onNav, profile }) {
-  const { lang, tc } = useLang()
+// Mirrors Dashboard.jsx's getEventStatus exactly, so Active Events /
+// Upcoming Events use identical logic to the Admin dashboard.
+function getEventStatus(ev) {
+  if (ev.approval_status === 'Rejected') return 'Canceled'
+  if (ev.status === 'Canceled') return 'Canceled'
+  return computeEventStatus(ev.start_date, ev.end_date, ev.deadline)
+}
+
+export default function CoachDashboard({ coach, athletes, myAthletes: myAthletesProp, coaches, employees, referees, events, results, onNav, profile }) {
+  const { lang, tx } = useLang()
   const ar = lang === 'ar'
   const L = (en, a) => ar ? a : en
 
@@ -19,6 +28,7 @@ export default function CoachDashboard({ coach, athletes, events, results, onNav
 
   const [upcomingSessions, setUpcomingSessions] = useState([])
   const [reminders, setReminders] = useState({ needsAttendance: [] })
+  const [myPendingRequests, setMyPendingRequests] = useState(0)
 
   useEffect(() => {
     if (!coach?.id) return
@@ -31,6 +41,17 @@ export default function CoachDashboard({ coach, athletes, events, results, onNav
       .limit(5)
       .then(({ data }) => setUpcomingSessions(data || []))
   }, [coach?.id])
+
+  // Pending Requests KPI — scoped strictly to this coach's own submissions
+  // (request_submissions.submitted_by === profile.id), mirroring exactly
+  // how Requests.jsx itself identifies "my" requests. Fetched separately
+  // from the app-wide pending count Admin uses, since that one has no
+  // per-submitter breakdown.
+  useEffect(() => {
+    if (!profile?.id) return
+    supabase.from('request_submissions').select('status').eq('submitted_by', profile.id)
+      .then(({ data }) => setMyPendingRequests((data || []).filter(s => s.status === 'pending').length))
+  }, [profile?.id])
 
   useEffect(() => {
     if (!coach?.id) return
@@ -134,76 +155,98 @@ export default function CoachDashboard({ coach, athletes, events, results, onNav
     })()
   }, [coach?.id, profile?.id])
 
-  const myAthletes   = (athletes||[]).filter(a => String(a.coach_id) === String(coach.id)).sort((a,b) => { if (a.status==='Active' && b.status!=='Active') return -1; if (a.status!=='Active' && b.status==='Active') return 1; return 0 })
+  const allAthletes = athletes || []
+  const myAthletes = (myAthletesProp && myAthletesProp.length ? myAthletesProp : allAthletes.filter(a => String(a.coach_id) === String(coach.id)))
+    .slice()
+    .sort((a,b) => { if (a.status==='Active' && b.status!=='Active') return -1; if (a.status!=='Active' && b.status==='Active') return 1; return 0 })
   const myAthleteIds = myAthletes.map(a => a.id)
 
-  // upcoming events any of my athletes are registered for
+  // Active Events / Upcoming Events — identical logic + source data to the
+  // Admin dashboard (system-wide, not filtered to this coach).
+  const activeEventsCount = (events||[]).filter(e => {
+    const st = getEventStatus(e)
+    return e.approval_status === 'Approved' && (st === 'Upcoming' || st === 'In Progress')
+  }).length
   const upcomingEvents = (events||[])
-    .filter(e => e.status === 'Upcoming' || e.status === 'Registration Open')
-    .sort((a,b) => new Date(a.start_date) - new Date(b.start_date))
+    .filter(e => {
+      const st = getEventStatus(e)
+      return e.approval_status === 'Approved' && st === 'Upcoming'
+    })
+    .sort((a, b) => new Date(a.start_date) - new Date(b.start_date))
     .slice(0, 4)
 
-  // recent results for my athletes
-  const myResults = (results||[])
-    .filter(r => myAthleteIds.includes(r.athlete_id))
-    .sort((a,b) => new Date(b.date||0) - new Date(a.date||0))
-    .slice(0, 5)
+  // Sports breakdown — identical logic + source data (system-wide athlete
+  // counts) to the Admin dashboard.
+  const sportEntries = SPORT_CATEGORIES.flatMap(category =>
+    ((category === 'Summer Paralympic' ? SPORTS_BY_CATEGORY[category].filter(s => s !== 'Special Olympics') : SPORTS_BY_CATEGORY[category]) || []).map(s => ({
+      sport: s, category,
+      count: allAthletes.filter(a => a.sport === s && a.sport_category === category).length,
+    }))
+  ).filter(e => e.count > 0)
 
   const totalGold   = myAthletes.reduce((s, a) => s + (a.medals_gold   || 0), 0)
   const totalSilver = myAthletes.reduce((s, a) => s + (a.medals_silver || 0), 0)
   const totalBronze = myAthletes.reduce((s, a) => s + (a.medals_bronze || 0), 0)
 
-  const Card = ({ title, icon, color='#009F6B', children, onClick }) => (
-    <div className="info-card" onClick={onClick} style={{ cursor: onClick?'pointer':'default' }}>
-      <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:14 }}>
-        <div style={{ width:32, height:32, borderRadius:8, background:color+'20', display:'flex', alignItems:'center', justifyContent:'center' }}>
-          <i className={`ti ${icon}`} style={{ fontSize:16, color }} />
-        </div>
-        <div className="info-title" style={{ margin:0 }}>{title}</div>
-      </div>
-      {children}
-    </div>
-  )
+  const coachStatus = effectiveStatus(coach)
+
+  const kpiCards = [
+    { label: L('Total Athletes','إجمالي الرياضيين'), val: allAthletes.length, hint: L('system-wide','على مستوى النظام'), color:'#0085C7', icon:'ti-users', click: () => onNav('athletes') },
+    { label: L('My Athletes','رياضيّوي'), val: myAthletes.length, hint: L('assigned to me','معينون لي'), color:'#009F6B', icon:'ti-run', click: () => onNav('athletes') },
+    { label: tx('nav.coaches','Coaches'), val: (coaches||[]).length, hint: L('all coaches','كل المدربين'), color:'#0d9488', icon:'ti-whistle', click: () => onNav('coaches') },
+    { label: tx('nav.employees','Employees'), val: (employees||[]).length, hint: tx('employees.employee','staff'), color:'#8b5cf6', icon:'ti-id-badge-2', click: () => onNav('employees') },
+    { label: tx('nav.referees','Referees'), val: (referees||[]).length, hint: tx('nav.referees','officials'), color:'#f59e0b', icon:'ti-flag-2', click: () => onNav('referees') },
+    { label: tx('dashboard.sports','Sports'), val: sportEntries.length, hint: tx('filters.all','in use'), color:'#EE334E', icon:'ti-ball-football', click: () => onNav('sports') },
+    { label: tx('dashboard.activeEvents','Active Events'), val: activeEventsCount, hint: tx('dashboard.activeEventsHint','Upcoming & in progress'), color:'#0085C7', icon:'ti-calendar-event', click: () => onNav('events') },
+    { label: tx('dashboard.pendingRequests','Pending Requests'), val: myPendingRequests, hint: L('mine','خاصة بي'), color:'#d97706', icon:'ti-clipboard-text', click: () => onNav('requests') },
+  ]
 
   return (
     <div>
-      {/* Banner */}
-      <div style={{ display:'flex', alignItems:'center', gap:16, marginBottom:24, padding:'20px 24px', background:'linear-gradient(135deg, #0a1f14 0%, #0d3320 100%)', borderRadius:16, color:'#fff' }}>
-        <div style={{ width:64, height:64, borderRadius:'50%', background: coach.photo_url ? 'transparent' : '#009F6B', display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, fontWeight:700, flexShrink:0, overflow:'hidden', border:'3px solid rgba(255,255,255,.2)' }}>
-          {coach.photo_url
-            ? <img src={coach.photo_url} style={{ width:'100%', height:'100%', objectFit:'cover', objectPosition:'top center' }} />
-            : initials(coach.name)
-          }
-        </div>
-        <div style={{ flex:1 }}>
-          <div style={{ fontSize:20, fontWeight:700 }}>{ar&&coach.name_ar ? coach.name_ar : coach.name}</div>
-          <div style={{ fontSize:13, opacity:.7, marginTop:2 }}>
-            {coach.sport ? sportLabel(coach.sport, coach.sport_category, ar) : ''}
-            {coach.nationality ? ` · ${tc ? tc(coach.nationality) : coach.nationality}` : ''}
+      {/* ── Hero Banner — same component/style as Admin, with coach-specific extras (photo, sport, effective status) ── */}
+      <div style={{
+        position: 'relative', borderRadius: 18, overflow: 'hidden', marginBottom: 14,
+        minHeight: 140, display: 'flex', alignItems: 'center',
+        background: '#1a0a14',
+      }}>
+        <div style={{ position: 'absolute', inset: 0, backgroundImage: 'url(/dashboard-banner.jpg)', backgroundSize: 'cover', backgroundPosition: 'center center', opacity: 1 }} />
+        <div style={{
+          position: 'absolute', inset: 0,
+          background: ar
+            ? 'linear-gradient(to left, rgba(10,5,15,0.85) 0%, rgba(10,5,15,0.55) 40%, rgba(10,5,15,0.05) 65%)'
+            : 'linear-gradient(to right, rgba(10,5,15,0.80) 0%, rgba(10,5,15,0.55) 40%, rgba(10,5,15,0.05) 65%)',
+        }} />
+        <div style={{ position: 'relative', zIndex: 1, padding: '18px 28px', flex: 1, display:'flex', alignItems:'center', gap:16 }}>
+          <div style={{ width:56, height:56, borderRadius:'50%', background: coach.photo_url ? 'transparent' : '#009F6B', display:'flex', alignItems:'center', justifyContent:'center', fontSize:19, fontWeight:700, color:'#fff', flexShrink:0, overflow:'hidden', border:'3px solid rgba(255,255,255,.2)' }}>
+            {coach.photo_url
+              ? <img src={coach.photo_url} style={{ width:'100%', height:'100%', objectFit:'cover', objectPosition:'top center' }} />
+              : initials(coach.name)
+            }
           </div>
-          <div style={{ display:'flex', gap:8, marginTop:8, flexWrap:'wrap' }}>
-            <span style={{ padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:600, background: coach.status==='Active'?'#009F6B30':'rgba(255,255,255,.1)', color: coach.status==='Active'?'#4ade80':'rgba(255,255,255,.7)', border:`1px solid ${coach.status==='Active'?'#009F6B50':'rgba(255,255,255,.2)'}` }}>
-              {ar ? {'Active':'نشط','Inactive':'غير نشط'}[coach.status]||coach.status : coach.status}
-            </span>
-            {coach.designation && (
-              <span style={{ padding:'3px 10px', borderRadius:20, fontSize:11, background:'rgba(255,255,255,.1)', color:'rgba(255,255,255,.7)', border:'1px solid rgba(255,255,255,.2)' }}>
-                {coach.designation}
+          <div style={{ minWidth:0, flex:1 }}>
+            <div style={{ fontSize: 12, color: 'rgba(255,255,255,.5)', marginBottom: 6, fontWeight: 500 }}>
+              {tx('dashboard.welcomeBack','Welcome back,')}
+            </div>
+            <div style={{ fontSize: 22, fontWeight: 700, color: '#fff', letterSpacing: '-.02em', marginBottom: 3, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+              {(ar && coach.name_ar ? coach.name_ar : coach.name)}
+            </div>
+            <div style={{ fontSize: 12, color: 'rgba(255,255,255,.55)', marginBottom: 10 }}>
+              {L('Coach','مدرب')}
+              {coach.sport && <span> · {sportLabel(coach.sport, coach.sport_category, ar)}</span>}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap:'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#EE334E' }} />
+                <span style={{ fontSize: 11.5, color: '#EE334E', fontWeight: 600 }}>
+                  {tx('nav.season','Season')} <span dir="ltr">{getCurrentSeason()}</span>
+                </span>
+              </div>
+              <span className={`badge ${statusClass(coachStatus)}`} style={{ fontSize:11 }}>
+                {ar ? ({'Active':'نشط','Inactive':'غير نشط','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي','Retired':'متقاعد'}[coachStatus]||coachStatus) : coachStatus}
               </span>
-            )}
+            </div>
           </div>
         </div>
-        {/* Athlete count */}
-        <div style={{ textAlign:'center', flexShrink:0 }}>
-          <div style={{ fontSize:32, fontWeight:700, color:'#4ade80' }}>{myAthletes.length}</div>
-          <div style={{ fontSize:11, opacity:.6 }}>{L('Athletes','رياضيون')}</div>
-        </div>
-        {/* Total medals */}
-        {(totalGold + totalSilver + totalBronze) > 0 && (
-          <div style={{ textAlign:'center', flexShrink:0, borderLeft:'1px solid rgba(255,255,255,.15)', paddingLeft:20 }}>
-            <div style={{ fontSize:32, fontWeight:700, color:'#f1c40f' }}>{totalGold + totalSilver + totalBronze}</div>
-            <div style={{ fontSize:11, opacity:.6 }}>{L('Team Medals','ميداليات الفريق')}</div>
-          </div>
-        )}
       </div>
 
       {/* Reminders & notifications */}
@@ -226,181 +269,130 @@ export default function CoachDashboard({ coach, athletes, events, results, onNav
         ]}
       />
 
-      {/* Stats row */}
-      <div className="stat-grid" style={{ marginBottom:12 }}>
-        {/* Medals */}
-        <div style={{ background:'#f1c40f10', border:'1px solid #f1c40f30', borderRadius:14, padding:'16px' }}>
-          <div style={{ fontSize:12, color:'var(--text3)', marginBottom:10, fontWeight:600 }}>{L('Team Medals','ميداليات الفريق')}</div>
-          <div style={{ display:'flex', justifyContent:'space-around' }}>
-            <div style={{ textAlign:'center' }}>
-              <div style={{ fontSize:22 }}>🥇</div>
-              <div style={{ fontSize:22, fontWeight:700, color:'#f1c40f' }}>{totalGold}</div>
-              <div style={{ fontSize:10, color:'var(--text3)' }}>{L('Gold','ذهب')}</div>
+      {/* ── KPI Cards — same .kpi-grid/.kpi-card styling as Admin ── */}
+      <div className="kpi-grid">
+        {kpiCards.map(({ label, val, hint, color, icon, click }) => (
+          <div key={label} className="kpi-card" onClick={click}>
+            <div className="kpi-icon" style={{ background: color + '18' }}>
+              <i className={`ti ${icon}`} style={{ color, fontSize: 16 }} />
             </div>
-            <div style={{ textAlign:'center' }}>
-              <div style={{ fontSize:22 }}>🥈</div>
-              <div style={{ fontSize:22, fontWeight:700, color:'#aaa' }}>{totalSilver}</div>
-              <div style={{ fontSize:10, color:'var(--text3)' }}>{L('Silver','فضة')}</div>
+            <div className="kpi-body">
+              <div className="kpi-label">{label}</div>
+              <div className="kpi-val" style={{ color }}>{val}</div>
+              <div className="kpi-hint">{hint}</div>
             </div>
-            <div style={{ textAlign:'center' }}>
-              <div style={{ fontSize:22 }}>🥉</div>
-              <div style={{ fontSize:22, fontWeight:700, color:'#cd7f32' }}>{totalBronze}</div>
-              <div style={{ fontSize:10, color:'var(--text3)' }}>{L('Bronze','برونز')}</div>
-            </div>
+            <i className="ti ti-chevron-right kpi-arrow" />
           </div>
+        ))}
+      </div>
+
+      {/* ── Upcoming Events / Upcoming Sessions — same .two-col/.card styling as Admin ── */}
+      <div className="two-col">
+        <div className="card">
+          <div className="card-title"><i className="ti ti-calendar-event" /> {tx('dashboard.upcomingEvents','Upcoming events')}</div>
+          {upcomingEvents.map(ev => {
+            const evStatus = getEventStatus(ev)
+            return (
+              <DashRow key={ev.id} onClick={() => onNav('events', { eventId: ev.id })}>
+                <div style={{ width:8, height:8, borderRadius:'50%', background:statusDot(evStatus), flexShrink:0 }} />
+                <span style={{ flex:1, fontSize:13 }}>{ar && ev.name_ar ? ev.name_ar : ev.name}</span>
+                <span style={{ fontSize:11, color:'#9aa3b2' }}>{ev.start_date}</span>
+                <span className={`badge ${statusClass(evStatus)}`}>{evStatus}</span>
+              </DashRow>
+            )
+          })}
+          {upcomingEvents.length === 0 && <div className="empty">{tx('dashboard.noUpcomingEvents','No upcoming events')}</div>}
         </div>
-        {/* Squad status */}
-        <div style={{ background:'#0085C710', border:'1px solid #0085C730', borderRadius:14, padding:'16px' }}>
-          <div style={{ fontSize:12, color:'var(--text3)', marginBottom:10, fontWeight:600 }}>{L('Squad Status','حالة الفريق')}</div>
-          <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
-            {[
-              ['#009F6B', 'Active',             'نشط',         '#009F6B'],
-              ['#EE334E', 'Injured',            'مصاب',        '#EE334E'],
-              ['#f59e0b', 'Under Medical Review','تحت المراجعة الطبية', '#f59e0b'],
-              ['#9aa3b2', 'Inactive',           'غير نشط',     '#9aa3b2'],
-              ['#6366f1', 'Retired',            'متقاعد',      '#6366f1'],
-              ['#dc2626', 'Suspended',          'موقوف',       '#dc2626'],
-            ]
-              .map(([color, status, statusAr]) => ({ color, status, statusAr, count: myAthletes.filter(a => a.status === status).length }))
-              .filter(({ count }) => count > 0)
-              .map(({ color, status, statusAr, count }) => (
-                <div key={status} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', fontSize:12 }}>
-                  <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                    <div style={{ width:8, height:8, borderRadius:'50%', background:color, flexShrink:0 }} />
-                    <span style={{ color:'var(--text2)' }}>{ar ? statusAr : status}</span>
-                  </div>
-                  <span style={{ fontWeight:700, color }}>{count}</span>
+
+        <div className="card">
+          <div className="card-title"><i className="ti ti-calendar-time" /> {L('Upcoming Sessions','الجلسات القادمة')}</div>
+          {upcomingSessions.map(s => (
+            <DashRow key={s.id} onClick={() => onNav('schedule', { sessionId: s.id })}>
+              <div style={{ width:8, height:8, borderRadius:'50%', background:'#8b5cf6', flexShrink:0 }} />
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontSize:13, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{s.title}</div>
+                <div style={{ display:'flex', gap:8, fontSize:11, color:'var(--text3)', flexWrap:'wrap', marginTop:1 }}>
+                  <span>{formatDateWithDay(s.session_date, ar)}</span>
+                  {s.start_time && <span>{s.start_time}{s.end_time ? ` → ${s.end_time}` : ''}</span>}
+                  {s.location && <span>{s.location}</span>}
                 </div>
-              ))
-            }
-          </div>
-        </div>
-        {/* Upcoming events */}
-        <div style={{ background:'#8b5cf610', border:'1px solid #8b5cf630', borderRadius:14, padding:'16px', textAlign:'center', cursor:'pointer' }}
-          onClick={() => onNav('events')}
-          onMouseEnter={e => e.currentTarget.style.background='#8b5cf620'}
-          onMouseLeave={e => e.currentTarget.style.background='#8b5cf610'}>
-          <i className="ti ti-flag" style={{ fontSize:36, color:'#8b5cf6' }} />
-          <div style={{ fontSize:28, fontWeight:700, color:'#8b5cf6', marginTop:4 }}>{upcomingEvents.length}</div>
-          <div style={{ fontSize:12, color:'var(--text3)' }}>{L('Upcoming Events','الفعاليات القادمة')}</div>
+              </div>
+              <span style={{ fontSize:10, fontWeight:600, padding:'2px 7px', borderRadius:8, background:'#8b5cf620', color:'#8b5cf6', flexShrink:0 }}>
+                {s.session_type || L('Training','تدريب')}
+              </span>
+            </DashRow>
+          ))}
+          {upcomingSessions.length === 0 && <div className="empty">{L('No upcoming sessions','لا توجد جلسات قادمة')}</div>}
         </div>
       </div>
 
-      <div className="two-col-even">
-        {/* My Athletes */}
-        <Card title={L('My Athletes','رياضيّوي')} icon="ti-run" color="#009F6B"
-          onClick={myAthletes.length > 0 ? () => onNav('athletes') : null}>
-          {myAthletes.length === 0
-            ? <div className="empty" style={{ padding:'8px 0', fontSize:13 }}>{L('No athletes assigned','لا يوجد رياضيون معينون')}</div>
-            : myAthletes.slice(0, 5).map(a => (
-              <div key={a.id}
-                onClick={() => onNav('athletes', { athleteId: a.id })}
-                style={{ display:'flex', alignItems:'center', gap:10, padding:'7px 0', borderBottom:'1px solid var(--border)', cursor:'pointer', borderRadius:6, margin:'0 -4px', padding:'7px 4px', transition:'background .12s' }}
-                onMouseEnter={e => e.currentTarget.style.background='var(--surface2)'}
-                onMouseLeave={e => e.currentTarget.style.background='transparent'}>
-                <div style={{ width:32, height:32, borderRadius:'50%', background: a.photo_url ? 'transparent' : avColor(a.id), display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:700, color:'#fff', flexShrink:0, overflow:'hidden', border:'2px solid var(--border)' }}>
-                  {a.photo_url
-                    ? <img src={a.photo_url} style={{ width:'100%', height:'100%', objectFit:'cover', objectPosition:'top center' }} />
-                    : initials(a.name)
-                  }
-                </div>
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontSize:13, fontWeight:500, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{ar&&a.name_ar ? a.name_ar : a.name}</div>
-                  <div style={{ fontSize:11, color:'var(--text3)' }}>{a.sport ? sportLabel(a.sport, a.sport_category, ar) : ''} · {a.classification}</div>
-                </div>
-                <span style={{ fontSize:11, fontWeight:600, padding:'2px 8px', borderRadius:10,
-                  background: a.status==='Active'?'#009F6B20':'#9aa3b220',
-                  color:       a.status==='Active'?'#009F6B':'#9aa3b2' }}>
-                  {ar?{'Active':'نشط','Inactive':'غير نشط','Injured':'مصاب'}[a.status]||a.status:a.status}
-                </span>
-              </div>
-            ))
-          }
-          {myAthletes.length > 5 && (
-            <div style={{ fontSize:12, color:'var(--text3)', textAlign:'center', marginTop:8 }}>
-              +{myAthletes.length - 5} {L('more','آخرون')}
+      {/* ── My Athletes — same .two-col/.card styling as Admin, limited list + View all ── */}
+      <div className="card">
+        <div className="card-title">
+          <i className="ti ti-run" /> {L('My Athletes','رياضيّوي')} ({myAthletes.length})
+        </div>
+        {myAthletes.slice(0, 6).map(a => (
+          <DashRow key={a.id} onClick={() => onNav('athletes', { athleteId: a.id })}>
+            <Avatar name={a.name} id={a.id} size={30} fs={10} />
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ fontSize:13, fontWeight:500, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{ar && a.name_ar ? a.name_ar : a.name}</div>
+              <div style={{ fontSize:11, color:'#9aa3b2' }}>{a.sport ? sportLabel(a.sport, a.sport_category, ar) : ''} · {a.classification}</div>
             </div>
-          )}
-        </Card>
+            <MedalDisplay gold={a.medals_gold} silver={a.medals_silver} bronze={a.medals_bronze} />
+            <span className={`badge ${statusClass(effectiveStatus(a))}`}>{ar ? ({'Active':'نشط','Inactive':'غير نشط','Injured':'مصاب','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي','Under Medical Review':'تحت المراجعة الطبية','Suspended':'موقوف','Retired':'متقاعد'}[effectiveStatus(a)]||effectiveStatus(a)) : effectiveStatus(a)}</span>
+          </DashRow>
+        ))}
+        {myAthletes.length === 0 && <div className="empty">{L('No athletes assigned','لا يوجد رياضيون معينون')}</div>}
+        {myAthletes.length > 6 && (
+          <div style={{ textAlign:'center', marginTop:10 }}>
+            <span onClick={() => onNav('athletes')} style={{ fontSize:12, fontWeight:600, color:'#0085C7', cursor:'pointer' }}>
+              {L('View all athletes','عرض كل الرياضيين')} {ar ? '←' : '→'}
+            </span>
+          </div>
+        )}
+        {(totalGold + totalSilver + totalBronze) > 0 && (
+          <div style={{ display:'flex', justifyContent:'center', gap:16, marginTop:12, paddingTop:10, borderTop:'1px solid var(--border)', fontSize:12, color:'var(--text3)' }}>
+            <span>🥇 {totalGold}</span>
+            <span>🥈 {totalSilver}</span>
+            <span>🥉 {totalBronze}</span>
+          </div>
+        )}
+      </div>
 
-        {/* Upcoming Sessions */}
-        <Card title={L('Upcoming Sessions','الجلسات القادمة')} icon="ti-calendar-time" color="#8b5cf6">
-          {upcomingSessions.length === 0
-            ? <div className="empty" style={{ padding:'8px 0', fontSize:13 }}>{L('No upcoming sessions','لا توجد جلسات قادمة')}</div>
-            : upcomingSessions.map(s => (
-              <div key={s.id}
-                onClick={() => onNav('schedule', { sessionId: s.id })}
-                style={{ padding:'8px 4px', borderBottom:'1px solid var(--border)', fontSize:13, cursor:'pointer', borderRadius:6, margin:'0 -4px', transition:'background .12s' }}
-                onMouseEnter={e => e.currentTarget.style.background='var(--surface2)'}
-                onMouseLeave={e => e.currentTarget.style.background='transparent'}>
-                <div style={{ fontWeight:500, marginBottom:2 }}>{s.title}</div>
-                <div style={{ display:'flex', gap:10, fontSize:11, color:'var(--text3)', flexWrap:'wrap' }}>
-                  <span><i className="ti ti-calendar" style={{ fontSize:10, marginRight:3 }} />{formatDateWithDay(s.session_date, ar)}</span>
-                  {s.start_time && <span><i className="ti ti-clock" style={{ fontSize:10, marginRight:3 }} />{s.start_time}{s.end_time ? ` → ${s.end_time}` : ''}</span>}
-                  {s.location   && <span><i className="ti ti-map-pin" style={{ fontSize:10, marginRight:3 }} />{s.location}</span>}
-                </div>
-                <span style={{ fontSize:10, fontWeight:600, padding:'2px 7px', borderRadius:8, background:'#8b5cf620', color:'#8b5cf6', marginTop:4, display:'inline-block' }}>
-                  {s.session_type || 'Training'}
-                </span>
-              </div>
-            ))
-          }
-        </Card>
-
-        {/* Upcoming Events */}
-        <Card title={L('Upcoming Events','الفعاليات القادمة')} icon="ti-calendar-event" color="#0085C7"
-          onClick={upcomingEvents.length > 0 ? () => onNav('events') : null}>
-          {upcomingEvents.length === 0
-            ? <div className="empty" style={{ padding:'8px 0', fontSize:13 }}>{L('No upcoming events','لا توجد فعاليات قادمة')}</div>
-            : upcomingEvents.slice(0,4).map(ev => (
-              <div key={ev.id} style={{ padding:'8px 0', borderBottom:'1px solid var(--border)', fontSize:13 }}>
-                <div style={{ fontWeight:500 }}>{ev.name}</div>
-                <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>
-                  <i className="ti ti-calendar" style={{ fontSize:11, marginRight:3 }} />{ev.start_date}
-                  {ev.venue && <span> · {ev.venue}</span>}
-                </div>
-                <span style={{ fontSize:10, fontWeight:600, padding:'2px 7px', borderRadius:8, background:'#0085C720', color:'#0085C7', marginTop:4, display:'inline-block' }}>
-                  {ar ? {'Upcoming':'قادم','Registration Open':'تسجيل مفتوح'}[ev.status]||ev.status : ev.status}
-                </span>
-              </div>
-            ))
-          }
-        </Card>
-
-        {/* Top medal earners */}
-        <Card title={L('Top Medal Earners','أكثر الرياضيين تتويجاً')} icon="ti-trophy" color="#f1c40f">
-          {myAthletes.length === 0
-            ? <div className="empty" style={{ padding:'8px 0', fontSize:13 }}>{L('No athletes yet','لا يوجد رياضيون بعد')}</div>
-            : [...myAthletes]
-                .sort((a,b) => ((b.medals_gold||0)+(b.medals_silver||0)+(b.medals_bronze||0)) - ((a.medals_gold||0)+(a.medals_silver||0)+(a.medals_bronze||0)))
-                .filter(a => (a.medals_gold||0)+(a.medals_silver||0)+(a.medals_bronze||0) > 0)
-                .slice(0, 5)
-                .map(a => {
-                  const total = (a.medals_gold||0)+(a.medals_silver||0)+(a.medals_bronze||0)
-                  return (
-                    <div key={a.id}
-                onClick={() => onNav('athletes', { athleteId: a.id })}
-                style={{ display:'flex', alignItems:'center', gap:10, padding:'7px 0', borderBottom:'1px solid var(--border)', cursor:'pointer', borderRadius:6, margin:'0 -4px', padding:'7px 4px', transition:'background .12s' }}
-                onMouseEnter={e => e.currentTarget.style.background='var(--surface2)'}
-                onMouseLeave={e => e.currentTarget.style.background='transparent'}>
-                      <div style={{ width:30, height:30, borderRadius:'50%', background: a.photo_url?'transparent':avColor(a.id), display:'flex', alignItems:'center', justifyContent:'center', fontSize:10, fontWeight:700, color:'#fff', flexShrink:0, overflow:'hidden' }}>
-                        {a.photo_url ? <img src={a.photo_url} style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : initials(a.name)}
-                      </div>
-                      <div style={{ flex:1, minWidth:0 }}>
-                        <div style={{ fontSize:13, fontWeight:500, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{ar&&a.name_ar?a.name_ar:a.name}</div>
-                        <div style={{ fontSize:11, color:'var(--text3)' }}>
-                          {a.medals_gold||0}🥇 {a.medals_silver||0}🥈 {a.medals_bronze||0}🥉
-                        </div>
-                      </div>
-                      <span style={{ fontWeight:700, color:'#f1c40f', fontSize:15 }}>{total}</span>
-                    </div>
-                  )
-                })
-          }
-          {myAthletes.every(a => (a.medals_gold||0)+(a.medals_silver||0)+(a.medals_bronze||0) === 0) && myAthletes.length > 0 && (
-            <div className="empty" style={{ padding:'8px 0', fontSize:13 }}>{L('No medals recorded yet','لا توجد ميداليات مسجلة بعد')}</div>
-          )}
-        </Card>
+      {/* ── Sports Breakdown — identical to Admin ── */}
+      <div className="card">
+        <div className="card-title">
+          <i className="ti ti-ball-football" /> {tx('dashboard.sportsBreakdown','Sports breakdown')}
+          <span style={{ fontSize:10, fontWeight:400, color:'var(--text3)', textTransform:'none', letterSpacing:0, marginLeft:4 }}>— {tx('dashboard.clickToExplore','click to explore')}</span>
+        </div>
+        {(() => {
+          const topSports = [...sportEntries].sort((a,b) => b.count - a.count).slice(0, 8)
+          if (topSports.length === 0) return <div className="empty" style={{ padding:16 }}>{tx('dashboard.noSportsYet','No athletes assigned to a sport yet')}</div>
+          const totalAthletes = allAthletes.length
+          return (
+            <div className="sports-grid">
+              {topSports.map(({ sport: s, category, count }) => {
+                const meta = SPORT_META[s] || { icon:'ti-ball-football', color:'#0085C7' }
+                const pct = totalAthletes > 0 ? Math.round((count / totalAthletes) * 100) : 0
+                return (
+                  <div key={`${category}-${s}`} className="sport-chip"
+                    onClick={() => onNav('sports', { sport: s, category })}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor=meta.color; e.currentTarget.style.background=meta.color+'12' }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor='transparent'; e.currentTarget.style.background='' }}>
+                    <div style={{ fontSize:18 }}><i className={`ti ${meta.icon}`} style={{ color:meta.color }} /></div>
+                    <div className="sport-label">{sportLabel(s, category, lang==='ar')}</div>
+                    <div className="sport-stat">{count} {ar ? 'رياضي' : 'athletes'} · {pct}%</div>
+                  </div>
+                )
+              })}
+            </div>
+          )
+        })()}
+        <div style={{ textAlign:'center', marginTop:10 }}>
+          <span onClick={() => onNav('sports')} style={{ fontSize:12, fontWeight:600, color:'#0085C7', cursor:'pointer' }}>
+            {tx('dashboard.viewAllSports','View all sports')} {ar ? '←' : '→'}
+          </span>
+        </div>
       </div>
     </div>
   )
