@@ -191,7 +191,7 @@ export default function CoachDashboard({ coach, athletes, myAthletes: myAthletes
   const coachStatus = effectiveStatus(coach)
 
   const kpiCards = [
-    { label: L('Total Athletes','إجمالي الرياضيين'), val: allAthletes.length, hint: L('system-wide','على مستوى النظام'), color:'#0085C7', icon:'ti-users', click: () => onNav('athletes') },
+    { label: L('Total Athletes','إجمالي الرياضيين'), val: allAthletes.length, hint: L('system-wide','على مستوى النظام'), color:'#0085C7', icon:'ti-users', click: () => onNav('athletes-all') },
     { label: L('My Athletes','الرياضيون المسندون إليّ'), val: myAthletes.length, hint: L('assigned to me','معينون لي'), color:'#009F6B', icon:'ti-run', click: () => onNav('athletes') },
     { label: tx('nav.coaches','Coaches'), val: (coaches||[]).length, hint: L('all coaches','كل المدربين'), color:'#0d9488', icon:'ti-whistle', click: () => onNav('coaches') },
     { label: tx('nav.employees','Employees'), val: (employees||[]).length, hint: tx('employees.employee','staff'), color:'#8b5cf6', icon:'ti-id-badge-2', click: () => onNav('employees') },

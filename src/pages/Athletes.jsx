@@ -986,7 +986,7 @@ function AthleteCoachHistory({ athleteId, coaches, employees, lang }) {
   )
 }
 
-export default function Athletes({ athletes, coaches, employees, results, documents, events, registrations, onRefresh, onNav, initAthleteId, initStatusFilter, navState, profile }) {
+export default function Athletes({ athletes, coaches, employees, results, documents, events, registrations, onRefresh, onNav, initAthleteId, initStatusFilter, navState, profile, pageTitle }) {
   const { tx, lang, tc } = useLang()
   // Case-insensitive disability translation
   const DIS_MAP = {
@@ -2700,7 +2700,7 @@ ${myDocs.length > 0 ? `<div class="section">
       )}
 
       <div className="page-header">
-        <div><div className="page-title">{tx('pages.athletes','Athletes')}</div><div className="page-sub">{list.length} of {athletes.length} {tx('pages.athletes','athletes')}</div></div>
+        <div><div className="page-title">{pageTitle || tx('pages.athletes','Athletes')}</div><div className="page-sub">{list.length} of {athletes.length} {tx('pages.athletes','athletes')}</div></div>
         <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
           {!editMode && (
             <button className="btn" style={{ background:'#009F6B' }} onClick={() => exportExcel(list, coaches, documents||[], visibleCols, ALL_COLS, lang)}>
