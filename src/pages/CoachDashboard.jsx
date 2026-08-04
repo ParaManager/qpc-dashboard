@@ -192,7 +192,7 @@ export default function CoachDashboard({ coach, athletes, myAthletes: myAthletes
 
   const kpiCards = [
     { label: L('Total Athletes','إجمالي الرياضيين'), val: allAthletes.length, hint: L('system-wide','على مستوى النظام'), color:'#0085C7', icon:'ti-users', click: () => onNav('athletes') },
-    { label: L('My Athletes','رياضيّوي'), val: myAthletes.length, hint: L('assigned to me','معينون لي'), color:'#009F6B', icon:'ti-run', click: () => onNav('athletes') },
+    { label: L('My Athletes','الرياضيون المسندون إليّ'), val: myAthletes.length, hint: L('assigned to me','معينون لي'), color:'#009F6B', icon:'ti-run', click: () => onNav('athletes') },
     { label: tx('nav.coaches','Coaches'), val: (coaches||[]).length, hint: L('all coaches','كل المدربين'), color:'#0d9488', icon:'ti-whistle', click: () => onNav('coaches') },
     { label: tx('nav.employees','Employees'), val: (employees||[]).length, hint: tx('employees.employee','staff'), color:'#8b5cf6', icon:'ti-id-badge-2', click: () => onNav('employees') },
     { label: tx('nav.referees','Referees'), val: (referees||[]).length, hint: tx('nav.referees','officials'), color:'#f59e0b', icon:'ti-flag-2', click: () => onNav('referees') },
@@ -327,9 +327,9 @@ export default function CoachDashboard({ coach, athletes, myAthletes: myAthletes
       </div>
 
       {/* ── My Athletes — same .two-col/.card styling as Admin, limited list + View all ── */}
-      <div className="card">
+      <div className="card" style={{ marginBottom: 14 }}>
         <div className="card-title">
-          <i className="ti ti-run" /> {L('My Athletes','رياضيّوي')} ({myAthletes.length})
+          <i className="ti ti-run" /> {L('My Athletes','الرياضيون المسندون إليّ')} ({myAthletes.length})
         </div>
         {myAthletes.slice(0, 6).map(a => (
           <DashRow key={a.id} onClick={() => onNav('athletes', { athleteId: a.id })}>
@@ -346,7 +346,7 @@ export default function CoachDashboard({ coach, athletes, myAthletes: myAthletes
         {myAthletes.length > 6 && (
           <div style={{ textAlign:'center', marginTop:10 }}>
             <span onClick={() => onNav('athletes')} style={{ fontSize:12, fontWeight:600, color:'#0085C7', cursor:'pointer' }}>
-              {L('View all athletes','عرض كل الرياضيين')} {ar ? '←' : '→'}
+              {L('View all athletes','عرض جميع الرياضيين')} {ar ? '←' : '→'}
             </span>
           </div>
         )}
