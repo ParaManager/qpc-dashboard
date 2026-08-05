@@ -68,6 +68,8 @@ function GuestBanner() {
   )
 }
 
+const STATUS_TX = { Planning: 'planning', Upcoming: 'upcoming', 'In Progress': 'inProgress', Completed: 'completed', Canceled: 'canceled' }
+
 function GuestDashboard({ athletes, coaches, events }) {
   const { lang, tx } = useLang()
   const ar = lang === 'ar'
@@ -129,12 +131,13 @@ function GuestDashboard({ athletes, coaches, events }) {
         <div className="card-title"><i className="ti ti-calendar-event" /> {tx('dashboard.upcomingEvents','Upcoming events')}</div>
         {upcomingEvents.map(ev => {
           const evStatus = getEventStatus(ev)
+          const statusLabel = STATUS_TX[evStatus] ? tx(`events.${STATUS_TX[evStatus]}`, evStatus) : evStatus
           return (
             <DashRow key={ev.id}>
               <div style={{ width:8, height:8, borderRadius:'50%', background:statusDot(evStatus), flexShrink:0 }} />
               <span style={{ flex:1, fontSize:13 }}>{ar && ev.name_ar ? ev.name_ar : ev.name}</span>
               <span style={{ fontSize:11, color:'#9aa3b2' }}>{ev.start_date}</span>
-              <span className={`badge ${statusClass(evStatus)}`}>{evStatus}</span>
+              <span className={`badge ${statusClass(evStatus)}`}>{statusLabel}</span>
             </DashRow>
           )
         })}
@@ -244,10 +247,10 @@ function GuestPortalInner({ onExit }) {
   const { athletes, coaches, events, results, loading } = useGuestData()
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg)', direction: ar ? 'rtl' : 'ltr' }}>
+    <div style={{ height: '100vh', background: 'var(--bg)', direction: ar ? 'rtl' : 'ltr', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <GuestBanner />
-      <div style={{ display: 'flex' }}>
-        <div style={{ width: 220, minHeight: 'calc(100vh - 37px)', background: '#0d0d14', flexShrink: 0, padding: '18px 12px', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
+        <div style={{ width: 220, flexShrink: 0, background: '#0d0d14', padding: '18px 12px', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 8px 18px' }}>
             <img src={QPC_LOGO} alt="QPC" style={{ height: 28 }} />
             <span style={{ color: '#fff', fontSize: 13, fontWeight: 700 }}>{ar ? 'اللجنة البارالمبية' : 'Qatar Paralympic'}</span>
@@ -272,18 +275,20 @@ function GuestPortalInner({ onExit }) {
           </div>
         </div>
 
-        <div style={{ flex: 1, padding: 20, maxWidth: 1400, overflow: 'hidden' }}>
-          {loading ? (
-            <div className="empty" style={{ padding: 60 }}>{ar ? 'جارٍ التحميل…' : 'Loading…'}</div>
-          ) : (
-            <>
-              {page === 'dashboard' && <GuestDashboard athletes={athletes} coaches={coaches} events={events} />}
-              {page === 'calendar' && <Calendar profile={null} events={events} employees={[]} onNav={(p) => setPage(p === 'events' ? 'events' : page)} readOnly />}
-              {page === 'events' && <Events events={events} athletes={athletes} employees={[]} results={results} registrations={[]} onRefresh={() => {}} onNav={() => {}} profile={null} eventCategories={[]} sportsList={[]} />}
-              {page === 'sports' && <Sports athletes={athletes} coaches={coaches} events={events} results={results} onNav={(p) => setPage(p === 'sports' ? 'sports' : page)} profile={null} />}
-              {page === 'about' && <AboutQPC />}
-            </>
-          )}
+        <div style={{ flex: 1, minWidth: 0, padding: 20, overflowY: 'auto', overflowX: 'hidden' }}>
+          <div style={{ maxWidth: 1400, margin: '0 auto' }}>
+            {loading ? (
+              <div className="empty" style={{ padding: 60 }}>{ar ? 'جارٍ التحميل…' : 'Loading…'}</div>
+            ) : (
+              <>
+                {page === 'dashboard' && <GuestDashboard athletes={athletes} coaches={coaches} events={events} />}
+                {page === 'calendar' && <Calendar profile={null} events={events} employees={[]} onNav={(p) => setPage(p === 'events' ? 'events' : page)} readOnly guestMode />}
+                {page === 'events' && <Events events={events} athletes={athletes} employees={[]} results={results} registrations={[]} onRefresh={() => {}} onNav={() => {}} profile={null} eventCategories={[]} sportsList={[]} />}
+                {page === 'sports' && <Sports athletes={athletes} coaches={coaches} events={events} results={results} onNav={(p) => setPage(p === 'sports' ? 'sports' : page)} profile={null} />}
+                {page === 'about' && <AboutQPC />}
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>

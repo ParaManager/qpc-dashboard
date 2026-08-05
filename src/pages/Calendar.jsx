@@ -15,7 +15,7 @@ function isEventCanceled(ev) {
   return ev.status === 'Canceled' || ev.approval_status === 'Rejected'
 }
 
-export default function Calendar({ profile, events = [], employees = [], onNav, readOnly = false }) {
+export default function Calendar({ profile, events = [], employees = [], onNav, readOnly = false, guestMode = false }) {
   const { lang } = useLang()
   const ar = lang === 'ar'
   const L = (en, a) => ar ? a : en
@@ -90,7 +90,8 @@ export default function Calendar({ profile, events = [], employees = [], onNav, 
 
   useEffect(() => {
     setLoading(true)
-    Promise.all([loadMeetings(), loadTasks(), loadEventCats()]).finally(() => setLoading(false))
+    const jobs = guestMode ? [loadEventCats()] : [loadMeetings(), loadTasks(), loadEventCats()]
+    Promise.all(jobs).finally(() => setLoading(false))
   }, [])
 
   async function handleDeleteMeeting(m) {
@@ -309,8 +310,10 @@ export default function Calendar({ profile, events = [], employees = [], onNav, 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
         {[
           { key: 'all',      label: L('All','الكل'),      color: '#334155' },
-          { key: 'meetings', label: L('Meetings','الاجتماعات'), color: KIND_COLORS.meeting },
-          { key: 'tasks',    label: L('Tasks','المهام'),   color: KIND_COLORS.task },
+          ...(guestMode ? [] : [
+            { key: 'meetings', label: L('Meetings','الاجتماعات'), color: KIND_COLORS.meeting },
+            { key: 'tasks',    label: L('Tasks','المهام'),   color: KIND_COLORS.task },
+          ]),
           ...eventCats.map(c => ({ key: `cat-${c.id}`, label: ar && c.name_ar ? c.name_ar : c.name, color: c.color })),
         ].map(({ key, label, color }) => {
           const isActive = activeFilters.includes(key)
@@ -341,7 +344,7 @@ export default function Calendar({ profile, events = [], employees = [], onNav, 
 
       {/* Legend */}
       <div style={{ display: 'flex', gap: 14, marginBottom: 14, flexWrap: 'wrap' }}>
-        {['meeting', 'event', 'task'].map(k => (
+        {(guestMode ? ['event'] : ['meeting', 'event', 'task']).map(k => (
           <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--text2)' }}>
             <span style={{ width: 9, height: 9, borderRadius: 3, background: KIND_COLORS[k], display: 'inline-block' }} />
             {k === 'meeting' ? L('Meetings','الاجتماعات') : k === 'event' ? L('Events','الفعاليات') : L('Tasks','المهام')}
