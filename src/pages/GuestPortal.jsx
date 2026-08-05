@@ -176,6 +176,47 @@ function GuestDashboard({ athletes, coaches, events, registrations }) {
   )
 }
 
+// Compact, self-contained contact card — consistent height/spacing/
+// typography/hover regardless of how long the label or value is. Defined
+// at module scope (not inside AboutQPC's render) so it isn't recreated as
+// a "new" component type on every render, which would otherwise force
+// React to unmount/remount every card (and its link) unnecessarily.
+function ContactCard({ icon, color, label, valueNode, href, external, copyValue }) {
+  const [copied, setCopied] = useState(false)
+  const inner = (
+    <div className="guest-contact-card">
+      <div className="guest-contact-icon" style={{ background: color + '18' }}>
+        <i className={`ti ${icon}`} style={{ color, fontSize: 18 }} />
+      </div>
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div className="guest-contact-label">{label}</div>
+        <div className="guest-contact-value">{valueNode}</div>
+      </div>
+      {copyValue && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault(); e.stopPropagation()
+            navigator.clipboard?.writeText(copyValue)
+            setCopied(true)
+            setTimeout(() => setCopied(false), 1500)
+          }}
+          title={copied ? 'Copied' : 'Copy'}
+          style={{ flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer', color: copied ? '#009F6B' : 'var(--text3)', padding: 4 }}
+        >
+          <i className={`ti ${copied ? 'ti-check' : 'ti-copy'}`} style={{ fontSize: 15 }} />
+        </button>
+      )}
+    </div>
+  )
+  if (!href) return inner
+  return (
+    <a href={href} {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
+      {inner}
+    </a>
+  )
+}
+
 function AboutQPC() {
   const { lang } = useLang()
   const ar = lang === 'ar'
@@ -186,28 +227,6 @@ function AboutQPC() {
       <div style={{ fontSize: 13.5, color: 'var(--text2)', lineHeight: 1.8 }}>{children}</div>
     </div>
   )
-
-  // Compact, self-contained contact card — consistent height/spacing/
-  // typography/hover regardless of how long the label or value is.
-  const ContactCard = ({ icon, color, label, valueNode, href, external }) => {
-    const inner = (
-      <div className="guest-contact-card">
-        <div className="guest-contact-icon" style={{ background: color + '18' }}>
-          <i className={`ti ${icon}`} style={{ color, fontSize: 18 }} />
-        </div>
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <div className="guest-contact-label">{label}</div>
-          <div className="guest-contact-value">{valueNode}</div>
-        </div>
-      </div>
-    )
-    if (!href) return inner
-    return (
-      <a href={href} {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
-        {inner}
-      </a>
-    )
-  }
 
   return (
     <div>
@@ -263,9 +282,9 @@ function AboutQPC() {
         <div className="card-title"><i className="ti ti-address-book" /> {L('Contact Us','تواصل معنا')}</div>
         <div className="guest-contact-grid">
           <ContactCard icon="ti-mail" color="#EE334E" label={L('Email','البريد الإلكتروني')}
-            valueNode={<span dir="ltr">npcqatar@olympic.qa</span>} href="mailto:npcqatar@olympic.qa" />
+            valueNode={<span dir="ltr">npcqatar@olympic.qa</span>} href="mailto:npcqatar@olympic.qa" copyValue="npcqatar@olympic.qa" />
           <ContactCard icon="ti-phone" color="#009F6B" label={L('Phone','الهاتف')}
-            valueNode={<span dir="ltr">+974 4041 0410</span>} href="tel:+97440410410" />
+            valueNode={<span dir="ltr">+974 4041 0410</span>} href="tel:+97440410410" copyValue="+974 4041 0410" />
           <ContactCard icon="ti-map-pin" color="#0085C7" label={L('Address','العنوان')}
             valueNode={<><span dir="ltr">9F2G+4QP</span>, {L('Doha, Qatar','الدوحة، قطر')}</>} />
           <ContactCard icon="ti-mailbox" color="#f59e0b" label={L('P.O. Box','صندوق البريد')}
