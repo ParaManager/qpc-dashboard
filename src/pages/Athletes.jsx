@@ -1300,7 +1300,13 @@ export default function Athletes({ athletes, coaches, employees, results, docume
     // athletes.sport field. Falls back to the legacy field only for an
     // athlete with no junction rows yet (not-yet-migrated data).
     const athleteSportRows = athleteSportsByAthlete[a.id]
-    const athleteSportNames = athleteSportRows?.length ? athleteSportRows.map(r => r.sportName).filter(Boolean) : (a.sport ? [a.sport] : [])
+    // sports.name uses the full catalog form ("Para Athletics" / "SO
+    // Athletics" / "Unified Athletics"), but every filter/dropdown in this
+    // app (SPORTS_BY_CATEGORY, colFilters, the sport <select>) uses the
+    // short form ("Athletics") — strip the catalog prefix so junction-
+    // sourced names match the same convention the rest of the page uses.
+    const stripSportPrefix = (name) => name ? name.replace(/^(Para |SO |Unified )/, '') : name
+    const athleteSportNames = athleteSportRows?.length ? athleteSportRows.map(r => stripSportPrefix(r.sportName)).filter(Boolean) : (a.sport ? [a.sport] : [])
     const athleteSportCategories = athleteSportRows?.length ? athleteSportRows.map(r => r.sportCategory).filter(Boolean) : (a.sport_category ? [a.sport_category] : [])
     return (
       (sport  === 'All sports'   || athleteSportNames.includes(sport))  &&
