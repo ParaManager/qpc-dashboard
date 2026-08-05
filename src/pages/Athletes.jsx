@@ -989,6 +989,34 @@ function AthleteCoachHistory({ athleteId, coaches, employees, lang }) {
 
 export default function Athletes({ athletes, coaches, employees, results, documents, events, registrations, onRefresh, onNav, initAthleteId, initStatusFilter, navState, profile, pageTitle, isAllAthletesView = false, sportsList = [] }) {
   const { tx, lang, tc } = useLang()
+
+  // Bulk athlete_sports fetch — one query for the whole table (not one per
+  // athlete/row), used to render the multi-sport/category/coach chips.
+  // Keyed by athlete_id -> [{ sport_id, sport_name, sport_category, coach_id, coach_name, coach_name_ar }].
+  const [athleteSportsByAthlete, setAthleteSportsByAthlete] = useState({})
+  useEffect(() => {
+    let cancelled = false
+    supabase.from('athlete_sports')
+      .select('athlete_id, sport_id, coach_id, sports(name, category), coaches(name, name_ar)')
+      .then(({ data, error }) => {
+        if (cancelled || error) return
+        const grouped = {}
+        for (const row of (data || [])) {
+          if (!grouped[row.athlete_id]) grouped[row.athlete_id] = []
+          grouped[row.athlete_id].push({
+            sportId: row.sport_id,
+            sportName: row.sports?.name || null,
+            sportCategory: row.sports?.category || null,
+            coachId: row.coach_id,
+            coachName: row.coaches?.name || null,
+            coachNameAr: row.coaches?.name_ar || null,
+          })
+        }
+        setAthleteSportsByAthlete(grouped)
+      })
+    return () => { cancelled = true }
+  }, [])
+
   // Case-insensitive disability translation
   const DIS_MAP = {
     'visual impairment':'إعاقة بصرية', 'visual':'إعاقة بصرية',
@@ -2090,15 +2118,31 @@ ${myDocs.length > 0 ? `<div class="section">
                 the legacy single sport/coach fields shown below yet. */}
             <AthleteSportsCard athlete={a} coaches={coaches} sportsList={sportsList} lang={lang} profile={profile} onChanged={onRefresh} />
 
-            {/* COACH */}
+            {/* COACHES — Current Coaches derived from athlete_sports (not
+                the legacy single coach_id), deduplicated by coach, each
+                showing the sport(s) they coach this athlete in. */}
             <div className="info-card">
-              <div className="info-title">{lang==='ar'?'المدرب الرئيسي':'Head coach'} <span style={{ fontSize:10, fontWeight:400, textTransform:'none', letterSpacing:0 }}>— {lang==='ar'?'انقر للعرض':'click to view'}</span></div>
-              {coach ? (
-                <DashRow onClick={() => onNav('coaches', { coachId: coach.id })}>
-                  <div className="av" style={{ width:28, height:28, fontSize:10, background:'#009F6B', flexShrink:0 }}>{initials(coach.name)}</div>
-                  <div style={{ flex:1 }}><div style={{ fontSize:13, fontWeight:500 }}>{lang==='ar'&&coach.name_ar?coach.name_ar:coach.name}</div><div style={{ fontSize:11, color:'#9aa3b2' }}>{coach.sport} · {coach.cert_level}</div></div>
-                </DashRow>
-              ) : <div style={{ padding:'8px 0', fontSize:13, color:'var(--text3)' }}>{lang==='ar'?'لم يتم تعيين مدرب':'No coach assigned'}</div>}
+              <div className="info-title">{lang==='ar'?'المدربون الحاليون':'Current Coaches'} <span style={{ fontSize:10, fontWeight:400, textTransform:'none', letterSpacing:0 }}>— {lang==='ar'?'انقر للعرض':'click to view'}</span></div>
+              {(() => {
+                const rows = athleteSportsByAthlete[a.id] || []
+                const byCoach = new Map()
+                for (const r of rows) {
+                  if (!r.coachId) continue
+                  if (!byCoach.has(r.coachId)) byCoach.set(r.coachId, { id: r.coachId, name: r.coachName, name_ar: r.coachNameAr, sports: [] })
+                  if (r.sportName) byCoach.get(r.coachId).sports.push(r.sportName)
+                }
+                const currentCoaches = [...byCoach.values()]
+                if (currentCoaches.length === 0) return <div style={{ padding:'8px 0', fontSize:13, color:'var(--text3)' }}>{lang==='ar'?'لم يتم تعيين مدرب':'No coach assigned'}</div>
+                return currentCoaches.map(c => (
+                  <DashRow key={c.id} onClick={() => onNav('coaches', { coachId: c.id })}>
+                    <div className="av" style={{ width:28, height:28, fontSize:10, background:'#009F6B', flexShrink:0 }}>{initials(c.name || '?')}</div>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontSize:13, fontWeight:500 }}>{lang==='ar' && c.name_ar ? c.name_ar : (c.name || '—')}</div>
+                      <div style={{ fontSize:11, color:'#9aa3b2' }}>{c.sports.join(', ')}</div>
+                    </div>
+                  </DashRow>
+                ))
+              })()}
               <AthleteCoachHistory athleteId={String(a.id)} coaches={coaches} employees={employees} lang={lang} />
             </div>
 
@@ -2553,8 +2597,24 @@ ${myDocs.length > 0 ? `<div class="section">
       case 'name_ar':          return <span style={{ color:'var(--text2)', direction: lang==='ar'?'ltr':'rtl' }}>{lang==='ar' ? (a.name||'—') : (a.name_ar||'—')}</span>
       case 'qss_number':       return <span style={{ color:'var(--text2)', fontFamily:'monospace', fontSize:12 }}>{a.qss_number || '—'}</span>
       case 'career_profile':   return <span style={{ color:'var(--text2)', fontFamily:'monospace', fontSize:12 }}>{a.career_profile || '—'}</span>
-      case 'sport_category':   return a.sport_category ? <Badge label={lang==='ar' ? (SPORT_CATEGORY_NAMES_AR[a.sport_category]||a.sport_category) : a.sport_category} /> : <span style={{ color:'var(--text3)' }}>—</span>
-      case 'sport':            return <span style={{ color:'var(--text2)' }}>{a.sport ? sportLabel(a.sport, a.sport_category, lang==='ar') : '—'}</span>
+      case 'sport_category': {
+        const rows = athleteSportsByAthlete[a.id]
+        if (rows?.length) {
+          const cats = [...new Set(rows.map(r => r.sportCategory).filter(Boolean))]
+          if (cats.length === 0) return <span style={{ color:'var(--text3)' }}>—</span>
+          return <div style={{ display:'flex', flexWrap:'wrap', gap:4 }}>{cats.map(cat => <Badge key={cat} label={lang==='ar' ? (SPORT_CATEGORY_NAMES_AR[cat]||cat) : cat} />)}</div>
+        }
+        return a.sport_category ? <Badge label={lang==='ar' ? (SPORT_CATEGORY_NAMES_AR[a.sport_category]||a.sport_category) : a.sport_category} /> : <span style={{ color:'var(--text3)' }}>—</span>
+      }
+      case 'sport': {
+        const rows = athleteSportsByAthlete[a.id]
+        if (rows?.length) {
+          const names = [...new Set(rows.map(r => r.sportName).filter(Boolean))]
+          if (names.length === 0) return <span style={{ color:'var(--text3)' }}>—</span>
+          return <div style={{ display:'flex', flexWrap:'wrap', gap:4 }}>{names.map(n => <span key={n} className="badge badge-blue" style={{ fontSize:11 }}>{n}</span>)}</div>
+        }
+        return <span style={{ color:'var(--text2)' }}>{a.sport ? sportLabel(a.sport, a.sport_category, lang==='ar') : '—'}</span>
+      }
       case 'classification':   return a.classification ? <span className="badge badge-blue">{a.classification}</span> : '—'
       case 'disability':            return <span style={{ color:'var(--text2)' }}>{tDis(a.disability) || '—'}</span>
       case 'statistics_disability': return <span style={{ color:'var(--text2)' }}>{tStatDis(a.statistics_disability) || '—'}</span>
@@ -2567,6 +2627,18 @@ ${myDocs.length > 0 ? `<div class="section">
       case 'age_category':       return <span style={{ color:'var(--text2)' }}>{a.age_category || '—'}</span>
       case 'sport_age_category': return <span style={{ color:'var(--text2)' }}>{a.sport_age_category || '—'}</span>
       case 'coach_id': {
+        const rows = athleteSportsByAthlete[a.id]
+        if (rows?.length) {
+          const seen = new Set()
+          const coachChips = []
+          for (const r of rows) {
+            if (!r.coachId || seen.has(r.coachId)) continue
+            seen.add(r.coachId)
+            coachChips.push({ id: r.coachId, name: lang==='ar' && r.coachNameAr ? r.coachNameAr : (r.coachName || '—') })
+          }
+          if (coachChips.length === 0) return <span style={{ color:'var(--text3)' }}>—</span>
+          return <div style={{ display:'flex', flexWrap:'wrap', gap:4 }}>{coachChips.map(c => <span key={c.id} className="badge badge-green" style={{ fontSize:11 }}>{c.name}</span>)}</div>
+        }
         const coach = coaches.find(co => co.id === a.coach_id)
         if (!coach) return <span style={{ color:'var(--text3)' }}>—</span>
         return <span style={{ color:'var(--text2)' }}>{lang==='ar' && coach.name_ar ? coach.name_ar : coach.name}</span>
