@@ -4,6 +4,7 @@ import * as XLSX from 'xlsx'
 import { generateStatisticsReport } from '../lib/statisticsReport'
 import { Avatar, MedalDisplay, Badge, avColor, initials, DashRow, SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, SPORT_CATEGORY_NAMES_AR, SPORT_NAMES_AR, sportLabel, effectiveStatus, buildSearchText, matchesSearch, normalizeSearch, extractQidFromFilename, TARGET_CATEGORY_OPTIONS } from '../lib/helpers'
 import PhotoCropModal from '../components/PhotoCropModal'
+import AthleteSportsCard from '../components/AthleteSportsCard'
 import ImportCompletionSummary from '../components/ImportCompletionSummary'
 import FormModal from '../components/FormModal'
 import { ConfirmModal, toast } from '../components/Toast'
@@ -986,7 +987,7 @@ function AthleteCoachHistory({ athleteId, coaches, employees, lang }) {
   )
 }
 
-export default function Athletes({ athletes, coaches, employees, results, documents, events, registrations, onRefresh, onNav, initAthleteId, initStatusFilter, navState, profile, pageTitle, isAllAthletesView = false }) {
+export default function Athletes({ athletes, coaches, employees, results, documents, events, registrations, onRefresh, onNav, initAthleteId, initStatusFilter, navState, profile, pageTitle, isAllAthletesView = false, sportsList = [] }) {
   const { tx, lang, tc } = useLang()
   // Case-insensitive disability translation
   const DIS_MAP = {
@@ -2083,6 +2084,11 @@ ${myDocs.length > 0 ? `<div class="section">
                 </div>
               )
             })()}
+
+            {/* SPORTS — multi-sport / per-sport-coach assignments via the
+                athlete_sports junction table. Additive: does not replace
+                the legacy single sport/coach fields shown below yet. */}
+            <AthleteSportsCard athlete={a} coaches={coaches} sportsList={sportsList} lang={lang} profile={profile} onChanged={onRefresh} />
 
             {/* COACH */}
             <div className="info-card">
