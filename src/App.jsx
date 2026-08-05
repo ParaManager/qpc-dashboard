@@ -98,6 +98,17 @@ export default function App() {
     return 'dashboard'
   })
   const [refreshToken, setRefreshToken] = useState(0)  // bumped on every nav click to force a fresh reload, even when clicking the already-active page
+  // Per-sport coach assignments (athlete_sports junction table) — fetched
+  // in its own isolated effect, separate from the main fetchAll Promise.all,
+  // so this additive feature can't affect the existing bulk-fetch shape.
+  // Declared here (before any early-return gates like !user/guestMode)
+  // since hooks must run unconditionally on every render.
+  const [athleteSportAssignments, setAthleteSportAssignments] = useState([])
+  useEffect(() => {
+    if (!user) { setAthleteSportAssignments([]); return }
+    supabase.from('athlete_sports').select('athlete_id, coach_id')
+      .then(({ data, error }) => { if (!error) setAthleteSportAssignments(data || []) })
+  }, [user, refreshToken])
   const [athletes, setAthletes]           = useState([])
   const [coaches, setCoaches]             = useState([])
   const [events, setEvents]               = useState([])
@@ -666,16 +677,6 @@ export default function App() {
   const myAthleteId = profile?.athlete_id || null
   const myAthlete   = isAthlete ? athletes.find(a => String(a.id) === String(myAthleteId)) : null
   const myCoach     = myAthlete ? coaches.find(c => c.id === myAthlete.coach_id) : null
-
-  // Per-sport coach assignments (athlete_sports junction table) — fetched
-  // in its own isolated effect, separate from the main fetchAll Promise.all,
-  // so this additive feature can't affect the existing bulk-fetch shape.
-  const [athleteSportAssignments, setAthleteSportAssignments] = useState([])
-  useEffect(() => {
-    if (!user) return
-    supabase.from('athlete_sports').select('athlete_id, coach_id')
-      .then(({ data, error }) => { if (!error) setAthleteSportAssignments(data || []) })
-  }, [user, refreshToken])
 
   // A coach's "My Athletes" now includes anyone assigned to them either
   // via the legacy athletes.coach_id field OR via any athlete_sports row
