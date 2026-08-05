@@ -144,7 +144,7 @@ function OfficialsPicker({ roleKey, title, officials, employees, eventId, canEdi
 
 
 
-export default function Events({ events, athletes, results, registrations, onRefresh, onNav, initEventId, initStatusFilter, profile, eventCategories = [], employees = [], sportsList = [] }) {
+export default function Events({ events, athletes, results, registrations, onRefresh, onNav, initEventId, initStatusFilter, profile, eventCategories = [], employees = [], sportsList = [], guestMode = false }) {
   const { lang, tx } = useLang()
   const ar = lang === 'ar'
 
@@ -215,7 +215,7 @@ export default function Events({ events, athletes, results, registrations, onRef
     await loadOfficials(selected)
   }
 
-  const statuses = ['All', 'Planning', 'Upcoming', 'In Progress', 'Completed', 'Canceled']
+  const statuses = guestMode ? ['All', 'Upcoming', 'Completed'] : ['All', 'Planning', 'Upcoming', 'In Progress', 'Completed', 'Canceled']
   const filterSportOptions = [...new Set(events.flatMap(e => e.sports?.length ? e.sports : (e.sport ? [e.sport] : [])))].sort()
   const hasActiveFilters = !!search || categoryF.length > 0 || approvalF.length > 0 || sportF.length > 0 || statusF !== 'All'
   function clearFilters() { setSearch(''); setCategoryF([]); setApprovalF([]); setSportF([]); setStatusF('All') }
@@ -228,6 +228,7 @@ export default function Events({ events, athletes, results, registrations, onRef
 
   let list = events.filter(e => {
     const evStatus      = getEventStatus(e)
+    if (guestMode && evStatus !== 'Upcoming' && evStatus !== 'Completed') return false
     const matchStatus   = statusF === 'All' || evStatus === statusF
     const matchCategory = categoryF.length === 0 || categoryF.includes(String(e.category_id))
     const matchApproval = approvalF.length === 0 || approvalF.includes(e.approval_status)
@@ -554,6 +555,9 @@ export default function Events({ events, athletes, results, registrations, onRef
         .ev-gc { background: var(--surface1); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; cursor: pointer; transition: box-shadow .15s, transform .15s; display: flex; flex-direction: column; outline: none; }
         .ev-gc:hover { box-shadow: 0 4px 18px rgba(0,0,0,.10); transform: translateY(-2px); }
         .ev-gc:focus-visible { box-shadow: 0 0 0 3px #0085C740; }
+        .ev-gc-guest { cursor: default; }
+        .ev-gc-guest:hover { box-shadow: none; transform: none; }
+        .ev-gc-guest:focus-visible { box-shadow: none; }
         .ev-gc-body { padding: 10px 14px 12px; display: flex; flex-direction: column; gap: 5px; flex: 1; }
         .ev-gc-title { font-size: 14px; font-weight: 600; color: var(--text1); line-height: 1.35; word-break: break-word; }
         .ev-gc-meta-row { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text3); }
@@ -588,24 +592,28 @@ export default function Events({ events, athletes, results, registrations, onRef
           <i className="ti ti-search" />
           <input placeholder={tx('events.searchEvents', 'Search events…')} value={search} onChange={e => setSearch(e.target.value)} />
         </div>
-        <MultiSelectFilter
-          options={eventCategories.filter(c => c.is_active).map(c => ({ value: String(c.id), label: ar && c.name_ar ? c.name_ar : c.name }))}
-          selected={categoryF}
-          onChange={setCategoryF}
-          allLabel={tx('events.allCategories', 'All categories')}
-          style={{ minWidth: 160 }}
-        />
-        <MultiSelectFilter
-          options={[
-            { value: 'Approved', label: tx('events.approved', 'Approved') },
-            { value: 'TBC',      label: tx('events.tbc', 'TBC') },
-            { value: 'Rejected', label: tx('events.rejected', 'Rejected') },
-          ]}
-          selected={approvalF}
-          onChange={setApprovalF}
-          allLabel={tx('events.allApprovals', 'All approvals')}
-          style={{ minWidth: 160 }}
-        />
+        {!guestMode && (
+          <MultiSelectFilter
+            options={eventCategories.filter(c => c.is_active).map(c => ({ value: String(c.id), label: ar && c.name_ar ? c.name_ar : c.name }))}
+            selected={categoryF}
+            onChange={setCategoryF}
+            allLabel={tx('events.allCategories', 'All categories')}
+            style={{ minWidth: 160 }}
+          />
+        )}
+        {!guestMode && (
+          <MultiSelectFilter
+            options={[
+              { value: 'Approved', label: tx('events.approved', 'Approved') },
+              { value: 'TBC',      label: tx('events.tbc', 'TBC') },
+              { value: 'Rejected', label: tx('events.rejected', 'Rejected') },
+            ]}
+            selected={approvalF}
+            onChange={setApprovalF}
+            allLabel={tx('events.allApprovals', 'All approvals')}
+            style={{ minWidth: 160 }}
+          />
+        )}
         <MultiSelectFilter
           options={filterSportOptions.map(s => ({ value: s, label: s }))}
           selected={sportF}
@@ -643,17 +651,17 @@ export default function Events({ events, athletes, results, registrations, onRef
           return (
             <div
               key={ev.id}
-              className="ev-gc"
-              onClick={() => setSelected(ev.id)}
-              onKeyDown={e => e.key === 'Enter' && setSelected(ev.id)}
-              tabIndex={0}
-              role="button"
-              aria-label={ev.name}
+              className={guestMode ? 'ev-gc ev-gc-guest' : 'ev-gc'}
+              onClick={guestMode ? undefined : () => setSelected(ev.id)}
+              onKeyDown={guestMode ? undefined : (e => e.key === 'Enter' && setSelected(ev.id))}
+              tabIndex={guestMode ? -1 : 0}
+              role={guestMode ? undefined : 'button'}
+              aria-label={guestMode ? undefined : ev.name}
             >
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, padding: '12px 12px 0' }}>
                 <CatBadge catId={ev.category_id} eventCategories={eventCategories} lang={lang} />
                 <StatusBadge status={evStatus} tx={tx} />
-                <ApprovalBadge status={ev.approval_status} tx={tx} />
+                {!guestMode && <ApprovalBadge status={ev.approval_status} tx={tx} />}
               </div>
 
               <div className="ev-gc-body">

@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
+import { computeEventStatus } from './Events'
 import { useLang } from '../lib/LangContext.jsx'
 import { toast, ConfirmModal } from '../components/Toast'
 import MeetingFormModal from '../components/MeetingFormModal.jsx'
@@ -124,6 +125,10 @@ export default function Calendar({ profile, events = [], employees = [], onNav, 
     for (const e of events) {
       if (!e.start_date) continue
       if (isEventCanceled(e)) continue // canceled events are excluded from the calendar entirely
+      if (guestMode) {
+        const st = computeEventStatus(e.start_date, e.end_date, e.deadline)
+        if (e.approval_status !== 'Approved' || (st !== 'Upcoming' && st !== 'Completed')) continue
+      }
       items.push({
         id: `event-${e.id}`, kind: 'event', date: e.start_date, endDate: e.end_date || e.start_date,
         startTime: null, endTime: null,
@@ -139,7 +144,7 @@ export default function Calendar({ profile, events = [], employees = [], onNav, 
       })
     }
     return items
-  }, [meetings, events, tasks, ar])
+  }, [meetings, events, tasks, ar, guestMode])
 
   const showAll        = activeFilters.includes('all')
   const activeCatIds   = activeFilters.filter(f => f.startsWith('cat-')).map(f => f.slice(4))

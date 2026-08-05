@@ -31,28 +31,31 @@ function useGuestData() {
   const [coaches, setCoaches] = useState([])
   const [events, setEvents] = useState([])
   const [results, setResults] = useState([])
+  const [registrations, setRegistrations] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     let cancelled = false
     ;(async () => {
-      const [a, c, e, r] = await Promise.all([
+      const [a, c, e, r, reg] = await Promise.all([
         supabase.from('athletes').select('id, name, name_ar, sport, sport_category, classification, status'),
         supabase.from('coaches').select('id, name, name_ar, sport, sport_category, status'),
         supabase.from('events').select('*'),
         supabase.from('results').select('id, athlete_id, medal, discipline, event_name, date'),
+        supabase.from('registrations').select('event_id, athlete_id'),
       ])
       if (cancelled) return
       setAthletes(a.data || [])
       setCoaches(c.data || [])
       setEvents(e.data || [])
       setResults(r.data || [])
+      setRegistrations(reg.data || [])
       setLoading(false)
     })()
     return () => { cancelled = true }
   }, [])
 
-  return { athletes, coaches, events, results, loading }
+  return { athletes, coaches, events, results, registrations, loading }
 }
 
 function GuestBanner() {
@@ -70,7 +73,7 @@ function GuestBanner() {
 
 const STATUS_TX = { Planning: 'planning', Upcoming: 'upcoming', 'In Progress': 'inProgress', Completed: 'completed', Canceled: 'canceled' }
 
-function GuestDashboard({ athletes, coaches, events }) {
+function GuestDashboard({ athletes, coaches, events, registrations }) {
   const { lang, tx } = useLang()
   const ar = lang === 'ar'
   const L = (en, a) => ar ? a : en
@@ -87,7 +90,7 @@ function GuestDashboard({ athletes, coaches, events }) {
     return e.approval_status === 'Approved' && (st === 'Upcoming' || st === 'In Progress')
   }).length
   const upcomingEvents = (events||[])
-    .filter(e => { const st = getEventStatus(e); return e.approval_status === 'Approved' && st === 'Upcoming' })
+    .filter(e => { const st = getEventStatus(e); return e.approval_status === 'Approved' && (st === 'Upcoming' || st === 'Completed') })
     .sort((a, b) => new Date(a.start_date) - new Date(b.start_date))
     .slice(0, 6)
 
@@ -132,13 +135,17 @@ function GuestDashboard({ athletes, coaches, events }) {
         {upcomingEvents.map(ev => {
           const evStatus = getEventStatus(ev)
           const statusLabel = STATUS_TX[evStatus] ? tx(`events.${STATUS_TX[evStatus]}`, evStatus) : evStatus
+          const regCount = registrations.filter(r => r.event_id === ev.id).length
           return (
-            <DashRow key={ev.id}>
+            <div key={ev.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 8px', borderBottom:'1px solid #eef0f3' }}>
               <div style={{ width:8, height:8, borderRadius:'50%', background:statusDot(evStatus), flexShrink:0 }} />
-              <span style={{ flex:1, fontSize:13 }}>{ar && ev.name_ar ? ev.name_ar : ev.name}</span>
-              <span style={{ fontSize:11, color:'#9aa3b2' }}>{ev.start_date}</span>
-              <span className={`badge ${statusClass(evStatus)}`}>{statusLabel}</span>
-            </DashRow>
+              <span style={{ flex:1, fontSize:13, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{ar && ev.name_ar ? ev.name_ar : ev.name}</span>
+              <span style={{ fontSize:11, color:'#9aa3b2', display:'flex', alignItems:'center', gap:4, flexShrink:0 }}>
+                <i className="ti ti-users" style={{ fontSize:12 }} /> {regCount}
+              </span>
+              <span style={{ fontSize:11, color:'#9aa3b2', flexShrink:0 }}>{ev.start_date}</span>
+              <span className={`badge ${statusClass(evStatus)}`} style={{ flexShrink:0 }}>{statusLabel}</span>
+            </div>
           )
         })}
         {upcomingEvents.length === 0 && <div className="empty">{tx('dashboard.noUpcomingEvents','No upcoming events')}</div>}
@@ -244,7 +251,7 @@ function GuestPortalInner({ onExit }) {
   const { lang, setLang } = useLang()
   const ar = lang === 'ar'
   const [page, setPage] = useState('dashboard')
-  const { athletes, coaches, events, results, loading } = useGuestData()
+  const { athletes, coaches, events, results, registrations, loading } = useGuestData()
 
   return (
     <div style={{ height: '100vh', background: 'var(--bg)', direction: ar ? 'rtl' : 'ltr', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -281,9 +288,9 @@ function GuestPortalInner({ onExit }) {
               <div className="empty" style={{ padding: 60 }}>{ar ? 'جارٍ التحميل…' : 'Loading…'}</div>
             ) : (
               <>
-                {page === 'dashboard' && <GuestDashboard athletes={athletes} coaches={coaches} events={events} />}
+                {page === 'dashboard' && <GuestDashboard athletes={athletes} coaches={coaches} events={events} registrations={registrations} />}
                 {page === 'calendar' && <Calendar profile={null} events={events} employees={[]} onNav={(p) => setPage(p === 'events' ? 'events' : page)} readOnly guestMode />}
-                {page === 'events' && <Events events={events} athletes={athletes} employees={[]} results={results} registrations={[]} onRefresh={() => {}} onNav={() => {}} profile={null} eventCategories={[]} sportsList={[]} />}
+                {page === 'events' && <Events events={events} athletes={athletes} employees={[]} results={results} registrations={registrations} onRefresh={() => {}} onNav={() => {}} profile={null} eventCategories={[]} sportsList={[]} guestMode />}
                 {page === 'sports' && <Sports athletes={athletes} coaches={coaches} events={events} results={results} onNav={(p) => setPage(p === 'sports' ? 'sports' : page)} profile={null} />}
                 {page === 'about' && <AboutQPC />}
               </>
