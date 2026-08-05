@@ -21,6 +21,7 @@ import Settings          from './pages/Settings'
 import AthleteDashboard  from './pages/AthleteDashboard'
 import CoachDashboard    from './pages/CoachDashboard'
 import EmployeeDashboard from './pages/EmployeeDashboard'
+import GuestPortal from './pages/GuestPortal'
 import Notifications     from './pages/Notifications'
 import Resources         from './pages/Resources'
 import Requests         from './pages/Requests'
@@ -77,6 +78,7 @@ export default function App() {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [collapsedSections, setCollapsedSections] = useState({})  // { [sectionLabel]: true } when collapsed; sections default to expanded
   const [requestSent, setRequestSent] = useState(false)
+  const [guestMode, setGuestMode] = useState(false)
   // True for the brief window between a new sign-up creating its auth session
   // and its profiles row actually finishing its insert. Without this, a logged-in
   // user with no profile yet (purely a timing gap, not a real broken account)
@@ -614,7 +616,9 @@ export default function App() {
     </div>
   )
 
-  if (!user) return <Login onRequestSent={() => setRequestSent(true)} onSigningUpChange={setSigningUp} />
+  if (guestMode) return <GuestPortal onExit={() => setGuestMode(false)} />
+
+  if (!user) return <Login onRequestSent={() => setRequestSent(true)} onSigningUpChange={setSigningUp} onGuestMode={() => setGuestMode(true)} />
 
   // Wait for the profile to actually finish loading before reading its role/status —
   // otherwise a rejected or pending account could briefly (or permanently, if the
