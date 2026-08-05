@@ -42,7 +42,7 @@ const NAV_ADMIN = (tx) => [
 ]
 const NAV_COACH = (tx) => [
   { section: tx('nav.overview','Overview'),      items: [{ id:'dashboard', icon:'ti-layout-dashboard', label:tx('nav.dashboard','Dashboard') }, { id:'notifications', icon:'ti-bell', label:tx('nav.notifications','Notifications') }, { id:'calendar', icon:'ti-calendar', label:tx('nav.calendar','Calendar') }, { id:'resources', icon:'ti-folder', label:tx('nav.resources','Resources') }, { id:'requests', icon:'ti-clipboard-text', label:tx('nav.requests','Requests') }, { id:'tasks', icon:'ti-checklist', label:tx('nav.tasks','Tasks') }, { id:'profile', icon:'ti-user-circle', label:tx('nav.profile','My Profile') }] },
-  { section: tx('nav.people','People'), items: [{ id:'athletes-all', icon:'ti-run', label:tx('nav.athletes','Athletes') }, { id:'athletes', icon:'ti-run', label:tx('athletes.myAthletes','My Athletes') }, { id:'coaches', icon:'ti-whistle', label:tx('nav.coaches','Coaches') }, { id:'employees', icon:'ti-id-badge-2', label:tx('nav.employees','Employees') }, { id:'referees', icon:'ti-flag-2', label:tx('nav.referees','Referees') }] },
+  { section: tx('nav.people','People'), items: [{ id:'athletes-all', icon:'ti-run', label:tx('nav.athletes','Athletes') }, { id:'athletes', icon:'ti-run', label:tx('athletes.myAthletes','My Athletes') }, { id:'coaches', icon:'ti-user-star', label:tx('nav.coaches','Coaches') }, { id:'employees', icon:'ti-id-badge-2', label:tx('nav.employees','Employees') }, { id:'referees', icon:'ti-flag-2', label:tx('nav.referees','Referees') }] },
   { section: tx('nav.training','Training'),      items: [{ id:'schedule', icon:'ti-calendar', label:tx('nav.schedule','Schedule') }, { id:'attendance', icon:'ti-clipboard-check', label:tx('nav.attendance','Attendance') }] },
   { section: tx('nav.competitions','Competitions'), items: [{ id:'sports', icon:'ti-ball-football', label:tx('nav.sports','Sports') }, { id:'events', icon:'ti-calendar-event', label:tx('nav.events','Events') }, { id:'results', icon:'ti-medal', label:tx('nav.results','Results') }] },
   { section: tx('nav.account','Account'),         items: [{ id:'settings', icon:'ti-settings', label:tx('nav.settings','Settings') }] },
@@ -61,7 +61,7 @@ const NAV_GUEST = (tx) => [
 ]
 
 const ROLE_COLORS = { admin: '#0085C7', coach: '#009F6B', athlete: '#EE334E', guest: '#9aa3b2' }
-const ROLE_ICONS  = { admin: 'ti-shield', coach: 'ti-whistle', athlete: 'ti-run', guest: 'ti-eye' }
+const ROLE_ICONS  = { admin: 'ti-shield', coach: 'ti-user-star', athlete: 'ti-run', guest: 'ti-eye' }
 
 export default function App() {
   const { user, profile, loading: authLoading, signOut } = useAuth()
