@@ -4,7 +4,7 @@ import { useLang } from '../lib/LangContext.jsx'
 import { qpcLogo as QPC_LOGO } from '../lib/logos'
 import { normalizeQid } from '../lib/helpers'
 
-export default function Login({ onRequestSent, onSigningUpChange }) {
+export default function Login({ onRequestSent, onSigningUpChange, onGuestMode }) {
   const { lang, setLang } = useLang()
   const ar = lang === 'ar'
   const L = (en, a) => ar ? a : en
@@ -277,6 +277,9 @@ export default function Login({ onRequestSent, onSigningUpChange }) {
               {error && <div style={{ color:'#EE334E', fontSize:13, marginBottom:12, padding:'8px 12px', background:'#EE334E15', borderRadius:8 }}>{error}</div>}
               <button type="submit" disabled={loading} style={{ width:'100%', padding:'11px', background:'#0085C7', color:'#fff', border:'none', borderRadius:10, fontSize:14, fontWeight:600, cursor:'pointer', marginTop:4 }}>
                 {loading ? L('Signing in…','جارٍ تسجيل الدخول…') : L('Sign In','تسجيل الدخول')}
+              </button>
+              <button type="button" onClick={onGuestMode} style={{ width:'100%', padding:'11px', background:'transparent', color:'var(--text2)', border:'1px solid var(--border)', borderRadius:10, fontSize:14, fontWeight:600, cursor:'pointer', marginTop:8 }}>
+                <i className="ti ti-eye" style={{ marginInlineEnd:6 }} /> {L('Continue as Guest','المتابعة كضيف')}
               </button>
             </form>
           )}
