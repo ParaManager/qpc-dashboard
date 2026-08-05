@@ -25,9 +25,9 @@ export default function AthleteSportsCard({ athlete, coaches, sportsList, lang, 
     setLoading(true)
     const { data, error } = await supabase
       .from('athlete_sports')
-      .select('id, sport_id, coach_id, is_primary, sports(id, name, category), coaches(id, name, name_ar)')
+      .select('id, sport_id, coach_id, sports(id, name, category), coaches(id, name, name_ar)')
       .eq('athlete_id', athlete.id)
-      .order('is_primary', { ascending: false })
+      .order('id')
     if (error) { toast(error.message, 'error'); setLoading(false); return }
     setRows(data || [])
     setLoading(false)
@@ -51,7 +51,6 @@ export default function AthleteSportsCard({ athlete, coaches, sportsList, lang, 
       athlete_id: athlete.id,
       sport_id: Number(newSportId),
       coach_id: newCoachId ? Number(newCoachId) : null,
-      is_primary: rows.length === 0, // first assignment becomes primary automatically
     })
     if (error) { toast(error.message, 'error'); return }
     toast(L('Sport added', 'تمت إضافة الرياضة'))
@@ -63,14 +62,6 @@ export default function AthleteSportsCard({ athlete, coaches, sportsList, lang, 
     const { error } = await supabase.from('athlete_sports').update({ coach_id: editCoachId ? Number(editCoachId) : null }).eq('id', rowId)
     if (error) { toast(error.message, 'error'); return }
     setEditingId(null)
-    await load(); onChanged?.()
-  }
-
-  async function setPrimary(rowId) {
-    // Clear any existing primary first (partial unique index only allows one).
-    await supabase.from('athlete_sports').update({ is_primary: false }).eq('athlete_id', athlete.id).eq('is_primary', true)
-    const { error } = await supabase.from('athlete_sports').update({ is_primary: true }).eq('id', rowId)
-    if (error) { toast(error.message, 'error'); return }
     await load(); onChanged?.()
   }
 
@@ -99,10 +90,7 @@ export default function AthleteSportsCard({ athlete, coaches, sportsList, lang, 
           {rows.map(r => (
             <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12.5 }}>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  {r.sports?.name || '—'}
-                  {r.is_primary && <span style={{ fontSize: 9.5, fontWeight: 700, color: '#0085C7', background: '#0085C718', padding: '1px 6px', borderRadius: 10 }}>{L('PRIMARY', 'أساسي')}</span>}
-                </div>
+                <div style={{ fontWeight: 600 }}>{r.sports?.name || '—'}</div>
                 <div style={{ color: 'var(--text3)', fontSize: 11 }}>{r.sports?.category || '—'}</div>
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -124,9 +112,6 @@ export default function AthleteSportsCard({ athlete, coaches, sportsList, lang, 
                     </>
                   ) : (
                     <>
-                      {!r.is_primary && (
-                        <button onClick={() => setPrimary(r.id)} title={L('Set as primary', 'تعيين كأساسي')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)' }}><i className="ti ti-star" /></button>
-                      )}
                       <button onClick={() => { setEditingId(r.id); setEditCoachId(r.coach_id ? String(r.coach_id) : '') }} title={L('Edit coach', 'تعديل المدرب')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)' }}><i className="ti ti-edit" /></button>
                       <button onClick={() => removeAssignment(r.id)} title={L('Remove', 'إزالة')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626' }}><i className="ti ti-trash" /></button>
                     </>
