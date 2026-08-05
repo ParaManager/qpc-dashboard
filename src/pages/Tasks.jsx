@@ -669,7 +669,7 @@ export default function Tasks({ profile, isMainAdmin, onNav }) {
       <div className="filters" style={{ flexWrap: 'wrap' }}>
         <div className="search-wrap"><i className="ti ti-search" /><input placeholder={ar ? 'بحث في المهام...' : 'Search tasks…'} value={search} onChange={e => setSearch(e.target.value)} /></div>
         {isMainAdmin && viewScope === 'all' && (() => {
-          const assigneeOptions = eligible.map(p => ({ value: p.id, label: p.id === profile?.id ? (ar ? 'نفسي' : 'Myself') : assigneeLabel(p) }))
+          const assigneeOptions = eligible.map(p => ({ value: p.id, label: p.id === profile?.id ? (ar ? 'نفسي' : 'Myself') : assigneeLabel(p), altLabel: p.name_ar || p.full_name || '' }))
           const assigneeCounter = computeTaskOptionCounts('assignee', t => t.assigned_to, (fv, ov) => fv === ov)
           const assigneeCounts = assigneeOptions.reduce((acc,o)=>{acc[o.value]=assigneeCounter(o.value);return acc},{})
           return (
