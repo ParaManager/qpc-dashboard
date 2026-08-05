@@ -128,7 +128,8 @@ export function buildSearchText(...fields) {
 export function matchesSearch(haystack, query) {
   const q = normalizeSearch(query)
   if (!q) return true
-  return q.split(' ').every(word => haystack.includes(word))
+  const h = normalizeSearch(haystack)
+  return q.split(' ').every(word => h.includes(word))
 }
 
 // Shared by the Athlete and Employee bulk document importers: the part of
