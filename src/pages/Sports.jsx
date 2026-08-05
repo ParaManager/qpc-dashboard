@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react'
 import { SPORTS, SPORT_META, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, UNIFIED_SPORTS_GROUPS, SPORT_CATEGORY_NAMES_AR, SPORT_NAMES_AR, SPORT_DESC_AR, UNIFIED_GROUP_NAMES_AR, sportLabel, Avatar, Badge, MedalDisplay, statusDot, initials, DashRow } from '../lib/helpers'
 import { useLang } from '../lib/LangContext.jsx'
+import { supabase } from '../lib/supabase'
+import { canEdit } from '../lib/useAuth'
+import { toast } from '../components/Toast'
 
 export default function Sports({ athletes, coaches, events, results, onNav, initSport, initCategory, profile }) {
   const { tx, lang } = useLang()
@@ -21,6 +24,51 @@ export default function Sports({ athletes, coaches, events, results, onNav, init
   const [activeTab, setActiveTab] = useState(initCategory || 'Summer Paralympic')
   const [selected, setSelected] = useState(initSport ? { sport: initSport, category: initCategory || 'Summer Paralympic' } : null)
   const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('All')
+  const editable = canEdit(profile)
+
+  // Sport Status (Active/Planned) lives in the `sports` DB table, keyed by
+  // its full catalog name (e.g. "Para Athletics"), while this page's tiles
+  // use the short key (e.g. "Athletics") from the static SPORTS_BY_CATEGORY
+  // catalog — same short/full naming split already handled elsewhere in
+  // the app (Athletes.jsx filters/migration). Fetched once, looked up by
+  // short-name + category with the same prefix-aware matching.
+  const [sportStatusRows, setSportStatusRows] = useState([])
+  useEffect(() => {
+    supabase.from('sports').select('id, name, category, status')
+      .then(({ data, error }) => { if (!error) setSportStatusRows(data || []) })
+  }, [])
+  function findSportStatusRow(shortName, category) {
+    if (!shortName) return null
+    return sportStatusRows.find(s =>
+      s.category === category &&
+      (s.name === shortName || s.name === `Para ${shortName}` || s.name === `SO ${shortName}` || s.name === `Unified ${shortName}`)
+    ) || null
+  }
+  function getSportStatus(shortName, category) {
+    return findSportStatusRow(shortName, category)?.status || 'Planned'
+  }
+  async function setSportStatus(shortName, category, newStatus) {
+    const row = findSportStatusRow(shortName, category)
+    if (!row) { toast(ar ? 'هذه الرياضة غير موجودة في كتالوج قاعدة البيانات' : 'This sport has no matching catalog entry to update', 'error'); return }
+    const { error } = await supabase.from('sports').update({ status: newStatus }).eq('id', row.id)
+    if (error) { toast(error.message, 'error'); return }
+    setSportStatusRows(prev => prev.map(s => s.id === row.id ? { ...s, status: newStatus } : s))
+  }
+  function SportStatusBadge({ status, onClick }) {
+    const isActive = status === 'Active'
+    return (
+      <span onClick={onClick} style={{
+        fontSize: 10.5, fontWeight: 700, padding: '2px 9px', borderRadius: 20,
+        background: isActive ? '#009F6B18' : 'var(--surface2)',
+        color: isActive ? '#009F6B' : 'var(--text3)',
+        cursor: onClick ? 'pointer' : 'default',
+        whiteSpace: 'nowrap',
+      }}>
+        {isActive ? (ar ? 'نشط' : 'Active') : (ar ? 'مخطط له' : 'Planned')}
+      </span>
+    )
+  }
   // Which Unified Sports sub-groups are expanded — starts with all of them open so
   // the tab doesn't look empty on first visit, but each can be collapsed individually.
   const [expandedGroups, setExpandedGroups] = useState(() =>
@@ -56,7 +104,16 @@ export default function Sports({ athletes, coaches, events, results, onNav, init
             <i className={`ti ${meta.icon}`} style={{ fontSize:30, color:meta.color }} />
           </div>
           <div>
-            <div style={{ fontSize:22, fontWeight:600 }}>{sportLabel(selSport, selCategory, ar)}</div>
+            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+              <div style={{ fontSize:22, fontWeight:600 }}>{sportLabel(selSport, selCategory, ar)}</div>
+              <SportStatusBadge
+                status={getSportStatus(selSport, selCategory)}
+                onClick={editable ? () => {
+                  const next = getSportStatus(selSport, selCategory) === 'Active' ? 'Planned' : 'Active'
+                  setSportStatus(selSport, selCategory, next)
+                } : undefined}
+              />
+            </div>
             <div style={{ fontSize:13, color:'var(--text2)', marginTop:3 }}>{tx('dashboard.qpc','Qatar Paralympic Committee')}</div>
           </div>
         </div>
@@ -125,6 +182,36 @@ export default function Sports({ athletes, coaches, events, results, onNav, init
     <div>
       <div className="page-header">
         <div><div className="page-title">{tx('pages.sports','Sports')}</div><div className="page-sub">{tx('dashboard.qpc','Qatar Paralympic Committee')}</div></div>
+      </div>
+
+      {/* Total / Active / Planned Sports — counted from the sports catalog
+          table's status field, not from athlete participation. */}
+      <div className="kpi-grid" style={{ gridTemplateColumns:'repeat(3,1fr)', marginBottom:18 }}>
+        {[
+          { label: ar?'إجمالي الرياضات':'Total Sports', val: sportStatusRows.length, color:'#0085C7', icon:'ti-ball-football' },
+          { label: ar?'الرياضات النشطة':'Active Sports', val: sportStatusRows.filter(s=>s.status==='Active').length, color:'#009F6B', icon:'ti-circle-check' },
+          { label: ar?'الرياضات المخطط لها':'Planned Sports', val: sportStatusRows.filter(s=>s.status==='Planned').length, color:'#9aa3b2', icon:'ti-clock' },
+        ].map(({ label, val, color, icon }) => (
+          <div key={label} className="kpi-card" style={{ cursor:'default' }}>
+            <div className="kpi-icon" style={{ background: color + '18' }}><i className={`ti ${icon}`} style={{ color, fontSize: 16 }} /></div>
+            <div className="kpi-body"><div className="kpi-label">{label}</div><div className="kpi-val" style={{ color }}>{val}</div></div>
+          </div>
+        ))}
+      </div>
+
+      {/* Status filter — All / Active / Planned */}
+      <div style={{ display:'flex', gap:8, marginBottom:14 }}>
+        {['All','Active','Planned'].map(s => (
+          <button key={s} onClick={() => setStatusFilter(s)}
+            style={{
+              padding:'6px 14px', borderRadius:20, fontSize:12.5, fontWeight:600, cursor:'pointer',
+              border: statusFilter===s ? 'none' : '1px solid var(--border)',
+              background: statusFilter===s ? '#0085C7' : 'var(--surface)',
+              color: statusFilter===s ? '#fff' : 'var(--text2)',
+            }}>
+            {s==='All' ? (ar?'الكل':'All') : s==='Active' ? (ar?'نشط':'Active') : (ar?'مخطط له':'Planned')}
+          </button>
+        ))}
       </div>
 
       {/* Search spans every category — typing a sport name jumps straight to it
@@ -220,7 +307,17 @@ export default function Sports({ athletes, coaches, events, results, onNav, init
                   <i className={`ti ${meta.icon}`} style={{ fontSize:26, color:meta.color }} />
                 </div>
                 <div style={{ flex:1 }}>
-                  <div style={{ fontSize:16, fontWeight:600, marginBottom:3 }}>{sportLabel(s, activeTab, ar)}</div>
+                  <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:3 }}>
+                    <div style={{ fontSize:16, fontWeight:600 }}>{sportLabel(s, activeTab, ar)}</div>
+                    <SportStatusBadge
+                      status={getSportStatus(s, activeTab)}
+                      onClick={editable ? (e) => {
+                        e.stopPropagation()
+                        const next = getSportStatus(s, activeTab) === 'Active' ? 'Planned' : 'Active'
+                        setSportStatus(s, activeTab, next)
+                      } : undefined}
+                    />
+                  </div>
                   <div style={{ fontSize:12, color:'var(--text2)' }}>{ar ? (SPORT_DESC_AR[s]||meta.desc) : meta.desc}</div>
                 </div>
                 <div style={{ display:'flex', gap:20, flexShrink:0, textAlign:'center' }}>
@@ -240,10 +337,12 @@ export default function Sports({ athletes, coaches, events, results, onNav, init
         const matchesSearch = (s) => !q ||
           sportLabel(s, activeTab, false).toLowerCase().includes(q) ||
           sportLabel(s, activeTab, true).includes(search.trim())
+        const matchesStatus = (s) => statusFilter === 'All' || getSportStatus(s, activeTab) === statusFilter
+        const matchesAll = (s) => matchesSearch(s) && matchesStatus(s)
 
         if (activeTab !== 'Unified Sports') {
-          const filtered = sportsByCategorySection[activeTab].filter(matchesSearch)
-          if (q && filtered.length === 0) {
+          const filtered = sportsByCategorySection[activeTab].filter(matchesAll)
+          if (filtered.length === 0) {
             return <div className="empty" style={{ padding:16 }}>{tx('sports.noMatches','No sports match your search')}</div>
           }
           return filtered.map(s => renderTile(s))
@@ -253,9 +352,9 @@ export default function Sports({ athletes, coaches, events, results, onNav, init
         // since the full list (26 disciplines across 4 groups) is too long to
         // show flat without becoming hard to scan.
         const groupsWithMatches = Object.entries(UNIFIED_SPORTS_GROUPS)
-          .map(([groupName, groupSports]) => [groupName, groupSports.filter(matchesSearch)])
+          .map(([groupName, groupSports]) => [groupName, groupSports.filter(matchesAll)])
           .filter(([, groupSports]) => groupSports.length > 0)
-        if (q && groupsWithMatches.length === 0) {
+        if (groupsWithMatches.length === 0) {
           return <div className="empty" style={{ padding:16 }}>{tx('sports.noMatches','No sports match your search')}</div>
         }
         return groupsWithMatches.map(([groupName, groupSports]) => {
