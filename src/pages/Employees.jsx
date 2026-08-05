@@ -1242,7 +1242,14 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
   // Name column always included and locked.
   const DEFAULT_EMPLOYEE_COLS = ['name','designation','nationality','gender','employee_number','qss_number','status']
   const EMP_COLS_STORAGE_KEY = 'qpc_employees_visible_cols_v1'
+  // Coach/Employee viewers get a fixed, non-configurable column set that
+  // deliberately excludes the employee's name (a private field per the
+  // directory read-only view spec) — unlike the admin default, 'name' is
+  // NOT force-included here.
+  const restrictedView = profile?.role === 'coach' || profile?.role === 'employee'
+  const RESTRICTED_COLS = ['designation', 'designation_ar', 'status', 'nationality', 'gender']
   function loadStoredEmpCols(fallback) {
+    if (restrictedView) return RESTRICTED_COLS
     try {
       const raw = localStorage.getItem(EMP_COLS_STORAGE_KEY)
       if (!raw) return fallback
@@ -1256,6 +1263,7 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
   }
   const [visibleCols, setVisibleColsRaw] = useState(loadStoredEmpCols(DEFAULT_EMPLOYEE_COLS))
   function setVisibleCols(next) {
+    if (restrictedView) return // column set is fixed for Coach/Employee — no picker, no override
     setVisibleColsRaw(prev => {
       const resolved = typeof next === 'function' ? next(prev) : next
       try { localStorage.setItem(EMP_COLS_STORAGE_KEY, JSON.stringify(resolved)) } catch {}
@@ -1860,13 +1868,17 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
       <div className="page-header">
         <div><div className="page-title">{tx('pages.employees','Employees')}</div><div className="page-sub">{list.length} {tx('employees.ofEmployees','of')} {employees.length} {tx('pages.employees','employees')}</div></div>
         <div style={{ display:'flex', gap:8 }}>
-          <button className="btn" style={{ background:'#009F6B' }} onClick={() => exportEmployeesExcel(list, lang, coaches)}>
-            <i className="ti ti-table-export" /> {tx('actions.exportExcel','Export Excel')}
-          </button>
-          <div style={{ position:'relative' }} ref={colPickerRef}>
-            <button className="action-btn action-btn-edit" style={{ padding:'8px 14px', fontSize:13 }} onClick={() => setColPickerOpen(o => !o)}>
-              <i className="ti ti-columns" /> {lang==='ar' ? 'أعمدة' : 'Columns'} {visibleCols.length !== ALL_COLS.length && `(${visibleCols.length})`}
+          {!restrictedView && (
+            <button className="btn" style={{ background:'#009F6B' }} onClick={() => exportEmployeesExcel(list, lang, coaches)}>
+              <i className="ti ti-table-export" /> {tx('actions.exportExcel','Export Excel')}
             </button>
+          )}
+          <div style={{ position:'relative' }} ref={colPickerRef}>
+            {!restrictedView && (
+              <button className="action-btn action-btn-edit" style={{ padding:'8px 14px', fontSize:13 }} onClick={() => setColPickerOpen(o => !o)}>
+                <i className="ti ti-columns" /> {lang==='ar' ? 'أعمدة' : 'Columns'} {visibleCols.length !== ALL_COLS.length && `(${visibleCols.length})`}
+              </button>
+            )}
             {colPickerOpen && (() => {
               const COL_GROUPS = [
                 { label: lang==='ar' ? 'الهوية' : 'Identity', keys: ['name','employee_number','qss_number','job_id'] },
@@ -2014,7 +2026,8 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
               const cols = ALL_COLS.filter(c => isVisible(c.key))
               const stickyCellBg = hoveredRowId === emp.id ? 'var(--surface2)' : 'var(--surface)'
               return (
-                <tr key={emp.id} onClick={() => {
+                <tr key={emp.id} className={restrictedView ? 'row-restricted' : undefined} onClick={() => {
+                if (restrictedView) return
                 if (COACH_DESIGNATIONS.includes(emp.designation) && coaches?.length) {
                   const coach = coaches.find(c =>
                     c.status !== 'Inactive' && (
@@ -2028,7 +2041,7 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
               }}
                 onMouseEnter={() => setHoveredRowId(emp.id)}
                 onMouseLeave={() => setHoveredRowId(prev => prev === emp.id ? null : prev)}
-                style={{ cursor:'pointer' }}>
+                style={{ cursor: restrictedView ? 'default' : 'pointer' }}>
                 {cols.map((c, i) => {
                   const isFirstCol = i === 0 && c.key === 'name'
                   const stickyStyle = isFirstCol ? {
@@ -2080,7 +2093,7 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
                   )
                   return <td key={c.key}>—</td>
                 })}
-                <td><i className="ti ti-chevron-right" style={{ color:'#ccc', fontSize:16 }} /></td>
+                {!restrictedView && <td><i className="ti ti-chevron-right" style={{ color:'#ccc', fontSize:16 }} /></td>}
               </tr>
               )
             })}

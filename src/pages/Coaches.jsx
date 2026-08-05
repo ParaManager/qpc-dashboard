@@ -235,6 +235,10 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
   const [cropFile, setCropFile] = useState(null) // { coachId, file } pending crop
 
   const { tx, tc, lang } = useLang()
+  // Coach/Employee viewers get a reduced card field set (no Employee #,
+  // adds Sport Category + Gender) and cannot open coach details — Admin
+  // is fully unaffected.
+  const restrictedView = profile?.role === 'coach' || profile?.role === 'employee'
   const STATUS_AR = {'Active':'نشط','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي','Inactive':'غير نشط','Suspended':'موقوف'}
   useEffect(() => { if (initCoachId) setSelected(initCoachId) }, [initCoachId])
 
@@ -897,7 +901,8 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
         {list.map(c => {
           const count = athletes.filter(a => a.coach_id === c.id).length
           return (
-            <div key={c.id} className="coach-card" onClick={() => setSelected(c.id)}>
+            <div key={c.id} className={restrictedView ? 'coach-card coach-card-restricted' : 'coach-card'}
+              onClick={restrictedView ? undefined : () => setSelected(c.id)}>
               <div className="coach-head">
                 {c.photo_url
                   ? <img src={c.photo_url} alt={c.name} style={{ width:42, height:42, borderRadius:'50%', objectFit:'cover', flexShrink:0 }} />
@@ -913,7 +918,8 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
               <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
                 {[
                   [tx('form.sport','Sport'), c.sport ? sportLabel(c.sport, c.sport_category, lang==='ar') : ''],
-                      [tx('coaches.employeeNum','Employee #'), c.employee_number],
+                  [lang==='ar'?'فئة الرياضة':'Sport Category', c.sport_category ? (lang==='ar' ? (SPORT_CATEGORY_NAMES_AR[c.sport_category]||c.sport_category) : c.sport_category) : ''],
+                  [lang==='ar'?'الجنس':'Gender', c.gender ? (lang==='ar' ? (c.gender==='Male'?'ذكر':'أنثى') : c.gender) : ''],
                   [tx('coaches.athletes','Athletes'), count],
                 ].map(([k,v]) => (
                   <div key={k} className="coach-row">

@@ -316,6 +316,9 @@ export default function Referees({ referees, onRefresh, profile }) {
   const { lang, tc } = useLang()
   const ar = lang === 'ar'
   const L = (en, a) => ar ? a : en
+  // Coach/Employee viewers get a fixed reduced column set (English/Arabic
+  // name, Nationality, Gender only) and cannot open referee details.
+  const restrictedView = profile?.role === 'coach' || profile?.role === 'employee'
 
   const [search, setSearch]     = useState('')
   const [natF, setNatF]         = useState([])
@@ -529,9 +532,9 @@ export default function Referees({ referees, onRefresh, profile }) {
               <th>{sortBtn('name_ar', L('Full Name (Arabic)','الاسم بالعربي'))}</th>
               <th>{sortBtn('nationality', L('Nationality','الجنسية'))}</th>
               <th>{sortBtn('gender', L('Gender','الجنس'))}</th>
-              <th>{sortBtn('dob', L('Date of Birth','تاريخ الميلاد'))}</th>
-              <th>{sortBtn('id_number', L('ID Number','الرقم الشخصي'))}</th>
-              <th>{sortBtn('joined_qpc', L('Joined QPC','تاريخ الانضمام'))}</th>
+              {!restrictedView && <th>{sortBtn('dob', L('Date of Birth','تاريخ الميلاد'))}</th>}
+              {!restrictedView && <th>{sortBtn('id_number', L('ID Number','الرقم الشخصي'))}</th>}
+              {!restrictedView && <th>{sortBtn('joined_qpc', L('Joined QPC','تاريخ الانضمام'))}</th>}
             </tr>
             <tr style={{ background:'#f8f9fb' }}>
               <th colSpan={2} />
@@ -580,9 +583,9 @@ export default function Referees({ referees, onRefresh, profile }) {
           </thead>
           <tbody>
             {list.length === 0 ? (
-              <tr><td colSpan={7} style={{ textAlign:'center', padding:32, color:'var(--text3)' }}>{L('No referees found','لا يوجد حكام')}</td></tr>
+              <tr><td colSpan={restrictedView ? 4 : 7} style={{ textAlign:'center', padding:32, color:'var(--text3)' }}>{L('No referees found','لا يوجد حكام')}</td></tr>
             ) : list.map(r => (
-              <tr key={r.id} onClick={() => setSelected(r.id)} style={{ cursor:'pointer' }}>
+              <tr key={r.id} className={restrictedView ? 'row-restricted' : undefined} onClick={() => !restrictedView && setSelected(r.id)} style={{ cursor: restrictedView ? 'default' : 'pointer' }}>
                 <td>
                   <div style={{ display:'flex', alignItems:'center', gap:10 }}>
                     {r.photo_url
@@ -595,9 +598,9 @@ export default function Referees({ referees, onRefresh, profile }) {
                 <td style={{ fontSize:13 }}>{r.name_ar || '—'}</td>
                 <td>{tcNat(r.nationality)}</td>
                 <td>{r.gender ? (ar?(r.gender==='Male'?'ذكر':'أنثى'):r.gender) : '—'}</td>
-                <td style={{ fontSize:12, color:'var(--text2)' }}>{r.dob || '—'}</td>
-                <td style={{ fontSize:12, fontFamily:'monospace' }}>{r.id_number || '—'}</td>
-                <td style={{ fontSize:12, color:'var(--text2)' }}>{r.joined_qpc || '—'}</td>
+                {!restrictedView && <td style={{ fontSize:12, color:'var(--text2)' }}>{r.dob || '—'}</td>}
+                {!restrictedView && <td style={{ fontSize:12, fontFamily:'monospace' }}>{r.id_number || '—'}</td>}
+                {!restrictedView && <td style={{ fontSize:12, color:'var(--text2)' }}>{r.joined_qpc || '—'}</td>}
               </tr>
             ))}
           </tbody>

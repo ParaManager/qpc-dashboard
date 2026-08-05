@@ -1109,8 +1109,14 @@ export default function Athletes({ athletes, coaches, employees, results, docume
   // two can't drift apart.
   const COACH_DEFAULT_COLS = ['name','classification','nationality','status','medals','documents']
   const DEFAULT_COLS_ADMIN = ['name','sport','coach_id','status','medical_status','passport_expiry','id_expiry']
+  // Coach/Employee accounts get a fixed, non-configurable column set (per
+  // the directory read-only view spec) — 'name' itself is the always-shown
+  // sticky column, these are the additional ones.
+  const restrictedView = profile?.role === 'coach' || profile?.role === 'employee'
+  const RESTRICTED_COLS = ['name', 'name_ar', 'sport', 'disability', 'nationality', 'gender', 'age', 'coach_id', 'status']
   const COLS_STORAGE_KEY = 'qpc_athletes_visible_cols_v2'
   function loadStoredCols(fallback) {
+    if (restrictedView) return RESTRICTED_COLS
     try {
       const raw = localStorage.getItem(COLS_STORAGE_KEY)
       if (!raw) return fallback
@@ -1126,6 +1132,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
     loadStoredCols(profile?.role === 'coach' ? COACH_DEFAULT_COLS : DEFAULT_COLS_ADMIN)
   )
   function setVisibleCols(next) {
+    if (restrictedView) return // column set is fixed for Coach/Employee — no picker, no override
     setVisibleColsRaw(prev => {
       const resolved = typeof next === 'function' ? next(prev) : next
       try { localStorage.setItem(COLS_STORAGE_KEY, JSON.stringify(resolved)) } catch {}
@@ -2712,8 +2719,8 @@ ${myDocs.length > 0 ? `<div class="section">
               generatingReport state are left in place, dormant, for a future
               dedicated Reports & Statistics page to call directly. */}
 
-          {/* COLUMN PICKER */}
-          {!editMode && (
+          {/* COLUMN PICKER — hidden for Coach/Employee restricted view (fixed column set) */}
+          {!editMode && !restrictedView && (
             <div style={{ position:'relative' }} ref={colPickerRef}>
               <button className="action-btn action-btn-edit" style={{ padding:'8px 14px', fontSize:13 }} onClick={() => setColPickerOpen(o => !o)}>
                 <i className="ti ti-columns" /> {lang==='ar' ? 'أعمدة' : 'Columns'} {visibleCols.length !== ALL_COLS.length && `(${visibleCols.length})`}
@@ -3009,10 +3016,10 @@ ${myDocs.length > 0 ? `<div class="section">
               const isChanged = !!edits[a.id]
               const cols = ALL_COLS.filter(c => isVisible(c.key))
               return (
-                <tr key={a.id} onClick={() => !editMode && setSelected(a.id)}
+                <tr key={a.id} className={restrictedView ? 'row-restricted' : undefined} onClick={() => !editMode && !restrictedView && setSelected(a.id)}
                   onMouseEnter={() => setHoveredRowId(a.id)}
                   onMouseLeave={() => setHoveredRowId(prev => prev === a.id ? null : prev)}
-                  style={{ cursor:editMode?'default':'pointer', background:isChanged?'#f0f7ff':'' }}>
+                  style={{ cursor: (editMode || restrictedView) ? 'default' : 'pointer', background:isChanged?'#f0f7ff':'' }}>
                   {canEdit(profile) && !editMode && exportSelectMode && (
                     <td onClick={e => e.stopPropagation()}>
                       <input type="checkbox" checked={selectedIds.has(a.id)}
@@ -3042,7 +3049,7 @@ ${myDocs.length > 0 ? `<div class="section">
                       </td>
                     )
                   })}
-                  {!editMode && <td><i className="ti ti-chevron-right" style={{ color:'#ccc', fontSize:16 }} /></td>}
+                  {!editMode && !restrictedView && <td><i className="ti ti-chevron-right" style={{ color:'#ccc', fontSize:16 }} /></td>}
                   {editMode && (
                     <td>{isChanged
                       ? <span style={{ display:'flex', alignItems:'center', gap:4, color:'#0085C7', fontSize:12, fontWeight:500 }}><i className="ti ti-check" style={{ fontSize:14 }} />{tx('athletes.modified','Modified')}</span>
