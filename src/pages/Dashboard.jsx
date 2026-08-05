@@ -63,10 +63,14 @@ export default function Dashboard({ athletes, coaches, employees, referees, even
 
   const { allAway } = computeAwayPeople(athletes, coaches, employees, lang)
 
+  // SPORTS_BY_CATEGORY's Summer Paralympic list still includes the legacy
+  // flat 'Special Olympics' catch-all — filtered out here so it can't show
+  // up as a duplicate tile under Summer Paralympic (mirrors the same fix
+  // applied on the Sports page).
   const sportEntries = SPORT_CATEGORIES.flatMap(category =>
-    (SPORTS_BY_CATEGORY[category] || []).map(s => ({
+    ((category === 'Summer Paralympic' ? SPORTS_BY_CATEGORY[category].filter(s => s !== 'Special Olympics') : SPORTS_BY_CATEGORY[category]) || []).map(s => ({
       sport: s, category,
-      count: athletes.filter(a => a.sport === s && (a.sport_category === category || !a.sport_category)).length,
+      count: athletes.filter(a => a.sport === s && a.sport_category === category).length,
     }))
   ).filter(e => e.count > 0)
 
@@ -82,7 +86,7 @@ export default function Dashboard({ athletes, coaches, employees, referees, even
       label: tx('nav.coaches','Coaches'),
       val: coaches.length,
       hint: `${[...new Set(coaches.map(c=>c.sport))].length} ${tx('dashboard.sports','sports')}`,
-      color: '#009F6B', icon: 'ti-whistle',
+      color: '#009F6B', icon: 'ti-user-star',
       click: () => onNav('coaches'),
     },
     {
