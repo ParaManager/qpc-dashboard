@@ -42,7 +42,7 @@ function useGuestData() {
         supabase.from('coaches').select('id, name, name_ar, sport, sport_category, status'),
         supabase.from('events').select('*'),
         supabase.from('results').select('id, athlete_id, medal, discipline, event_name, date'),
-        supabase.from('registrations').select('event_id, athlete_id'),
+        supabase.from('event_registrations').select('event_id, athlete_id'),
       ])
       if (cancelled) return
       setAthletes(a.data || [])
@@ -90,7 +90,7 @@ function GuestDashboard({ athletes, coaches, events, registrations }) {
     return e.approval_status === 'Approved' && (st === 'Upcoming' || st === 'In Progress')
   }).length
   const upcomingEvents = (events||[])
-    .filter(e => { const st = getEventStatus(e); return e.approval_status === 'Approved' && (st === 'Upcoming' || st === 'Completed') })
+    .filter(e => { const st = getEventStatus(e); return e.approval_status === 'Approved' && st === 'Upcoming' })
     .sort((a, b) => new Date(a.start_date) - new Date(b.start_date))
     .slice(0, 6)
 
