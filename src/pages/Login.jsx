@@ -12,7 +12,7 @@ export default function Login({ onRequestSent, onSigningUpChange, onGuestMode })
   const [mode, setMode]         = useState('login')   // login | register | pending | rejected | sent
   const [loading, setLoading]   = useState(false)
   const [error, setError]       = useState('')
-  const [form, setForm]         = useState({ qid:'', password:'', confirmPassword:'', fullName:'', accountType:'guest', coachId:'', athleteId:'', employeeId:'' })
+  const [form, setForm]         = useState({ qid:'', password:'', confirmPassword:'', fullName:'', accountType:'coach', coachId:'', athleteId:'', employeeId:'' })
   const [coaches, setCoaches]   = useState([])
   const [athletes, setAthletes] = useState([])
   const [employees, setEmployees] = useState([])
@@ -301,7 +301,6 @@ export default function Login({ onRequestSent, onSigningUpChange, onGuestMode })
                   <option value="coach">{L('Coach','مدرب')}</option>
                   <option value="employee">{L('Employee','موظف')}</option>
                   <option value="athlete">{L('Athlete','رياضي')}</option>
-                  <option value="guest">{L('Guest / Viewer','زائر / مشاهد')}</option>
                 </select>
               </div>
               {form.accountType === 'coach' && (
