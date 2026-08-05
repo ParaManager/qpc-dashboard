@@ -666,7 +666,28 @@ export default function App() {
   const myAthleteId = profile?.athlete_id || null
   const myAthlete   = isAthlete ? athletes.find(a => String(a.id) === String(myAthleteId)) : null
   const myCoach     = myAthlete ? coaches.find(c => c.id === myAthlete.coach_id) : null
-  const myAthletes    = isCoach ? athletes.filter(a => a.coach_id === myCoachId) : athletes
+
+  // Per-sport coach assignments (athlete_sports junction table) — fetched
+  // in its own isolated effect, separate from the main fetchAll Promise.all,
+  // so this additive feature can't affect the existing bulk-fetch shape.
+  const [athleteSportAssignments, setAthleteSportAssignments] = useState([])
+  useEffect(() => {
+    if (!user) return
+    supabase.from('athlete_sports').select('athlete_id, coach_id')
+      .then(({ data, error }) => { if (!error) setAthleteSportAssignments(data || []) })
+  }, [user, refreshToken])
+
+  // A coach's "My Athletes" now includes anyone assigned to them either
+  // via the legacy athletes.coach_id field OR via any athlete_sports row
+  // for one of their sports — the same athlete can legitimately appear in
+  // more than one coach's list if they train under different coaches for
+  // different sports.
+  const myAthletes = isCoach
+    ? athletes.filter(a =>
+        a.coach_id === myCoachId ||
+        athleteSportAssignments.some(as => as.coach_id === myCoachId && as.athlete_id === a.id)
+      )
+    : athletes
   const myCoachRecord = isCoach && myCoachId ? coaches.find(c => String(c.id) === String(myCoachId)) || null : null
 
   // My Profile should open the same detail page used elsewhere for this
@@ -847,8 +868,8 @@ export default function App() {
           {page==='dashboard' && !isCoach && !isEmployee && <Dashboard key={`dashboard-${refreshToken}`} athletes={myAthletes} coaches={coaches} employees={employees} referees={referees} events={events} results={results} pendingRequestsCount={pendingRequestsCount} pendingAccountsCount={pendingAccountsCount} onNav={goTo} profile={profile} />}
           {page==='dashboard' && isCoach  && <CoachDashboard key={`dashboard-${refreshToken}`} coach={myCoachRecord} athletes={athletes} myAthletes={myAthletes} coaches={coaches} employees={employees} referees={referees} events={events} results={results} onNav={goTo} profile={profile} />}
           {page==='dashboard' && isEmployee && <EmployeeDashboard key={`dashboard-${refreshToken}`} employee={myEmployeeRecord} athletes={athletes} coaches={coaches} employees={employees} referees={referees} events={events} onNav={goTo} profile={profile} />}
-          {page==='athletes'  && <Athletes  key={`athletes-${refreshToken}`} athletes={myAthletes} coaches={coaches} employees={employees} results={results} documents={documents} events={events} registrations={registrations} onRefresh={fetchAll} onNav={goTo} initAthleteId={navState.athleteId} initStatusFilter={navState.statusFilter} navState={navState} profile={profile} pageTitle={isCoach ? tx('athletes.myAthletes','My Athletes') : undefined} />}
-          {page==='athletes-all' && (isCoach || isEmployee) && <Athletes key={`athletes-all-${refreshToken}`} athletes={athletes} coaches={coaches} employees={employees} results={results} documents={documents} events={events} registrations={registrations} onRefresh={fetchAll} onNav={goTo} initAthleteId={navState.athleteId} initStatusFilter={navState.statusFilter} navState={navState} profile={profile} isAllAthletesView />}
+          {page==='athletes'  && <Athletes  key={`athletes-${refreshToken}`} athletes={myAthletes} coaches={coaches} employees={employees} results={results} documents={documents} events={events} registrations={registrations} onRefresh={fetchAll} onNav={goTo} initAthleteId={navState.athleteId} initStatusFilter={navState.statusFilter} navState={navState} profile={profile} sportsList={sportsList} pageTitle={isCoach ? tx('athletes.myAthletes','My Athletes') : undefined} />}
+          {page==='athletes-all' && (isCoach || isEmployee) && <Athletes key={`athletes-all-${refreshToken}`} athletes={athletes} coaches={coaches} employees={employees} results={results} documents={documents} events={events} registrations={registrations} onRefresh={fetchAll} onNav={goTo} initAthleteId={navState.athleteId} initStatusFilter={navState.statusFilter} navState={navState} profile={profile} sportsList={sportsList} isAllAthletesView />}
           {page==='coaches'   && (isAdmin || isCoach || isEmployee) && <Coaches   key={`coaches-${refreshToken}`} coaches={coaches} athletes={athletes} employees={employees} personDocs={personDocs} onRefresh={fetchAll} onNav={goTo} initCoachId={navState.coachId} navState={navState} profile={profile} />}
           {page==='events' && <Events key={`events-${refreshToken}`} events={events} athletes={athletes} employees={employees} results={results} registrations={registrations} onRefresh={fetchAll} onNav={goTo} initEventId={navState.eventId} initStatusFilter={navState.statusFilter} profile={profile} eventCategories={eventCategories} sportsList={sportsList} />} {page==='schedule'  && <Schedule  key={`schedule-${refreshToken}`} profile={profile} coachId={isAdmin ? null : myCoachId} myAthletes={myAthletes} athletes={athletes} coaches={coaches} onNav={goTo} readOnly={isAthlete} viewOnly={isAdmin} athleteId={isAthlete ? myAthleteId : null} initSessionId={navState?.sessionId} initCoachFilter={navState?.coachFilter} />}
           {page==='calendar' && isAdmin && <Calendar key={`calendar-${refreshToken}`} profile={profile} events={events} employees={employees} onNav={goTo} />}
