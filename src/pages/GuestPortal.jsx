@@ -186,6 +186,29 @@ function AboutQPC() {
       <div style={{ fontSize: 13.5, color: 'var(--text2)', lineHeight: 1.8 }}>{children}</div>
     </div>
   )
+
+  // Compact, self-contained contact card — consistent height/spacing/
+  // typography/hover regardless of how long the label or value is.
+  const ContactCard = ({ icon, color, label, valueNode, href, external }) => {
+    const inner = (
+      <div className="guest-contact-card">
+        <div className="guest-contact-icon" style={{ background: color + '18' }}>
+          <i className={`ti ${icon}`} style={{ color, fontSize: 18 }} />
+        </div>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div className="guest-contact-label">{label}</div>
+          <div className="guest-contact-value">{valueNode}</div>
+        </div>
+      </div>
+    )
+    if (!href) return inner
+    return (
+      <a href={href} {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
+        {inner}
+      </a>
+    )
+  }
+
   return (
     <div>
       <div style={{ textAlign: 'center', padding: '24px 0' }}>
@@ -195,88 +218,68 @@ function AboutQPC() {
 
       <Section icon="ti-flag" title={L('Overview','نظرة عامة')}>
         {L(
-          'The Qatar Paralympic Committee (QPC) is the national body responsible for developing and supporting Para sport in Qatar, empowering athletes with disabilities to compete and excel at the highest levels.',
-          'اللجنة البارالمبية القطرية هي الجهة الوطنية المسؤولة عن تطوير ودعم الرياضة البارالمبية في قطر، وتمكين الرياضيين ذوي الإعاقة من المنافسة والتميز على أعلى المستويات.'
+          'The Qatar Paralympic Committee (QPC) is the national organization responsible for developing Para sport in Qatar and managing Special Olympics programs for athletes with intellectual disabilities. QPC supports athletes and participants from grassroots and community activities through to national representation and international competition.',
+          'اللجنة البارالمبية القطرية هي الجهة الوطنية المسؤولة عن تطوير الرياضة البارالمبية في قطر وإدارة برامج الأولمبياد الخاص للرياضيين ذوي الإعاقة الذهنية. تدعم اللجنة الرياضيين والمشاركين ابتداءً من الأنشطة الشعبية والمجتمعية وصولاً إلى التمثيل الوطني والمنافسة الدولية.'
         )}
       </Section>
       <Section icon="ti-target-arrow" title={L('Mission','الرسالة')}>
         {L(
-          'To promote, develop, and support Para sport across Qatar, providing pathways for athletes with disabilities from grassroots participation to international competition.',
-          'تعزيز وتطوير ودعم الرياضة البارالمبية في جميع أنحاء قطر، وتوفير مسارات للرياضيين ذوي الإعاقة من المشاركة الشعبية إلى المنافسة الدولية.'
+          'To develop an inclusive and structured sport system for persons with disabilities in Qatar, providing quality pathways in both Paralympic sport and Special Olympics programs, from community participation to international competition.',
+          'تطوير نظام رياضي شامل ومنظّم لذوي الإعاقة في قطر، وتوفير مسارات نوعية في كل من الرياضة البارالمبية وبرامج الأولمبياد الخاص، ابتداءً من المشاركة المجتمعية وصولاً إلى المنافسة الدولية.'
         )}
       </Section>
       <Section icon="ti-telescope" title={L('Vision','الرؤية')}>
         {L(
-          'A leading Paralympic movement recognized for excellence, inclusion, and the achievements of its athletes on the world stage.',
-          'حركة بارالمبية رائدة معترف بها للتميز والشمولية وإنجازات رياضييها على الساحة العالمية.'
+          'To build a leading and inclusive disability sport system in Qatar, recognized for sporting excellence, athlete development, community participation and positive social impact.',
+          'بناء نظام رياضي رائد وشامل لذوي الإعاقة في قطر، معترف به للتميز الرياضي وتطوير الرياضيين والمشاركة المجتمعية والأثر الاجتماعي الإيجابي.'
         )}
       </Section>
       <Section icon="ti-list-check" title={L('Objectives','الأهداف')}>
         <ul style={{ margin: 0, paddingInlineStart: 20 }}>
-          <li>{L('Develop competitive Para sport programs across multiple disciplines','تطوير برامج رياضية بارالمبية تنافسية عبر عدة تخصصات')}</li>
-          <li>{L('Support athlete pathways from training to international competition','دعم مسارات الرياضيين من التدريب إلى المنافسة الدولية')}</li>
-          <li>{L('Raise awareness and promote inclusion of people with disabilities in sport','رفع الوعي وتعزيز إدماج ذوي الإعاقة في الرياضة')}</li>
-          <li>{L('Build partnerships with national and international sporting bodies','بناء شراكات مع الهيئات الرياضية الوطنية والدولية')}</li>
+          <li>{L('Develop competitive Paralympic sports and Special Olympics programs across Qatar.','تطوير الرياضات البارالمبية التنافسية وبرامج الأولمبياد الخاص في جميع أنحاء قطر.')}</li>
+          <li>{L('Identify, develop and support athletes through structured sporting pathways.','اكتشاف الرياضيين وتطويرهم ودعمهم من خلال مسارات رياضية منظمة.')}</li>
+          <li>{L('Increase grassroots and community participation among persons with disabilities.','زيادة المشاركة الشعبية والمجتمعية لذوي الإعاقة.')}</li>
+          <li>{L('Provide appropriate technical, medical and administrative support to athletes and teams.','تقديم الدعم الفني والطبي والإداري المناسب للرياضيين والفرق.')}</li>
+          <li>{L('Develop coaches, officials, volunteers and other sport personnel.','تطوير المدربين والحكام والمتطوعين والكوادر الرياضية الأخرى.')}</li>
+          <li>{L('Strengthen cooperation with national, regional and international sport organizations.','تعزيز التعاون مع المنظمات الرياضية الوطنية والإقليمية والدولية.')}</li>
+          <li>{L('Represent Qatar successfully in Paralympic and Special Olympics competitions.','تمثيل قطر بنجاح في منافسات الألعاب البارالمبية والأولمبياد الخاص.')}</li>
         </ul>
       </Section>
       <Section icon="ti-history" title={L('Brief History','لمحة تاريخية')}>
         {L(
-          'Since its establishment, QPC has grown its athlete base and competition programs, representing Qatar at regional and international Paralympic and Special Olympics events.',
-          'منذ تأسيسها، وسّعت اللجنة قاعدة رياضييها وبرامجها التنافسية، ممثلةً قطر في الفعاليات البارالمبية والأولمبياد الخاص على المستويين الإقليمي والدولي.'
+          'Since its establishment, the Qatar Paralympic Committee has expanded its athlete base, sports programs, and institutional support, representing Qatar in regional and international Paralympic and Special Olympics competitions. Today, QPC oversees the development of Paralympic sport and Special Olympics programs in Qatar, including athlete development, national team preparation, competition participation, technical support, community programs, and cooperation with national and international sports organizations.',
+          'منذ تأسيسها، وسّعت اللجنة البارالمبية القطرية قاعدة رياضييها وبرامجها الرياضية ودعمها المؤسسي، ممثلةً قطر في المنافسات البارالمبية ومنافسات الأولمبياد الخاص على المستويين الإقليمي والدولي. وتشرف اللجنة اليوم على تطوير الرياضة البارالمبية وبرامج الأولمبياد الخاص في قطر، بما يشمل تطوير الرياضيين، وإعداد المنتخبات الوطنية، والمشاركة في المنافسات، والدعم الفني، والبرامج المجتمعية، والتعاون مع المنظمات الرياضية الوطنية والدولية.'
         )}
       </Section>
       <Section icon="ti-sitemap" title={L('Organization','الهيكل التنظيمي')}>
         {L(
-          'QPC is organized around administrative, technical, and medical departments working together to support athletes, coaches, and events throughout the season.',
-          'تتكون اللجنة من إدارات إدارية وفنية وطبية تعمل معاً لدعم الرياضيين والمدربين والفعاليات على مدار الموسم.'
+          'QPC is organized around administrative, technical, medical, and sports classification functions, working together to support athletes, coaches, teams, programs, and events across Paralympic sport and Special Olympics.',
+          'تتكون اللجنة من وظائف إدارية وفنية وطبية وتصنيف رياضي تعمل معاً لدعم الرياضيين والمدربين والفرق والبرامج والفعاليات عبر الرياضة البارالمبية والأولمبياد الخاص.'
         )}
       </Section>
 
-      {/* Contact Us — real contact details, clickable where applicable */}
+      {/* Contact Us — clean responsive card grid: 3 cols desktop, 2 tablet, 1 mobile */}
       <div className="card">
         <div className="card-title"><i className="ti ti-address-book" /> {L('Contact Us','تواصل معنا')}</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14, fontSize: 13.5, color: 'var(--text2)' }}>
-          <div>
-            <i className="ti ti-mail" style={{ marginInlineEnd: 8, color: '#EE334E' }} />
-            {L('Email','البريد الإلكتروني')}: <a href="mailto:npcqatar@olympic.qa" style={{ color: '#0085C7', textDecoration: 'none' }}>npcqatar@olympic.qa</a>
-          </div>
-          <div>
-            <i className="ti ti-phone" style={{ marginInlineEnd: 8, color: '#009F6B' }} />
-            {L('Phone','الهاتف')}: <a href="tel:+97440410410" style={{ color: '#0085C7', textDecoration: 'none' }} dir="ltr">+974 4041 0410</a>
-          </div>
-          <div>
-            <i className="ti ti-map-pin" style={{ marginInlineEnd: 8, color: '#0085C7' }} />
-            {L('Address','العنوان')}: <span dir="ltr">9F2G+4QP</span>, {L('Doha, Qatar','الدوحة، قطر')}
-          </div>
-          <div>
-            <i className="ti ti-mailbox" style={{ marginInlineEnd: 8, color: '#f59e0b' }} />
-            {L('P.O. Box','صندوق البريد')}: <span dir="ltr">21515</span>
-          </div>
-          <div>
-            <i className="ti ti-world" style={{ marginInlineEnd: 8, color: '#8b5cf6' }} />
-            {L('Qatar Paralympic Committee Website','الموقع الإلكتروني للجنة البارالمبية القطرية')}:{' '}
-            <a href="https://qatarparalympic.org/" target="_blank" rel="noopener noreferrer" style={{ color: '#0085C7', textDecoration: 'none' }}>qatarparalympic.org</a>
-          </div>
-          <div>
-            <i className="ti ti-world" style={{ marginInlineEnd: 8, color: '#8b5cf6' }} />
-            {L('Special Olympics Qatar Website','الموقع الإلكتروني للأولمبياد الخاص قطر')}:{' '}
-            <a href="https://www.specialolympicsqatar.org/" target="_blank" rel="noopener noreferrer" style={{ color: '#0085C7', textDecoration: 'none' }}>specialolympicsqatar.org</a>
-          </div>
-          <div>
-            <i className="ti ti-brand-instagram" style={{ marginInlineEnd: 8, color: '#e1306c' }} />
-            {L('Instagram','إنستغرام')}:{' '}
-            <a href="https://www.instagram.com/qatar_paralympic_committee/" target="_blank" rel="noopener noreferrer" style={{ color: '#0085C7', textDecoration: 'none' }} dir="ltr">@qatar_paralympic_committee</a>
-          </div>
-          <div>
-            <i className="ti ti-brand-facebook" style={{ marginInlineEnd: 8, color: '#1877f2' }} />
-            {L('Facebook','فيسبوك')}:{' '}
-            <a href="https://www.facebook.com/QatarParalympicCommittee" target="_blank" rel="noopener noreferrer" style={{ color: '#0085C7', textDecoration: 'none' }}>{L('Qatar Paralympic Committee','اللجنة البارالمبية القطرية')}</a>
-          </div>
-          <div>
-            <i className="ti ti-brand-x" style={{ marginInlineEnd: 8, color: 'var(--text)' }} />
-            {L('X (Twitter)','إكس (تويتر)')}:{' '}
-            <a href="https://x.com/qatarparalympic" target="_blank" rel="noopener noreferrer" style={{ color: '#0085C7', textDecoration: 'none' }} dir="ltr">@qatarparalympic</a>
-          </div>
+        <div className="guest-contact-grid">
+          <ContactCard icon="ti-mail" color="#EE334E" label={L('Email','البريد الإلكتروني')}
+            valueNode={<span dir="ltr">npcqatar@olympic.qa</span>} href="mailto:npcqatar@olympic.qa" />
+          <ContactCard icon="ti-phone" color="#009F6B" label={L('Phone','الهاتف')}
+            valueNode={<span dir="ltr">+974 4041 0410</span>} href="tel:+97440410410" />
+          <ContactCard icon="ti-map-pin" color="#0085C7" label={L('Address','العنوان')}
+            valueNode={<><span dir="ltr">9F2G+4QP</span>, {L('Doha, Qatar','الدوحة، قطر')}</>} />
+          <ContactCard icon="ti-mailbox" color="#f59e0b" label={L('P.O. Box','صندوق البريد')}
+            valueNode={<span dir="ltr">21515</span>} />
+          <ContactCard icon="ti-world" color="#8b5cf6" label={L('Qatar Paralympic Committee Website','الموقع الإلكتروني للجنة البارالمبية القطرية')}
+            valueNode="qatarparalympic.org" href="https://qatarparalympic.org/" external />
+          <ContactCard icon="ti-world" color="#8b5cf6" label={L('Special Olympics Qatar Website','الموقع الإلكتروني للأولمبياد الخاص قطر')}
+            valueNode="specialolympicsqatar.org" href="https://www.specialolympicsqatar.org/" external />
+          <ContactCard icon="ti-brand-instagram" color="#e1306c" label={L('Instagram','إنستغرام')}
+            valueNode={<span dir="ltr">@qatar_paralympic_committee</span>} href="https://www.instagram.com/qatar_paralympic_committee/" external />
+          <ContactCard icon="ti-brand-facebook" color="#1877f2" label={L('Facebook','فيسبوك')}
+            valueNode={L('Qatar Paralympic Committee','اللجنة البارالمبية القطرية')} href="https://www.facebook.com/QatarParalympicCommittee" external />
+          <ContactCard icon="ti-brand-x" color="var(--text)" label={L('X (Twitter)','إكس (تويتر)')}
+            valueNode={<span dir="ltr">@qatarparalympic</span>} href="https://x.com/qatarparalympic" external />
         </div>
       </div>
     </div>
