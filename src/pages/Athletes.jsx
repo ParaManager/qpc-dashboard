@@ -730,7 +730,7 @@ function formatFileSize(bytes) {
   return `${(bytes/(1024*1024)).toFixed(1)} MB`
 }
 
-function exportExcel(athletes, coaches, documents, visibleCols, allCols, lang) {
+function exportExcel(athletes, coaches, documents, visibleCols, allCols, lang, athleteSportsByAthlete = {}) {
   const ar = lang === 'ar'
   const STATUS_AR = {'Active':'نشط','Inactive':'غير نشط','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي','Injured':'مصاب','Under Medical Review':'تحت المراجعة الطبية','Suspended':'موقوف','Retired':'متقاعد'}
   const DIS_MAP = {'visual impairment':'إعاقة بصرية','hearing impairment':'إعاقة سمعية','physical impairment':'إعاقة جسدية','intellectual disability':'إعاقة ذهنية','intellectual impairment':'إعاقة ذهنية','spinal cord injury':'إصابة الحبل الشوكي','cerebral palsy':'شلل دماغي','amputation':'بتر','down syndrome':'متلازمة داون',"down's syndrome":'متلازمة داون','downs syndrome':'متلازمة داون','down':'متلازمة داون','autism spectrum':'التوحد','autism':'التوحد','multiple disabilities':'إعاقات متعددة','limb deficiency':'نقص الأطراف','les autres':'أخرى'}
@@ -773,8 +773,16 @@ function exportExcel(athletes, coaches, documents, visibleCols, allCols, lang) {
     qss_number:      a => a.qss_number || '',
     id_number:       a => a.id_number || '',
     career_profile:  a => a.career_profile || '',
-    sport_category:  a => a.sport_category ? (ar ? (SPORT_CATEGORY_NAMES_AR[a.sport_category]||a.sport_category) : a.sport_category) : '',
-    sport:           a => a.sport ? sportLabel(a.sport, a.sport_category, ar) : '',
+    sport_category:  a => {
+      const rows = athleteSportsByAthlete[a.id]
+      if (rows?.length) return [...new Set(rows.map(r => r.sportCategory).filter(Boolean))].map(c => ar ? (SPORT_CATEGORY_NAMES_AR[c]||c) : c).join(', ')
+      return a.sport_category ? (ar ? (SPORT_CATEGORY_NAMES_AR[a.sport_category]||a.sport_category) : a.sport_category) : ''
+    },
+    sport: a => {
+      const rows = athleteSportsByAthlete[a.id]
+      if (rows?.length) return [...new Set(rows.map(r => r.sportName).filter(Boolean))].join(', ')
+      return a.sport ? sportLabel(a.sport, a.sport_category, ar) : ''
+    },
     classification:  a => a.classification || '',
     disability:             a => tDis(a.disability),
     statistics_disability:  a => tStatDis(a.statistics_disability),
@@ -1253,10 +1261,14 @@ export default function Athletes({ athletes, coaches, employees, results, docume
     const STATUS_LABELS = {'Active':'active','Inactive':'inactive','On Leave':'on leave','In Competition':'in competition','In Training Camp':'in training camp','Injured':'injured','Under Medical Review':'under medical review','Suspended':'suspended','Retired':'retired'}
     for (const a of athletes) {
       const coach = coaches.find(c => c.id === a.coach_id)
+      const assignedRows = athleteSportsByAthlete[a.id] || []
+      const assignedSportNames = assignedRows.map(r => r.sportName).filter(Boolean)
+      const assignedSportCategories = assignedRows.map(r => r.sportCategory).filter(Boolean)
+      const assignedCoachNames = assignedRows.flatMap(r => [r.coachName, r.coachNameAr]).filter(Boolean)
       const parts = [
         a.name, a.name_ar, a.qss_number, a.id_number, a.career_profile,
-        a.sport_category, a.sport, a.classification, a.disability, a.statistics_disability,
-        a.nationality, a.gender, coach?.name, coach?.name_ar, a.club,
+        a.sport_category, a.sport, ...assignedSportCategories, ...assignedSportNames, a.classification, a.disability, a.statistics_disability,
+        a.nationality, a.gender, coach?.name, coach?.name_ar, ...assignedCoachNames, a.club,
         a.status, effectiveStatus(a), a.medical_status,
         a.phone, a.email, a.passport_number, a.passport_expiry, a.id_expiry,
         a.join_date, a.age_category, a.sport_age_category, calcAge(a.dob), a.residency_status, a.target_category,
@@ -1265,7 +1277,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
       map.set(a.id, text)
     }
     return map
-  }, [athletes, coaches])
+  }, [athletes, coaches, athleteSportsByAthlete])
 
   // Matches a field against an array of selected filter values (OR'd) —
   // empty/missing array means "no filter, everything matches". "Blank"
@@ -1283,15 +1295,22 @@ export default function Athletes({ athletes, coaches, employees, results, docume
   // a count that's already collapsed by that same column's current pick.
   function passesAthleteFilters(a, q, skipColKey) {
     const skip = (key) => key === skipColKey
+    // Multi-sport aware: an athlete matches a sport filter if ANY of their
+    // athlete_sports assignments match — never just the legacy single
+    // athletes.sport field. Falls back to the legacy field only for an
+    // athlete with no junction rows yet (not-yet-migrated data).
+    const athleteSportRows = athleteSportsByAthlete[a.id]
+    const athleteSportNames = athleteSportRows?.length ? athleteSportRows.map(r => r.sportName).filter(Boolean) : (a.sport ? [a.sport] : [])
+    const athleteSportCategories = athleteSportRows?.length ? athleteSportRows.map(r => r.sportCategory).filter(Boolean) : (a.sport_category ? [a.sport_category] : [])
     return (
-      (sport  === 'All sports'   || a.sport  === sport)  &&
-      (sportCategory === 'All categories' || a.sport_category === sportCategory) &&
+      (sport  === 'All sports'   || athleteSportNames.includes(sport))  &&
+      (sportCategory === 'All categories' || athleteSportCategories.includes(sportCategory)) &&
       (status === 'All statuses' || effectiveStatus(a) === status) &&
       (gender === 'All genders'  || a.gender === gender) &&
       !!a.name && // exclude blank names
       (!q || matchesSearch(searchableValues.get(a.id) || '', q)) &&
-      (skip('sport_category') || matchMulti(colFilters.sport_category, a.sport_category)) &&
-      (skip('sport') || matchMulti(colFilters.sport, a.sport)) &&
+      (skip('sport_category') || athleteSportCategories.some(cat => matchMulti(colFilters.sport_category, cat))) &&
+      (skip('sport') || athleteSportNames.some(s => matchMulti(colFilters.sport, s))) &&
       (skip('status') || matchMulti(colFilters.status, effectiveStatus(a))) &&
       (skip('gender') || matchMulti(colFilters.gender, a.gender)) &&
       (skip('nationality') || matchMulti(colFilters.nationality, a.nationality)) &&
@@ -2788,7 +2807,7 @@ ${myDocs.length > 0 ? `<div class="section">
         <div><div className="page-title">{pageTitle || tx('pages.athletes','Athletes')}</div><div className="page-sub">{list.length} of {athletes.length} {tx('pages.athletes','athletes')}</div></div>
         <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
           {!editMode && (
-            <button className="btn" style={{ background:'#009F6B' }} onClick={() => exportExcel(list, coaches, documents||[], visibleCols, ALL_COLS, lang)}>
+            <button className="btn" style={{ background:'#009F6B' }} onClick={() => exportExcel(list, coaches, documents||[], visibleCols, ALL_COLS, lang, athleteSportsByAthlete)}>
               <i className="ti ti-table-export" /> {tx('actions.exportExcel','Export Excel')}
             </button>
           )}
