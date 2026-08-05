@@ -153,7 +153,7 @@ export default function MeetingFormModal({ meeting, onClose, onSaved, onDelete, 
                 )
               })}
               {filteredEmployees.length === 0 && (
-                <div style={{ padding: 10, fontSize: 12, color: 'var(--text3)' }}>{L('No matches','لا توجد نتائج')}</div>
+                <div style={{ padding: 10, fontSize: 12, color: 'var(--text3)' }}>{L('No results','لا توجد نتائج')}</div>
               )}
             </div>
           </div>

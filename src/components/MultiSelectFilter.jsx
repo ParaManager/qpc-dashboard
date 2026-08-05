@@ -17,7 +17,7 @@ export default function MultiSelectFilter({ options, selected, onChange, allLabe
   const L = (en, a) => ar ? a : en
 
   useEffect(() => {
-    if (!open) return
+    if (!open) { setSearch(''); return }
     function onOutside(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
     function onEscape(e) { if (e.key === 'Escape') setOpen(false) }
     document.addEventListener('mousedown', onOutside)
@@ -31,12 +31,18 @@ export default function MultiSelectFilter({ options, selected, onChange, allLabe
   }
 
   const blankOption = options.find(o => o.value === 'Blank' || o.value === 'blank')
-  const regularOptions = options.filter(o => o !== blankOption)
+  const regularOptionsRaw = options.filter(o => o !== blankOption)
+  const seenValues = new Set()
+  const regularOptions = regularOptionsRaw.filter(o => {
+    if (seenValues.has(o.value)) return false
+    seenValues.add(o.value)
+    return true
+  })
 
   const filteredRegular = search
-    ? regularOptions.filter(o => matchesSearch(o.label, search))
+    ? regularOptions.filter(o => matchesSearch(o.label, search) || (o.altLabel && matchesSearch(o.altLabel, search)) || matchesSearch(String(o.value ?? ''), search))
     : regularOptions
-  const blankMatchesSearch = !search || (blankOption && matchesSearch(blankOption.label, search))
+  const blankMatchesSearch = !search || (blankOption && (matchesSearch(blankOption.label, search) || (blankOption.altLabel && matchesSearch(blankOption.altLabel, search))))
 
   const allValues = regularOptions.map(o => o.value)
   const allSelected = allValues.length > 0 && allValues.every(v => selected.includes(v))
@@ -98,16 +104,14 @@ export default function MultiSelectFilter({ options, selected, onChange, allLabe
             el.style.left = left + 'px'
             el.style.width = dropWidth + 'px'
           }}>
-          {options.length > 8 && (
-            <div style={{ padding: 6, borderBottom: '1px solid var(--border)' }}>
-              <input
-                autoFocus
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder={L('Search…', 'بحث…')}
-                style={{ width: '100%', fontSize: 12, padding: '5px 8px', borderRadius: 6, border: '1px solid var(--border)', outline: 'none', background: 'var(--surface2)' }} />
-            </div>
-          )}
+          <div style={{ padding: 6, borderBottom: '1px solid var(--border)' }}>
+            <input
+              autoFocus
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder={L('Search…', 'بحث…')}
+              style={{ width: '100%', fontSize: 12, padding: '5px 8px', borderRadius: 6, border: '1px solid var(--border)', outline: 'none', background: 'var(--surface2)' }} />
+          </div>
 
           <div style={{ padding: 4, borderBottom: '1px solid var(--border)' }}>
             <label
@@ -132,7 +136,7 @@ export default function MultiSelectFilter({ options, selected, onChange, allLabe
 
           <div style={{ overflowY: 'auto', padding: 4 }}>
             {filteredRegular.length === 0 ? (
-              <div style={{ padding: '8px 10px', fontSize: 12, color: 'var(--text3)' }}>{L('No matches', 'لا توجد نتائج')}</div>
+              <div style={{ padding: '8px 10px', fontSize: 12, color: 'var(--text3)' }}>{L('No results', 'لا توجد نتائج')}</div>
             ) : filteredRegular.map(o => (
               <label key={o.value}
                 style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', fontSize: 12, cursor: 'pointer', borderRadius: 6 }}
