@@ -40,7 +40,7 @@ export default function UserManagement({ profile, initUserId }) {
     setLoading(true)
     const { data } = await supabase
       .from('profiles')
-      .select('*, coaches(name, name_ar), athletes(name, name_ar)')
+      .select('*, coaches(name, name_ar), athletes(name, name_ar), employees(name, name_ar, designation, designation_ar, status)')
       .order('requested_at', { ascending: false })
     setUsers(data || [])
     setLoading(false)
@@ -219,7 +219,17 @@ export default function UserManagement({ profile, initUserId }) {
           const statusColor = STATUS_COLORS[u.status] || '#9aa3b2'
           const linkedName  = u.account_type === 'coach'   ? (ar && u.coaches?.name_ar ? u.coaches.name_ar : u.coaches?.name)
                             : u.account_type === 'athlete' ? (ar && u.athletes?.name_ar ? u.athletes.name_ar : u.athletes?.name)
+                            : u.account_type === 'employee' ? (ar && u.employees?.name_ar ? u.employees.name_ar : u.employees?.name)
                             : null
+          // Employee approvals additionally show designation + the linked
+          // employee record's own status, per the employee signup review
+          // requirements — Coach/Athlete only ever showed the linked name.
+          const linkedExtra = u.account_type === 'employee' && u.employees
+            ? [
+                ar ? (u.employees.designation_ar || u.employees.designation) : u.employees.designation,
+                u.employees.status,
+              ].filter(Boolean).join(' · ')
+            : null
 
           return (
             <div key={u.id} ref={u.id === highlightId ? highlightRef : null}
@@ -231,7 +241,7 @@ export default function UserManagement({ profile, initUserId }) {
                   <div style={{ fontSize:13, color:'var(--text3)', marginTop:2 }}>{u.email}</div>
                   <div style={{ display:'flex', gap:6, marginTop:8, flexWrap:'wrap' }}>
                     <span style={{ padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:600, background:roleColor+'20', color:roleColor }}>
-                      {ar ? {'admin':'مسؤول','coach':'مدرب','athlete':'رياضي','guest':'زائر'}[u.account_type]||u.account_type : u.account_type}
+                      {ar ? {'admin':'مسؤول','coach':'مدرب','employee':'موظف','athlete':'رياضي','guest':'زائر'}[u.account_type]||u.account_type : u.account_type}
                     </span>
                     <span style={{ padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:600, background:statusColor+'20', color:statusColor }}>
                       {ar ? {'active':'نشط','pending':'قيد الانتظار','rejected':'مرفوض'}[u.status]||u.status : u.status}
@@ -239,6 +249,11 @@ export default function UserManagement({ profile, initUserId }) {
                     {linkedName && (
                       <span style={{ padding:'3px 10px', borderRadius:20, fontSize:11, background:'var(--surface2)', color:'var(--text2)' }}>
                         <i className="ti ti-link" style={{ fontSize:10 }} /> {linkedName}
+                      </span>
+                    )}
+                    {linkedExtra && (
+                      <span style={{ padding:'3px 10px', borderRadius:20, fontSize:11, background:'var(--surface2)', color:'var(--text2)' }}>
+                        <i className="ti ti-id-badge-2" style={{ fontSize:10 }} /> {linkedExtra}
                       </span>
                     )}
                   </div>

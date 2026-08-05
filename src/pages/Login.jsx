@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
 import { qpcLogo as QPC_LOGO } from '../lib/logos'
+import { normalizeQid } from '../lib/helpers'
 
 export default function Login({ onRequestSent, onSigningUpChange }) {
   const { lang, setLang } = useLang()
@@ -11,18 +12,21 @@ export default function Login({ onRequestSent, onSigningUpChange }) {
   const [mode, setMode]         = useState('login')   // login | register | pending | rejected | sent
   const [loading, setLoading]   = useState(false)
   const [error, setError]       = useState('')
-  const [form, setForm]         = useState({ qid:'', password:'', confirmPassword:'', fullName:'', accountType:'guest', coachId:'', athleteId:'' })
+  const [form, setForm]         = useState({ qid:'', password:'', confirmPassword:'', fullName:'', accountType:'guest', coachId:'', athleteId:'', employeeId:'' })
   const [coaches, setCoaches]   = useState([])
   const [athletes, setAthletes] = useState([])
+  const [employees, setEmployees] = useState([])
   const set = (k,v) => setForm(f => ({...f, [k]:v}))
 
   async function loadCoachesAthletes() {
-    const [{ data: c }, { data: a }] = await Promise.all([
+    const [{ data: c }, { data: a }, { data: e }] = await Promise.all([
       supabase.from('coaches').select('id,name,name_ar').order('name'),
       supabase.from('athletes').select('id,name,name_ar').order('name'),
+      supabase.from('employees').select('id,name,name_ar,designation').order('name'),
     ])
     setCoaches(c||[])
     setAthletes(a||[])
+    setEmployees(e||[])
   }
 
   const qidToEmail = (qid) => `${qid.replace(/\s+/g,'')}@qpc-system.qa`
@@ -48,6 +52,7 @@ export default function Login({ onRequestSent, onSigningUpChange }) {
     if (form.password.length < 6) { setError(L('Password must be at least 6 characters','كلمة المرور يجب أن تكون 6 أحرف على الأقل')); setLoading(false); return }
     if (form.accountType === 'coach' && !form.coachId) { setError(L('Please select your coach profile','الرجاء اختيار ملف المدرب')); setLoading(false); return }
     if (form.accountType === 'athlete' && !form.athleteId) { setError(L('Please select your athlete profile','الرجاء اختيار ملف الرياضي')); setLoading(false); return }
+    if (form.accountType === 'employee' && !form.employeeId) { setError(L('Please select your employee profile','الرجاء اختيار ملف الموظف')); setLoading(false); return }
 
     // ── QID VERIFICATION ──
     if (form.accountType === 'coach' && form.coachId) {
@@ -77,6 +82,44 @@ export default function Login({ onRequestSent, onSigningUpChange }) {
         setError(L('The QID you entered does not match our records for this athlete. Please check your ID number.', 'الرقم الشخصي الذي أدخلته لا يتطابق مع سجلاتنا لهذا الرياضي. يرجى التحقق من رقم هويتك.'))
         setLoading(false); return
       }
+    }
+    // Employee QID verification — normalized matching (spaces, hyphens,
+    // Arabic/Persian digits), stricter than the plain-trim check used for
+    // Coach/Athlete above, per the employee signup requirements.
+    let employeePersonId = null
+    if (form.accountType === 'employee' && form.employeeId) {
+      const { data: empData } = await supabase.from('employees').select('id_number, status, person_id, name, name_ar, designation').eq('id', form.employeeId).single()
+      const storedQID = normalizeQid(empData?.id_number)
+      const enteredQID = normalizeQid(form.qid)
+      if (!storedQID || empData?.id_number?.startsWith('COACH-')) {
+        setError(L('No verified ID on file for this employee. Please contact the admin.','لا يوجد رقم هوية موثق لهذا الموظف. يرجى التواصل مع المسؤول.'))
+        setLoading(false); return
+      }
+      if (storedQID !== enteredQID) {
+        setError(L('The QID you entered does not match our records for this employee. Please check your ID number.', 'الرقم الشخصي الذي أدخلته لا يتطابق مع سجلاتنا لهذا الموظف. يرجى التحقق من رقم هويتك.'))
+        setLoading(false); return
+      }
+      if (empData.status === 'Inactive') {
+        setError(L('This employee record is inactive. Please contact the admin.','سجل هذا الموظف غير نشط. يرجى التواصل مع المسؤول.'))
+        setLoading(false); return
+      }
+      // Eligibility: this employee must not already have an account, and
+      // if they're a multi-role person (person_id already linked), that
+      // person must not already have any account either — stop instead of
+      // creating a second conflicting profile.
+      const { data: existingByEmployee } = await supabase.from('profiles').select('id').eq('employee_id', form.employeeId).maybeSingle()
+      if (existingByEmployee) {
+        setError(L('An account already exists for this employee. Please sign in instead, or contact the admin.','يوجد حساب مسجل بالفعل لهذا الموظف. يرجى تسجيل الدخول، أو التواصل مع المسؤول.'))
+        setLoading(false); return
+      }
+      if (empData.person_id) {
+        const { data: existingByPerson } = await supabase.from('profiles').select('id').eq('person_id', empData.person_id).maybeSingle()
+        if (existingByPerson) {
+          setError(L('An account already exists for this person under a different role. Please sign in instead, or contact the admin.','يوجد حساب مسجل بالفعل لهذا الشخص بدور آخر. يرجى تسجيل الدخول، أو التواصل مع المسؤول.'))
+          setLoading(false); return
+        }
+      }
+      employeePersonId = empData.person_id || null
     }
 
     // Sign up. From this point on, the auth session exists before the profile
@@ -116,16 +159,20 @@ export default function Login({ onRequestSent, onSigningUpChange }) {
       } else if (form.coachId) {
         const { data: c } = await supabase.from('coaches').select('person_id').eq('id', form.coachId).maybeSingle()
         personId = c?.person_id || null
+      } else if (form.employeeId) {
+        personId = employeePersonId
       }
       await supabase.from('profiles').insert({
         id: data.user.id,
         full_name: form.fullName,
         email: form.qid,  // store QID as identifier
+        qid: form.qid,
         account_type: form.accountType,
         role: form.accountType,
         status: 'pending',
         coach_id: form.coachId || null,
         athlete_id: form.athleteId || null,
+        employee_id: form.employeeId || null,
         person_id: personId,
         requested_at: new Date().toISOString(),
       })
@@ -134,7 +181,7 @@ export default function Login({ onRequestSent, onSigningUpChange }) {
     // Notify every admin in-app that a new access request is waiting for review
     const { data: admins } = await supabase.from('profiles').select('id').eq('role', 'admin')
     if (admins?.length > 0) {
-      const typeLabel = { coach: ar ? 'مدرب' : 'Coach', athlete: ar ? 'رياضي' : 'Athlete', guest: ar ? 'مشاهد' : 'Guest' }[form.accountType] || form.accountType
+      const typeLabel = { coach: ar ? 'مدرب' : 'Coach', employee: ar ? 'موظف' : 'Employee', athlete: ar ? 'رياضي' : 'Athlete', guest: ar ? 'مشاهد' : 'Guest' }[form.accountType] || form.accountType
       await supabase.from('notifications').insert(
         admins.map(a => ({
           user_id: a.id,
@@ -249,6 +296,7 @@ export default function Login({ onRequestSent, onSigningUpChange }) {
                 <label className="form-label">{L('Account Type','نوع الحساب')}</label>
                 <select className="form-input" value={form.accountType} onChange={e=>set('accountType',e.target.value)}>
                   <option value="coach">{L('Coach','مدرب')}</option>
+                  <option value="employee">{L('Employee','موظف')}</option>
                   <option value="athlete">{L('Athlete','رياضي')}</option>
                   <option value="guest">{L('Guest / Viewer','زائر / مشاهد')}</option>
                 </select>
@@ -259,6 +307,15 @@ export default function Login({ onRequestSent, onSigningUpChange }) {
                   <select className="form-input" value={form.coachId} onChange={e=>set('coachId',e.target.value)} required>
                     <option value="">{L('— Select coach —','— اختر المدرب —')}</option>
                     {coaches.map(c=><option key={c.id} value={c.id}>{ar&&c.name_ar?c.name_ar:c.name}</option>)}
+                  </select>
+                </div>
+              )}
+              {form.accountType === 'employee' && (
+                <div className="form-group">
+                  <label className="form-label">{L('Select your employee profile','اختر ملف الموظف')}</label>
+                  <select className="form-input" value={form.employeeId} onChange={e=>set('employeeId',e.target.value)} required>
+                    <option value="">{L('— Select employee —','— اختر الموظف —')}</option>
+                    {employees.map(e=><option key={e.id} value={e.id}>{ar&&e.name_ar?e.name_ar:e.name}{e.designation ? ` — ${e.designation}` : ''}</option>)}
                   </select>
                 </div>
               )}
