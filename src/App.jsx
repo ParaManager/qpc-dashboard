@@ -44,7 +44,7 @@ const NAV_COACH = (tx) => [
   { section: tx('nav.overview','Overview'),      items: [{ id:'dashboard', icon:'ti-layout-dashboard', label:tx('nav.dashboard','Dashboard') }, { id:'notifications', icon:'ti-bell', label:tx('nav.notifications','Notifications') }, { id:'calendar', icon:'ti-calendar', label:tx('nav.calendar','Calendar') }, { id:'resources', icon:'ti-folder', label:tx('nav.resources','Resources') }, { id:'requests', icon:'ti-clipboard-text', label:tx('nav.requests','Requests') }, { id:'tasks', icon:'ti-checklist', label:tx('nav.tasks','Tasks') }, { id:'profile', icon:'ti-user-circle', label:tx('nav.profile','My Profile') }] },
   { section: tx('nav.people','People'), items: [{ id:'athletes-all', icon:'ti-run', label:tx('nav.athletes','Athletes') }, { id:'athletes', icon:'ti-run', label:tx('athletes.myAthletes','My Athletes') }, { id:'coaches', icon:'ti-whistle', label:tx('nav.coaches','Coaches') }, { id:'employees', icon:'ti-id-badge-2', label:tx('nav.employees','Employees') }, { id:'referees', icon:'ti-flag-2', label:tx('nav.referees','Referees') }] },
   { section: tx('nav.training','Training'),      items: [{ id:'schedule', icon:'ti-calendar', label:tx('nav.schedule','Schedule') }, { id:'attendance', icon:'ti-clipboard-check', label:tx('nav.attendance','Attendance') }] },
-  { section: tx('nav.competitions','Competitions'), items: [{ id:'events', icon:'ti-calendar-event', label:tx('nav.events','Events') }, { id:'results', icon:'ti-medal', label:tx('nav.results','Results') }] },
+  { section: tx('nav.competitions','Competitions'), items: [{ id:'sports', icon:'ti-ball-football', label:tx('nav.sports','Sports') }, { id:'events', icon:'ti-calendar-event', label:tx('nav.events','Events') }, { id:'results', icon:'ti-medal', label:tx('nav.results','Results') }] },
   { section: tx('nav.account','Account'),         items: [{ id:'settings', icon:'ti-settings', label:tx('nav.settings','Settings') }] },
 ]
 const NAV_ATHLETE = (tx) => [
@@ -868,7 +868,7 @@ export default function App() {
           {page==='tasks'         && <Tasks key={`tasks-${refreshToken}`} profile={profile} isMainAdmin={isMainAdmin} onNav={goTo} />}
           {page==='referees'  && (isAdmin || isCoach) && <Referees key={`referees-${refreshToken}`} referees={referees} onRefresh={fetchAll} profile={profile} />}
           {page==='results'   && <Results   key={`results-${refreshToken}`} results={results} athletes={athletes} onRefresh={fetchAll} onNav={goTo} profile={profile} />}
-          {page==='sports'    && isAdmin && <Sports    key={`sports-${refreshToken}`} athletes={athletes} coaches={coaches} events={events} results={results} onNav={goTo} initSport={navState.sport} initCategory={navState.category} profile={profile} />}
+          {page==='sports'    && (isAdmin || isCoach) && <Sports    key={`sports-${refreshToken}`} athletes={athletes} coaches={coaches} events={events} results={results} onNav={goTo} initSport={navState.sport} initCategory={navState.category} profile={profile} />}
           {page==='employees' && (isAdmin || isCoach) && <Employees key={`employees-${refreshToken}`} employees={employees} coaches={coaches} personDocs={personDocs} onRefresh={fetchAll} onNav={goTo} initEmployeeId={navState.employeeId} navState={navState} profile={profile} />}
         </div>
       </div>
