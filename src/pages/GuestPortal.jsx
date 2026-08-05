@@ -232,15 +232,51 @@ function AboutQPC() {
         )}
       </Section>
 
-      {/* Contact Us — placeholders, easily editable later by Admin */}
+      {/* Contact Us — real contact details, clickable where applicable */}
       <div className="card">
         <div className="card-title"><i className="ti ti-address-book" /> {L('Contact Us','تواصل معنا')}</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14, fontSize: 13.5, color: 'var(--text2)' }}>
-          <div><i className="ti ti-map-pin" style={{ marginInlineEnd: 8, color: '#0085C7' }} />{L('Address','العنوان')}: {L('Doha, Qatar','الدوحة، قطر')}</div>
-          <div><i className="ti ti-phone" style={{ marginInlineEnd: 8, color: '#009F6B' }} />{L('Phone','الهاتف')}: <span dir="ltr">+974 XXXX XXXX</span></div>
-          <div><i className="ti ti-mail" style={{ marginInlineEnd: 8, color: '#EE334E' }} />{L('Email','البريد الإلكتروني')}: info@qpc.qa</div>
-          <div><i className="ti ti-world" style={{ marginInlineEnd: 8, color: '#8b5cf6' }} />{L('Website','الموقع الإلكتروني')}: www.qpc.qa</div>
-          <div><i className="ti ti-brand-x" style={{ marginInlineEnd: 8, color: '#f59e0b' }} />{L('Social Media','وسائل التواصل')}: @QPCQatar</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 14, fontSize: 13.5, color: 'var(--text2)' }}>
+          <div>
+            <i className="ti ti-mail" style={{ marginInlineEnd: 8, color: '#EE334E' }} />
+            {L('Email','البريد الإلكتروني')}: <a href="mailto:npcqatar@olympic.qa" style={{ color: '#0085C7', textDecoration: 'none' }}>npcqatar@olympic.qa</a>
+          </div>
+          <div>
+            <i className="ti ti-phone" style={{ marginInlineEnd: 8, color: '#009F6B' }} />
+            {L('Phone','الهاتف')}: <a href="tel:+97440410410" style={{ color: '#0085C7', textDecoration: 'none' }} dir="ltr">+974 4041 0410</a>
+          </div>
+          <div>
+            <i className="ti ti-map-pin" style={{ marginInlineEnd: 8, color: '#0085C7' }} />
+            {L('Address','العنوان')}: <span dir="ltr">9F2G+4QP</span>, {L('Doha, Qatar','الدوحة، قطر')}
+          </div>
+          <div>
+            <i className="ti ti-mailbox" style={{ marginInlineEnd: 8, color: '#f59e0b' }} />
+            {L('P.O. Box','صندوق البريد')}: <span dir="ltr">21515</span>
+          </div>
+          <div>
+            <i className="ti ti-world" style={{ marginInlineEnd: 8, color: '#8b5cf6' }} />
+            {L('Qatar Paralympic Committee Website','الموقع الإلكتروني للجنة البارالمبية القطرية')}:{' '}
+            <a href="https://qatarparalympic.org/" target="_blank" rel="noopener noreferrer" style={{ color: '#0085C7', textDecoration: 'none' }}>qatarparalympic.org</a>
+          </div>
+          <div>
+            <i className="ti ti-world" style={{ marginInlineEnd: 8, color: '#8b5cf6' }} />
+            {L('Special Olympics Qatar Website','الموقع الإلكتروني للأولمبياد الخاص قطر')}:{' '}
+            <a href="https://www.specialolympicsqatar.org/" target="_blank" rel="noopener noreferrer" style={{ color: '#0085C7', textDecoration: 'none' }}>specialolympicsqatar.org</a>
+          </div>
+          <div>
+            <i className="ti ti-brand-instagram" style={{ marginInlineEnd: 8, color: '#e1306c' }} />
+            {L('Instagram','إنستغرام')}:{' '}
+            <a href="https://www.instagram.com/qatar_paralympic_committee/" target="_blank" rel="noopener noreferrer" style={{ color: '#0085C7', textDecoration: 'none' }} dir="ltr">@qatar_paralympic_committee</a>
+          </div>
+          <div>
+            <i className="ti ti-brand-facebook" style={{ marginInlineEnd: 8, color: '#1877f2' }} />
+            {L('Facebook','فيسبوك')}:{' '}
+            <a href="https://www.facebook.com/QatarParalympicCommittee" target="_blank" rel="noopener noreferrer" style={{ color: '#0085C7', textDecoration: 'none' }}>{L('Qatar Paralympic Committee','اللجنة البارالمبية القطرية')}</a>
+          </div>
+          <div>
+            <i className="ti ti-brand-x" style={{ marginInlineEnd: 8, color: 'var(--text)' }} />
+            {L('X (Twitter)','إكس (تويتر)')}:{' '}
+            <a href="https://x.com/qatarparalympic" target="_blank" rel="noopener noreferrer" style={{ color: '#0085C7', textDecoration: 'none' }} dir="ltr">@qatarparalympic</a>
+          </div>
         </div>
       </div>
     </div>
