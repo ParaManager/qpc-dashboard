@@ -986,7 +986,7 @@ function AthleteCoachHistory({ athleteId, coaches, employees, lang }) {
   )
 }
 
-export default function Athletes({ athletes, coaches, employees, results, documents, events, registrations, onRefresh, onNav, initAthleteId, initStatusFilter, navState, profile, pageTitle }) {
+export default function Athletes({ athletes, coaches, employees, results, documents, events, registrations, onRefresh, onNav, initAthleteId, initStatusFilter, navState, profile, pageTitle, isAllAthletesView = false }) {
   const { tx, lang, tc } = useLang()
   // Case-insensitive disability translation
   const DIS_MAP = {
@@ -1112,7 +1112,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
   // Coach/Employee accounts get a fixed, non-configurable column set (per
   // the directory read-only view spec) — 'name' itself is the always-shown
   // sticky column, these are the additional ones.
-  const restrictedView = profile?.role === 'coach' || profile?.role === 'employee'
+  const restrictedView = profile?.role === 'employee' || (profile?.role === 'coach' && isAllAthletesView)
   const RESTRICTED_COLS = ['name', 'name_ar', 'sport', 'disability', 'nationality', 'gender', 'age', 'coach_id', 'status']
   const COLS_STORAGE_KEY = 'qpc_athletes_visible_cols_v2'
   function loadStoredCols(fallback) {

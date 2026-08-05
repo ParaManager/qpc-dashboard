@@ -152,6 +152,25 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
                 ))}
               </div>
             </>
+          ) : myEmployee ? (
+            <>
+              <div className="detail-name">{ar && myEmployee.name_ar ? myEmployee.name_ar : myEmployee.name}</div>
+              <div className="detail-sub">{ar ? myEmployee.name : (myEmployee.name_ar || '')}</div>
+              <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)' }}>{ar ? 'موظف' : 'Employee'}</span>
+                <span className={`badge ${statusClass(effectiveStatus(myEmployee))}`} style={{ fontSize: 10.5 }}>{statusLabel(myEmployee)}</span>
+              </div>
+              <div className="detail-fields" style={{ marginTop: 10 }}>
+                {[
+                  [ar ? 'الجنسية' : 'Nationality', nationalityLabel(myEmployee.nationality)],
+                  [ar ? 'الجنس' : 'Gender', myEmployee.gender ? (ar ? (myEmployee.gender==='Male'?'ذكر':'أنثى') : myEmployee.gender) : null],
+                  [ar ? 'الهاتف' : 'Phone', myEmployee.phone],
+                  [ar ? 'البريد الإلكتروني' : 'Email', myEmployee.email || profile?.email],
+                ].filter(([, v]) => v).map(([k, v]) => (
+                  <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv" style={{ fontSize: 12 }}>{v}</span></div>
+                ))}
+              </div>
+            </>
           ) : (
             <>
               <div className="detail-name">{displayName}</div>
@@ -241,30 +260,67 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
                 {ar ? 'عرض ملف المدرب الكامل ←' : 'View full coach profile →'}
               </button>
             </>
-          ) : (
+          ) : myEmployee ? (
             <>
-          {myEmployee && (
-            <div className="info-card">
-              <div className="info-title" style={{ marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span>{ar ? 'قسم الموظف' : 'Employee'}</span>
-                <span className={`badge ${statusClass(effectiveStatus(myEmployee))}`} style={{ fontSize: 10.5 }}>{statusLabel(myEmployee)}</span>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '4px 16px' }}>
-                {[
-                  [ar ? 'الوظيفة' : 'Designation', ar ? (DESIGNATION_AR[myEmployee.designation] || myEmployee.designation) : myEmployee.designation],
+              {(() => {
+                const yearsOfService = (() => {
+                  if (!myEmployee.created_at) return null
+                  const start = new Date(myEmployee.created_at)
+                  const now = new Date()
+                  const months = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth())
+                  if (months < 12) return ar ? `${months} شهر` : `${months} mo`
+                  const y = Math.floor(months / 12), m = months % 12
+                  return m > 0 ? `${y}y ${m}mo` : (ar ? `${y} سنة` : `${y} yr${y!==1?'s':''}`)
+                })()
+                const infoFields = [
+                  [ar ? 'المسمى الوظيفي' : 'Designation', ar ? (myEmployee.designation_ar || DESIGNATION_AR[myEmployee.designation] || myEmployee.designation) : myEmployee.designation],
                   [ar ? 'رقم الموظف' : 'Employee #', myEmployee.employee_number],
                   [ar ? 'رقم QSS' : 'QSS #', myEmployee.qss_number],
-                ].filter(([, v]) => v).map(([k, v]) => (
-                  <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv">{v}</span></div>
-                ))}
-              </div>
-              <button onClick={() => onNav('employees', { employeeId: myEmployee.id })} style={{ marginTop: 10, fontSize: 12, color: '#0085C7', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                {ar ? 'عرض التفاصيل الكاملة ←' : 'View full details →'}
-              </button>
-            </div>
-          )}
+                  [ar ? 'تاريخ الانضمام' : 'Join date', myEmployee.created_at ? new Date(myEmployee.created_at).toISOString().slice(0,10) : null],
+                  [ar ? 'سنوات الخدمة' : 'Years of Service', yearsOfService],
+                  [ar ? 'الحالة' : 'Status', statusLabel(myEmployee)],
+                ].filter(([, v]) => v)
+                return (
+                  <div className="info-card">
+                    <div className="info-title" style={{ marginBottom: 10 }}>{ar ? 'معلومات الموظف' : 'Employee Information'}</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '4px 16px' }}>
+                      {infoFields.map(([k, v]) => (
+                        <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv">{v}</span></div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })()}
+
+              {(() => {
+                const isExpired = d => d && new Date(d) < new Date()
+                const idFields = [
+                  [ar ? 'تاريخ الميلاد' : 'Date of birth', myEmployee.dob],
+                  [ar ? 'الرقم الشخصي / رقم الهوية' : 'Qatar ID / Residence #', myEmployee.id_number],
+                  [ar ? 'تاريخ انتهاء الهوية' : 'ID expiry', myEmployee.id_expiry],
+                  [ar ? 'رقم جواز السفر' : 'Passport number', myEmployee.passport_number],
+                  [ar ? 'تاريخ انتهاء الجواز' : 'Passport expiry', myEmployee.passport_expiry],
+                  [ar ? 'الجنسية' : 'Nationality', nationalityLabel(myEmployee.nationality)],
+                  [ar ? 'الجنس' : 'Gender', myEmployee.gender ? (ar ? (myEmployee.gender==='Male'?'ذكر':'أنثى') : myEmployee.gender) : null],
+                ].filter(([, v]) => v)
+                if (idFields.length === 0) return null
+                return (
+                  <div className="info-card">
+                    <div className="info-title" style={{ marginBottom: 10 }}>{ar ? 'معلومات الهوية' : 'Identity Information'}</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '4px 16px' }}>
+                      {idFields.map(([k, v]) => (
+                        <div key={k} className="detail-row" style={{ minWidth: 0 }}>
+                          <span className="dk">{k}</span>
+                          <span className="dv" style={{ color: k.toLowerCase().includes('expiry') && isExpired(v) ? '#dc2626' : undefined }}>{v}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })()}
             </>
-          )}
+          ) : (
+            <>
 
           {myAthlete && (
             <div className="info-card">
@@ -293,6 +349,8 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
                 {ar ? 'عرض التفاصيل الكاملة ←' : 'View full details →'}
               </button>
             </div>
+          )}
+            </>
           )}
 
           <div className="info-card">

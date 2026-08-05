@@ -1247,7 +1247,7 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
   // directory read-only view spec) — unlike the admin default, 'name' is
   // NOT force-included here.
   const restrictedView = profile?.role === 'coach' || profile?.role === 'employee'
-  const RESTRICTED_COLS = ['designation', 'designation_ar', 'status', 'nationality', 'gender']
+  const RESTRICTED_COLS = ['name', 'designation', 'designation_ar', 'status', 'nationality', 'gender']
   function loadStoredEmpCols(fallback) {
     if (restrictedView) return RESTRICTED_COLS
     try {
