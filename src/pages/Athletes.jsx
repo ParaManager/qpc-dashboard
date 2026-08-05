@@ -1247,8 +1247,14 @@ export default function Athletes({ athletes, coaches, employees, results, docume
 
   // Show every known sport (Paralympic + Special Olympics), not just ones currently
   // in use — so a sport with zero athletes today is still findable once someone new
-  // is added under it.
-  const sportsInData = new Set(athletes.map(a => a.sport).filter(Boolean))
+  // is added under it. Includes both the legacy athletes.sport field and every
+  // sport actually assigned via athlete_sports (prefix-stripped to the same
+  // short-name convention used everywhere else), so a real assignment is never
+  // missing from the filter just because the static SPORTS catalog doesn't
+  // happen to include that exact value (e.g. the "Special Olympics" catch-all).
+  const stripSportPrefixForFilter = (name) => name ? name.replace(/^(Para |SO |Unified )/, '') : name
+  const junctionSportNames = Object.values(athleteSportsByAthlete).flat().map(r => stripSportPrefixForFilter(r.sportName)).filter(Boolean)
+  const sportsInData = new Set([...athletes.map(a => a.sport).filter(Boolean), ...junctionSportNames])
   const sports = ['All sports', ...SPORTS, ...[...sportsInData].filter(s => !SPORTS.includes(s))]
   const sportCategories = ['All categories', ...SPORT_CATEGORIES]
 
