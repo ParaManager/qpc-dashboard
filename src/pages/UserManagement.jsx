@@ -241,7 +241,7 @@ export default function UserManagement({ profile, initUserId }) {
                   <div style={{ fontSize:13, color:'var(--text3)', marginTop:2 }}>{u.email}</div>
                   <div style={{ display:'flex', gap:6, marginTop:8, flexWrap:'wrap' }}>
                     <span style={{ padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:600, background:roleColor+'20', color:roleColor }}>
-                      {ar ? {'admin':'مسؤول','coach':'مدرب','employee':'موظف','athlete':'رياضي','guest':'زائر'}[u.account_type]||u.account_type : u.account_type}
+                      {ar ? {'admin':'مسؤول','coach':'مدرب','employee':'عضو كادر','athlete':'رياضي','guest':'زائر'}[u.account_type]||u.account_type : u.account_type}
                     </span>
                     <span style={{ padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:600, background:statusColor+'20', color:statusColor }}>
                       {ar ? {'active':'نشط','pending':'قيد الانتظار','rejected':'مرفوض'}[u.status]||u.status : u.status}

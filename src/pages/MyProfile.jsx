@@ -157,7 +157,7 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
               <div className="detail-name">{ar && myEmployee.name_ar ? myEmployee.name_ar : myEmployee.name}</div>
               <div className="detail-sub">{ar ? myEmployee.name : (myEmployee.name_ar || '')}</div>
               <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)' }}>{ar ? 'موظف' : 'Employee'}</span>
+                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)' }}>{ar ? 'عضو كادر' : 'Staff Member'}</span>
                 <span className={`badge ${statusClass(effectiveStatus(myEmployee))}`} style={{ fontSize: 10.5 }}>{statusLabel(myEmployee)}</span>
               </div>
               <div className="detail-fields" style={{ marginTop: 10 }}>
@@ -282,7 +282,7 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
                 ].filter(([, v]) => v)
                 return (
                   <div className="info-card">
-                    <div className="info-title" style={{ marginBottom: 10 }}>{ar ? 'معلومات الموظف' : 'Employee Information'}</div>
+                    <div className="info-title" style={{ marginBottom: 10 }}>{ar ? 'معلومات الكادر' : 'Staff Information'}</div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '4px 16px' }}>
                       {infoFields.map(([k, v]) => (
                         <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv">{v}</span></div>

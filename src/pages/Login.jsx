@@ -181,7 +181,7 @@ export default function Login({ onRequestSent, onSigningUpChange, onGuestMode })
     // Notify every admin in-app that a new access request is waiting for review
     const { data: admins } = await supabase.from('profiles').select('id').eq('role', 'admin')
     if (admins?.length > 0) {
-      const typeLabel = { coach: ar ? 'مدرب' : 'Coach', employee: ar ? 'موظف' : 'Employee', athlete: ar ? 'رياضي' : 'Athlete', guest: ar ? 'مشاهد' : 'Guest' }[form.accountType] || form.accountType
+      const typeLabel = { coach: ar ? 'مدرب' : 'Coach', employee: ar ? 'عضو كادر' : 'Staff Member', athlete: ar ? 'رياضي' : 'Athlete', guest: ar ? 'مشاهد' : 'Guest' }[form.accountType] || form.accountType
       await supabase.from('notifications').insert(
         admins.map(a => ({
           user_id: a.id,
@@ -299,7 +299,7 @@ export default function Login({ onRequestSent, onSigningUpChange, onGuestMode })
                 <label className="form-label">{L('Account Type','نوع الحساب')}</label>
                 <select className="form-input" value={form.accountType} onChange={e=>set('accountType',e.target.value)}>
                   <option value="coach">{L('Coach','مدرب')}</option>
-                  <option value="employee">{L('Employee','موظف')}</option>
+                  <option value="employee">{L('Staff Member','عضو كادر')}</option>
                   <option value="athlete">{L('Athlete','رياضي')}</option>
                 </select>
               </div>

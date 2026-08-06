@@ -90,7 +90,7 @@ export default function Dashboard({ athletes, coaches, employees, referees, even
       click: () => onNav('coaches'),
     },
     {
-      label: tx('nav.employees','Employees'),
+      label: tx('nav.employees','Staff'),
       val: employees.length,
       hint: tx('employees.employee','staff'),
       color: '#8b5cf6', icon: 'ti-id-badge-2',

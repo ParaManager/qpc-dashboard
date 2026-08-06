@@ -65,7 +65,7 @@ export default function Sports({ athletes, coaches, events, results, onNav, init
         cursor: onClick ? 'pointer' : 'default',
         whiteSpace: 'nowrap',
       }}>
-        {isActive ? (ar ? 'نشط' : 'Active') : (ar ? 'مخطط له' : 'Planned')}
+        {isActive ? (ar ? 'نشط' : 'Active') : (ar ? 'غير نشط' : 'Inactive')}
       </span>
     )
   }
@@ -190,7 +190,7 @@ export default function Sports({ athletes, coaches, events, results, onNav, init
         {[
           { label: ar?'إجمالي الرياضات':'Total Sports', val: sportStatusRows.length, color:'#0085C7', icon:'ti-ball-football' },
           { label: ar?'الرياضات النشطة':'Active Sports', val: sportStatusRows.filter(s=>s.status==='Active').length, color:'#009F6B', icon:'ti-circle-check' },
-          { label: ar?'الرياضات المخطط لها':'Planned Sports', val: sportStatusRows.filter(s=>s.status==='Planned').length, color:'#9aa3b2', icon:'ti-clock' },
+          { label: ar?'الرياضات غير النشطة':'Inactive Sports', val: sportStatusRows.filter(s=>s.status==='Planned').length, color:'#9aa3b2', icon:'ti-clock' },
         ].map(({ label, val, color, icon }) => (
           <div key={label} className="kpi-card" style={{ cursor:'default' }}>
             <div className="kpi-icon" style={{ background: color + '18' }}><i className={`ti ${icon}`} style={{ color, fontSize: 16 }} /></div>
@@ -209,7 +209,7 @@ export default function Sports({ athletes, coaches, events, results, onNav, init
               background: statusFilter===s ? '#0085C7' : 'var(--surface)',
               color: statusFilter===s ? '#fff' : 'var(--text2)',
             }}>
-            {s==='All' ? (ar?'الكل':'All') : s==='Active' ? (ar?'نشط':'Active') : (ar?'مخطط له':'Planned')}
+            {s==='All' ? (ar?'الكل':'All') : s==='Active' ? (ar?'نشط':'Active') : (ar?'غير نشط':'Inactive')}
           </button>
         ))}
       </div>

@@ -93,7 +93,7 @@ export default function EmployeeDashboard({ employee, athletes, coaches, employe
   const kpiCards = [
     { label: L('Total Athletes','إجمالي الرياضيين'), val: allAthletes.length, hint: L('system-wide','على مستوى النظام'), color:'#0085C7', icon:'ti-users', click: () => onNav('athletes-all') },
     { label: tx('nav.coaches','Coaches'), val: (coaches||[]).length, hint: L('all coaches','كل المدربين'), color:'#009F6B', icon:'ti-user-star', click: () => onNav('coaches') },
-    { label: tx('nav.employees','Employees'), val: (employees||[]).length, hint: tx('employees.employee','staff'), color:'#8b5cf6', icon:'ti-id-badge-2', click: () => onNav('employees') },
+    { label: tx('nav.employees','Staff'), val: (employees||[]).length, hint: tx('employees.employee','staff'), color:'#8b5cf6', icon:'ti-id-badge-2', click: () => onNav('employees') },
     { label: tx('nav.referees','Referees'), val: (referees||[]).length, hint: tx('nav.referees','officials'), color:'#f59e0b', icon:'ti-flag-2', click: () => onNav('referees') },
     { label: tx('dashboard.sports','Sports'), val: sportEntries.length, hint: tx('filters.all','in use'), color:'#EE334E', icon:'ti-ball-football', click: () => onNav('sports') },
     { label: tx('dashboard.activeEvents','Active Events'), val: activeEventsCount, hint: tx('dashboard.activeEventsHint','Upcoming & in progress'), color:'#0085C7', icon:'ti-calendar-event', click: () => onNav('events') },

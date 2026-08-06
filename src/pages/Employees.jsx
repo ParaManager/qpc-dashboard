@@ -645,8 +645,8 @@ function exportEmployeesExcel(list, lang, coaches) {
   const ws = XLSX.utils.json_to_sheet(rows)
   ws['!cols'] = [{wch:24},{wch:24},{wch:28},{wch:24},{wch:8},{wch:16},{wch:14},{wch:10},{wch:16},{wch:26},{wch:10},{wch:30}]
   const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, ar ? 'الموظفون' : 'Employees')
-  XLSX.writeFile(wb, `QPC_${ar?'الموظفون':'Employees'}_${new Date().toISOString().slice(0,10)}.xlsx`)
+  XLSX.utils.book_append_sheet(wb, ws, ar ? 'الكادر' : 'Staff')
+  XLSX.writeFile(wb, `QPC_${ar?'الكادر':'Staff'}_${new Date().toISOString().slice(0,10)}.xlsx`)
 }
 
 function EmpModal({ data, isEdit, onClose, onSave, employees = [], customDesignations = [], onDesignationAdded }) {
@@ -694,7 +694,7 @@ function EmpModal({ data, isEdit, onClose, onSave, employees = [], customDesigna
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-box" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <div className="modal-title">{isEdit ? (ar?'تعديل':'Edit') : (ar?'إضافة':'New')} {ar?'موظف':'Employee'}</div>
+          <div className="modal-title">{isEdit ? (ar?'تعديل':'Edit') : (ar?'إضافة':'New')} {ar?'عضو كادر':'Staff Member'}</div>
           <button className="modal-close" onClick={onClose}><i className="ti ti-x" /></button>
         </div>
         <div className="modal-body">
@@ -771,7 +771,7 @@ function EmpModal({ data, isEdit, onClose, onSave, employees = [], customDesigna
         <div className="modal-footer">
           <button className="btn-cancel" onClick={onClose}>{ar?'إلغاء':'Cancel'}</button>
           <button className="btn btn-blue" onClick={() => onSave(form, isEdit)}>
-            {isEdit ? (ar?'حفظ التغييرات':'Save changes') : (ar?'إضافة موظف':'Add employee')}
+            {isEdit ? (ar?'حفظ التغييرات':'Save changes') : (ar?'إضافة عضو كادر':'Add staff member')}
           </button>
         </div>
       </div>
@@ -1341,7 +1341,7 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
   }
 
   const ALL_COLS = [
-    { key:'name',              label:tx('employees.employee','Employee') },
+    { key:'name',              label:tx('employees.employee','Staff Member') },
     { key:'employee_number',   label:tx('employees.employeeNum','Employee #') },
     { key:'qss_number',        label:tx('employees.qssNum','QSS #') },
     { key:'job_id',            label:tx('employees.jobId','Job ID') },
@@ -1866,7 +1866,7 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
         />
       )}
       <div className="page-header">
-        <div><div className="page-title">{tx('pages.employees','Employees')}</div><div className="page-sub">{list.length} {tx('employees.ofEmployees','of')} {employees.length} {tx('pages.employees','employees')}</div></div>
+        <div><div className="page-title">{tx('pages.employees','Staff')}</div><div className="page-sub">{list.length} {tx('employees.ofEmployees','of')} {employees.length} {tx('pages.employees','staff')}</div></div>
         <div style={{ display:'flex', gap:8 }}>
           {!restrictedView && (
             <button className="btn" style={{ background:'#009F6B' }} onClick={() => exportEmployeesExcel(list, lang, coaches)}>
@@ -1928,7 +1928,7 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
             </button>
           )}
           {canEdit(profile) && (
-            <button className="btn btn-blue" onClick={() => setAddModal(true)}><i className="ti ti-plus" /> {tx('employees.addEmployee','Add employee')}</button>
+            <button className="btn btn-blue" onClick={() => setAddModal(true)}><i className="ti ti-plus" /> {tx('employees.addEmployee','Add staff member')}</button>
           )}
         </div>
       </div>
