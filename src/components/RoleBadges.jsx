@@ -38,7 +38,7 @@ export function usePersonRoles(personId) {
 const ROLE_LABEL = {
   athlete:  { en: 'Athlete',  ar: 'رياضي' },
   coach:    { en: 'Coach',    ar: 'مدرب' },
-  employee: { en: 'Employee', ar: 'موظف' },
+  employee: { en: 'Staff Member', ar: 'عضو كادر' },
   referee:  { en: 'Referee',  ar: 'حكم' },
 }
 
