@@ -14,7 +14,7 @@ const DESIGNATION_AR = {
   'Medical Staff': 'جهاز طبي',
   'Board Member': 'عضو مجلس إدارة', 'Female Board Member': 'عضوة مجلس إدارة',
   'Member': 'عضو', 'Female Member': 'عضوة',
-  'Employee': 'موظف', 'Female Employee': 'موظفة',
+  'Employee': 'عضو كادر', 'Female Employee': 'عضوة كادر',
   'Expert': 'خبير في',
 }
 
