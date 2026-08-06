@@ -3,7 +3,7 @@ import { useState } from 'react'
 const ROLE_LABEL = {
   athlete:  { en: 'Athlete',  ar: 'رياضي' },
   coach:    { en: 'Coach',    ar: 'مدرب' },
-  employee: { en: 'Employee', ar: 'موظف' },
+  employee: { en: 'Staff Member', ar: 'عضو الكادر' },
   referee:  { en: 'Referee',  ar: 'حكم' },
 }
 

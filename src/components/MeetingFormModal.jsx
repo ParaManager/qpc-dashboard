@@ -135,7 +135,7 @@ export default function MeetingFormModal({ meeting, onClose, onSaved, onDelete, 
                 ))}
               </div>
             )}
-            <input className="form-input" placeholder={L('Search employees…','ابحث عن الموظفين…')} value={search} onChange={e => setSearch(e.target.value)} />
+            <input className="form-input" placeholder={L('Search staff…','ابحث عن الكادر…')} value={search} onChange={e => setSearch(e.target.value)} />
             <div style={{ maxHeight: 260, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 9, marginTop: 6 }}>
               {filteredEmployees.map(p => {
                 const checked = form.attendeeIds.includes(p.id)

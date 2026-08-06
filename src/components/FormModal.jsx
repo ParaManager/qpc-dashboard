@@ -125,7 +125,7 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
 
   const athDesigOpts = ['','Player','Female Player','Coach','Female Coach','Referee','Female Referee','Admin Staff','Technical Staff','Medical Staff','Board Member','Female Board Member','Member','Female Member','Employee','Female Employee','Expert'].map(s => ({
     value: s,
-    label: ar && s ? ({'Player':'لاعب','Female Player':'لاعبة','Coach':'مدرب','Female Coach':'مدربة','Referee':'حكم','Female Referee':'حكمة','Admin Staff':'جهاز إداري','Technical Staff':'جهاز في','Medical Staff':'جهاز طبي','Board Member':'عضو مجلس إدارة','Female Board Member':'عضوة مجلس إدارة','Member':'عضو','Female Member':'عضوة','Employee':'موظف','Female Employee':'موظفة','Expert':'خبير في'}[s]||s) : s
+    label: ar && s ? ({'Player':'لاعب','Female Player':'لاعبة','Coach':'مدرب','Female Coach':'مدربة','Referee':'حكم','Female Referee':'حكمة','Admin Staff':'جهاز إداري','Technical Staff':'جهاز في','Medical Staff':'جهاز طبي','Board Member':'عضو مجلس إدارة','Female Board Member':'عضوة مجلس إدارة','Member':'عضو','Female Member':'عضوة','Employee':'عضو كادر','Female Employee':'عضوة كادر','Expert':'خبير في'}[s]||s) : s
   }))
 
   const residencyOpts = ['','Qatari Male','Qatari Female','Resident Male','Resident Female','Professional Male','Professional Female','Born in Qatar','Qatari Mother'].map(s => ({
@@ -193,7 +193,7 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
     idNum:          ar ? 'الرقم الشخصي'          : 'Qatar ID number',
     idExp:          ar ? 'تاريخ انتهاء الهوية'   : 'ID expiry',
     idResNum:       ar ? 'رقم الهوية / الإقامة'  : 'Qatar ID / Residence number',
-    empNum:         ar ? 'رقم الموظف'            : 'Employee number',
+    empNum:         ar ? 'رقم الكادر'            : 'Staff Number',
     since:          ar ? 'تاريخ الانضمام إلى QPC': 'Start date with QPC',
     eventName:      ar ? 'اسم الفعالية'          : 'Event name',
     eventNameAr:    ar ? 'اسم الفعالية (عربي)'   : 'Arabic name',
