@@ -566,7 +566,7 @@ export function computeAwayPeople(athletes, coaches, employees, lang) {
     ...awayAthletes.map(a => ({ ...a, _type: ar ? 'رياضي' : 'Athlete' })),
     ...awayCoaches.map(c  => ({ ...c, _type: ar ? 'مدرب' : 'Coach', _isCoach: true })),
     ...awayEmployeesAsCoaches.map(c => ({ ...c, _type: ar ? 'مدرب' : 'Coach', _isCoach: true })),
-    ...awayEmployees.map(e => ({ ...e, _type: ar ? 'موظف' : 'Employee', _isEmployee: true })),
+    ...awayEmployees.map(e => ({ ...e, _type: ar ? 'عضو كادر' : 'Staff Member', _isEmployee: true })),
   ]
 
   return { allAway, awayAthletes, awayCoaches, awayEmployees }
