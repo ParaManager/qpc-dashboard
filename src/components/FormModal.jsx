@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { supabase } from '../lib/supabase'
 import NationalitySelect from './NationalitySelect.jsx'
 import DesignationField from './DesignationField.jsx'
 import {
@@ -117,6 +118,25 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
   const [openSections, setOpenSections] = useState({ personal:true, sport:false, club:false, id:false })
   function toggleSection(key) { setOpenSections(s => ({ ...s, [key]: !s[key] })) }
   const modalBodyRef = useRef(null)
+
+  // Multi-sport assignments (athlete_sports) — replaces the legacy single
+  // Sport/Coach fields for the athlete form. Each row: { rowId (existing
+  // athlete_sports.id, or null for a not-yet-saved row), sportId, coachId }.
+  // rowId is how save-time diffing tells inserts/updates/deletes apart.
+  const [sportAssignments, setSportAssignments] = useState([])
+  const [origSportAssignments, setOrigSportAssignments] = useState([])
+  useEffect(() => {
+    if (type !== 'athlete' || !record?.id) { setSportAssignments([]); setOrigSportAssignments([]); return }
+    let cancelled = false
+    supabase.from('athlete_sports').select('id, sport_id, coach_id').eq('athlete_id', record.id).order('id')
+      .then(({ data, error }) => {
+        if (cancelled || error) return
+        const rows = (data || []).map(r => ({ rowId: r.id, sportId: r.sport_id, coachId: r.coach_id }))
+        setSportAssignments(rows)
+        setOrigSportAssignments(rows)
+      })
+    return () => { cancelled = true }
+  }, [type, record?.id])
 
   const categoryOpts = SPORT_CATEGORIES.map(c => ({ value: c, label: ar ? (SPORT_CATEGORY_NAMES_AR[c]||c) : c }))
   const sportOpts = (SPORTS_BY_CATEGORY[form?.sportCategory] || SPORTS).map(s => ({
@@ -279,11 +299,45 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
 
             <Section label={T.sportClass} collapsible open={openSections.sport} onToggle={() => toggleSection('sport')} />
             {openSections.sport && <>
-              <Row>
-                <Field label={T.sportCategory} required invalid={invalidFields.sportCategory} options={categoryOpts} {...f('sportCategory')}
-                  onChange={(name,v) => { const vs=SPORTS_BY_CATEGORY[v]||SPORTS; setForm(p=>({...p,sportCategory:v,sport:vs.includes(p.sport)?p.sport:(vs[0]||'')})) }} />
-                <Field label={T.sport} required invalid={invalidFields.sport} options={sportOpts} {...f('sport')} />
-              </Row>
+              {/* Multi-sport assignment editor — athlete_sports is the sole
+                  source of truth. Each row: Sport (from the sports catalog
+                  table) + Coach. Sport Category is shown read-only, derived
+                  from the selected sport — never a separate input. */}
+              <div style={{ marginBottom: 14 }}>
+                <label className="form-label" style={{ marginBottom: 6, display: 'block' }}>{ar ? 'الرياضات المعينة' : 'Assigned Sports'}</label>
+                {sportAssignments.length === 0 && (
+                  <div style={{ fontSize: 12.5, color: 'var(--text3)', padding: '8px 0' }}>{ar ? 'لم يتم تعيين أي رياضة بعد' : 'No sports assigned yet'}</div>
+                )}
+                {sportAssignments.map((row, i) => {
+                  const sport = sportsList.find(s => s.id === row.sportId)
+                  const usedSportIds = new Set(sportAssignments.filter((_, j) => j !== i).map(r => r.sportId))
+                  const availableSports = sportsList.filter(s => s.id === row.sportId || !usedSportIds.has(s.id))
+                  const coachesForSport = sport ? (coaches||[]).filter(c => !c.sport || c.sport === sport.name || `Para ${c.sport}` === sport.name || `SO ${c.sport}` === sport.name || `Unified ${c.sport}` === sport.name) : (coaches||[])
+                  return (
+                    <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+                      <select className="form-input" style={{ flex: 1 }} value={row.sportId || ''}
+                        onChange={e => setSportAssignments(rows => rows.map((r, j) => j === i ? { ...r, sportId: Number(e.target.value) || null, coachId: null } : r))}>
+                        <option value="">{ar ? '— اختر الرياضة —' : '— Select sport —'}</option>
+                        {availableSports.map(s => <option key={s.id} value={s.id}>{s.name} ({s.category})</option>)}
+                      </select>
+                      <select className="form-input" style={{ flex: 1 }} value={row.coachId || ''} disabled={!row.sportId}
+                        onChange={e => setSportAssignments(rows => rows.map((r, j) => j === i ? { ...r, coachId: Number(e.target.value) || null } : r))}>
+                        <option value="">{ar ? '— بدون مدرب —' : '— No coach —'}</option>
+                        {coachesForSport.map(c => <option key={c.id} value={c.id}>{ar && c.name_ar ? c.name_ar : c.name}</option>)}
+                      </select>
+                      <div style={{ fontSize: 11, color: 'var(--text3)', width: 90, flexShrink: 0 }}>{sport?.category || ''}</div>
+                      <button type="button" onClick={() => setSportAssignments(rows => rows.filter((_, j) => j !== i))}
+                        style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', flexShrink: 0 }}>
+                        <i className="ti ti-trash" />
+                      </button>
+                    </div>
+                  )
+                })}
+                <button type="button" onClick={() => setSportAssignments(rows => [...rows, { rowId: null, sportId: null, coachId: null }])}
+                  style={{ fontSize: 12.5, color: '#0085C7', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                  <i className="ti ti-plus" /> {ar ? 'إضافة رياضة' : 'Add sport'}
+                </button>
+              </div>
               <Row>
                 <Field label={T.classification} placeholder={ar?"مثال: T54, S6, BC2":"e.g. T54, S6, BC2"} {...f('classification')} />
               </Row>
@@ -304,7 +358,6 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
                 <span>{ar?'الفئة العمرية الرياضية: تُحسب تلقائياً':'Sport age category: auto-computed'}</span>
               </div>
               <Row>
-                <Field label={T.coach} options={[{value:'',label:T.unassigned},...(coaches||[]).map(c=>({value:c.id,label:ar&&c.name_ar?c.name_ar:c.name}))]} {...f('coachId')} />
                 <Field label={T.status} required invalid={invalidFields.status} options={statusOptsAthlete} {...f('status')} onChange={(name,v)=>{ set(name,v); if(!DATE_STATUSES.includes(v)){set('statusStart',null);set('statusEnd',null)} }} />
                 {DATE_STATUSES.includes(form.status) && <div className="form-group"><label className="form-label">{ar?'تاريخ البداية':'Start date'}</label><input type="date" className="form-input" value={form.statusStart||''} onChange={e=>setForm(p=>({...p,statusStart:e.target.value||null}))} /></div>}
                 {DATE_STATUSES.includes(form.status) && <div className="form-group"><label className="form-label">{ar?'تاريخ الرجوع':'Return date'}</label><input type="date" className="form-input" value={form.statusEnd||''} onChange={e=>setForm(p=>({...p,statusEnd:e.target.value||null}))} /></div>}
@@ -453,7 +506,7 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
             onClick={async () => {
               if (saving) return
               if (type==='athlete') {
-                const req = { name:form.name, gender:form.gender, nationality:form.nationality, sportCategory:form.sportCategory, sport:form.sport, status:form.status }
+                const req = { name:form.name, gender:form.gender, nationality:form.nationality, status:form.status }
                 const bad = {}
                 for (const [k,v] of Object.entries(req)) { if (!v||!String(v).trim()) bad[k]=true }
                 setInvalidFields(bad)
@@ -462,7 +515,7 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
                   const el = modalBodyRef.current?.querySelector(`[data-field="${firstBad}"]`)
                   if (el) {
                     if (['name','gender','nationality'].includes(firstBad)) setOpenSections(s=>({...s,personal:true}))
-                    if (['sportCategory','sport','status'].includes(firstBad)) setOpenSections(s=>({...s,sport:true}))
+                    if (['status'].includes(firstBad)) setOpenSections(s=>({...s,sport:true}))
                     setTimeout(()=>{ el.scrollIntoView({behavior:'smooth',block:'center'}); el.querySelector('input,select')?.focus() },50)
                   }
                   return
@@ -476,7 +529,18 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
                 }
               }
               setSaving(true)
-              try { await onSave(form) } finally { setSaving(false) }
+              try {
+                if (type === 'athlete') {
+                  const origById = new Map(origSportAssignments.filter(r => r.rowId).map(r => [r.rowId, r]))
+                  const currentIds = new Set(sportAssignments.filter(r => r.rowId).map(r => r.rowId))
+                  const toInsert = sportAssignments.filter(r => !r.rowId && r.sportId)
+                  const toUpdate = sportAssignments.filter(r => r.rowId && r.sportId && origById.get(r.rowId)?.coachId !== r.coachId)
+                  const toDelete = [...origById.keys()].filter(id => !currentIds.has(id))
+                  await onSave(form, { insert: toInsert, update: toUpdate, delete: toDelete })
+                } else {
+                  await onSave(form)
+                }
+              } finally { setSaving(false) }
             }}>
             {saving && <span style={{ width:12, height:12, border:'2px solid rgba(255,255,255,.4)', borderTopColor:'#fff', borderRadius:'50%', display:'inline-block', animation:'spin .7s linear infinite' }} />}
             {isEdit ? T.save : T.add}
