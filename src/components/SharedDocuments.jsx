@@ -31,7 +31,7 @@ export default function SharedDocuments({ personId, profile }) {
   async function handleUpload(file) {
     if (!file || !personId) return
     if (!docType) { toast(ar ? 'اختر نوع الوثيقة أولاً' : 'Select a document type first', 'error'); return }
-    if (file.size > 20 * 1024 * 1024) { toast('File must be under 20MB', 'error'); return }
+    if (file.size > 20 * 1024 * 1024) { toast(ar ? 'يجب أن يكون حجم الملف أقل من 20 ميجابايت' : 'File must be under 20MB', 'error'); return }
     // Prevent duplicates: same person + type + filename is rejected by the
     // DB's own unique index, but check first for a clean user-facing message.
     const dup = docs.find(d => d.type === docType && d.name === file.name)
