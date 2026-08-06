@@ -1937,7 +1937,7 @@ ${myDocs.length > 0 ? `<div class="section">
         {form && (
           <FormModal type="athlete"
             record={form==='edit' ? athleteToFormFields(a) : null}
-            coaches={coaches} onSave={handleSave} onClose={() => setForm(null)} />
+            coaches={coaches} sportsList={sportsList} onSave={handleSave} onClose={() => setForm(null)} />
         )}
         {confirm && <ConfirmModal title="Delete athlete" message={`Delete ${a.name}? This cannot be undone.`} onConfirm={() => handleDelete(a.id, a.name)} onCancel={() => setConfirm(null)} />}
         {pendingStatusSave && (
@@ -2805,7 +2805,7 @@ ${myDocs.length > 0 ? `<div class="section">
 
   return (
     <div>
-      {form && <FormModal type="athlete" record={null} coaches={coaches} onSave={handleSave} onClose={() => setForm(null)} />}
+      {form && <FormModal type="athlete" record={null} coaches={coaches} sportsList={sportsList} onSave={handleSave} onClose={() => setForm(null)} />}
       {pendingStatusSave && (
         <StatusScopeModal
           roles={pendingStatusSave.roles}
