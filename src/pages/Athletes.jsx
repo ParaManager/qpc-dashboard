@@ -1002,28 +1002,25 @@ export default function Athletes({ athletes, coaches, employees, results, docume
   // athlete/row), used to render the multi-sport/category/coach chips.
   // Keyed by athlete_id -> [{ sport_id, sport_name, sport_category, coach_id, coach_name, coach_name_ar }].
   const [athleteSportsByAthlete, setAthleteSportsByAthlete] = useState({})
-  useEffect(() => {
-    let cancelled = false
-    supabase.from('athlete_sports')
+  async function refreshAthleteSportsByAthlete() {
+    const { data, error } = await supabase.from('athlete_sports')
       .select('athlete_id, sport_id, coach_id, sports(name, category), coaches(name, name_ar)')
-      .then(({ data, error }) => {
-        if (cancelled || error) return
-        const grouped = {}
-        for (const row of (data || [])) {
-          if (!grouped[row.athlete_id]) grouped[row.athlete_id] = []
-          grouped[row.athlete_id].push({
-            sportId: row.sport_id,
-            sportName: row.sports?.name || null,
-            sportCategory: row.sports?.category || null,
-            coachId: row.coach_id,
-            coachName: row.coaches?.name || null,
-            coachNameAr: row.coaches?.name_ar || null,
-          })
-        }
-        setAthleteSportsByAthlete(grouped)
+    if (error) return
+    const grouped = {}
+    for (const row of (data || [])) {
+      if (!grouped[row.athlete_id]) grouped[row.athlete_id] = []
+      grouped[row.athlete_id].push({
+        sportId: row.sport_id,
+        sportName: row.sports?.name || null,
+        sportCategory: row.sports?.category || null,
+        coachId: row.coach_id,
+        coachName: row.coaches?.name || null,
+        coachNameAr: row.coaches?.name_ar || null,
       })
-    return () => { cancelled = true }
-  }, [])
+    }
+    setAthleteSportsByAthlete(grouped)
+  }
+  useEffect(() => { refreshAthleteSportsByAthlete() }, [])
 
   // Case-insensitive disability translation
   const DIS_MAP = {
@@ -1459,7 +1456,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
     if (headerRowRef.current) setHeaderRowHeight(headerRowRef.current.offsetHeight)
   })
 
-  async function handleSave(formData) {
+  async function handleSave(formData, sportSync) {
     const isEdit = !!formData.id
     if (isEdit) {
       const existing = athletes.find(a => a.id === formData.id)
@@ -1549,10 +1546,32 @@ export default function Athletes({ athletes, coaches, employees, results, docume
     }
     if (!payload.name) { toast(ar ? 'الاسم مطلوب' : 'Name is required', 'error'); return }
     const priorRecord = isEdit ? athletes.find(a => a.id === formData.id) : null
-    const { error } = isEdit
-      ? await supabase.from('athletes').update(payload).eq('id', formData.id)
-      : await supabase.from('athletes').insert(payload)
+    let athleteId = formData.id
+    const { data: savedRow, error } = isEdit
+      ? await supabase.from('athletes').update(payload).eq('id', formData.id).select('id').single()
+      : await supabase.from('athletes').insert(payload).select('id').single()
     if (error) { toast(error.message, 'error'); return }
+    athleteId = savedRow?.id || athleteId
+
+    // Sync athlete_sports (multi-sport/coach assignments) to match exactly
+    // what was edited in the form — athlete_sports is the sole source of
+    // truth, this never touches the legacy athletes.sport/coach_id columns.
+    if (sportSync && athleteId) {
+      if (sportSync.delete?.length) {
+        await supabase.from('athlete_sports').delete().in('id', sportSync.delete)
+      }
+      if (sportSync.update?.length) {
+        await Promise.all(sportSync.update.map(r =>
+          supabase.from('athlete_sports').update({ coach_id: r.coachId || null }).eq('id', r.rowId)
+        ))
+      }
+      if (sportSync.insert?.length) {
+        await supabase.from('athlete_sports').insert(
+          sportSync.insert.map(r => ({ athlete_id: athleteId, sport_id: r.sportId, coach_id: r.coachId || null }))
+        )
+      }
+      await refreshAthleteSportsByAthlete()
+    }
     // Resolution rule: once an expiry date is actually changed (renewed or
     // corrected), any previously sent expiry reminders for that specific
     // document no longer reflect reality — clear them. The next reminder
@@ -1578,12 +1597,12 @@ export default function Athletes({ athletes, coaches, employees, results, docume
     if (isTrustedAdmin(profile)) {
       logAdminActivity({
         actor: profile, action: isEdit ? 'updated' : 'created',
-        entityType: 'athlete', entityId: formData.id || null, entityLabel: payload.name,
+        entityType: 'athlete', entityId: athleteId || null, entityLabel: payload.name,
         module: 'athletes',
       })
     }
     setForm(null); await onRefresh()
-    if (isEdit) setSelected(formData.id)
+    if (isEdit) setSelected(athleteId)
   }
 
   async function handleDelete(id, name) {

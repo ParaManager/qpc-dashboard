@@ -239,6 +239,32 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
   // adds Sport Category + Gender) and cannot open coach details — Admin
   // is fully unaffected.
   const restrictedView = profile?.role === 'coach' || profile?.role === 'employee'
+
+  // Per-sport assignments (athlete_sports) — Assigned Athletes and the
+  // athlete count must reflect a coach's assignments across ALL their
+  // sports, not just athletes.coach_id (the legacy single-coach field).
+  const [athleteSportRows, setAthleteSportRows] = useState([])
+  async function refreshAthleteSportRows() {
+    const { data, error } = await supabase.from('athlete_sports').select('athlete_id, coach_id, sports(name)')
+    if (!error) setAthleteSportRows(data || [])
+  }
+  useEffect(() => { refreshAthleteSportRows() }, [])
+
+  // Athletes assigned to a given coach, unioned across the legacy
+  // athletes.coach_id field and every athlete_sports row for that coach,
+  // deduplicated by athlete id. Each entry also carries which sport(s)
+  // link that athlete to this coach, for display.
+  function athletesForCoach(coachId) {
+    const bySportRows = athleteSportRows.filter(r => r.coach_id === coachId)
+    const athleteIds = new Set(bySportRows.map(r => r.athlete_id))
+    athletes.filter(a => a.coach_id === coachId).forEach(a => athleteIds.add(a.id))
+    return [...athleteIds].map(id => {
+      const athlete = athletes.find(a => a.id === id)
+      if (!athlete) return null
+      const sportNames = bySportRows.filter(r => r.athlete_id === id).map(r => r.sports?.name).filter(Boolean)
+      return { ...athlete, _linkedSports: sportNames }
+    }).filter(Boolean)
+  }
   const STATUS_AR = {'Active':'نشط','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي','Inactive':'غير نشط','Suspended':'موقوف'}
   useEffect(() => { if (initCoachId) setSelected(initCoachId) }, [initCoachId])
 
@@ -511,7 +537,7 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
   if (selected) {
     const c = coaches.find(x => x.id === selected)
     if (!c) { setSelected(null); return null }
-    const myAthletes = athletes.filter(a => a.coach_id === c.id)
+    const myAthletes = athletesForCoach(c.id)
     // Matching employee record (if this coach is also tracked as an employee) —
     // lets us surface employee-only features like the ID card here.
     const matchedEmployee = employees?.find(e =>
@@ -758,7 +784,7 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
                       }
                       <div style={{ flex:1, minWidth:0 }}>
                         <div style={{ fontSize:13, fontWeight:500, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{lang==='ar' && a.name_ar ? a.name_ar : a.name}</div>
-                        <div style={{ fontSize:11, color:'#9aa3b2', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{a.sport ? sportLabel(a.sport, a.sport_category, lang==='ar') : ''} · {a.classification}</div>
+                        <div style={{ fontSize:11, color:'#9aa3b2', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{(a._linkedSports?.length ? a._linkedSports.join(', ') : (a.sport ? sportLabel(a.sport, a.sport_category, lang==='ar') : ''))} · {a.classification}</div>
                       </div>
                       <div style={{ flexShrink:0 }}><MedalDisplay gold={a.medals_gold} silver={a.medals_silver} bronze={a.medals_bronze} /></div>
                       <div style={{ flexShrink:0 }}><Badge label={lang==='ar' ? (STATUS_AR[effectiveStatus(a)]||effectiveStatus(a)) : effectiveStatus(a)} /></div>
@@ -899,7 +925,7 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
       </div>
       <div className="coach-grid">
         {list.map(c => {
-          const count = athletes.filter(a => a.coach_id === c.id).length
+          const count = athletesForCoach(c.id).length
           return (
             <div key={c.id} className={restrictedView ? 'coach-card coach-card-restricted' : 'coach-card'}
               onClick={restrictedView ? undefined : () => setSelected(c.id)}>
