@@ -186,7 +186,7 @@ export const AR = {
   results: {
     medal:'الميدالية', athlete:'الرياضي', discipline:'التخصص',
     competition:'المنافسة', result:'النتيجة', date:'التاريخ',
-    addResult:'إضافة نتيجة', medalTally:'جدول الميداليات',
+    addResult:'إضافة نتيجة', medalTally:'جدول الميداليات', deleted:'تم حذف النتيجة',
     byAthlete:'حسب الرياضي', noMedals:'لا توجد ميداليات بعد',
     noResults:'لا توجد نتائج مطابقة', ofResults:'من النتائج',
     searchResults:'بحث عن نتائج...',
