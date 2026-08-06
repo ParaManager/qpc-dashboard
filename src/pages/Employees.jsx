@@ -1788,27 +1788,37 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
             })()}
 
             {(() => {
-              const idFields = [
-                [lang==='ar'?'تاريخ الميلاد':'Date of birth', emp.dob],
-                [lang==='ar'?'الرقم الشخصي / رقم الهوية':'Qatar ID number', emp.id_number],
-                [lang==='ar'?'تاريخ انتهاء الهوية':'ID expiry', emp.id_expiry],
-                [lang==='ar'?'رقم جواز السفر':'Passport number', emp.passport_number],
-                [lang==='ar'?'تاريخ انتهاء الجواز':'Passport expiry', emp.passport_expiry],
-                [lang==='ar'?'شهادة اديل':'ADEL Certificate', emp.adel_certificate],
-              ].filter(([, v]) => v)
-              if (idFields.length === 0) return null
               const isExpired = d => d && new Date(d) < new Date()
+              const hasAny = emp.dob || emp.id_number || emp.id_expiry || emp.passport_number || emp.passport_expiry || emp.adel_certificate
+              if (!hasAny) return null
+              const cell = (label, value, expiry) => value ? (
+                <div className="detail-row" style={{ minWidth:0 }}>
+                  <span className="dk">{label}</span>
+                  <span className="dv" style={{ color: expiry && isExpired(value) ? '#dc2626' : undefined }}>{value}</span>
+                </div>
+              ) : <div />
               return (
                 <div className="info-card">
                   <div className="info-title" style={{ marginBottom:10 }}>{lang==='ar'?'وثائق الهوية':'Identity Documents'}</div>
-                  <div style={{ display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:'4px 16px' }}>
-                    {idFields.map(([k,v]) => (
-                      <div key={k} className="detail-row" style={{ minWidth:0 }}>
-                        <span className="dk">{k}</span>
-                        <span className="dv" style={{ color: k.toLowerCase().includes('expiry') && isExpired(v) ? '#dc2626' : undefined }}>{v}</span>
-                      </div>
-                    ))}
-                  </div>
+                  {emp.dob && <div style={{ marginBottom:4 }}>{cell(lang==='ar'?'تاريخ الميلاد':'Date of birth', emp.dob)}</div>}
+                  {/* Left column: Qatar ID Number / Passport Number — Right column:
+                      ID Expiry / Passport Expiry. Each pair is its own explicit
+                      two-cell row, so Qatar ID always lines up with ID Expiry and
+                      Passport Number always lines up with Passport Expiry, even
+                      when one side of a pair is blank. */}
+                  {(emp.id_number || emp.id_expiry) && (
+                    <div style={{ display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:'4px 16px' }}>
+                      {cell(lang==='ar'?'الرقم الشخصي / رقم الهوية':'Qatar ID Number', emp.id_number)}
+                      {cell(lang==='ar'?'تاريخ انتهاء الهوية':'ID Expiry', emp.id_expiry, true)}
+                    </div>
+                  )}
+                  {(emp.passport_number || emp.passport_expiry) && (
+                    <div style={{ display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:'4px 16px' }}>
+                      {cell(lang==='ar'?'رقم جواز السفر':'Passport Number', emp.passport_number)}
+                      {cell(lang==='ar'?'تاريخ انتهاء الجواز':'Passport Expiry', emp.passport_expiry, true)}
+                    </div>
+                  )}
+                  {emp.adel_certificate && <div style={{ marginTop:4 }}>{cell(lang==='ar'?'شهادة اديل':'ADEL Certificate', emp.adel_certificate)}</div>}
                 </div>
               )
             })()}

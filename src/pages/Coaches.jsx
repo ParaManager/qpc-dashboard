@@ -702,6 +702,7 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
                 [lang==='ar'?'المسمى الوظيفي':'Designation', lang==='ar' ? (c.designation_ar||c.designation) : c.designation],
                 [lang==='ar'?'الرياضة':'Sport', c.sport ? sportLabel(c.sport, c.sport_category, lang==='ar') : null],
                 [lang==='ar'?'البرنامج/الفئة':'Program/Category', c.sport_category ? (lang==='ar' ? (SPORT_CATEGORY_NAMES_AR[c.sport_category]||c.sport_category) : c.sport_category) : null],
+                [lang==='ar'?'الترخيص/الشهادة':'License', c.license],
                 [lang==='ar'?'رقم الكادر':'Staff Number', c.employee_number],
                 [lang==='ar'?'رقم QSS':'QSS #', c.qss_number],
                 [lang==='ar'?'مع QPC منذ':'With QPC since', c.since],
