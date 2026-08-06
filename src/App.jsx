@@ -115,16 +115,11 @@ export default function App() {
   })
   const [refreshToken, setRefreshToken] = useState(0)  // bumped on every nav click to force a fresh reload, even when clicking the already-active page
   // Per-sport coach assignments (athlete_sports junction table) — fetched
-  // in its own isolated effect, separate from the main fetchAll Promise.all,
-  // so this additive feature can't affect the existing bulk-fetch shape.
-  // Declared here (before any early-return gates like !user/guestMode)
-  // since hooks must run unconditionally on every render.
+  // Per-sport coach assignments (athlete_sports) — kept in sync via
+  // fetchAll() itself (see below), not a separate effect, so a saved
+  // assignment is reflected immediately on the very next onRefresh() call
+  // from any page, not only when refreshToken happens to bump.
   const [athleteSportAssignments, setAthleteSportAssignments] = useState([])
-  useEffect(() => {
-    if (!user) { setAthleteSportAssignments([]); return }
-    supabase.from('athlete_sports').select('athlete_id, coach_id')
-      .then(({ data, error }) => { if (!error) setAthleteSportAssignments(data || []) })
-  }, [user, refreshToken])
   const [athletes, setAthletes]           = useState([])
   const [coaches, setCoaches]             = useState([])
   const [events, setEvents]               = useState([])
@@ -238,6 +233,13 @@ export default function App() {
     if (reqSubs.data) setPendingRequestsCount(reqSubs.data.filter(s => s.status === 'pending').length)
     if (profs.data)   setPendingAccountsCount(profs.data.filter(p => p.status === 'pending').length)
     if (cats.data)   setEventCategories(cats.data)
+    // Per-sport coach assignments — refreshed here (not a separate
+    // refreshToken-only effect) so a Coach's "My Athletes" reflects a
+    // newly saved athlete_sports assignment immediately, since page-level
+    // onRefresh() calls always go through fetchAll but don't necessarily
+    // bump refreshToken.
+    const { data: asData, error: asError } = await supabase.from('athlete_sports').select('athlete_id, coach_id')
+    if (!asError) setAthleteSportAssignments(asData || [])
     setDataLoading(false)
   }, [profile?.id, profile?.role, lang])
 
