@@ -4,6 +4,12 @@ import { useLang } from '../lib/LangContext.jsx'
 import { qpcLogo as QPC_LOGO } from '../lib/logos'
 import { normalizeQid } from '../lib/helpers'
 
+const ROLE_LABEL = {
+  athlete:  { en: 'Athlete',      ar: 'رياضي' },
+  coach:    { en: 'Coach',        ar: 'مدرب' },
+  employee: { en: 'Staff Member', ar: 'عضو الكادر' },
+}
+
 export default function Login({ onRequestSent, onSigningUpChange, onGuestMode }) {
   const { lang, setLang } = useLang()
   const ar = lang === 'ar'
@@ -12,21 +18,20 @@ export default function Login({ onRequestSent, onSigningUpChange, onGuestMode })
   const [mode, setMode]         = useState('login')   // login | register | pending | rejected | sent
   const [loading, setLoading]   = useState(false)
   const [error, setError]       = useState('')
-  const [form, setForm]         = useState({ qid:'', password:'', confirmPassword:'', fullName:'', accountType:'coach', coachId:'', athleteId:'', employeeId:'' })
-  const [coaches, setCoaches]   = useState([])
-  const [athletes, setAthletes] = useState([])
-  const [employees, setEmployees] = useState([])
+  const [form, setForm]         = useState({ qid:'', password:'' })
   const set = (k,v) => setForm(f => ({...f, [k]:v}))
 
-  async function loadCoachesAthletes() {
-    const [{ data: c }, { data: a }, { data: e }] = await Promise.all([
-      supabase.from('coaches').select('id,name,name_ar').order('name'),
-      supabase.from('athletes').select('id,name,name_ar').order('name'),
-      supabase.from('employees').select('id,name,name_ar,designation').order('name'),
-    ])
-    setCoaches(c||[])
-    setAthletes(a||[])
-    setEmployees(e||[])
+  // Access Request — Qatar-ID-first flow. 'qid' -> 'confirm' -> 'password'.
+  const [regStep, setRegStep] = useState('qid')
+  const [regQid, setRegQid] = useState('')
+  const [lookupCandidates, setLookupCandidates] = useState([])
+  const [selectedCandidate, setSelectedCandidate] = useState(null)
+  const [regPassword, setRegPassword] = useState('')
+  const [regConfirmPassword, setRegConfirmPassword] = useState('')
+
+  function resetRegistration() {
+    setRegStep('qid'); setRegQid(''); setLookupCandidates([]); setSelectedCandidate(null)
+    setRegPassword(''); setRegConfirmPassword(''); setError('')
   }
 
   const qidToEmail = (qid) => `${qid.replace(/\s+/g,'')}@qpc-system.qa`
@@ -43,95 +48,79 @@ export default function Login({ onRequestSent, onSigningUpChange, onGuestMode })
     setLoading(false)
   }
 
-  async function handleRegister(e) {
+  // ── STEP 1: Qatar ID lookup ──
+  // Goes through the secure lookup_access_request_identity RPC (SECURITY
+  // DEFINER) instead of querying athletes/coaches/employees directly —
+  // unauthenticated users never get raw table access, and the RPC returns
+  // only the minimal identity-confirmation fields (no phone/email/passport/
+  // documents). Normalization (spaces, hyphens, Arabic/Persian digits) is
+  // done both client-side (normalizeQid) and again server-side in the RPC.
+  async function handleQidLookup(e) {
     e.preventDefault()
     setLoading(true); setError('')
-    if (!form.fullName.trim()) { setError(L('Full name is required','الاسم الكامل مطلوب')); setLoading(false); return }
-    if (!form.qid.trim()) { setError(L('QID is required','الرقم الشخصي مطلوب')); setLoading(false); return }
-    if (form.password !== form.confirmPassword) { setError(L('Passwords do not match','كلمات المرور غير متطابقة')); setLoading(false); return }
-    if (form.password.length < 6) { setError(L('Password must be at least 6 characters','كلمة المرور يجب أن تكون 6 أحرف على الأقل')); setLoading(false); return }
-    if (form.accountType === 'coach' && !form.coachId) { setError(L('Please select your coach profile','الرجاء اختيار ملف المدرب')); setLoading(false); return }
-    if (form.accountType === 'athlete' && !form.athleteId) { setError(L('Please select your athlete profile','الرجاء اختيار ملف الرياضي')); setLoading(false); return }
-    if (form.accountType === 'employee' && !form.employeeId) { setError(L('Please select your staff profile','الرجاء اختيار ملف الكادر')); setLoading(false); return }
+    const normalized = normalizeQid(regQid)
+    if (!normalized) { setError(L('Qatar ID is required','الرقم الشخصي مطلوب')); setLoading(false); return }
 
-    // ── QID VERIFICATION ──
-    if (form.accountType === 'coach' && form.coachId) {
-      const { data: coachData } = await supabase.from('coaches').select('id_number').eq('id', form.coachId).single()
-      const storedQID = (coachData?.id_number || '').replace(/\s+/g, '').trim()
-      const enteredQID = form.qid.replace(/\s+/g, '').trim()
-      console.log('Coach QID check:', { storedQID, enteredQID, coachData })
-      if (!storedQID) {
-        setError(L('No ID on file for this coach. Please contact the admin.','لا يوجد رقم هوية لهذا المدرب. يرجى التواصل مع المسؤول.'))
-        setLoading(false); return
-      }
-      if (storedQID !== enteredQID) {
-        setError(L('The QID you entered does not match our records for this coach. Please check your ID number.', 'الرقم الشخصي الذي أدخلته لا يتطابق مع سجلاتنا لهذا المدرب. يرجى التحقق من رقم هويتك.'))
-        setLoading(false); return
-      }
-    }
-    if (form.accountType === 'athlete' && form.athleteId) {
-      const { data: athData } = await supabase.from('athletes').select('id_number').eq('id', form.athleteId).single()
-      const storedQID = (athData?.id_number || '').replace(/\s+/g, '').trim()
-      const enteredQID = form.qid.replace(/\s+/g, '').trim()
-      console.log('Athlete QID check:', { storedQID, enteredQID, athData })
-      if (!storedQID) {
-        setError(L('No ID number found for this athlete. Please contact the admin.', 'لا يوجد رقم هوية لهذا الرياضي. يرجى التواصل مع المسؤول.'))
-        setLoading(false); return
-      }
-      if (storedQID !== enteredQID) {
-        setError(L('The QID you entered does not match our records for this athlete. Please check your ID number.', 'الرقم الشخصي الذي أدخلته لا يتطابق مع سجلاتنا لهذا الرياضي. يرجى التحقق من رقم هويتك.'))
-        setLoading(false); return
-      }
-    }
-    // Employee QID verification — normalized matching (spaces, hyphens,
-    // Arabic/Persian digits), stricter than the plain-trim check used for
-    // Coach/Athlete above, per the employee signup requirements.
-    let employeePersonId = null
-    if (form.accountType === 'employee' && form.employeeId) {
-      const { data: empData } = await supabase.from('employees').select('id_number, status, person_id, name, name_ar, designation').eq('id', form.employeeId).single()
-      const storedQID = normalizeQid(empData?.id_number)
-      const enteredQID = normalizeQid(form.qid)
-      if (!storedQID || empData?.id_number?.startsWith('COACH-')) {
-        setError(L('No verified ID on file for this employee. Please contact the admin.','لا يوجد رقم هوية موثق لهذا الموظف. يرجى التواصل مع المسؤول.'))
-        setLoading(false); return
-      }
-      if (storedQID !== enteredQID) {
-        setError(L('The QID you entered does not match our records for this employee. Please check your ID number.', 'الرقم الشخصي الذي أدخلته لا يتطابق مع سجلاتنا لهذا الموظف. يرجى التحقق من رقم هويتك.'))
-        setLoading(false); return
-      }
-      if (empData.status === 'Inactive') {
-        setError(L('This employee record is inactive. Please contact the admin.','سجل هذا الموظف غير نشط. يرجى التواصل مع المسؤول.'))
-        setLoading(false); return
-      }
-      // Eligibility: this employee must not already have an account, and
-      // if they're a multi-role person (person_id already linked), that
-      // person must not already have any account either — stop instead of
-      // creating a second conflicting profile.
-      const { data: existingByEmployee } = await supabase.from('profiles').select('id').eq('employee_id', form.employeeId).maybeSingle()
-      if (existingByEmployee) {
-        setError(L('An account already exists for this employee. Please sign in instead, or contact the admin.','يوجد حساب مسجل بالفعل لهذا الموظف. يرجى تسجيل الدخول، أو التواصل مع المسؤول.'))
-        setLoading(false); return
-      }
-      if (empData.person_id) {
-        const { data: existingByPerson } = await supabase.from('profiles').select('id').eq('person_id', empData.person_id).maybeSingle()
-        if (existingByPerson) {
-          setError(L('An account already exists for this person under a different role. Please sign in instead, or contact the admin.','يوجد حساب مسجل بالفعل لهذا الشخص بدور آخر. يرجى تسجيل الدخول، أو التواصل مع المسؤول.'))
-          setLoading(false); return
-        }
-      }
-      employeePersonId = empData.person_id || null
-    }
+    const { data, error } = await supabase.rpc('lookup_access_request_identity', { p_qid: normalized })
+    setLoading(false)
+    if (error) { setError(error.message); return }
 
-    // Sign up. From this point on, the auth session exists before the profile
-    // row does — flag that to the parent so it shows a loading state instead
-    // of momentarily treating this brand new account as broken.
+    switch (data?.status) {
+      case 'not_found':
+        setError(L('No record was found for this Qatar ID. Please check the number, or contact the admin.','لم يتم العثور على سجل بهذا الرقم الشخصي. يرجى التحقق من الرقم، أو التواصل مع المسؤول.'))
+        return
+      case 'already_has_account':
+        setError(L('An account already exists for this Qatar ID. Please sign in instead.','يوجد حساب مسجل بالفعل بهذا الرقم الشخصي. يرجى تسجيل الدخول.'))
+        return
+      case 'pending_request':
+        setError(L('An access request for this Qatar ID is already pending admin approval.','يوجد طلب وصول بهذا الرقم الشخصي قيد المراجعة من قبل المسؤول بالفعل.'))
+        return
+      case 'rejected_previously':
+        setError(L('A previous access request for this Qatar ID was not approved. Please contact the admin.','لم تتم الموافقة على طلب وصول سابق بهذا الرقم الشخصي. يرجى التواصل مع المسؤول.'))
+        return
+      case 'inactive':
+        setError(L('This record is currently inactive. Please contact the admin.','هذا السجل غير نشط حالياً. يرجى التواصل مع المسؤول.'))
+        return
+      case 'invalid':
+        setError(L('Please enter a valid Qatar ID.','يرجى إدخال رقم شخصي صحيح.'))
+        return
+      case 'found':
+        setLookupCandidates(data.candidates || [])
+        setRegStep('confirm')
+        return
+      default:
+        setError(L('Something went wrong. Please try again.','حدث خطأ ما. يرجى المحاولة مرة أخرى.'))
+    }
+  }
+
+  // ── STEP 2 -> 3: identity confirmed, move to password creation ──
+  function confirmIdentity(candidate) {
+    setSelectedCandidate(candidate)
+    setRegStep('password')
+    setError('')
+  }
+
+  // ── STEP 3: password creation + actual account request submission ──
+  async function handleCreatePassword(e) {
+    e.preventDefault()
+    setLoading(true); setError('')
+    if (regPassword !== regConfirmPassword) { setError(L('Passwords do not match','كلمات المرور غير متطابقة')); setLoading(false); return }
+    if (regPassword.length < 6) { setError(L('Password must be at least 6 characters','كلمة المرور يجب أن تكون 6 أحرف على الأقل')); setLoading(false); return }
+
+    const normalized = normalizeQid(regQid)
+    const c = selectedCandidate
+    // Only the Qatar ID and the role the user picked in Step 2 are sent —
+    // ref_id/person_id/name from the Step 1 lookup are display-only and
+    // are never trusted for the actual write; submit_access_request
+    // re-derives and re-verifies all of that server-side.
+    const claimedRole = c.role
+    const displayName = ar && c.name_ar ? c.name_ar : c.name
+
     onSigningUpChange?.(true)
     const { data, error } = await supabase.auth.signUp({
-      email: qidToEmail(form.qid),
-      password: form.password,
-      options: {
-        data: { full_name: form.fullName, qid: form.qid }
-      }
+      email: qidToEmail(normalized),
+      password: regPassword,
+      options: { data: { full_name: displayName, qid: normalized } }
     })
     if (error) {
       if (error.message?.includes('already registered') || error.status === 422) {
@@ -144,50 +133,59 @@ export default function Login({ onRequestSent, onSigningUpChange, onGuestMode })
     }
     if (!data?.user) { onSigningUpChange?.(false); setError(L('Signup failed. Please try again.','فشل التسجيل. حاول مجدداً.')); setLoading(false); return }
 
-    // Only create profile if one doesn't already exist
-    const { data: existing } = await supabase.from('profiles').select('id,status').eq('id', data.user.id).maybeSingle()
-    if (!existing) {
-      // If the selected athlete/coach record is already linked to a
-      // person_id (multi-role person), carry that link onto the new
-      // profile too — otherwise the account only ever shows the single
-      // role it was created against, even though the underlying person
-      // has other linked roles (Athlete/Coach/Employee/Referee).
-      let personId = null
-      if (form.athleteId) {
-        const { data: a } = await supabase.from('athletes').select('person_id').eq('id', form.athleteId).maybeSingle()
-        personId = a?.person_id || null
-      } else if (form.coachId) {
-        const { data: c } = await supabase.from('coaches').select('person_id').eq('id', form.coachId).maybeSingle()
-        personId = c?.person_id || null
-      } else if (form.employeeId) {
-        personId = employeePersonId
-      }
-      await supabase.from('profiles').insert({
-        id: data.user.id,
-        full_name: form.fullName,
-        email: form.qid,  // store QID as identifier
-        qid: form.qid,
-        account_type: form.accountType,
-        role: form.accountType,
-        status: 'pending',
-        coach_id: form.coachId || null,
-        athlete_id: form.athleteId || null,
-        employee_id: form.employeeId || null,
-        person_id: personId,
-        requested_at: new Date().toISOString(),
-      })
+    // Server-side re-verification + atomic write. Runs as the just-created
+    // user (auth.uid() inside the function resolves to data.user.id via
+    // the active session signUp() just produced) — the function itself
+    // re-runs the Qatar ID lookup, confirms claimedRole genuinely matches
+    // a record for this QID, rechecks for existing accounts/pending
+    // requests, and only then inserts the profile row using server-
+    // derived ref_id/person_id/name. Any mismatch is rejected outright.
+    const { data: result, error: rpcError } = await supabase.rpc('submit_access_request', {
+      p_qid: normalized,
+      p_role: claimedRole,
+    })
+
+    if (rpcError) {
+      setError(rpcError.message)
+      onSigningUpChange?.(false)
+      setLoading(false); return
     }
+
+    switch (result?.status) {
+      case 'role_mismatch':
+        setError(L('Your identity could not be re-verified for the selected role. Please start again.','تعذر إعادة التحقق من هويتك للدور المحدد. يرجى البدء من جديد.'))
+        onSigningUpChange?.(false); setLoading(false); return
+      case 'already_has_account':
+        setError(L('An account already exists for this Qatar ID. Please sign in instead.','يوجد حساب مسجل بالفعل بهذا الرقم الشخصي. يرجى تسجيل الدخول.'))
+        onSigningUpChange?.(false); setLoading(false); return
+      case 'pending_request':
+        setError(L('An access request for this Qatar ID is already pending admin approval.','يوجد طلب وصول بهذا الرقم الشخصي قيد المراجعة من قبل المسؤول بالفعل.'))
+        onSigningUpChange?.(false); setLoading(false); return
+      case 'inactive':
+        setError(L('This record is currently inactive. Please contact the admin.','هذا السجل غير نشط حالياً. يرجى التواصل مع المسؤول.'))
+        onSigningUpChange?.(false); setLoading(false); return
+      case 'invalid': case 'invalid_role': case 'not_authenticated':
+        setError(L('Something went wrong. Please try again.','حدث خطأ ما. يرجى المحاولة مرة أخرى.'))
+        onSigningUpChange?.(false); setLoading(false); return
+      case 'created':
+        break // fall through to admin notification below
+      default:
+        setError(L('Something went wrong. Please try again.','حدث خطأ ما. يرجى المحاولة مرة أخرى.'))
+        onSigningUpChange?.(false); setLoading(false); return
+    }
+
+    const fullName = ar && result.name_ar ? result.name_ar : (result.name || displayName)
 
     // Notify every admin in-app that a new access request is waiting for review
     const { data: admins } = await supabase.from('profiles').select('id').eq('role', 'admin')
     if (admins?.length > 0) {
-      const typeLabel = { coach: ar ? 'مدرب' : 'Coach', employee: ar ? 'عضو كادر' : 'Staff Member', athlete: ar ? 'رياضي' : 'Athlete', guest: ar ? 'مشاهد' : 'Guest' }[form.accountType] || form.accountType
+      const typeLabel = ar ? (ROLE_LABEL[claimedRole]?.ar || claimedRole) : (ROLE_LABEL[claimedRole]?.en || claimedRole)
       await supabase.from('notifications').insert(
         admins.map(a => ({
           user_id: a.id,
           type: 'access_request',
           title: ar ? 'طلب وصول جديد' : 'New access request',
-          body: ar ? `${form.fullName} (${typeLabel}) يطلب الوصول` : `${form.fullName} (${typeLabel}) is requesting access`,
+          body: ar ? `${fullName} (${typeLabel}) يطلب الوصول` : `${fullName} (${typeLabel}) is requesting access`,
           data: { applicant_id: data.user.id },
           read: false,
           category: 'Accounts', target_path: 'users', related_entity_type: 'profile', related_entity_id: data.user.id,
@@ -253,7 +251,7 @@ export default function Login({ onRequestSent, onSigningUpChange, onGuestMode })
           {/* Tabs */}
           <div style={{ display:'flex', marginBottom:24, background:'var(--surface2)', borderRadius:10, padding:4, gap:4 }}>
             {[['login', L('Sign In','تسجيل الدخول')], ['register', L('Request Access','طلب الوصول')]].map(([m,lbl]) => (
-              <button key={m} onClick={() => { setMode(m); setError(''); if (m==='register') loadCoachesAthletes() }}
+              <button key={m} onClick={() => { setMode(m); setError(''); if (m==='register') resetRegistration() }}
                 style={{ flex:1, padding:'8px 0', borderRadius:8, border:'none', cursor:'pointer', fontSize:13, fontWeight:600,
                   background: mode===m ? 'var(--surface)' : 'transparent',
                   color: mode===m ? 'var(--text)' : 'var(--text3)',
@@ -284,60 +282,91 @@ export default function Login({ onRequestSent, onSigningUpChange, onGuestMode })
             </form>
           )}
 
-          {/* Register form */}
-          {mode === 'register' && (
-            <form onSubmit={handleRegister}>
-              <div className="form-group">
-                <label className="form-label">{L('Full Name','الاسم الكامل')}</label>
-                <input className="form-input" placeholder={L('e.g. Ahmed Al-Ansari','مثال: أحمد الأنصاري')} value={form.fullName} onChange={e=>set('fullName',e.target.value)} required />
-              </div>
+          {/* Access Request — Step 1: Qatar ID lookup */}
+          {mode === 'register' && regStep === 'qid' && (
+            <form onSubmit={handleQidLookup}>
+              <p style={{ fontSize:12.5, color:'var(--text3)', marginBottom:16, lineHeight:1.5 }}>
+                {L('Enter your Qatar ID to look up your record. We will confirm your identity before creating a request.',
+                   'أدخل رقمك الشخصي للبحث عن سجلك. سنقوم بتأكيد هويتك قبل إنشاء الطلب.')}
+              </p>
               <div className="form-group">
                 <label className="form-label">{L('Qatar ID (QID)','الرقم الشخصي QID')}</label>
-                <input className="form-input" type="text" placeholder={L("e.g. 28412345678","مثال: 28412345678")} value={form.qid} onChange={e=>set('qid',e.target.value)} required />
+                <input className="form-input" type="text" placeholder={L("e.g. 28412345678","مثال: 28412345678")} value={regQid} onChange={e=>setRegQid(e.target.value)} required autoFocus />
               </div>
-              <div className="form-group">
-                <label className="form-label">{L('Account Type','نوع الحساب')}</label>
-                <select className="form-input" value={form.accountType} onChange={e=>set('accountType',e.target.value)}>
-                  <option value="coach">{L('Coach','مدرب')}</option>
-                  <option value="employee">{L('Staff Member','عضو كادر')}</option>
-                  <option value="athlete">{L('Athlete','رياضي')}</option>
-                </select>
+              {error && <div style={{ color:'#EE334E', fontSize:13, marginBottom:12, padding:'8px 12px', background:'#EE334E15', borderRadius:8 }}>{error}</div>}
+              <button type="submit" disabled={loading} style={{ width:'100%', padding:'11px', background:'#EE334E', color:'#fff', border:'none', borderRadius:10, fontSize:14, fontWeight:600, cursor:'pointer', marginTop:4 }}>
+                {loading ? L('Searching…','جارٍ البحث…') : L('Continue','متابعة')}
+              </button>
+            </form>
+          )}
+
+          {/* Access Request — Step 2: identity confirmation. Only the
+              minimal fields the RPC returns are shown; no phone, email,
+              passport, or documents. */}
+          {mode === 'register' && regStep === 'confirm' && (
+            <div>
+              <p style={{ fontSize:12.5, color:'var(--text3)', marginBottom:16, lineHeight:1.5 }}>
+                {lookupCandidates.length > 1
+                  ? L('We found more than one matching record. Please select which one is you.','وجدنا أكثر من سجل مطابق. يرجى اختيار السجل الخاص بك.')
+                  : L('Please confirm this is you before continuing.','يرجى تأكيد أن هذا أنت قبل المتابعة.')}
+              </p>
+              {lookupCandidates.map((c, i) => (
+                <div key={i} style={{ display:'flex', alignItems:'center', gap:12, padding:'12px', border:'1px solid var(--border)', borderRadius:12, marginBottom:10 }}>
+                  {c.photo_url
+                    ? <img src={c.photo_url} alt="" style={{ width:48, height:48, borderRadius:'50%', objectFit:'cover', flexShrink:0 }} />
+                    : <div style={{ width:48, height:48, borderRadius:'50%', background:'#0085C7', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700, flexShrink:0 }}>
+                        {(c.name||'?').charAt(0)}
+                      </div>
+                  }
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontWeight:600, fontSize:14 }}>{c.name}</div>
+                    {c.name_ar && <div style={{ fontSize:12.5, color:'var(--text2)' }}>{c.name_ar}</div>}
+                    <div style={{ fontSize:11.5, color:'var(--text3)', marginTop:2 }}>
+                      {ar ? (ROLE_LABEL[c.role]?.ar||c.role) : (ROLE_LABEL[c.role]?.en||c.role)}
+                      {c.role === 'employee' && (c.designation || c.designation_ar) ? ` · ${ar && c.designation_ar ? c.designation_ar : c.designation}` : ''}
+                      {(c.role === 'athlete' || c.role === 'coach') && c.sport ? ` · ${c.sport}` : ''}
+                    </div>
+                  </div>
+                  <button type="button" onClick={() => confirmIdentity(c)}
+                    style={{ padding:'8px 14px', background:'#0085C7', color:'#fff', border:'none', borderRadius:8, fontSize:12.5, fontWeight:600, cursor:'pointer', flexShrink:0 }}>
+                    {L('This is me','هذا أنا')}
+                  </button>
+                </div>
+              ))}
+              <button type="button" onClick={resetRegistration}
+                style={{ width:'100%', padding:'11px', background:'transparent', color:'var(--text2)', border:'1px solid var(--border)', borderRadius:10, fontSize:14, fontWeight:600, cursor:'pointer', marginTop:6 }}>
+                {L('This is not me','هذا ليس أنا')}
+              </button>
+            </div>
+          )}
+
+          {/* Access Request — Step 3: password creation. Role/identity are
+              already locked in from Step 2 — the user cannot edit them. */}
+          {mode === 'register' && regStep === 'password' && selectedCandidate && (
+            <form onSubmit={handleCreatePassword}>
+              <div style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px', background:'var(--surface2)', borderRadius:10, marginBottom:16 }}>
+                {selectedCandidate.photo_url
+                  ? <img src={selectedCandidate.photo_url} alt="" style={{ width:36, height:36, borderRadius:'50%', objectFit:'cover', flexShrink:0 }} />
+                  : <div style={{ width:36, height:36, borderRadius:'50%', background:'#0085C7', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700, flexShrink:0, fontSize:13 }}>
+                      {(selectedCandidate.name||'?').charAt(0)}
+                    </div>
+                }
+                <div style={{ minWidth:0 }}>
+                  <div style={{ fontWeight:600, fontSize:13 }}>{ar && selectedCandidate.name_ar ? selectedCandidate.name_ar : selectedCandidate.name}</div>
+                  <div style={{ fontSize:11, color:'var(--text3)' }}>{ar ? (ROLE_LABEL[selectedCandidate.role]?.ar||selectedCandidate.role) : (ROLE_LABEL[selectedCandidate.role]?.en||selectedCandidate.role)}</div>
+                </div>
+                <button type="button" onClick={resetRegistration} style={{ marginInlineStart:'auto', background:'none', border:'none', color:'#0085C7', fontSize:12, cursor:'pointer', flexShrink:0 }}>
+                  {L('Change','تغيير')}
+                </button>
               </div>
-              {form.accountType === 'coach' && (
-                <div className="form-group">
-                  <label className="form-label">{L('Select your coach profile','اختر ملف المدرب')}</label>
-                  <select className="form-input" value={form.coachId} onChange={e=>set('coachId',e.target.value)} required>
-                    <option value="">{L('— Select coach —','— اختر المدرب —')}</option>
-                    {coaches.map(c=><option key={c.id} value={c.id}>{ar&&c.name_ar?c.name_ar:c.name}</option>)}
-                  </select>
-                </div>
-              )}
-              {form.accountType === 'employee' && (
-                <div className="form-group">
-                  <label className="form-label">{L('Select your staff profile','اختر ملف الكادر')}</label>
-                  <select className="form-input" value={form.employeeId} onChange={e=>set('employeeId',e.target.value)} required>
-                    <option value="">{L('— Select staff member —','— اختر عضو الكادر —')}</option>
-                    {employees.map(e=><option key={e.id} value={e.id}>{ar&&e.name_ar?e.name_ar:e.name}{e.designation ? ` — ${e.designation}` : ''}</option>)}
-                  </select>
-                </div>
-              )}
-              {form.accountType === 'athlete' && (
-                <div className="form-group">
-                  <label className="form-label">{L('Select your athlete profile','اختر ملف الرياضي')}</label>
-                  <select className="form-input" value={form.athleteId} onChange={e=>set('athleteId',e.target.value)} required>
-                    <option value="">{L('— Select athlete —','— اختر الرياضي —')}</option>
-                    {athletes.map(a=><option key={a.id} value={a.id}>{ar&&a.name_ar?a.name_ar:a.name}</option>)}
-                  </select>
-                </div>
-              )}
               <div className="form-row">
                 <div className="form-group">
                   <label className="form-label">{L('Password','كلمة المرور')}</label>
-                  <input className="form-input" type="password" placeholder="••••••••" value={form.password} onChange={e=>set('password',e.target.value)} required />
+                  <input className="form-input" type="password" placeholder="••••••••" value={regPassword} onChange={e=>setRegPassword(e.target.value)} required autoFocus />
                 </div>
                 <div className="form-group">
                   <label className="form-label">{L('Confirm Password','تأكيد كلمة المرور')}</label>
-                  <input className="form-input" type="password" placeholder="••••••••" value={form.confirmPassword} onChange={e=>set('confirmPassword',e.target.value)} required />
+                  <input className="form-input" type="password" placeholder="••••••••" value={regConfirmPassword} onChange={e=>setRegConfirmPassword(e.target.value)} required />
                 </div>
               </div>
               {error && <div style={{ color:'#EE334E', fontSize:13, marginBottom:12, padding:'8px 12px', background:'#EE334E15', borderRadius:8 }}>{error}</div>}
@@ -345,8 +374,8 @@ export default function Login({ onRequestSent, onSigningUpChange, onGuestMode })
                 {loading ? L('Submitting…','جارٍ الإرسال…') : L('Request Access','طلب الوصول')}
               </button>
               <p style={{ fontSize:11, color:'var(--text3)', textAlign:'center', marginTop:12, lineHeight:1.5 }}>
-                {L('Your request will be reviewed by the admin. You will be notified by email once approved.',
-                   'سيتم مراجعة طلبك من قبل المسؤول وستتلقى إشعاراً بالبريد الإلكتروني عند الموافقة.')}
+                {L('Your request will be reviewed by the admin. You will be notified once approved.',
+                   'سيتم مراجعة طلبك من قبل المسؤول وستتلقى إشعاراً عند الموافقة.')}
               </p>
             </form>
           )}
