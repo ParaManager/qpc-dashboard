@@ -131,7 +131,7 @@ export default function EmployeeDashboard({ employee, athletes, coaches, employe
               {(ar && employee.name_ar ? employee.name_ar : employee.name)}
             </div>
             <div style={{ fontSize: 12, color: 'rgba(255,255,255,.55)', marginBottom: 10 }}>
-              {ar ? (employee.designation_ar || employee.designation || 'موظف') : (employee.designation || 'Employee')}
+              {ar ? (employee.designation_ar || employee.designation || 'عضو كادر') : (employee.designation || 'Staff Member')}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap:'wrap' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>

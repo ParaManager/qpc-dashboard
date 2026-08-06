@@ -346,7 +346,7 @@ ${myResults.length>0?`<div class="section"><div class="section-title">${L2('Comp
               {[
                 [L('Sport','الرياضة'), personData.sport],
                 [L('Nationality','الجنسية'), tc(personData.nationality)],
-                [L('Employee #','رقم الموظف'), personData.employee_number],
+                [L('Staff Number','رقم الكادر'), personData.employee_number],
                 [L('QSS #','رقم QSS'), personData.qss_number],
                 [L('Status','الحالة'), personData.status],
               ].map(([k,v]) => v ? (
@@ -399,11 +399,11 @@ ${myResults.length>0?`<div class="section"><div class="section-title">${L2('Comp
           {/* ADMIN details */}
           {role === 'admin' && personData && (
             <div className="info-card">
-              <div className="info-title">{L('Employee Information','معلومات الموظف')}</div>
+              <div className="info-title">{L('Staff Information','معلومات الكادر')}</div>
               {[
                 [L('Designation','المسمى الوظيفي'), ar&&personData.designation_ar?personData.designation_ar:personData.designation],
                 [L('Nationality','الجنسية'), tc(personData.nationality)],
-                [L('Employee #','رقم الموظف'), personData.employee_number],
+                [L('Staff Number','رقم الكادر'), personData.employee_number],
                 [L('QSS #','رقم QSS'), personData.qss_number],
                 [L('Phone','الهاتف'), personData.phone],
                 [L('Email','البريد الإلكتروني'), personData.email],

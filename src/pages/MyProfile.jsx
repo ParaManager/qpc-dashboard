@@ -206,7 +206,7 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
                   ? [myCoach.status_start, myCoach.status_end].filter(Boolean).join(' → ') : null
                 const infoFields = [
                   [ar ? 'المسمى الوظيفي' : 'Designation', ar ? (DESIGNATION_AR[myCoach.designation || myEmployee?.designation] || myCoach.designation || myEmployee?.designation) : (myCoach.designation || myEmployee?.designation)],
-                  [ar ? 'رقم الموظف' : 'Employee #', myCoach.employee_number || myEmployee?.employee_number],
+                  [ar ? 'رقم الكادر' : 'Staff Number', myCoach.employee_number || myEmployee?.employee_number],
                   [ar ? 'رقم QSS' : 'QSS #', myCoach.qss_number || myEmployee?.qss_number],
                   [ar ? 'الرياضة' : 'Sport', sportLabel(myCoach.sport)],
                   [ar ? 'فئة الرياضة' : 'Sport category', myCoach.sport_category ? (ar ? (SPORT_CATEGORY_NAMES_AR[myCoach.sport_category]||myCoach.sport_category) : myCoach.sport_category) : null],
@@ -274,7 +274,7 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
                 })()
                 const infoFields = [
                   [ar ? 'المسمى الوظيفي' : 'Designation', ar ? (myEmployee.designation_ar || DESIGNATION_AR[myEmployee.designation] || myEmployee.designation) : myEmployee.designation],
-                  [ar ? 'رقم الموظف' : 'Employee #', myEmployee.employee_number],
+                  [ar ? 'رقم الكادر' : 'Staff Number', myEmployee.employee_number],
                   [ar ? 'رقم QSS' : 'QSS #', myEmployee.qss_number],
                   [ar ? 'تاريخ الانضمام' : 'Join date', myEmployee.created_at ? new Date(myEmployee.created_at).toISOString().slice(0,10) : null],
                   [ar ? 'سنوات الخدمة' : 'Years of Service', yearsOfService],

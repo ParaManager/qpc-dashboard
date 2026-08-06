@@ -90,7 +90,7 @@ function exportCoachPDF(coach, myAthletes, lang) {
 <div class="section">
   <div class="section-title">${L('Coach Information','معلومات المدرب')}</div>
   <div class="grid-2">
-    ${field(L('Employee #','رقم الموظف'), coach.employee_number)}
+    ${field(L('Staff Number','رقم الكادر'), coach.employee_number)}
     ${field(L('QSS #','رقم QSS'), coach.qss_number)}
     ${field(L('Sport','الرياضة'), coach.sport ? sportLabel(coach.sport, coach.sport_category, isAr) : '')}
     ${field(L('Nationality','الجنسية'), isAr ? (COUNTRY_AR[coach.nationality]||coach.nationality) : coach.nationality)}
@@ -676,7 +676,7 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
                 [lang==='ar'?'المسمى الوظيفي':'Designation', lang==='ar' ? (c.designation_ar||c.designation) : c.designation],
                 [lang==='ar'?'الرياضة':'Sport', c.sport ? sportLabel(c.sport, c.sport_category, lang==='ar') : null],
                 [lang==='ar'?'البرنامج/الفئة':'Program/Category', c.sport_category ? (lang==='ar' ? (SPORT_CATEGORY_NAMES_AR[c.sport_category]||c.sport_category) : c.sport_category) : null],
-                [lang==='ar'?'رقم الموظف':'Employee #', c.employee_number],
+                [lang==='ar'?'رقم الكادر':'Staff Number', c.employee_number],
                 [lang==='ar'?'رقم QSS':'QSS #', c.qss_number],
                 [lang==='ar'?'مع QPC منذ':'With QPC since', c.since],
                 [lang==='ar'?'سنوات الخدمة':'Years of Service', yearsOfService],

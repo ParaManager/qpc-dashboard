@@ -349,7 +349,7 @@ export default function Resources({ profile, onRefresh }) {
     admin:    ar ? 'المسؤولون' : 'Admins',
     coach:    ar ? 'المدربون' : 'Coaches',
     athlete:  ar ? 'الرياضيون' : 'Athletes',
-    employee: ar ? 'الموظفون' : 'Employees',
+    employee: ar ? 'الكادر' : 'Staff',
   }
 
 
@@ -738,7 +738,7 @@ export default function Resources({ profile, onRefresh }) {
                         admin:    ar ? 'المسؤولون' : 'Admins',
                         coach:    ar ? 'المدربون' : 'Coaches',
                         athlete:  ar ? 'الرياضيون' : 'Athletes',
-                        employee: ar ? 'الموظفون' : 'Employees',
+                        employee: ar ? 'الكادر' : 'Staff',
                       }
                       const ALL_ROLES = ['admin','coach','athlete','employee']
                       if (r.is_private) {

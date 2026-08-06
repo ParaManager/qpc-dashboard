@@ -12,7 +12,7 @@ function getEventStatus(ev) {
 }
 
 function roleLabel(role, ar) {
-  const map = { admin: ar?'مسؤول':'Administrator', coach: ar?'مدرب':'Coach', employee: ar?'موظف':'Employee', athlete: ar?'رياضي':'Athlete' }
+  const map = { admin: ar?'مسؤول':'Administrator', coach: ar?'مدرب':'Coach', employee: ar?'عضو الكادر':'Staff Member', athlete: ar?'رياضي':'Athlete' }
   return map[role] || role
 }
 

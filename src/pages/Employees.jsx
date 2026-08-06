@@ -114,9 +114,9 @@ function exportEmployeesPDF(emp, lang, coaches) {
   </div>
 </div>
 
-<div class="section-title">${L('Employee Information','معلومات الموظف')}</div>
+<div class="section-title">${L('Staff Information','معلومات الكادر')}</div>
 <div class="grid-2">
-  ${field(L('Employee #','رقم الموظف'), emp.employee_number)}
+  ${field(L('Staff Number','رقم الكادر'), emp.employee_number)}
   ${field(L('QSS #','رقم QSS'), emp.qss_number)}
   ${field(L('Gender','الجنس'), emp.gender ? (isAr?(emp.gender==='Male'?'ذكر':'أنثى'):emp.gender) : null)}
   ${field(L('Nationality','الجنسية'), isAr?(COUNTRY_AR[emp.nationality]||emp.nationality):emp.nationality)}
@@ -635,7 +635,7 @@ function exportEmployeesExcel(list, lang, coaches) {
     [L('Designation AR','المسمى بالعربي')]: e.designation_ar || '',
     [L('Gender','الجنس')]:             e.gender ? (ar?(e.gender==='Male'?'ذكر':'أنثى'):e.gender) : '',
     [L('Nationality','الجنسية')]:      tc(e.nationality),
-    [L('Employee #','رقم الموظف')]:    e.employee_number || '',
+    [L('Staff Number','رقم الكادر')]:    e.employee_number || '',
     [L('QSS #','رقم QSS')]:           e.qss_number || '',
     [L('Phone','الهاتف')]:             e.phone || '',
     [L('Email','البريد الإلكتروني')]:   e.email || '',
@@ -722,7 +722,7 @@ function EmpModal({ data, isEdit, onClose, onSave, employees = [], customDesigna
             ))}
           </div>
           <div className="form-row">
-            {grp(ar?'رقم الموظف':'Employee number', inp("employee_number", "text", "e.g. 12501"))}
+            {grp(ar?'رقم الكادر':'Staff Number', inp("employee_number", "text", "e.g. 12501"))}
             {grp(ar?'رقم QSS':'QSS number', inp("qss_number", "text", "e.g. 50112"))}
           </div>
           <div className="form-row">
@@ -1342,7 +1342,7 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
 
   const ALL_COLS = [
     { key:'name',              label:tx('employees.employee','Staff Member') },
-    { key:'employee_number',   label:tx('employees.employeeNum','Employee #') },
+    { key:'employee_number',   label:tx('employees.employeeNum','Staff Number') },
     { key:'qss_number',        label:tx('employees.qssNum','QSS #') },
     { key:'job_id',            label:tx('employees.jobId','Job ID') },
     { key:'designation',       label:tx('employees.designation','Designation') },
@@ -1766,7 +1766,7 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
             {(() => {
               const fields = [
                 [tx('form.designation','Designation'), lang==='ar' ? (emp.designation_ar || emp.designation) : emp.designation],
-                [tx('profile.employeeNum','Employee #'), emp.employee_number],
+                [tx('profile.employeeNum','Staff Number'), emp.employee_number],
                 [tx('profile.qssNumber','QSS #'), emp.qss_number],
                 [lang==='ar'?'تاريخ الانضمام':'Join Date', formatFriendlyDate(emp.created_at, lang==='ar')],
                 [lang==='ar'?'سنوات الخدمة':'Years of Service', yearsOfService],
@@ -1774,7 +1774,7 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
               if (fields.length === 0) return null
               return (
                 <div className="info-card">
-                  <div className="info-title" style={{ marginBottom:10 }}>{lang==='ar'?'معلومات الموظف':'Employee Information'}</div>
+                  <div className="info-title" style={{ marginBottom:10 }}>{lang==='ar'?'معلومات الكادر':'Staff Information'}</div>
                   <div style={{ display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:'4px 16px' }}>
                     {fields.map(([k,v]) => (
                       <div key={k} className="detail-row" style={{ minWidth:0 }}>

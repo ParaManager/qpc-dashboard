@@ -12,7 +12,7 @@ const STATUS_LABEL = {
 const TYPE_LABEL = {
   Athlete:  { en: 'Athlete',  ar: 'رياضي' },
   Coach:    { en: 'Coach',    ar: 'مدرب' },
-  Employee: { en: 'Employee', ar: 'موظف' },
+  Employee: { en: 'Staff Member', ar: 'عضو الكادر' },
 }
 
 export default function Away({ athletes, coaches, employees, onNav }) {

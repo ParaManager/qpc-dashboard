@@ -52,7 +52,7 @@ export default function Login({ onRequestSent, onSigningUpChange, onGuestMode })
     if (form.password.length < 6) { setError(L('Password must be at least 6 characters','كلمة المرور يجب أن تكون 6 أحرف على الأقل')); setLoading(false); return }
     if (form.accountType === 'coach' && !form.coachId) { setError(L('Please select your coach profile','الرجاء اختيار ملف المدرب')); setLoading(false); return }
     if (form.accountType === 'athlete' && !form.athleteId) { setError(L('Please select your athlete profile','الرجاء اختيار ملف الرياضي')); setLoading(false); return }
-    if (form.accountType === 'employee' && !form.employeeId) { setError(L('Please select your employee profile','الرجاء اختيار ملف الموظف')); setLoading(false); return }
+    if (form.accountType === 'employee' && !form.employeeId) { setError(L('Please select your staff profile','الرجاء اختيار ملف الكادر')); setLoading(false); return }
 
     // ── QID VERIFICATION ──
     if (form.accountType === 'coach' && form.coachId) {
@@ -314,9 +314,9 @@ export default function Login({ onRequestSent, onSigningUpChange, onGuestMode })
               )}
               {form.accountType === 'employee' && (
                 <div className="form-group">
-                  <label className="form-label">{L('Select your employee profile','اختر ملف الموظف')}</label>
+                  <label className="form-label">{L('Select your staff profile','اختر ملف الكادر')}</label>
                   <select className="form-input" value={form.employeeId} onChange={e=>set('employeeId',e.target.value)} required>
-                    <option value="">{L('— Select employee —','— اختر الموظف —')}</option>
+                    <option value="">{L('— Select staff member —','— اختر عضو الكادر —')}</option>
                     {employees.map(e=><option key={e.id} value={e.id}>{ar&&e.name_ar?e.name_ar:e.name}{e.designation ? ` — ${e.designation}` : ''}</option>)}
                   </select>
                 </div>

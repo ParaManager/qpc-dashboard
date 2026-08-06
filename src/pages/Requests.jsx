@@ -44,7 +44,7 @@ const STATUS_META = {
 }
 
 const ROLES = ['admin','coach','athlete','employee']
-const ROLE_LABELS_AR = { admin: 'مدير', coach: 'مدرب', athlete: 'رياضي', employee: 'موظف' }
+const ROLE_LABELS_AR = { admin: 'مدير', coach: 'مدرب', athlete: 'رياضي', employee: 'عضو الكادر' }
 
 const ROLE_COLORS = { admin:'#EE334E', coach:'#0085C7', athlete:'#009F6B', employee:'#8b5cf6' }
 
