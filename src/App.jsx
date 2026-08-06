@@ -69,6 +69,22 @@ const NAV_GUEST = (tx) => [
 ]
 
 const ROLE_COLORS = { admin: '#0085C7', coach: '#009F6B', employee: '#8b5cf6', athlete: '#EE334E', guest: '#9aa3b2' }
+// English-mode breadcrumb fallback auto-capitalizes the route id (e.g.
+// 'employees' -> 'Employees') since tx() doesn't consult translations.js
+// in English — the route id itself is intentionally kept unchanged, so
+// any page whose display name no longer matches its id needs an explicit
+// override here instead.
+const BREADCRUMB_LABEL_OVERRIDES = { employees: 'Staff', 'athletes-all': 'Athletes' }
+// Internal role values (admin/coach/employee/athlete/guest) are used as-is
+// throughout the code (permissions, routing, DB) — but must never be shown
+// to the user verbatim. This maps each to its correct display label.
+const ROLE_DISPLAY_LABELS = {
+  admin:    { en: 'Admin',        ar: 'مسؤول' },
+  coach:    { en: 'Coach',        ar: 'مدرب' },
+  employee: { en: 'Staff Member', ar: 'عضو الكادر' },
+  athlete:  { en: 'Athlete',      ar: 'رياضي' },
+  guest:    { en: 'Guest',        ar: 'زائر' },
+}
 const ROLE_ICONS  = { admin: 'ti-shield', coach: 'ti-user-star', employee: 'ti-id-badge-2', athlete: 'ti-run', guest: 'ti-eye' }
 
 export default function App() {
@@ -770,7 +786,7 @@ export default function App() {
             <div className="agito" style={{ background:'#009F6B' }} />
           </div>
           <div className="sb-org">{lang==='ar' ? 'الاتحاد القطري' : 'Qatar Paralympic'}</div>
-          <div className="sb-sub">{lang==='ar' ? 'لذوي الاحتياجات الخاصة' : 'Committee'} · {role}</div>
+          <div className="sb-sub">{lang==='ar' ? 'لذوي الاحتياجات الخاصة' : 'Committee'} · {lang==='ar' ? (ROLE_DISPLAY_LABELS[role]?.ar||role) : (ROLE_DISPLAY_LABELS[role]?.en||role)}</div>
         </div>
         <div className="sb-nav">
           {activeNav.map(({ section, items }) => {
@@ -820,7 +836,7 @@ export default function App() {
               <div style={{ color:'#fff', fontSize:12, fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{userName}</div>
               <div style={{ display:'flex', alignItems:'center', gap:4, marginTop:2 }}>
                 <i className={`ti ${roleIcon}`} style={{ fontSize:10, color:roleColor }} />
-                <span style={{ color:roleColor, fontSize:10, fontWeight:500, textTransform:'capitalize' }}>{role}</span>
+                <span style={{ color:roleColor, fontSize:10, fontWeight:500 }}>{lang==='ar' ? (ROLE_DISPLAY_LABELS[role]?.ar||role) : (ROLE_DISPLAY_LABELS[role]?.en||role)}</span>
               </div>
             </div>
             <i className="ti ti-chevron-right" style={{ fontSize:12, color:'rgba(255,255,255,.3)', flexShrink:0 }} />
@@ -840,7 +856,7 @@ export default function App() {
               <i className="ti ti-menu-2" />
             </button>
           <div className="tb-breadcrumb">
-            <span>{lang==='ar'?'QPC':'QPC'}</span> · <span>{tx(`pages.${page}`, page.charAt(0).toUpperCase()+page.slice(1))}</span><span className="hide-mobile"> · {tx('nav.season','Season')} {getCurrentSeason()}</span>
+            <span>{lang==='ar'?'QPC':'QPC'}</span> · <span>{tx(`pages.${page}`, BREADCRUMB_LABEL_OVERRIDES[page] || (page.charAt(0).toUpperCase()+page.slice(1)))}</span><span className="hide-mobile"> · {tx('nav.season','Season')} {getCurrentSeason()}</span>
           </div></div>
           <div className="tb-actions">
             <button
@@ -852,7 +868,7 @@ export default function App() {
               <i className="ti ti-refresh" style={{ fontSize:16, color:'var(--text2)', display:'inline-block', animation: isRefreshing ? 'spin 0.6s linear infinite' : 'none' }} />
             </button>
             <div className="role-badge-text" style={{ display:'flex', alignItems:'center', padding:'4px 10px', background:roleColor+'15', border:`1px solid ${roleColor}40`, borderRadius:20, fontSize:11, color:roleColor, fontWeight:600, flexShrink:0, whiteSpace:'nowrap' }}>
-              {role.charAt(0).toUpperCase()+role.slice(1)}
+              {lang==='ar' ? (ROLE_DISPLAY_LABELS[role]?.ar||role) : (ROLE_DISPLAY_LABELS[role]?.en||role)}
             </div>
             {/* Language toggle */}
             <button
