@@ -82,7 +82,7 @@ export default function Results({ results, athletes, onRefresh, onNav, profile }
         medals_bronze: remaining.filter(x => x.medal === 'bronze').length,
       }).eq('id', r.athlete_id)
     }
-    toast('Result deleted')
+    toast(tx('results.deleted', 'Result deleted'))
     if (isTrustedAdmin(profile)) {
       logAdminActivity({ actor: profile, action: 'deleted', entityType: 'result', entityId: id, entityLabel: r ? `${r.athlete_name} — ${r.event_name}` : String(id), module: 'results' })
     }

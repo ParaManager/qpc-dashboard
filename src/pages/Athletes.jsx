@@ -1547,7 +1547,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
       id_number: formData.idNumber || null,
       id_expiry: formData.idExpiry || null,
     }
-    if (!payload.name) { toast('Name is required', 'error'); return }
+    if (!payload.name) { toast(ar ? 'الاسم مطلوب' : 'Name is required', 'error'); return }
     const priorRecord = isEdit ? athletes.find(a => a.id === formData.id) : null
     const { error } = isEdit
       ? await supabase.from('athletes').update(payload).eq('id', formData.id)
@@ -1598,8 +1598,8 @@ export default function Athletes({ athletes, coaches, employees, results, docume
 
   async function handlePhotoUpload(athleteId, file) {
     if (!file) return
-    if (!file.type.startsWith('image/')) { toast('Please select an image file', 'error'); return }
-    if (file.size > 5 * 1024 * 1024) { toast('Image must be under 5MB', 'error'); return }
+    if (!file.type.startsWith('image/')) { toast(ar ? 'يرجى اختيار ملف صورة' : 'Please select an image file', 'error'); return }
+    if (file.size > 5 * 1024 * 1024) { toast(ar ? 'يجب أن يكون حجم الصورة أقل من 5 ميجابايت' : 'Image must be under 5MB', 'error'); return }
     setUploading(true)
     try {
       const ext  = file.name.split('.').pop().toLowerCase()
@@ -1614,7 +1614,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
       const photoUrl = data.publicUrl + '?t=' + Date.now()
       const { error: dbErr } = await supabase.from('athletes').update({ photo_url: photoUrl }).eq('id', athleteId)
       if (dbErr) throw dbErr
-      toast('Photo updated!'); await onRefresh()
+      toast(ar ? 'تم تحديث الصورة!' : 'Photo updated!'); await onRefresh()
     } catch (err) { toast(err.message || 'Upload failed', 'error') }
     finally { setUploading(false) }
   }
@@ -1622,17 +1622,17 @@ export default function Athletes({ athletes, coaches, employees, results, docume
   async function handlePhotoRemove(athleteId) {
     const { error } = await supabase.from('athletes').update({ photo_url: null }).eq('id', athleteId)
     if (error) { toast(error.message, 'error'); return }
-    toast('Photo removed'); await onRefresh()
+    toast(ar ? 'تمت إزالة الصورة' : 'Photo removed'); await onRefresh()
   }
 
   async function handleDocUpload(athleteId, file) {
     if (!file) return
-    if (!docType) { toast('Select a document type first', 'error'); return }
-    if (file.size > 20 * 1024 * 1024) { toast('File must be under 20MB', 'error'); return }
+    if (!docType) { toast(ar ? 'يرجى اختيار نوع المستند أولاً' : 'Select a document type first', 'error'); return }
+    if (file.size > 20 * 1024 * 1024) { toast(ar ? 'يجب أن يكون حجم الملف أقل من 20 ميجابايت' : 'File must be under 20MB', 'error'); return }
     const athlete = athletes.find(a => a.id === athleteId)
     const isSharedType = SHARED_TYPES.includes(docType)
     if (isSharedType && !athlete?.person_id) {
-      toast('This athlete has no linked person record yet', 'error'); return
+      toast(ar ? 'لا يوجد سجل شخصي مرتبط بهذا الرياضي بعد' : 'This athlete has no linked person record yet', 'error'); return
     }
     setDocUploading(true)
     try {
@@ -1681,7 +1681,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
       const { error } = await supabase.from('athlete_documents').delete().eq('id', doc.id)
       if (error) { toast(error.message, 'error'); return }
     }
-    toast('Document deleted')
+    toast(ar ? 'تم حذف المستند' : 'Document deleted')
     if (isTrustedAdmin(profile)) {
       const athleteId = doc.athlete_id || selected
       const athleteName = athletes.find(a => a.id === athleteId)?.name || String(athleteId)
@@ -1694,7 +1694,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
     setSavingNotes(true)
     const { error } = await supabase.from('athletes').update({ notes }).eq('id', athleteId)
     if (error) { toast(error.message, 'error') }
-    else { toast('Notes saved'); setNotesChanged(false); setNotesSavedAt(Date.now()); await onRefresh() }
+    else { toast(ar ? 'تم حفظ الملاحظات' : 'Notes saved'); setNotesChanged(false); setNotesSavedAt(Date.now()); await onRefresh() }
     setSavingNotes(false)
   }
 

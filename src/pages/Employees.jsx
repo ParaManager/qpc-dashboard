@@ -1495,7 +1495,7 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
       passport_expiry: formData.passport_expiry || null,
       adel_certificate: (formData.adel_certificate || '').replace(/[^\p{L}\p{N}\s]/gu, '').trim() || null,
     }
-    if (!payload.name) { toast('Name is required', 'error'); return }
+    if (!payload.name) { toast(ar ? 'الاسم مطلوب' : 'Name is required', 'error'); return }
 
     // If this is an edit that changes status, and the person has more than
     // one linked role, defer to the scope-confirmation modal instead of
@@ -1597,8 +1597,8 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
 
   async function handlePhotoUpload(empId, file) {
     if (!file) return
-    if (!file.type.startsWith('image/')) { toast('Please select an image file', 'error'); return }
-    if (file.size > 5 * 1024 * 1024) { toast('Image must be under 5MB', 'error'); return }
+    if (!file.type.startsWith('image/')) { toast(ar ? 'يرجى اختيار ملف صورة' : 'Please select an image file', 'error'); return }
+    if (file.size > 5 * 1024 * 1024) { toast(ar ? 'يجب أن يكون حجم الصورة أقل من 5 ميجابايت' : 'Image must be under 5MB', 'error'); return }
     setUploading(true)
     try {
       const ext = file.name.split('.').pop()
@@ -1622,7 +1622,7 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
         }
       }
 
-      toast('Photo updated!'); await onRefresh()
+      toast(ar ? 'تم تحديث الصورة!' : 'Photo updated!'); await onRefresh()
     } catch (err) { toast(err.message || 'Upload failed', 'error') }
     finally { setUploading(false) }
   }

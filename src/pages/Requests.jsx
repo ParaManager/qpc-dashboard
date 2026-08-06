@@ -384,7 +384,7 @@ export default function Requests({ profile, navState }) {
                       </div>
                       <div style={{padding:'12px 14px',display:'flex',flexDirection:'column',gap:8}}>
                       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
-                        <input className="form-input" placeholder="Label (EN)" value={field.label} onChange={e=>updateField(field.id,'label',e.target.value)}/>
+                        <input className="form-input" placeholder={ar ? "التسمية (EN)" : "Label (EN)"} value={field.label} onChange={e=>updateField(field.id,'label',e.target.value)}/>
                         <input className="form-input" placeholder="التسمية (AR)" value={field.label_ar||''} onChange={e=>updateField(field.id,'label_ar',e.target.value)} dir="rtl"/>
                       </div>
                       {['dropdown','radio','checkbox'].includes(field.field_type) && (

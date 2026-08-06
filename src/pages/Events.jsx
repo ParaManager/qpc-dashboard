@@ -293,7 +293,7 @@ export default function Events({ events, athletes, results, registrations, onRef
       .insert(selectedSportIds.map(sportId => ({ event_id: eventId, sport_id: sportId })))
     if (insErr) { toast(insErr.message, 'error'); return }
 
-    toast(isEdit ? `${payload.name} updated` : `${payload.name} created`)
+    toast(isEdit ? (ar ? `تم تحديث ${payload.name}` : `${payload.name} updated`) : (ar ? `تم إنشاء ${payload.name}` : `${payload.name} created`))
     if (isTrustedAdmin(profile)) {
       logAdminActivity({ actor: profile, action: isEdit ? 'updated' : 'created', entityType: 'event', entityId: eventId || null, entityLabel: payload.name, module: 'events' })
     }
@@ -304,7 +304,7 @@ export default function Events({ events, athletes, results, registrations, onRef
   async function handleDelete(id, name) {
     const { error } = await supabase.from('events').delete().eq('id', id)
     if (error) { toast(error.message, 'error'); return }
-    toast(`${name} deleted`)
+    toast(ar ? `تم حذف ${name}` : `${name} deleted`)
     if (isTrustedAdmin(profile)) {
       logAdminActivity({ actor: profile, action: 'deleted', entityType: 'event', entityId: id, entityLabel: name, module: 'events' })
     }
@@ -314,13 +314,13 @@ export default function Events({ events, athletes, results, registrations, onRef
   async function registerAthlete(eventId, athleteId) {
     const { error } = await supabase.from('event_registrations').insert({ event_id: eventId, athlete_id: athleteId })
     if (error) { toast(error.message, 'error'); return }
-    toast('Athlete registered'); onRefresh()
+    toast(ar ? 'تم تسجيل الرياضي' : 'Athlete registered'); onRefresh()
   }
 
   async function unregisterAthlete(eventId, athleteId) {
     const { error } = await supabase.from('event_registrations').delete().match({ event_id: eventId, athlete_id: athleteId })
     if (error) { toast(error.message, 'error'); return }
-    toast('Athlete removed'); onRefresh()
+    toast(ar ? 'تمت إزالة الرياضي' : 'Athlete removed'); onRefresh()
   }
 
   // ── DETAIL VIEW ──

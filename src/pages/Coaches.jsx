@@ -388,7 +388,7 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
       id_number: formData.idNumber || null,
       id_expiry: formData.idExpiry || null,
     }
-    if (!payload.name) { toast('Name is required', 'error'); return }
+    if (!payload.name) { toast(ar ? 'الاسم مطلوب' : 'Name is required', 'error'); return }
     let coachId = formData.id
     const { error } = isEdit
       ? await supabase.from('coaches').update(payload).eq('id', formData.id)
@@ -465,8 +465,8 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
 
   async function handlePhotoUpload(coachId, file) {
     if (!file) return
-    if (!file.type.startsWith('image/')) { toast('Please select an image file', 'error'); return }
-    if (file.size > 5 * 1024 * 1024) { toast('Image must be under 5MB', 'error'); return }
+    if (!file.type.startsWith('image/')) { toast(ar ? 'يرجى اختيار ملف صورة' : 'Please select an image file', 'error'); return }
+    if (file.size > 5 * 1024 * 1024) { toast(ar ? 'يجب أن يكون حجم الصورة أقل من 5 ميجابايت' : 'Image must be under 5MB', 'error'); return }
     setUploading(true)
     try {
       const ext  = file.name.split('.').pop().toLowerCase()
@@ -496,7 +496,7 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
         }
       }
 
-      toast('Photo updated!'); await onRefresh()
+      toast(ar ? 'تم تحديث الصورة!' : 'Photo updated!'); await onRefresh()
     } catch (err) { toast(err.message || 'Upload failed', 'error') }
     finally { setUploading(false) }
   }
@@ -504,7 +504,7 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
   async function handlePhotoRemove(coachId) {
     const { error } = await supabase.from('coaches').update({ photo_url: null }).eq('id', coachId)
     if (error) { toast(error.message, 'error'); return }
-    toast('Photo removed'); await onRefresh()
+    toast(ar ? 'تمت إزالة الصورة' : 'Photo removed'); await onRefresh()
   }
 
   // ── DETAIL VIEW ──
