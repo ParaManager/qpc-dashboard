@@ -727,6 +727,9 @@ function EmpModal({ data, isEdit, onClose, onSave, employees = [], customDesigna
           </div>
           <div className="form-row">
             {grp(ar?'رقم المنصب (Job ID)':'Job ID', inp("job_id", "text", "e.g. QPC-J0001"))}
+            {grp(ar?'تاريخ الانضمام إلى QPC':'QPC Join Date', (
+              <input type="date" className="form-input" value={form.join_date||''} onChange={e=>set('join_date', e.target.value||null)} />
+            ))}
           </div>
           <div className="form-row">
             {grp(ar?'الحالة':'Status', (
@@ -1482,7 +1485,7 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
       name: formData.name, name_ar: formData.name_ar || null,
       gender: formData.gender || null, nationality: formData.nationality || null,
       designation: formData.designation || null, designation_ar: formData.designation_ar || null,
-      employee_number: formData.employee_number || null, qss_number: formData.qss_number || null, job_id: formData.job_id || null,
+      employee_number: formData.employee_number || null, qss_number: formData.qss_number || null, job_id: formData.job_id || null, join_date: formData.join_date || null,
       phone: formData.phone || null, email: formData.email || null,
       status: finalStatus,
       status_start: isDatedStatus ? (formData.status_start||null) : null,
@@ -1644,8 +1647,8 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
     }
     const color = DESIG_COLORS[emp.designation] || '#9aa3b2'
     const yearsOfService = (() => {
-      if (!emp.created_at) return null
-      const start = new Date(emp.created_at)
+      if (!emp.join_date) return null
+      const start = new Date(emp.join_date)
       const now = new Date()
       const months = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth())
       if (months < 12) return lang==='ar' ? `${months} شهر` : `${months} mo`
@@ -1768,7 +1771,7 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
                 [tx('form.designation','Designation'), lang==='ar' ? (emp.designation_ar || emp.designation) : emp.designation],
                 [tx('profile.employeeNum','Staff Number'), emp.employee_number],
                 [tx('profile.qssNumber','QSS #'), emp.qss_number],
-                [lang==='ar'?'تاريخ الانضمام':'Join Date', formatFriendlyDate(emp.created_at, lang==='ar')],
+                [lang==='ar'?'تاريخ الانضمام':'QPC Join Date', emp.join_date ? formatFriendlyDate(emp.join_date, lang==='ar') : null],
                 [lang==='ar'?'سنوات الخدمة':'Years of Service', yearsOfService],
               ].filter(([k, v]) => k && v)
               if (fields.length === 0) return null
