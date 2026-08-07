@@ -726,28 +726,37 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
               )
             })()}
 
-            {/* IDENTITY DOCUMENTS — mirrors Employees.jsx's Identity Documents
-                card exactly (same fields where they exist on coaches). */}
+            {/* IDENTITY DOCUMENTS — same row/divider structure and field
+                order as Staff Details. DOB and ADEL Certificate aren't
+                native coach fields, so when this coach is also tracked as
+                an employee, those two are sourced from that linked record
+                (same real person) rather than left as invented data. */}
             {(() => {
-              const idFields = [
-                [lang==='ar'?'الرقم الشخصي / رقم الهوية':'Qatar ID / Residence #', c.id_number],
-                [lang==='ar'?'تاريخ انتهاء الهوية':'ID expiry', c.id_expiry],
-                [lang==='ar'?'رقم جواز السفر':'Passport number', c.passport_number],
-                [lang==='ar'?'تاريخ انتهاء الجواز':'Passport expiry', c.passport_expiry],
-              ].filter(([,v]) => v)
-              if (idFields.length === 0) return null
               const isExpired = d => d && new Date(d) < new Date()
+              const dob = matchedEmployee?.dob || null
+              const adel = matchedEmployee?.adel_certificate || null
+              const rows = [
+                { left: [lang==='ar'?'الرقم الشخصي':'Qatar ID Number', c.id_number], right: [lang==='ar'?'تاريخ انتهاء الهوية':'ID Expiry', c.id_expiry, true] },
+                { left: [lang==='ar'?'رقم جواز السفر':'Passport Number', c.passport_number], right: [lang==='ar'?'تاريخ انتهاء الجواز':'Passport Expiry', c.passport_expiry, true] },
+                { left: [lang==='ar'?'تاريخ الميلاد':'Date of Birth', dob] },
+                { left: [lang==='ar'?'شهادة اديل':'ADEL Certificate', adel] },
+              ].filter(r => r.left[1] || r.right?.[1])
+              if (rows.length === 0) return null
+              const cell = ([label, value, expiry]) => value ? (
+                <div style={{ minWidth:0 }}>
+                  <span className="dk">{label}</span>{' '}
+                  <span className="dv" style={{ color: expiry && isExpired(value) ? '#dc2626' : undefined }}>{value}</span>
+                </div>
+              ) : <div />
               return (
                 <div className="info-card">
                   <div className="info-title" style={{ marginBottom:10 }}>{lang==='ar'?'وثائق الهوية':'Identity Documents'}</div>
-                  <div style={{ display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:'4px 16px' }}>
-                    {idFields.map(([k,v]) => (
-                      <div key={k} className="detail-row" style={{ minWidth:0 }}>
-                        <span className="dk">{k}</span>
-                        <span className="dv" style={{ color: k.toLowerCase().includes('expiry') && isExpired(v) ? '#dc2626' : undefined }}>{v}</span>
-                      </div>
-                    ))}
-                  </div>
+                  {rows.map((row, i) => (
+                    <div key={i} className="detail-row" style={{ display:'grid', gridTemplateColumns: row.right ? 'repeat(2, 1fr)' : '1fr', gap:'4px 16px' }}>
+                      {cell(row.left)}
+                      {row.right && cell(row.right)}
+                    </div>
+                  ))}
                 </div>
               )
             })()}

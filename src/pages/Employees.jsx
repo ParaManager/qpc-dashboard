@@ -1789,36 +1789,31 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
 
             {(() => {
               const isExpired = d => d && new Date(d) < new Date()
-              const hasAny = emp.dob || emp.id_number || emp.id_expiry || emp.passport_number || emp.passport_expiry || emp.adel_certificate
-              if (!hasAny) return null
-              const cell = (label, value, expiry) => value ? (
-                <div className="detail-row" style={{ minWidth:0 }}>
-                  <span className="dk">{label}</span>
+              // Row order matters: Qatar ID/ID Expiry first, then Passport/Passport
+              // Expiry, then any remaining identity fields (DOB, ADEL Certificate).
+              // DOB must never appear above the Qatar ID row.
+              const rows = [
+                { left: [lang==='ar'?'الرقم الشخصي':'Qatar ID Number', emp.id_number], right: [lang==='ar'?'تاريخ انتهاء الهوية':'ID Expiry', emp.id_expiry, true] },
+                { left: [lang==='ar'?'رقم جواز السفر':'Passport Number', emp.passport_number], right: [lang==='ar'?'تاريخ انتهاء الجواز':'Passport Expiry', emp.passport_expiry, true] },
+                { left: [lang==='ar'?'تاريخ الميلاد':'Date of Birth', emp.dob] },
+                { left: [lang==='ar'?'شهادة اديل':'ADEL Certificate', emp.adel_certificate] },
+              ].filter(r => r.left[1] || r.right?.[1])
+              if (rows.length === 0) return null
+              const cell = ([label, value, expiry]) => value ? (
+                <div style={{ minWidth:0 }}>
+                  <span className="dk">{label}</span>{' '}
                   <span className="dv" style={{ color: expiry && isExpired(value) ? '#dc2626' : undefined }}>{value}</span>
                 </div>
               ) : <div />
               return (
                 <div className="info-card">
                   <div className="info-title" style={{ marginBottom:10 }}>{lang==='ar'?'وثائق الهوية':'Identity Documents'}</div>
-                  {emp.dob && <div style={{ marginBottom:4 }}>{cell(lang==='ar'?'تاريخ الميلاد':'Date of birth', emp.dob)}</div>}
-                  {/* Left column: Qatar ID Number / Passport Number — Right column:
-                      ID Expiry / Passport Expiry. Each pair is its own explicit
-                      two-cell row, so Qatar ID always lines up with ID Expiry and
-                      Passport Number always lines up with Passport Expiry, even
-                      when one side of a pair is blank. */}
-                  {(emp.id_number || emp.id_expiry) && (
-                    <div style={{ display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:'4px 16px' }}>
-                      {cell(lang==='ar'?'الرقم الشخصي / رقم الهوية':'Qatar ID Number', emp.id_number)}
-                      {cell(lang==='ar'?'تاريخ انتهاء الهوية':'ID Expiry', emp.id_expiry, true)}
+                  {rows.map((row, i) => (
+                    <div key={i} className="detail-row" style={{ display:'grid', gridTemplateColumns: row.right ? 'repeat(2, 1fr)' : '1fr', gap:'4px 16px' }}>
+                      {cell(row.left)}
+                      {row.right && cell(row.right)}
                     </div>
-                  )}
-                  {(emp.passport_number || emp.passport_expiry) && (
-                    <div style={{ display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:'4px 16px' }}>
-                      {cell(lang==='ar'?'رقم جواز السفر':'Passport Number', emp.passport_number)}
-                      {cell(lang==='ar'?'تاريخ انتهاء الجواز':'Passport Expiry', emp.passport_expiry, true)}
-                    </div>
-                  )}
-                  {emp.adel_certificate && <div style={{ marginTop:4 }}>{cell(lang==='ar'?'شهادة اديل':'ADEL Certificate', emp.adel_certificate)}</div>}
+                  ))}
                 </div>
               )
             })()}

@@ -231,7 +231,7 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
                 const isExpired = d => d && new Date(d) < new Date()
                 const idFields = [
                   [ar ? 'تاريخ الميلاد' : 'Date of birth', myEmployee?.dob],
-                  [ar ? 'الرقم الشخصي / رقم الهوية' : 'Qatar ID / Residence #', myCoach.id_number || myEmployee?.id_number],
+                  [ar ? 'الرقم الشخصي' : 'Qatar ID Number', myCoach.id_number || myEmployee?.id_number],
                   [ar ? 'تاريخ انتهاء الهوية' : 'ID expiry', myCoach.id_expiry || myEmployee?.id_expiry],
                   [ar ? 'رقم جواز السفر' : 'Passport number', myCoach.passport_number || myEmployee?.passport_number],
                   [ar ? 'تاريخ انتهاء الجواز' : 'Passport expiry', myCoach.passport_expiry || myEmployee?.passport_expiry],
@@ -296,7 +296,7 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
                 const isExpired = d => d && new Date(d) < new Date()
                 const idFields = [
                   [ar ? 'تاريخ الميلاد' : 'Date of birth', myEmployee.dob],
-                  [ar ? 'الرقم الشخصي / رقم الهوية' : 'Qatar ID / Residence #', myEmployee.id_number],
+                  [ar ? 'الرقم الشخصي' : 'Qatar ID Number', myEmployee.id_number],
                   [ar ? 'تاريخ انتهاء الهوية' : 'ID expiry', myEmployee.id_expiry],
                   [ar ? 'رقم جواز السفر' : 'Passport number', myEmployee.passport_number],
                   [ar ? 'تاريخ انتهاء الجواز' : 'Passport expiry', myEmployee.passport_expiry],
