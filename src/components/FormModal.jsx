@@ -212,7 +212,7 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
     passportExp:    ar ? 'تاريخ انتهاء الجواز'   : 'Passport expiry',
     idNum:          ar ? 'الرقم الشخصي'          : 'Qatar ID number',
     idExp:          ar ? 'تاريخ انتهاء الهوية'   : 'ID expiry',
-    idResNum:       ar ? 'رقم الهوية / الإقامة'  : 'Qatar ID / Residence number',
+    idResNum:       ar ? 'الرقم الشخصي'  : 'Qatar ID Number',
     empNum:         ar ? 'رقم الكادر'            : 'Staff Number',
     since:          ar ? 'تاريخ الانضمام إلى QPC': 'Start date with QPC',
     eventName:      ar ? 'اسم الفعالية'          : 'Event name',
