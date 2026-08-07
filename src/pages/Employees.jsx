@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useLayoutEffect } from 'react'
 import { initials, statusClass, effectiveStatus, COACH_DESIGNATIONS, buildSearchText, matchesSearch, extractQidFromFilename, normalizeQid, SUPPORTED_DOC_FILE_TYPES, MAX_DOC_FILE_SIZE_BYTES } from '../lib/helpers'
 import DesignationField from '../components/DesignationField'
 import PersonDocuments from '../components/PersonDocuments'
@@ -1240,6 +1240,11 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
   const photoInput = useRef(null)
   const [cropFile, setCropFile] = useState(null) // { empId, file } pending crop
   const [hoveredRowId, setHoveredRowId] = useState(null)
+  const headerRowRef = useRef(null)
+  const [headerRowHeight, setHeaderRowHeight] = useState(0)
+  useLayoutEffect(() => {
+    if (headerRowRef.current) setHeaderRowHeight(headerRowRef.current.offsetHeight)
+  })
 
   // Column selection — same pattern as Athletes.jsx: localStorage-persisted,
   // Name column always included and locked.
@@ -1953,7 +1958,7 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
       <div className="tbl-wrap">
         <table>
           <thead>
-            <tr>
+            <tr ref={headerRowRef}>
               {ALL_COLS.filter(c => isVisible(c.key)).map((c, i) => {
                 const isSortable = ['name','employee_number','qss_number','job_id','designation','designation_ar','status','nationality','gender','phone','email','dob','id_number','id_expiry','passport_number','passport_expiry','adel_certificate'].includes(c.key)
                 const isAsc  = sort === `${c.key}-asc`
@@ -1988,7 +1993,7 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
               {ALL_COLS.filter(c => isVisible(c.key)).map((c, i) => {
                 const isFirstCol = i === 0 && c.key === 'name'
                 return (
-                  <th key={c.key} style={{ padding:'4px 8px', position:'sticky', top:32, zIndex: isFirstCol ? 22 : 20, background:'#f8f9fb',
+                  <th key={c.key} style={{ padding:'4px 8px', position:'sticky', top:headerRowHeight, zIndex: isFirstCol ? 22 : 20, background:'#f8f9fb',
                       ...(isFirstCol ? (lang==='ar' ? { right:0, minWidth:STICKY_NAME_COL_WIDTH } : { left:0, minWidth:STICKY_NAME_COL_WIDTH }) : {}) }}>
                     {COL_FILTERS[c.key] ? (() => {
                       const key = c.key
@@ -2026,7 +2031,7 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
                   </th>
                 )
               })}
-              <th style={{ position:'sticky', top:32, zIndex:20, background:'#f8f9fb' }} />
+              <th style={{ position:'sticky', top:headerRowHeight, zIndex:20, background:'#f8f9fb' }} />
             </tr>
           </thead>
           <tbody>
