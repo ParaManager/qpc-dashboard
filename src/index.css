@@ -141,6 +141,10 @@ button, input, select, textarea { font-family: 'DM Sans', sans-serif; }
    scroll container, so sticky header/filter rows now resolve
    correctly against it. */
 table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 600px; }
+/* Sticky header/filter rows (Athletes, Employees) already get position:
+   sticky + solid background inline per-cell; this adds the subtle
+   underneath-shadow so they stay visually separated from scrolled rows. */
+thead th[style*="sticky"] { box-shadow: 0 1px 0 var(--border); }
 thead tr { background: var(--surface2); }
 th { padding: 11px 14px; text-align: left; font-weight: 500; font-size: 11.5px; color: var(--text2); border-bottom: 1px solid var(--border); white-space: nowrap; text-transform: uppercase; letter-spacing: .04em; }
 td { padding: 11px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
