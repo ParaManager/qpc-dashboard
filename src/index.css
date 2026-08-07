@@ -126,20 +126,18 @@ button, input, select, textarea { font-family: 'DM Sans', sans-serif; }
 .kpi-hint { font-size: 9.5px; color: var(--text3); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* TABLE */
-.tbl-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow-x: auto; overflow-y: clip; box-shadow: var(--shadow); max-width: 100%; }
-/* `overflow-x: auto` paired with `overflow-y: visible` does NOT actually
-   keep the vertical axis at `visible` — per the CSS Overflow spec, when
-   one axis is non-visible, a `visible` value on the other axis computes
-   to `auto` instead, so `.tbl-wrap` still became the nearest vertical
-   scroll ancestor and `position: sticky` inside it kept resolving
-   against this element instead of the real page scroll container
-   (#content). `overflow-y: clip` is exempt from that pairing rule — it
-   stays exactly `clip` (no scrollbar, no scroll-container candidacy)
-   regardless of the horizontal axis, while `overflow-x: auto` still
-   provides real horizontal scrolling. This makes #content (which
-   already has genuine overflow-y: auto) the one and only vertical
-   scroll container, so sticky header/filter rows now resolve
-   correctly against it. */
+.tbl-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow-x: auto; overflow-y: visible; box-shadow: var(--shadow); max-width: 100%; }
+/* Sticky-header tables (Athletes, Staff) additionally get this — .tbl-wrap
+   becomes the actual, unambiguous scroll container on both axes, bounded
+   to a max-height, so position: sticky on the header/filter rows resolves
+   against it directly and reliably. Earlier attempts relied on the page
+   itself (#content) staying the sole vertical scroll ancestor via
+   overflow-y: clip on .tbl-wrap — spec-correct on paper, but it didn't
+   reliably stick in practice, so this removes that dependency entirely
+   for the two pages that need it, without changing the plain (non-sticky)
+   tables on Referees/Away/Results, which still use the original
+   unbounded .tbl-wrap alone. */
+.tbl-wrap-sticky { overflow: auto; max-height: calc(100vh - 230px); }
 table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 600px; }
 /* Sticky header/filter rows (Athletes, Employees) already get position:
    sticky + solid background inline per-cell; this adds the subtle
