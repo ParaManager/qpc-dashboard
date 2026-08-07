@@ -94,6 +94,11 @@ function OfficialsPicker({ roleKey, title, officials, employees, eventId, canEdi
   const [pick, setPick]     = useState('')
   const assigned  = officials[roleKey] || []
   const available = employees.filter(e => !assigned.find(o => o.employee_id === e.id))
+  // Read-only (Coach/Staff) viewers never see an empty role section at
+  // all — no heading, no "No employees assigned" placeholder — since
+  // they can't act on it anyway. Admin keeps the heading + empty state
+  // so they know the section exists and can add someone.
+  if (assigned.length === 0 && !canEditMode) return null
   return (
     <div style={{ marginBottom: 18 }}>
       <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 6 }}>{title}</div>
@@ -344,9 +349,9 @@ export default function Events({ events, athletes, results, registrations, onRef
         })
       : eligible
     const evResults          = results.filter(r => r.event_name === ev.name)
-    const canReg             = ['Upcoming', 'In Progress', 'Planning'].includes(evStatus)
     const canManageOfficials = ['Planning', 'Upcoming'].includes(evStatus)
     const canEditProfile     = canEdit(profile)
+    const canReg             = canEditProfile && ['Upcoming', 'In Progress', 'Planning'].includes(evStatus)
 
     const editRecord = {
       id: ev.id, name: ev.name, nameAr: ev.name_ar,
