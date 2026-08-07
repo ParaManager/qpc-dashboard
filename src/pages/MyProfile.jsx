@@ -32,10 +32,13 @@ const DESIGNATION_AR = {
   'Coordinator':       'منسق',
 }
 
-// Real, combined "My Profile" — one page showing every role linked to the
-// logged-in person's person_id, instead of routing to whichever single
-// role page happened to match first. Falls back gracefully (renders
-// nothing extra) for anyone without a person_id yet (pre-migration data).
+// Real, combined "My Profile" — built from every CURRENT role linked to the
+// logged-in person's person_id, not from profiles.role (the login/
+// permission role) and not from whichever single role happened to match
+// first. A person can genuinely hold more than one current role at once
+// (e.g. Coach + Staff) — all of them are shown, each as its own card.
+// Historical/inactive role records are surfaced only as a small "Former X"
+// note, never as a current role or as the page's primary identity.
 export default function MyProfile({ profile, athletes, coaches, employees, referees, onNav }) {
   const { lang, tx } = useLang()
   const ar = lang === 'ar'
@@ -43,10 +46,19 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
 
   const { roles, loading } = usePersonRoles(personId)
 
-  const myAthlete  = athletes.find(a => a.person_id === personId)
-  const myCoach    = coaches.find(c => c.person_id === personId)
-  const myEmployee = employees.find(e => e.person_id === personId)
-  const myReferee  = (referees || []).find(r => r.person_id === personId)
+  // Current (non-historical) role records — the actual source of truth for
+  // "what is this person right now", independent of profiles.role.
+  const myAthlete  = athletes.find(a => a.person_id === personId && !a.is_historical)
+  const myCoach    = coaches.find(c => c.person_id === personId && !c.is_historical)
+  const myEmployee = employees.find(e => e.person_id === personId && !e.is_historical)
+  const myReferee  = (referees || []).find(r => r.person_id === personId && !r.is_historical)
+
+  // Historical/former matches — only used for the small "Former X" note,
+  // and only shown when there's no CURRENT record of that same role.
+  const myFormerCoach    = !myCoach    ? coaches.find(c => c.person_id === personId && c.is_historical) : null
+  const myFormerEmployee = !myEmployee ? employees.find(e => e.person_id === personId && e.is_historical) : null
+
+  const hasAnyCurrentRole = !!(myAthlete || myCoach || myEmployee || myReferee)
 
   const statusLabel = (record) => {
     const s = effectiveStatus(record)
@@ -64,10 +76,19 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
     return tx('countries.' + nat, nat)
   }
 
-  // One combined Documents list — every role linked to this person_id
-  // contributes its documents into a single fetch/list, deduplicated by
-  // file path so a shared document referenced from multiple places never
-  // appears twice.
+  const yearsOfServiceFrom = (dateStr) => {
+    if (!dateStr) return null
+    const start = new Date(dateStr)
+    const now = new Date()
+    const months = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth())
+    if (months < 12) return ar ? `${months} شهر` : `${months} mo`
+    const y = Math.floor(months / 12), m = months % 12
+    return m > 0 ? `${y}y ${m}mo` : (ar ? `${y} سنة` : `${y} yr${y!==1?'s':''}`)
+  }
+
+  // One combined Documents list — every CURRENT role linked to this
+  // person_id contributes its documents into a single fetch/list,
+  // deduplicated by file path so a shared document never appears twice.
   const [allDocs, setAllDocs] = useState([])
   const [docsLoaded, setDocsLoaded] = useState(false)
   useEffect(() => {
@@ -109,13 +130,30 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
   }
 
   const displayName = ar && myEmployee?.name_ar ? myEmployee.name_ar
-    : ar && myAthlete?.name_ar ? myAthlete.name_ar
     : ar && myCoach?.name_ar ? myCoach.name_ar
-    : (myEmployee || myAthlete || myCoach || myReferee)?.name || profile?.full_name
+    : ar && myAthlete?.name_ar ? myAthlete.name_ar
+    : ar && myReferee?.name_ar ? myReferee.name_ar
+    : (myEmployee || myCoach || myAthlete || myReferee)?.name || profile?.full_name
 
-  const photoUrl = myEmployee?.photo_url || myAthlete?.photo_url || myCoach?.photo_url || myReferee?.photo_url
+  const displayNameAlt = ar
+    ? (myEmployee || myCoach || myAthlete || myReferee)?.name
+    : (myEmployee?.name_ar || myCoach?.name_ar || myAthlete?.name_ar || myReferee?.name_ar)
 
-  const nationality = (myEmployee || myAthlete || myCoach || myReferee)?.nationality
+  const photoUrl = myEmployee?.photo_url || myCoach?.photo_url || myAthlete?.photo_url || myReferee?.photo_url
+
+  const nationality = (myEmployee || myCoach || myAthlete || myReferee)?.nationality
+  const phone = myEmployee?.phone || myCoach?.phone || myAthlete?.phone
+  const email = myEmployee?.email || myCoach?.email || myAthlete?.email || profile?.email
+
+  // Current-role labels for the badge row — e.g. "Coach" + "Staff — Technical Expert".
+  const roleBadgeLabels = [
+    myCoach && (ar ? 'مدرب' : 'Coach'),
+    myEmployee && (ar
+      ? `الكادر${myEmployee.designation_ar || myEmployee.designation ? ' — ' + (myEmployee.designation_ar || DESIGNATION_AR[myEmployee.designation] || myEmployee.designation) : ''}`
+      : `Staff${myEmployee.designation ? ' — ' + myEmployee.designation : ''}`),
+    myAthlete && (ar ? 'رياضي' : 'Athlete'),
+    myReferee && (ar ? 'حكم' : 'Referee'),
+  ].filter(Boolean)
 
   return (
     <div>
@@ -131,41 +169,31 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
             ? <img src={photoUrl} alt={displayName} style={{ width: 90, height: 90, borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--border)', margin: '0 auto 14px' }} />
             : <div style={{ width: 90, height: 90, margin: '0 auto 14px' }}><Avatar name={displayName || '?'} id={Math.abs([...String(personId||'')].reduce((h,c)=>(h*31+c.charCodeAt(0))|0,0))} size={90} fs={26} /></div>
           }
-          {myCoach ? (
+          {hasAnyCurrentRole ? (
             <>
-              <div className="detail-name">{ar && myCoach.name_ar ? myCoach.name_ar : myCoach.name}</div>
-              <div className="detail-sub">{ar ? myCoach.name : (myCoach.name_ar || '')}</div>
+              <div className="detail-name">{displayName}</div>
+              <div className="detail-sub">{displayNameAlt || ''}</div>
+              {/* One badge per current role — a multi-role person (e.g.
+                  Coach + Staff) shows every role here, never collapsed
+                  into a single one. */}
               <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)' }}>{ar ? 'مدرب' : 'Coach'}</span>
-                <span className={`badge ${statusClass(effectiveStatus(myCoach))}`} style={{ fontSize: 10.5 }}>{statusLabel(myCoach)}</span>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
+                  {roleBadgeLabels.map(label => (
+                    <span key={label} style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text2)', background: 'var(--surface2)', padding: '2px 9px', borderRadius: 20 }}>{label}</span>
+                  ))}
+                </div>
+                {(myFormerCoach || myFormerEmployee) && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
+                    {myFormerCoach && <span style={{ fontSize: 10.5, color: 'var(--text3)' }}>{ar ? 'مدرب سابق' : 'Former Coach'}</span>}
+                    {myFormerEmployee && <span style={{ fontSize: 10.5, color: 'var(--text3)' }}>{ar ? 'كادر سابق' : 'Former Staff'}</span>}
+                  </div>
+                )}
               </div>
               <div className="detail-fields" style={{ marginTop: 10 }}>
                 {[
-                  [ar ? 'الرياضة' : 'Sport', sportLabel(myCoach.sport)],
-                  [ar ? 'فئة الرياضة' : 'Sport category', myCoach.sport_category ? (ar ? (SPORT_CATEGORY_NAMES_AR[myCoach.sport_category]||myCoach.sport_category) : myCoach.sport_category) : null],
-                  [ar ? 'الجنسية' : 'Nationality', nationalityLabel(myCoach.nationality)],
-                  [ar ? 'الجنس' : 'Gender', myCoach.gender ? (ar ? (myCoach.gender==='Male'?'ذكر':'أنثى') : myCoach.gender) : null],
-                  [ar ? 'الهاتف' : 'Phone', myCoach.phone || myEmployee?.phone],
-                  [ar ? 'البريد الإلكتروني' : 'Email', myCoach.email || myEmployee?.email || profile?.email],
-                ].filter(([, v]) => v).map(([k, v]) => (
-                  <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv" style={{ fontSize: 12 }}>{v}</span></div>
-                ))}
-              </div>
-            </>
-          ) : myEmployee ? (
-            <>
-              <div className="detail-name">{ar && myEmployee.name_ar ? myEmployee.name_ar : myEmployee.name}</div>
-              <div className="detail-sub">{ar ? myEmployee.name : (myEmployee.name_ar || '')}</div>
-              <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)' }}>{ar ? 'عضو كادر' : 'Staff Member'}</span>
-                <span className={`badge ${statusClass(effectiveStatus(myEmployee))}`} style={{ fontSize: 10.5 }}>{statusLabel(myEmployee)}</span>
-              </div>
-              <div className="detail-fields" style={{ marginTop: 10 }}>
-                {[
-                  [ar ? 'الجنسية' : 'Nationality', nationalityLabel(myEmployee.nationality)],
-                  [ar ? 'الجنس' : 'Gender', myEmployee.gender ? (ar ? (myEmployee.gender==='Male'?'ذكر':'أنثى') : myEmployee.gender) : null],
-                  [ar ? 'الهاتف' : 'Phone', myEmployee.phone],
-                  [ar ? 'البريد الإلكتروني' : 'Email', myEmployee.email || profile?.email],
+                  [ar ? 'الجنسية' : 'Nationality', nationalityLabel(nationality)],
+                  [ar ? 'الهاتف' : 'Phone', phone],
+                  [ar ? 'البريد الإلكتروني' : 'Email', email],
                 ].filter(([, v]) => v).map(([k, v]) => (
                   <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv" style={{ fontSize: 12 }}>{v}</span></div>
                 ))}
@@ -175,11 +203,17 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
             <>
               <div className="detail-name">{displayName}</div>
               {!loading && <RoleBadges roles={roles} lang={lang} />}
+              {(myFormerCoach || myFormerEmployee) && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center', marginTop: 6 }}>
+                  {myFormerCoach && <span style={{ fontSize: 10.5, color: 'var(--text3)' }}>{ar ? 'مدرب سابق' : 'Former Coach'}</span>}
+                  {myFormerEmployee && <span style={{ fontSize: 10.5, color: 'var(--text3)' }}>{ar ? 'كادر سابق' : 'Former Staff'}</span>}
+                </div>
+              )}
               <div className="detail-fields">
                 {[
                   [ar ? 'الجنسية' : 'Nationality', nationalityLabel(nationality)],
-                  [ar ? 'الهاتف' : 'Phone', myEmployee?.phone || myAthlete?.phone || myCoach?.phone],
-                  [ar ? 'البريد الإلكتروني' : 'Email', myEmployee?.email || myAthlete?.email || myCoach?.email || profile?.email],
+                  [ar ? 'الهاتف' : 'Phone', phone],
+                  [ar ? 'البريد الإلكتروني' : 'Email', email],
                 ].filter(([, v]) => v).map(([k, v]) => (
                   <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv" style={{ fontSize: 12 }}>{v}</span></div>
                 ))}
@@ -189,28 +223,22 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {myCoach ? (
+
+          {/* ── COACH — only rendered if this person currently holds a
+              non-historical coach record. ── */}
+          {myCoach && (
             <>
               {(() => {
-                const yearsOfService = (() => {
-                  const startDate = myCoach.since || myEmployee?.join_date
-                  if (!startDate) return null
-                  const start = new Date(startDate)
-                  const now = new Date()
-                  const months = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth())
-                  if (months < 12) return ar ? `${months} شهر` : `${months} mo`
-                  const y = Math.floor(months / 12), m = months % 12
-                  return m > 0 ? `${y}y ${m}mo` : (ar ? `${y} سنة` : `${y} yr${y!==1?'s':''}`)
-                })()
+                const yearsOfService = yearsOfServiceFrom(myCoach.since)
                 const statusDates = (myCoach.status_start || myCoach.status_end) && !(myCoach.status_end && new Date(myCoach.status_end) < new Date(new Date().toDateString()))
                   ? [myCoach.status_start, myCoach.status_end].filter(Boolean).join(' → ') : null
                 const infoFields = [
-                  [ar ? 'المسمى الوظيفي' : 'Designation', ar ? (DESIGNATION_AR[myCoach.designation || myEmployee?.designation] || myCoach.designation || myEmployee?.designation) : (myCoach.designation || myEmployee?.designation)],
-                  [ar ? 'رقم الكادر' : 'Staff Number', myCoach.employee_number || myEmployee?.employee_number],
-                  [ar ? 'رقم QSS' : 'QSS #', myCoach.qss_number || myEmployee?.qss_number],
+                  [ar ? 'المسمى الوظيفي' : 'Designation', ar ? (DESIGNATION_AR[myCoach.designation] || myCoach.designation) : myCoach.designation],
+                  [ar ? 'رقم الكادر' : 'Staff Number', myCoach.employee_number],
+                  [ar ? 'رقم QSS' : 'QSS #', myCoach.qss_number],
                   [ar ? 'الرياضة' : 'Sport', sportLabel(myCoach.sport)],
                   [ar ? 'فئة الرياضة' : 'Sport category', myCoach.sport_category ? (ar ? (SPORT_CATEGORY_NAMES_AR[myCoach.sport_category]||myCoach.sport_category) : myCoach.sport_category) : null],
-                  [ar ? 'تاريخ الانضمام' : 'Join date', myCoach.since || myEmployee?.join_date || null],
+                  [ar ? 'تاريخ الانضمام' : 'Join date', myCoach.since || null],
                   [ar ? 'سنوات الخدمة' : 'Years of Service', yearsOfService],
                   [ar ? 'الحالة' : 'Status', statusLabel(myCoach)],
                   [ar ? 'تواريخ الحالة' : 'Status dates', statusDates],
@@ -230,11 +258,10 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
               {(() => {
                 const isExpired = d => d && new Date(d) < new Date()
                 const idFields = [
-                  [ar ? 'تاريخ الميلاد' : 'Date of birth', myEmployee?.dob],
-                  [ar ? 'الرقم الشخصي' : 'Qatar ID Number', myCoach.id_number || myEmployee?.id_number],
-                  [ar ? 'تاريخ انتهاء الهوية' : 'ID expiry', myCoach.id_expiry || myEmployee?.id_expiry],
-                  [ar ? 'رقم جواز السفر' : 'Passport number', myCoach.passport_number || myEmployee?.passport_number],
-                  [ar ? 'تاريخ انتهاء الجواز' : 'Passport expiry', myCoach.passport_expiry || myEmployee?.passport_expiry],
+                  [ar ? 'الرقم الشخصي' : 'Qatar ID Number', myCoach.id_number],
+                  [ar ? 'تاريخ انتهاء الهوية' : 'ID expiry', myCoach.id_expiry],
+                  [ar ? 'رقم جواز السفر' : 'Passport number', myCoach.passport_number],
+                  [ar ? 'تاريخ انتهاء الجواز' : 'Passport expiry', myCoach.passport_expiry],
                   [ar ? 'الجنسية' : 'Nationality', nationalityLabel(myCoach.nationality)],
                   [ar ? 'الجنس' : 'Gender', myCoach.gender ? (ar ? (myCoach.gender==='Male'?'ذكر':'أنثى') : myCoach.gender) : null],
                 ].filter(([, v]) => v)
@@ -260,18 +287,15 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
                 {ar ? 'عرض ملف المدرب الكامل ←' : 'View full coach profile →'}
               </button>
             </>
-          ) : myEmployee ? (
+          )}
+
+          {/* ── STAFF — only rendered if this person currently holds a
+              non-historical employee record. Shown alongside Coach above
+              when both are current, never instead of it. ── */}
+          {myEmployee && (
             <>
               {(() => {
-                const yearsOfService = (() => {
-                  if (!myEmployee.join_date) return null
-                  const start = new Date(myEmployee.join_date)
-                  const now = new Date()
-                  const months = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth())
-                  if (months < 12) return ar ? `${months} شهر` : `${months} mo`
-                  const y = Math.floor(months / 12), m = months % 12
-                  return m > 0 ? `${y}y ${m}mo` : (ar ? `${y} سنة` : `${y} yr${y!==1?'s':''}`)
-                })()
+                const yearsOfService = yearsOfServiceFrom(myEmployee.join_date)
                 const infoFields = [
                   [ar ? 'المسمى الوظيفي' : 'Designation', ar ? (myEmployee.designation_ar || DESIGNATION_AR[myEmployee.designation] || myEmployee.designation) : myEmployee.designation],
                   [ar ? 'رقم الكادر' : 'Staff Number', myEmployee.employee_number],
@@ -303,7 +327,10 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
                   [ar ? 'الجنسية' : 'Nationality', nationalityLabel(myEmployee.nationality)],
                   [ar ? 'الجنس' : 'Gender', myEmployee.gender ? (ar ? (myEmployee.gender==='Male'?'ذكر':'أنثى') : myEmployee.gender) : null],
                 ].filter(([, v]) => v)
-                if (idFields.length === 0) return null
+                // Skip re-showing Identity Information here if the Coach
+                // card above already covered the same fields (same person,
+                // same documents) — avoids duplicating the same info twice.
+                if (myCoach || idFields.length === 0) return null
                 return (
                   <div className="info-card">
                     <div className="info-title" style={{ marginBottom: 10 }}>{ar ? 'معلومات الهوية' : 'Identity Information'}</div>
@@ -318,10 +345,18 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
                   </div>
                 )
               })()}
-            </>
-          ) : (
-            <>
 
+              {!myCoach && (
+                <button onClick={() => onNav('employees', { employeeId: myEmployee.id })}
+                  className="info-card"
+                  style={{ textAlign: ar ? 'right' : 'left', cursor: 'pointer', background: 'none', border: '1px solid var(--border)', fontSize: 12, color: '#0085C7', padding: '10px 14px', fontFamily: 'DM Sans, sans-serif' }}>
+                  {ar ? 'عرض ملف الكادر الكامل ←' : 'View full staff profile →'}
+                </button>
+              )}
+            </>
+          )}
+
+          {/* ── ATHLETE ── */}
           {myAthlete && (
             <div className="info-card">
               <div className="info-title" style={{ marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -342,6 +377,7 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
             </div>
           )}
 
+          {/* ── REFEREE ── */}
           {myReferee && (
             <div className="info-card">
               <div className="info-title" style={{ marginBottom: 10 }}>{ar ? 'قسم الحكم' : 'Referee'}</div>
@@ -349,8 +385,6 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
                 {ar ? 'عرض التفاصيل الكاملة ←' : 'View full details →'}
               </button>
             </div>
-          )}
-            </>
           )}
 
           <div className="info-card">
