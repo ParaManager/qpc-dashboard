@@ -193,7 +193,7 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
             <>
               {(() => {
                 const yearsOfService = (() => {
-                  const startDate = myEmployee?.created_at || myCoach.created_at
+                  const startDate = myCoach.since || myEmployee?.join_date
                   if (!startDate) return null
                   const start = new Date(startDate)
                   const now = new Date()
@@ -210,7 +210,7 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
                   [ar ? 'رقم QSS' : 'QSS #', myCoach.qss_number || myEmployee?.qss_number],
                   [ar ? 'الرياضة' : 'Sport', sportLabel(myCoach.sport)],
                   [ar ? 'فئة الرياضة' : 'Sport category', myCoach.sport_category ? (ar ? (SPORT_CATEGORY_NAMES_AR[myCoach.sport_category]||myCoach.sport_category) : myCoach.sport_category) : null],
-                  [ar ? 'تاريخ الانضمام' : 'Join date', myEmployee?.created_at ? new Date(myEmployee.created_at).toISOString().slice(0,10) : null],
+                  [ar ? 'تاريخ الانضمام' : 'Join date', myCoach.since || myEmployee?.join_date || null],
                   [ar ? 'سنوات الخدمة' : 'Years of Service', yearsOfService],
                   [ar ? 'الحالة' : 'Status', statusLabel(myCoach)],
                   [ar ? 'تواريخ الحالة' : 'Status dates', statusDates],
@@ -264,8 +264,8 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
             <>
               {(() => {
                 const yearsOfService = (() => {
-                  if (!myEmployee.created_at) return null
-                  const start = new Date(myEmployee.created_at)
+                  if (!myEmployee.join_date) return null
+                  const start = new Date(myEmployee.join_date)
                   const now = new Date()
                   const months = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth())
                   if (months < 12) return ar ? `${months} شهر` : `${months} mo`
@@ -276,7 +276,7 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
                   [ar ? 'المسمى الوظيفي' : 'Designation', ar ? (myEmployee.designation_ar || DESIGNATION_AR[myEmployee.designation] || myEmployee.designation) : myEmployee.designation],
                   [ar ? 'رقم الكادر' : 'Staff Number', myEmployee.employee_number],
                   [ar ? 'رقم QSS' : 'QSS #', myEmployee.qss_number],
-                  [ar ? 'تاريخ الانضمام' : 'Join date', myEmployee.created_at ? new Date(myEmployee.created_at).toISOString().slice(0,10) : null],
+                  [ar ? 'تاريخ الانضمام' : 'Join date', myEmployee.join_date || null],
                   [ar ? 'سنوات الخدمة' : 'Years of Service', yearsOfService],
                   [ar ? 'الحالة' : 'Status', statusLabel(myEmployee)],
                 ].filter(([, v]) => v)

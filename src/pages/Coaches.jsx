@@ -689,8 +689,8 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
                 card: only populated fields, 2-column grid, no fixed height. */}
             {(() => {
               const yearsOfService = (() => {
-                if (!c.created_at) return null
-                const start = new Date(c.created_at)
+                if (!c.since) return null
+                const start = new Date(c.since)
                 const now = new Date()
                 const months = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth())
                 if (months < 12) return lang==='ar' ? `${months} شهر` : `${months} mo`
