@@ -2956,7 +2956,7 @@ ${myDocs.length > 0 ? `<div class="section">
         )}
       </div>
 
-      <div className="tbl-wrap">
+      <div className="tbl-wrap tbl-wrap-sticky">
         <table>
           <thead>
             <tr ref={headerRowRef}>

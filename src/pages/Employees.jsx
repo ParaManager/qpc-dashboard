@@ -1955,7 +1955,7 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
 
 
 
-      <div className="tbl-wrap">
+      <div className="tbl-wrap tbl-wrap-sticky">
         <table>
           <thead>
             <tr ref={headerRowRef}>
