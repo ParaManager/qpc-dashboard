@@ -58,7 +58,11 @@ export default function AthleteDashboard({ athlete, athletes, coaches, employees
   // season/upcoming, same source as before (registrations junction).
   const myEventIds = (registrations||[]).filter(r => String(r.athlete_id) === String(athlete.id)).map(r => r.event_id)
   const myEvents = (events||[]).filter(e => myEventIds.includes(e.id))
-  const myUpcomingEvents = myEvents
+
+  // Upcoming Events — general system-wide upcoming QPC events, same
+  // source/logic as the Coach/Staff dashboards. Not limited to events the
+  // logged-in athlete is personally registered for.
+  const myUpcomingEvents = (events||[])
     .filter(e => { const st = getEventStatus(e); return e.approval_status === 'Approved' && st === 'Upcoming' })
     .sort((a,b) => new Date(a.start_date) - new Date(b.start_date))
 
@@ -91,7 +95,7 @@ export default function AthleteDashboard({ athlete, athletes, coaches, employees
     { label: tx('nav.employees','Staff'), val: (employees||[]).length, color:'#8b5cf6', icon:'ti-id-badge-2' },
     { label: tx('nav.referees','Referees'), val: (referees||[]).length, color:'#f59e0b', icon:'ti-flag-2' },
     { label: L('Active Sports','الرياضات النشطة'), val: sportEntries.length, color:'#EE334E', icon:'ti-ball-football' },
-    { label: tx('dashboard.activeEvents','Active Events'), val: activeEventsCount, color:'#0085C7', icon:'ti-calendar-event', click: () => onNav('athlete-events') },
+    { label: tx('dashboard.activeEvents','Active Events'), val: activeEventsCount, color:'#0085C7', icon:'ti-calendar-event', click: () => onNav('events') },
   ]
 
   return (
@@ -166,7 +170,7 @@ export default function AthleteDashboard({ athlete, athletes, coaches, employees
           {myUpcomingEvents.slice(0, 4).map(ev => {
             const evStatus = getEventStatus(ev)
             return (
-              <DashRow key={ev.id} onClick={() => onNav('athlete-events')}>
+              <DashRow key={ev.id} onClick={() => onNav('events')}>
                 <div style={{ width:8, height:8, borderRadius:'50%', background:statusDot(evStatus), flexShrink:0 }} />
                 <span style={{ flex:1, fontSize:13 }}>{ar && ev.name_ar ? ev.name_ar : ev.name}</span>
                 <span style={{ fontSize:11, color:'#9aa3b2' }}>{ev.start_date}</span>
