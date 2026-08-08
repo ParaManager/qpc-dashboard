@@ -895,7 +895,7 @@ export default function App() {
           {page==='calendar' && (isCoach || isEmployee) && <Calendar key={`calendar-${refreshToken}`} profile={profile} events={events} employees={employees} onNav={goTo} readOnly />}
           {page==='attendance' && <Attendance key={`attendance-${refreshToken}`} profile={profile} coachId={isAdmin ? null : myCoachId} myAthletes={myAthletes} onNav={goTo} viewOnly={isAdmin} initSessionId={navState.sessionId} />}
           {page==='users'     && isAdmin && <UserManagement key={`users-${refreshToken}`} profile={profile} initUserId={navState?.userId} />}
-          {page==='athlete-dashboard' && <AthleteDashboard key={`dashboard-${refreshToken}`} athlete={myAthlete} athletes={athletes} coaches={coaches} sportsList={sportsList} results={results} events={events} registrations={registrations} onNav={goTo} profile={profile} />}
+          {page==='athlete-dashboard' && <AthleteDashboard key={`dashboard-${refreshToken}`} athlete={myAthlete} athletes={athletes} coaches={coaches} employees={employees} referees={referees} sportsList={sportsList} results={results} events={events} registrations={registrations} onNav={goTo} profile={profile} />}
           {page==='athlete-events'    && <AthleteEvents key={`athlete-events-${refreshToken}`} athlete={myAthlete} events={events} registrations={registrations} results={results} />}
           {page==='athlete-results'   && <AthleteResults key={`athlete-results-${refreshToken}`} athlete={myAthlete} results={results} />}
           {page==='settings'  && <Settings key={`settings-${refreshToken}`} user={user} profile={profile} signOut={signOut} />}
