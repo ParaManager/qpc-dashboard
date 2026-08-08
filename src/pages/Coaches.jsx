@@ -238,7 +238,7 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
   // Coach/Employee viewers get a reduced card field set (no Employee #,
   // adds Sport Category + Gender) and cannot open coach details — Admin
   // is fully unaffected.
-  const restrictedView = profile?.role === 'coach' || profile?.role === 'employee'
+  const restrictedView = profile?.role === 'coach' || profile?.role === 'employee' || profile?.role === 'athlete'
 
   // Per-sport assignments (athlete_sports) — Assigned Athletes and the
   // athlete count must reflect a coach's assignments across ALL their

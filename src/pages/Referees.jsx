@@ -318,7 +318,7 @@ export default function Referees({ referees, onRefresh, profile }) {
   const L = (en, a) => ar ? a : en
   // Coach/Employee viewers get a fixed reduced column set (English/Arabic
   // name, Nationality, Gender only) and cannot open referee details.
-  const restrictedView = profile?.role === 'coach' || profile?.role === 'employee'
+  const restrictedView = profile?.role === 'coach' || profile?.role === 'employee' || profile?.role === 'athlete'
 
   const [search, setSearch]     = useState('')
   const [natF, setNatF]         = useState([])

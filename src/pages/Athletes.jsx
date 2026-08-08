@@ -1146,7 +1146,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
   // Coach/Employee accounts get a fixed, non-configurable column set (per
   // the directory read-only view spec) — 'name' itself is the always-shown
   // sticky column, these are the additional ones.
-  const restrictedView = profile?.role === 'employee' || (profile?.role === 'coach' && isAllAthletesView)
+  const restrictedView = profile?.role === 'employee' || profile?.role === 'athlete' || (profile?.role === 'coach' && isAllAthletesView)
   const RESTRICTED_COLS = ['name', 'name_ar', 'sport', 'disability', 'nationality', 'gender', 'age', 'coach_id', 'status']
   const COLS_STORAGE_KEY = 'qpc_athletes_visible_cols_v2'
   function loadStoredCols(fallback) {
