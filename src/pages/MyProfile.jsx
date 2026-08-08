@@ -3,6 +3,7 @@ import { useLang } from '../lib/LangContext.jsx'
 import { usePersonRoles, RoleBadges } from '../components/RoleBadges.jsx'
 import { effectiveStatus, statusClass, Avatar, SPORT_NAMES_AR, SPORT_CATEGORY_NAMES_AR } from '../lib/helpers'
 import { supabase } from '../lib/supabase'
+import { classifyAthleteType, getAthleteDocumentRules, computeCompletion } from '../lib/documentEngine'
 
 const STATUS_AR = {
   'Active':               'نشط',
@@ -52,6 +53,17 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
   const myCoach    = coaches.find(c => c.person_id === personId && !c.is_historical)
   const myEmployee = employees.find(e => e.person_id === personId && !e.is_historical)
   const myReferee  = (referees || []).find(r => r.person_id === personId && !r.is_historical)
+
+  // My Sports (athlete_sports) — every assigned sport with its category
+  // (derived from the sport) and coach, for the Athlete role card below.
+  const [mySports, setMySports] = useState([])
+  useEffect(() => {
+    if (!myAthlete?.id) { setMySports([]); return }
+    supabase.from('athlete_sports')
+      .select('id, sport_id, coach_id, sports(name, category), coaches(name, name_ar)')
+      .eq('athlete_id', myAthlete.id)
+      .then(({ data, error }) => { if (!error) setMySports(data || []) })
+  }, [myAthlete?.id])
 
   // Historical/former matches — only used for the small "Former X" note,
   // and only shown when there's no CURRENT record of that same role.
@@ -358,23 +370,81 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
 
           {/* ── ATHLETE ── */}
           {myAthlete && (
-            <div className="info-card">
-              <div className="info-title" style={{ marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span>{ar ? 'قسم الرياضي' : 'Athlete'}</span>
-                <span className={`badge ${statusClass(effectiveStatus(myAthlete))}`} style={{ fontSize: 10.5 }}>{statusLabel(myAthlete)}</span>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '4px 16px' }}>
-                {[
-                  [ar ? 'الرياضة' : 'Sport', sportLabel(myAthlete.sport)],
+            <>
+              {(() => {
+                const statusDates = (myAthlete.status_start || myAthlete.status_end) && !(myAthlete.status_end && new Date(myAthlete.status_end) < new Date(new Date().toDateString()))
+                  ? [myAthlete.status_start, myAthlete.status_end].filter(Boolean).join(' → ') : null
+                const age = myAthlete.dob ? Math.floor((Date.now() - new Date(myAthlete.dob)) / (365.25*24*3600*1000)) : null
+                const infoFields = [
+                  [ar ? 'العمر' : 'Age', age],
+                  [ar ? 'رقم QSS' : 'QSS #', myAthlete.qss_number],
+                  [ar ? 'تاريخ الانضمام إلى QPC' : 'QPC Join Date', myAthlete.join_date || null],
                   [ar ? 'التصنيف' : 'Classification', myAthlete.classification],
-                ].filter(([, v]) => v).map(([k, v]) => (
-                  <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv">{v}</span></div>
+                  [ar ? 'الإعاقة' : 'Disability', myAthlete.disability],
+                  [ar ? 'الحالة' : 'Status', statusLabel(myAthlete)],
+                  [ar ? 'تواريخ الحالة' : 'Status dates', statusDates],
+                ].filter(([, v]) => v)
+                return (
+                  <div className="info-card">
+                    <div className="info-title" style={{ marginBottom: 10 }}>{ar ? 'معلومات الرياضي' : 'Athlete Information'}</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '4px 16px' }}>
+                      {infoFields.map(([k, v]) => (
+                        <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv">{v}</span></div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })()}
+
+              {(() => {
+                const isExpired = d => d && new Date(d) < new Date()
+                const idFields = [
+                  [ar ? 'تاريخ الميلاد' : 'Date of birth', myAthlete.dob],
+                  [ar ? 'الرقم الشخصي' : 'Qatar ID Number', myAthlete.id_number],
+                  [ar ? 'تاريخ انتهاء الهوية' : 'ID expiry', myAthlete.id_expiry],
+                  [ar ? 'رقم جواز السفر' : 'Passport number', myAthlete.passport_number],
+                  [ar ? 'تاريخ انتهاء الجواز' : 'Passport expiry', myAthlete.passport_expiry],
+                  [ar ? 'الجنسية' : 'Nationality', nationalityLabel(myAthlete.nationality)],
+                  [ar ? 'الجنس' : 'Gender', myAthlete.gender ? (ar ? (myAthlete.gender==='Male'?'ذكر':'أنثى') : myAthlete.gender) : null],
+                ].filter(([, v]) => v)
+                if (idFields.length === 0) return null
+                return (
+                  <div className="info-card">
+                    <div className="info-title" style={{ marginBottom: 10 }}>{ar ? 'معلومات الهوية' : 'Identity Information'}</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '4px 16px' }}>
+                      {idFields.map(([k, v]) => (
+                        <div key={k} className="detail-row" style={{ minWidth: 0 }}>
+                          <span className="dk">{k}</span>
+                          <span className="dv" style={{ color: k.toLowerCase().includes('expiry') && isExpired(v) ? '#dc2626' : undefined }}>{v}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })()}
+
+              {/* My Sports — athlete_sports is the sole source of truth for
+                  sport/coach assignments; every assigned sport shown, with
+                  its category (derived from the sport) and coach(es). */}
+              <div className="info-card">
+                <div className="info-title" style={{ marginBottom: 10 }}>{ar ? 'رياضاتي' : 'My Sports'} ({mySports.length})</div>
+                {mySports.map(row => (
+                  <div key={row.id} className="detail-row">
+                    <span className="dk">{row.sports?.name || '—'} <span style={{ color: 'var(--text3)', fontWeight: 400 }}>({row.sports?.category || '—'})</span></span>
+                    <span className="dv">
+                      {row.coach_id ? (ar && row.coaches?.name_ar ? row.coaches.name_ar : (row.coaches?.name || '—')) : (ar ? 'بدون مدرب' : 'No coach')}
+                    </span>
+                  </div>
                 ))}
+                {mySports.length === 0 && <div className="empty" style={{ padding: '8px 0', fontSize: 12 }}>{ar ? 'لا توجد رياضات معينة' : 'No sports assigned'}</div>}
               </div>
-              <button onClick={() => onNav('athletes', { athleteId: myAthlete.id })} style={{ marginTop: 10, fontSize: 12, color: '#0085C7', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                {ar ? 'عرض التفاصيل الكاملة ←' : 'View full details →'}
+
+              <button onClick={() => onNav('athletes', { athleteId: myAthlete.id })}
+                className="info-card"
+                style={{ textAlign: ar ? 'right' : 'left', cursor: 'pointer', background: 'none', border: '1px solid var(--border)', fontSize: 12, color: '#0085C7', padding: '10px 14px', fontFamily: 'DM Sans, sans-serif' }}>
+                {ar ? 'عرض الملف الكامل للرياضي ←' : 'View full athlete profile →'}
               </button>
-            </div>
+            </>
           )}
 
           {/* ── REFEREE ── */}
@@ -390,6 +460,19 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
           <div className="info-card">
             <div className="info-title" style={{ marginBottom: 10 }}>
               {ar ? 'الوثائق' : 'Documents'} <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 400, color: 'var(--text3)', textTransform: 'none', letterSpacing: 0 }}>{allDocs.length} {ar ? 'ملف' : `file${allDocs.length !== 1 ? 's' : ''}`}</span>
+              {myAthlete && (() => {
+                const athleteType = classifyAthleteType(myAthlete)
+                const hasMissionPassport = allDocs.some(d => d.type === 'Mission Passport')
+                const rules = getAthleteDocumentRules(athleteType, hasMissionPassport)
+                const completion = computeCompletion(allDocs, rules)
+                if (!completion) return null
+                const isComplete = completion.key === 'complete'
+                return (
+                  <span style={{ marginLeft: 8, fontSize: 10.5, fontWeight: 600, padding: '2px 8px', borderRadius: 10, background: isComplete ? '#009F6B18' : '#f59e0b18', color: isComplete ? '#009F6B' : '#f59e0b' }}>
+                    {isComplete ? (ar ? 'مكتمل' : 'Complete') : (ar ? `${completion.missing} ناقص` : `${completion.missing} missing`)}
+                  </span>
+                )
+              })()}
             </div>
             {!docsLoaded ? (
               <div style={{ fontSize: 12, color: 'var(--text3)' }}>{ar ? 'جارٍ التحميل…' : 'Loading…'}</div>
