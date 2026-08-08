@@ -115,6 +115,7 @@ button, input, select, textarea { font-family: 'DM Sans', sans-serif; }
    ever needs the bigger style back). Same visual language: surface card,
    colored icon chip, hover lift, arrow affordance — just tighter. */
 .kpi-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 14px; }
+.kpi-grid-3 { grid-template-columns: repeat(3,1fr); }
 .kpi-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; box-shadow: var(--shadow); cursor: pointer; transition: all .15s; position: relative; overflow: hidden; display: flex; align-items: center; gap: 10px; }
 .kpi-card:hover { border-color: var(--border2); transform: translateY(-1px); box-shadow: 0 4px 14px rgba(0,0,0,.08); }
 .kpi-card:hover .kpi-arrow { opacity: 1; transform: translateX(0); }
