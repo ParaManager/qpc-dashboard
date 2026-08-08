@@ -27,7 +27,6 @@ import Resources         from './pages/Resources'
 import Requests         from './pages/Requests'
 import Away             from './pages/Away'
 import Tasks              from './pages/Tasks'
-import AthleteEvents     from './pages/AthleteEvents'
 import AthleteResults    from './pages/AthleteResults'
 import Attendance  from './pages/Attendance'
 import Employees from './pages/Employees'
@@ -59,7 +58,7 @@ const NAV_ATHLETE = (tx) => [
   { section: tx('nav.overview','Overview'),      items: [{ id:'athlete-dashboard', icon:'ti-layout-dashboard', label:tx('nav.dashboard','Dashboard') }, { id:'notifications', icon:'ti-bell', label:tx('nav.notifications','Notifications') }, { id:'calendar', icon:'ti-calendar', label:tx('nav.calendar','Calendar') }, { id:'resources', icon:'ti-folder', label:tx('nav.resources','Resources') }, { id:'requests', icon:'ti-clipboard-text', label:tx('nav.requests','Requests') }, { id:'profile', icon:'ti-user-circle', label:tx('nav.profile','My Profile') }] },
   { section: tx('nav.training','Training'),      items: [{ id:'schedule', icon:'ti-calendar', label:tx('nav.schedule','Schedule') }] },
   { section: tx('nav.people','People'), items: [{ id:'athletes-all', icon:'ti-run', label:tx('nav.athletes','Athletes') }, { id:'coaches', icon:'ti-user-star', label:tx('nav.coaches','Coaches') }, { id:'employees', icon:'ti-id-badge-2', label:tx('nav.employees','Staff') }, { id:'referees', icon:'ti-flag-2', label:tx('nav.referees','Referees') }] },
-  { section: tx('nav.mycompetitions','My Competitions'), items: [{ id:'sports', icon:'ti-ball-football', label:tx('nav.sports','Sports') }, { id:'athlete-events', icon:'ti-calendar-event', label:tx('nav.events','Events') }, { id:'athlete-results', icon:'ti-medal', label:tx('nav.results','Results') }] },
+  { section: tx('nav.mycompetitions','My Competitions'), items: [{ id:'sports', icon:'ti-ball-football', label:tx('nav.sports','Sports') }, { id:'events', icon:'ti-calendar-event', label:tx('nav.events','Events') }, { id:'athlete-results', icon:'ti-medal', label:tx('nav.results','Results') }] },
   { section: tx('nav.account','Account'),         items: [{ id:'settings', icon:'ti-settings', label:tx('nav.settings','Settings') }] },
 ]
 
@@ -904,7 +903,6 @@ export default function App() {
           {page==='calendar' && (isCoach || isEmployee || isAthlete) && <Calendar key={`calendar-${refreshToken}`} profile={profile} events={events} employees={employees} onNav={goTo} readOnly />}
           {page==='attendance' && <Attendance key={`attendance-${refreshToken}`} profile={profile} coachId={isAdmin ? null : myCoachId} myAthletes={myAthletes} onNav={goTo} viewOnly={isAdmin} initSessionId={navState.sessionId} />}
           {page==='users'     && isAdmin && <UserManagement key={`users-${refreshToken}`} profile={profile} initUserId={navState?.userId} />}
-          {page==='athlete-events'    && <AthleteEvents key={`athlete-events-${refreshToken}`} athlete={myAthlete} events={events} registrations={registrations} results={results} />}
           {page==='athlete-results'   && <AthleteResults key={`athlete-results-${refreshToken}`} athlete={myAthlete} results={results} />}
           {page==='settings'  && <Settings key={`settings-${refreshToken}`} user={user} profile={profile} signOut={signOut} />}
           {/* My Profile: open the same detail page this person already has
