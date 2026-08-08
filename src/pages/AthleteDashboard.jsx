@@ -10,7 +10,7 @@ function getEventStatus(ev) {
   return computeEventStatus(ev.start_date, ev.end_date, ev.deadline)
 }
 
-export default function AthleteDashboard({ athlete, athletes, coaches, sportsList = [], results, events, registrations, onNav, profile }) {
+export default function AthleteDashboard({ athlete, athletes, coaches, employees, referees, sportsList = [], results, events, registrations, onNav, profile }) {
   const { lang, tx } = useLang()
   const ar = lang === 'ar'
   const L = (en, a) => ar ? a : en
@@ -54,8 +54,6 @@ export default function AthleteDashboard({ athlete, athletes, coaches, sportsLis
       })
   }, [athlete?.id])
 
-  const allAthletes = athletes || []
-
   // Competitions This Season — registered events within the current
   // season/upcoming, same source as before (registrations junction).
   const myEventIds = (registrations||[]).filter(r => String(r.athlete_id) === String(athlete.id)).map(r => r.event_id)
@@ -70,23 +68,31 @@ export default function AthleteDashboard({ athlete, athletes, coaches, sportsLis
 
   const athleteStatus = effectiveStatus(athlete)
 
-  const kpiCards = [
-    { label: L('Upcoming Events','الفعاليات القادمة'), val: myUpcomingEvents.length, color:'#0085C7', icon:'ti-calendar-event', click: () => onNav('athlete-events') },
-    { label: L('Upcoming Sessions','الجلسات القادمة'), val: upcomingSessions.length, color:'#8b5cf6', icon:'ti-calendar-time' },
-    { label: L('Competitions This Season','منافسات هذا الموسم'), val: myEvents.length, color:'#0085C7', icon:'ti-trophy', click: () => onNav('athlete-events') },
-    { label: L('Active Sports','الرياضات النشطة'), val: mySports.length, color:'#009F6B', icon:'ti-ball-football' },
-    { label: L('Gold Medals','ميداليات ذهبية'), val: gold, color:'#f1c40f', icon:'ti-medal' },
-    { label: L('Silver Medals','ميداليات فضية'), val: silver, color:'#9aa3b2', icon:'ti-medal' },
-    { label: L('Bronze Medals','ميداليات برونزية'), val: bronze, color:'#cd7f32', icon:'ti-medal' },
-  ]
+  const allAthletes = athletes || []
 
-  // Sports Breakdown — system-wide, same logic/visuals as Admin/Coach/Staff.
+  // Sports Breakdown / Active Sports — system-wide, same logic as
+  // Admin/Coach/Staff dashboards (moved up so the KPI card below can use it).
   const sportEntries = SPORT_CATEGORIES.flatMap(category =>
     ((category === 'Summer Paralympic' ? SPORTS_BY_CATEGORY[category].filter(s => s !== 'Special Olympics') : SPORTS_BY_CATEGORY[category]) || []).map(s => ({
       sport: s, category,
       count: allAthletes.filter(a => a.sport === s && a.sport_category === category).length,
     }))
   ).filter(e => e.count > 0)
+
+  // Active Events — system-wide, same logic as Admin/Coach/Staff dashboards.
+  const activeEventsCount = (events||[]).filter(e => {
+    const st = getEventStatus(e)
+    return e.approval_status === 'Approved' && (st === 'Upcoming' || st === 'In Progress')
+  }).length
+
+  const kpiCards = [
+    { label: L('Total Athletes','إجمالي الرياضيين'), val: allAthletes.length, color:'#0085C7', icon:'ti-users' },
+    { label: tx('nav.coaches','Coaches'), val: (coaches||[]).length, color:'#009F6B', icon:'ti-user-star' },
+    { label: tx('nav.employees','Staff'), val: (employees||[]).length, color:'#8b5cf6', icon:'ti-id-badge-2' },
+    { label: tx('nav.referees','Referees'), val: (referees||[]).length, color:'#f59e0b', icon:'ti-flag-2' },
+    { label: L('Active Sports','الرياضات النشطة'), val: sportEntries.length, color:'#EE334E', icon:'ti-ball-football' },
+    { label: tx('dashboard.activeEvents','Active Events'), val: activeEventsCount, color:'#0085C7', icon:'ti-calendar-event', click: () => onNav('athlete-events') },
+  ]
 
   return (
     <div>
@@ -187,24 +193,6 @@ export default function AthleteDashboard({ athlete, athletes, coaches, sportsLis
           ))}
           {upcomingSessions.length === 0 && <div className="empty">{L('No upcoming sessions','لا توجد جلسات قادمة')}</div>}
         </div>
-      </div>
-
-      {/* ── My Sports — athlete_sports (sport, category, coach) ── */}
-      <div className="card" style={{ marginBottom: 14 }}>
-        <div className="card-title"><i className="ti ti-ball-football" /> {L('My Sports','رياضاتي')} ({mySports.length})</div>
-        {mySports.map(row => (
-          <DashRow key={row.id}>
-            <div style={{ width:8, height:8, borderRadius:'50%', background:'#009F6B', flexShrink:0 }} />
-            <div style={{ flex:1, minWidth:0 }}>
-              <div style={{ fontSize:13, fontWeight:500 }}>{row.sports?.name || '—'}</div>
-              <div style={{ fontSize:11, color:'#9aa3b2' }}>{row.sports?.category || ''}</div>
-            </div>
-            <span style={{ fontSize:12, color:'var(--text2)' }}>
-              {row.coach_id ? (ar && row.coaches?.name_ar ? row.coaches.name_ar : (row.coaches?.name || '—')) : L('No coach','بدون مدرب')}
-            </span>
-          </DashRow>
-        ))}
-        {mySports.length === 0 && <div className="empty">{L('No sports assigned','لا توجد رياضات معينة')}</div>}
       </div>
 
       {/* ── Sports Breakdown — identical to Admin/Coach/Staff ── */}
