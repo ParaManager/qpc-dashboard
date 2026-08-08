@@ -56,9 +56,10 @@ const NAV_EMPLOYEE = (tx) => [
   { section: tx('nav.account','Account'),         items: [{ id:'settings', icon:'ti-settings', label:tx('nav.settings','Settings') }] },
 ]
 const NAV_ATHLETE = (tx) => [
-  { section: tx('nav.overview','Overview'),      items: [{ id:'athlete-dashboard', icon:'ti-layout-dashboard', label:tx('nav.dashboard','Dashboard') }, { id:'notifications', icon:'ti-bell', label:tx('nav.notifications','Notifications') }, { id:'resources', icon:'ti-folder', label:tx('nav.resources','Resources') }, { id:'requests', icon:'ti-clipboard-text', label:tx('nav.requests','Requests') }, { id:'profile', icon:'ti-user-circle', label:tx('nav.profile','My Profile') }] },
+  { section: tx('nav.overview','Overview'),      items: [{ id:'athlete-dashboard', icon:'ti-layout-dashboard', label:tx('nav.dashboard','Dashboard') }, { id:'notifications', icon:'ti-bell', label:tx('nav.notifications','Notifications') }, { id:'calendar', icon:'ti-calendar', label:tx('nav.calendar','Calendar') }, { id:'resources', icon:'ti-folder', label:tx('nav.resources','Resources') }, { id:'requests', icon:'ti-clipboard-text', label:tx('nav.requests','Requests') }, { id:'profile', icon:'ti-user-circle', label:tx('nav.profile','My Profile') }] },
   { section: tx('nav.training','Training'),      items: [{ id:'schedule', icon:'ti-calendar', label:tx('nav.schedule','Schedule') }] },
-  { section: tx('nav.mycompetitions','My Competitions'), items: [{ id:'athlete-events', icon:'ti-calendar-event', label:tx('nav.events','Events') }, { id:'athlete-results', icon:'ti-medal', label:tx('nav.results','Results') }] },
+  { section: tx('nav.people','People'), items: [{ id:'athletes-all', icon:'ti-run', label:tx('nav.athletes','Athletes') }, { id:'coaches', icon:'ti-user-star', label:tx('nav.coaches','Coaches') }, { id:'employees', icon:'ti-id-badge-2', label:tx('nav.employees','Staff') }, { id:'referees', icon:'ti-flag-2', label:tx('nav.referees','Referees') }] },
+  { section: tx('nav.mycompetitions','My Competitions'), items: [{ id:'sports', icon:'ti-ball-football', label:tx('nav.sports','Sports') }, { id:'athlete-events', icon:'ti-calendar-event', label:tx('nav.events','Events') }, { id:'athlete-results', icon:'ti-medal', label:tx('nav.results','Results') }] },
   { section: tx('nav.account','Account'),         items: [{ id:'settings', icon:'ti-settings', label:tx('nav.settings','Settings') }] },
 ]
 
@@ -748,7 +749,14 @@ export default function App() {
 
   const roleColor = ROLE_COLORS[role]
   const roleIcon  = ROLE_ICONS[role]
-  const userName  = profile?.full_name || (user.email?.endsWith('@qpc-system.qa') ? user.email.replace('@qpc-system.qa','') : user.email)
+  // The linked role record for the CURRENT role, so its name/name_ar can
+  // be shown reactively per the active UI language — profile.full_name is
+  // a static string captured once at signup time (whatever language was
+  // active then) and never updates when the user switches languages later.
+  const myNameRecord = isAthlete ? myAthlete : isCoach ? myCoachRecord : (isEmployee || isAdmin) ? myEmployeeRecord : null
+  const userName = myNameRecord
+    ? (lang === 'ar' && myNameRecord.name_ar ? myNameRecord.name_ar : myNameRecord.name)
+    : (profile?.full_name || (user.email?.endsWith('@qpc-system.qa') ? user.email.replace('@qpc-system.qa','') : user.email))
   // Same photo source as My Profile: resolve by person_id across every
   // linked role first (covers multi-role accounts and referees, which the
   // old role-id-only lookup below never checked), falling back to the
@@ -888,11 +896,11 @@ export default function App() {
           {page==='dashboard' && isCoach  && <CoachDashboard key={`dashboard-${refreshToken}`} coach={myCoachRecord} athletes={athletes} myAthletes={myAthletes} coaches={coaches} employees={employees} referees={referees} events={events} results={results} onNav={goTo} profile={profile} />}
           {page==='dashboard' && isEmployee && <EmployeeDashboard key={`dashboard-${refreshToken}`} employee={myEmployeeRecord} athletes={athletes} coaches={coaches} employees={employees} referees={referees} events={events} onNav={goTo} profile={profile} />}
           {page==='athletes'  && <Athletes  key={`athletes-${refreshToken}`} athletes={myAthletes} coaches={coaches} employees={employees} results={results} documents={documents} events={events} registrations={registrations} onRefresh={fetchAll} onNav={goTo} initAthleteId={navState.athleteId} initStatusFilter={navState.statusFilter} navState={navState} profile={profile} sportsList={sportsList} pageTitle={isCoach ? tx('athletes.myAthletes','My Athletes') : undefined} />}
-          {page==='athletes-all' && (isCoach || isEmployee) && <Athletes key={`athletes-all-${refreshToken}`} athletes={athletes} coaches={coaches} employees={employees} results={results} documents={documents} events={events} registrations={registrations} onRefresh={fetchAll} onNav={goTo} initAthleteId={navState.athleteId} initStatusFilter={navState.statusFilter} navState={navState} profile={profile} sportsList={sportsList} isAllAthletesView />}
-          {page==='coaches'   && (isAdmin || isCoach || isEmployee) && <Coaches   key={`coaches-${refreshToken}`} coaches={coaches} athletes={athletes} employees={employees} personDocs={personDocs} onRefresh={fetchAll} onNav={goTo} initCoachId={navState.coachId} navState={navState} profile={profile} />}
+          {page==='athletes-all' && (isCoach || isEmployee || isAthlete) && <Athletes key={`athletes-all-${refreshToken}`} athletes={athletes} coaches={coaches} employees={employees} results={results} documents={documents} events={events} registrations={registrations} onRefresh={fetchAll} onNav={goTo} initAthleteId={navState.athleteId} initStatusFilter={navState.statusFilter} navState={navState} profile={profile} sportsList={sportsList} isAllAthletesView />}
+          {page==='coaches'   && (isAdmin || isCoach || isEmployee || isAthlete) && <Coaches   key={`coaches-${refreshToken}`} coaches={coaches} athletes={athletes} employees={employees} personDocs={personDocs} onRefresh={fetchAll} onNav={goTo} initCoachId={navState.coachId} navState={navState} profile={profile} />}
           {page==='events' && <Events key={`events-${refreshToken}`} events={events} athletes={athletes} employees={employees} results={results} registrations={registrations} onRefresh={fetchAll} onNav={goTo} initEventId={navState.eventId} initStatusFilter={navState.statusFilter} profile={profile} eventCategories={eventCategories} sportsList={sportsList} />} {page==='schedule'  && <Schedule  key={`schedule-${refreshToken}`} profile={profile} coachId={isAdmin ? null : myCoachId} myAthletes={myAthletes} athletes={athletes} coaches={coaches} onNav={goTo} readOnly={isAthlete} viewOnly={isAdmin} athleteId={isAthlete ? myAthleteId : null} initSessionId={navState?.sessionId} initCoachFilter={navState?.coachFilter} />}
           {page==='calendar' && isAdmin && <Calendar key={`calendar-${refreshToken}`} profile={profile} events={events} employees={employees} onNav={goTo} />}
-          {page==='calendar' && (isCoach || isEmployee) && <Calendar key={`calendar-${refreshToken}`} profile={profile} events={events} employees={employees} onNav={goTo} readOnly />}
+          {page==='calendar' && (isCoach || isEmployee || isAthlete) && <Calendar key={`calendar-${refreshToken}`} profile={profile} events={events} employees={employees} onNav={goTo} readOnly />}
           {page==='attendance' && <Attendance key={`attendance-${refreshToken}`} profile={profile} coachId={isAdmin ? null : myCoachId} myAthletes={myAthletes} onNav={goTo} viewOnly={isAdmin} initSessionId={navState.sessionId} />}
           {page==='users'     && isAdmin && <UserManagement key={`users-${refreshToken}`} profile={profile} initUserId={navState?.userId} />}
           {page==='athlete-dashboard' && <AthleteDashboard key={`dashboard-${refreshToken}`} athlete={myAthlete} athletes={athletes} coaches={coaches} employees={employees} referees={referees} sportsList={sportsList} results={results} events={events} registrations={registrations} onNav={goTo} profile={profile} />}
@@ -919,10 +927,10 @@ export default function App() {
           {page==='requests'     && <Requests  key={`requests-${refreshToken}`} profile={profile} onNav={goTo} navState={navState} />}
           {page==='away' && isAdmin && <Away key={`away-${refreshToken}`} athletes={athletes} coaches={coaches} employees={employees} onNav={goTo} profile={profile} />}
           {page==='tasks'         && <Tasks key={`tasks-${refreshToken}`} profile={profile} isMainAdmin={isMainAdmin} onNav={goTo} />}
-          {page==='referees'  && (isAdmin || isCoach || isEmployee) && <Referees key={`referees-${refreshToken}`} referees={referees} onRefresh={fetchAll} profile={profile} />}
+          {page==='referees'  && (isAdmin || isCoach || isEmployee || isAthlete) && <Referees key={`referees-${refreshToken}`} referees={referees} onRefresh={fetchAll} profile={profile} />}
           {page==='results'   && <Results   key={`results-${refreshToken}`} results={results} athletes={athletes} onRefresh={fetchAll} onNav={goTo} profile={profile} />}
-          {page==='sports'    && (isAdmin || isCoach || isEmployee) && <Sports    key={`sports-${refreshToken}`} athletes={athletes} coaches={coaches} events={events} results={results} onNav={goTo} initSport={navState.sport} initCategory={navState.category} profile={profile} />}
-          {page==='employees' && (isAdmin || isCoach || isEmployee) && <Employees key={`employees-${refreshToken}`} employees={employees} coaches={coaches} personDocs={personDocs} onRefresh={fetchAll} onNav={goTo} initEmployeeId={navState.employeeId} navState={navState} profile={profile} />}
+          {page==='sports'    && (isAdmin || isCoach || isEmployee || isAthlete) && <Sports    key={`sports-${refreshToken}`} athletes={athletes} coaches={coaches} events={events} results={results} onNav={goTo} initSport={navState.sport} initCategory={navState.category} profile={profile} />}
+          {page==='employees' && (isAdmin || isCoach || isEmployee || isAthlete) && <Employees key={`employees-${refreshToken}`} employees={employees} coaches={coaches} personDocs={personDocs} onRefresh={fetchAll} onNav={goTo} initEmployeeId={navState.employeeId} navState={navState} profile={profile} />}
         </div>
       </div>
       <ToastContainer />
