@@ -144,7 +144,7 @@ export default function AthleteDashboard({ athlete, athletes, coaches, employees
       </div>
 
       {/* ── KPI Cards ── */}
-      <div className="kpi-grid">
+      <div className="kpi-grid kpi-grid-3">
         {kpiCards.map(({ label, val, color, icon, click }) => (
           <div key={label} className="kpi-card" onClick={click} style={{ cursor: click ? 'pointer' : 'default' }}>
             <div className="kpi-icon" style={{ background: color + '18' }}>

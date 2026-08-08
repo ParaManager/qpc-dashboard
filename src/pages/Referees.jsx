@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from 'react'
+import { useState, useMemo, useRef, useEffect, useLayoutEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
 import { Avatar, avColor, initials, buildSearchText, matchesSearch } from '../lib/helpers'
@@ -325,6 +325,11 @@ export default function Referees({ referees, onRefresh, profile }) {
   const [genderF, setGenderF]   = useState([])
   const [sort, setSort]         = useState('name-asc')
   const [selected, setSelected] = useState(null)
+  const headerRowRef = useRef(null)
+  const [headerRowHeight, setHeaderRowHeight] = useState(0)
+  useLayoutEffect(() => {
+    if (headerRowRef.current) setHeaderRowHeight(headerRowRef.current.offsetHeight)
+  })
   const [showForm, setShowForm] = useState(false)
   const [editData, setEditData] = useState(null)
   const [saving, setSaving]     = useState(false)
@@ -524,21 +529,21 @@ export default function Referees({ referees, onRefresh, profile }) {
       </div>
 
       {/* Table */}
-      <div className="tbl-wrap">
+      <div className="tbl-wrap tbl-wrap-sticky">
         <table className="tbl">
           <thead>
-            <tr>
-              <th>{sortBtn('name', L('Full Name (English)','الاسم بالإنجليزي'))}</th>
-              <th>{sortBtn('name_ar', L('Full Name (Arabic)','الاسم بالعربي'))}</th>
-              <th>{sortBtn('nationality', L('Nationality','الجنسية'))}</th>
-              <th>{sortBtn('gender', L('Gender','الجنس'))}</th>
-              {!restrictedView && <th>{sortBtn('dob', L('Date of Birth','تاريخ الميلاد'))}</th>}
-              {!restrictedView && <th>{sortBtn('id_number', L('ID Number','الرقم الشخصي'))}</th>}
-              {!restrictedView && <th>{sortBtn('joined_qpc', L('Joined QPC','تاريخ الانضمام'))}</th>}
+            <tr ref={headerRowRef}>
+              <th style={{ position:'sticky', top:0, zIndex:21, background:'var(--surface)' }}>{sortBtn('name', L('Full Name (English)','الاسم بالإنجليزي'))}</th>
+              <th style={{ position:'sticky', top:0, zIndex:21, background:'var(--surface)' }}>{sortBtn('name_ar', L('Full Name (Arabic)','الاسم بالعربي'))}</th>
+              <th style={{ position:'sticky', top:0, zIndex:21, background:'var(--surface)' }}>{sortBtn('nationality', L('Nationality','الجنسية'))}</th>
+              <th style={{ position:'sticky', top:0, zIndex:21, background:'var(--surface)' }}>{sortBtn('gender', L('Gender','الجنس'))}</th>
+              {!restrictedView && <th style={{ position:'sticky', top:0, zIndex:21, background:'var(--surface)' }}>{sortBtn('dob', L('Date of Birth','تاريخ الميلاد'))}</th>}
+              {!restrictedView && <th style={{ position:'sticky', top:0, zIndex:21, background:'var(--surface)' }}>{sortBtn('id_number', L('ID Number','الرقم الشخصي'))}</th>}
+              {!restrictedView && <th style={{ position:'sticky', top:0, zIndex:21, background:'var(--surface)' }}>{sortBtn('joined_qpc', L('Joined QPC','تاريخ الانضمام'))}</th>}
             </tr>
             <tr style={{ background:'#f8f9fb' }}>
-              <th colSpan={2} />
-              <th style={{ padding:'4px 8px' }}>
+              <th colSpan={2} style={{ position:'sticky', top:headerRowHeight, zIndex:20, background:'#f8f9fb' }} />
+              <th style={{ padding:'4px 8px', position:'sticky', top:headerRowHeight, zIndex:20, background:'#f8f9fb' }}>
                 {(() => {
                   const natOptions = [
                     ...[...new Set((referees||[]).map(r => r.nationality).filter(Boolean))].sort().map(c => ({ value: c, label: ar?(COUNTRY_AR[c]||c):c })),
@@ -558,7 +563,7 @@ export default function Referees({ referees, onRefresh, profile }) {
                   )
                 })()}
               </th>
-              <th style={{ padding:'4px 8px' }}>
+              <th style={{ padding:'4px 8px', position:'sticky', top:headerRowHeight, zIndex:20, background:'#f8f9fb' }}>
                 {(() => {
                   const genderOptions = [
                     { value: 'Male', label: L('Male','ذكر') },
@@ -578,7 +583,7 @@ export default function Referees({ referees, onRefresh, profile }) {
                   )
                 })()}
               </th>
-              <th colSpan={3} />
+              <th colSpan={3} style={{ position:'sticky', top:headerRowHeight, zIndex:20, background:'#f8f9fb' }} />
             </tr>
           </thead>
           <tbody>
