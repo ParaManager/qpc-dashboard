@@ -45,6 +45,32 @@ export default function Sports({ athletes, coaches, events, results, onNav, init
       (s.name === shortName || s.name === `Para ${shortName}` || s.name === `SO ${shortName}` || s.name === `Unified ${shortName}`)
     ) || null
   }
+
+  // Athlete counts per sport — must come from athlete_sports (the
+  // multi-sport source of truth), not athletes.sport (the legacy single-
+  // sport field). An athlete assigned to multiple sports (e.g. both
+  // Powerlifting and Swimming) appears under every one of them; the same
+  // athlete is never double-counted for the same sport even if a
+  // duplicate junction row somehow exists, since athletesForSport
+  // deduplicates by athlete id.
+  const [athleteSportRows, setAthleteSportRows] = useState([])
+  useEffect(() => {
+    supabase.from('athlete_sports').select('athlete_id, sport_id')
+      .then(({ data, error }) => { if (!error) setAthleteSportRows(data || []) })
+  }, [])
+  function athletesForSport(athletes, shortName, category) {
+    const row = findSportStatusRow(shortName, category)
+    const athleteIds = row
+      ? new Set(athleteSportRows.filter(r => r.sport_id === row.id).map(r => r.athlete_id))
+      : new Set()
+    if (athleteIds.size > 0) return athletes.filter(a => athleteIds.has(a.id))
+    // Fallback for any athlete not yet migrated into athlete_sports —
+    // keeps the page working during the transition rather than silently
+    // showing 0 for a sport nobody's been assigned to through the
+    // junction table yet.
+    return athletes.filter(a => a.sport === shortName && (a.sport_category === category || !a.sport_category))
+  }
+
   function getSportStatus(shortName, category) {
     return findSportStatusRow(shortName, category)?.status || 'Planned'
   }
@@ -88,7 +114,7 @@ export default function Sports({ athletes, coaches, events, results, onNav, init
     // Filter by both sport name and category, since the same sport word (e.g.
     // "Athletics") can mean either program — without this, viewing "Para Athletics"
     // would also pull in Special Olympics athletes who happen to share that word.
-    const myAths   = athletes.filter(a => a.sport === selSport && (a.sport_category === selCategory || !a.sport_category))
+    const myAths   = athletesForSport(athletes, selSport, selCategory)
     const myCoaches = coaches.filter(c => c.sport === selSport && (c.sport_category === selCategory || !c.sport_category))
     const myEvents = events.filter(e => (e.sports || (e.sport ? [e.sport] : [])).includes(selSport))
     // Medal counts live directly on each athlete (medals_gold/silver/bronze), not in
@@ -292,7 +318,7 @@ export default function Sports({ athletes, coaches, events, results, onNav, init
           // Scope by category too — the same sport word (e.g. "Athletics") can
           // belong to either program, so without this an athlete would be counted
           // under both the Paralympic and Special Olympics tiles for that word.
-          const myAths   = athletes.filter(a => a.sport === s && (a.sport_category === activeTab || !a.sport_category))
+          const myAths   = athletesForSport(athletes, s, activeTab)
           const myEvents = events.filter(e => (e.sports || (e.sport ? [e.sport] : [])).includes(s))
           // Medal counts live directly on each athlete (medals_gold/silver/bronze), not
           // in the results table — summing those gives the real total for this sport.
