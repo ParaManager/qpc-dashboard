@@ -760,7 +760,16 @@ export default function App() {
   // linked role first (covers multi-role accounts and referees, which the
   // old role-id-only lookup below never checked), falling back to the
   // single-role lookup for any account not yet linked to a person_id.
+  // Same photo source as My Profile: prefer the exact role record already
+  // resolved for the displayed name (myNameRecord — this is what fixes
+  // Admin specifically, since myNameRecord already correctly falls back to
+  // myEmployeeRecord for isAdmin, whereas the old role-specific fallback
+  // below only ever checked role==='employee'), then fall back to a
+  // broader person_id lookup across every linked role for multi-role
+  // accounts, then finally the single-role lookups for accounts not yet
+  // linked to a person_id at all.
   const userPhoto = (() => {
+    if (myNameRecord?.photo_url) return myNameRecord.photo_url
     if (profile?.person_id) {
       const myEmp = employees.find(e => e.person_id === profile.person_id)
       const myAth = athletes.find(a => a.person_id === profile.person_id)
@@ -777,7 +786,7 @@ export default function App() {
       const c = coaches.find(c => String(c.id) === String(profile.coach_id))
       return c?.photo_url || null
     }
-    if (role === 'employee' && profile?.employee_id) {
+    if ((role === 'employee' || role === 'admin') && profile?.employee_id) {
       const e = employees.find(e => String(e.id) === String(profile.employee_id))
       return e?.photo_url || null
     }
