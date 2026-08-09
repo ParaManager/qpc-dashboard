@@ -215,6 +215,36 @@ export function sportLabel(sport, category, ar) {
   return base
 }
 
+// Shared multi-sport breakdown — the single source of truth for "how many
+// unique athletes are in each sport" across the Sports page and every
+// dashboard's Sports Breakdown widget, so they can never disagree.
+// Counts come from athlete_sports (the real per-sport assignment
+// relationship), never athletes.sport (the legacy single-sport field).
+// An athlete assigned to multiple sports counts once in each of them —
+// this deliberately does not assume per-sport counts sum to the total
+// unique athlete count, since that's only true for single-sport athletes.
+//
+// sportsCatalog: rows from the `sports` table — [{ id, name, category, ... }]
+// athleteSportRows: rows from `athlete_sports` — [{ athlete_id, sport_id }]
+// Returns short-name entries (catalog prefix stripped, e.g. "Para
+// Swimming" -> "Swimming") so existing sportLabel()/SPORT_META lookups
+// keep working unchanged for icon/color/Arabic-label purposes.
+export function computeSportsBreakdown(sportsCatalog, athleteSportRows) {
+  const athleteIdsBySportId = {}
+  for (const row of (athleteSportRows || [])) {
+    if (row.sport_id == null || row.athlete_id == null) continue
+    if (!athleteIdsBySportId[row.sport_id]) athleteIdsBySportId[row.sport_id] = new Set()
+    athleteIdsBySportId[row.sport_id].add(row.athlete_id)
+  }
+  return (sportsCatalog || [])
+    .map(s => ({
+      sport: (s.name || '').replace(/^(Para |SO |Unified )/, ''),
+      category: s.category,
+      count: athleteIdsBySportId[s.id]?.size || 0,
+    }))
+    .filter(e => e.sport && e.count > 0)
+}
+
 export const SPORT_NAMES_AR = {
   'Athletics':                 'ألعاب القوى',
   'Archery':                   'الرماية بالقوس',
