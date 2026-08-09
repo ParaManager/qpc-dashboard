@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
-import { Avatar, MedalDisplay, statusClass, statusDot, DashRow, SPORT_META, SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, sportLabel, initials, getCurrentSeason, computeAwayPeople } from '../lib/helpers'
+import { Avatar, MedalDisplay, statusClass, statusDot, DashRow, SPORT_META, SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, sportLabel, initials, getCurrentSeason, computeAwayPeople, computeSportsBreakdown } from '../lib/helpers'
 import { useLang } from '../lib/LangContext.jsx'
+import { supabase } from '../lib/supabase'
 import DashboardBanners from '../components/DashboardBanners'
 import { computeEventStatus } from './Events'
 
@@ -63,16 +64,22 @@ export default function Dashboard({ athletes, coaches, employees, referees, even
 
   const { allAway } = computeAwayPeople(athletes, coaches, employees, lang)
 
-  // SPORTS_BY_CATEGORY's Summer Paralympic list still includes the legacy
-  // flat 'Special Olympics' catch-all — filtered out here so it can't show
-  // up as a duplicate tile under Summer Paralympic (mirrors the same fix
-  // applied on the Sports page).
-  const sportEntries = SPORT_CATEGORIES.flatMap(category =>
-    ((category === 'Summer Paralympic' ? SPORTS_BY_CATEGORY[category].filter(s => s !== 'Special Olympics') : SPORTS_BY_CATEGORY[category]) || []).map(s => ({
-      sport: s, category,
-      count: athletes.filter(a => a.sport === s && a.sport_category === category).length,
-    }))
-  ).filter(e => e.count > 0)
+  // Sports catalog + athlete_sports — the same multi-sport source of truth
+  // the Sports page uses, so this dashboard and that page can never
+  // disagree on per-sport athlete counts or which sports are Active.
+  const [sportsCatalog, setSportsCatalog] = useState([])
+  const [athleteSportRows, setAthleteSportRows] = useState([])
+  useEffect(() => {
+    supabase.from('sports').select('id, name, category, status').then(({ data, error }) => { if (!error) setSportsCatalog(data || []) })
+    supabase.from('athlete_sports').select('athlete_id, sport_id').then(({ data, error }) => { if (!error) setAthleteSportRows(data || []) })
+  }, [])
+
+  // Sports Breakdown — unique athletes per sport, from athlete_sports (an
+  // athlete in multiple sports counts once in each), never athletes.sport.
+  const sportEntries = computeSportsBreakdown(sportsCatalog, athleteSportRows)
+  // Active Sports KPI — counts sports.status==='Active' directly from the
+  // sports catalog, independent of athlete counts entirely.
+  const activeSportsCount = sportsCatalog.filter(s => s.status === 'Active').length
 
   const kpiCards = [
     {
@@ -105,7 +112,7 @@ export default function Dashboard({ athletes, coaches, employees, referees, even
     },
     {
       label: tx('dashboard.sports','Sports'),
-      val: sportEntries.length,
+      val: activeSportsCount,
       hint: tx('filters.all','in use'),
       color: '#0d9488', icon: 'ti-ball-football',
       click: () => onNav('sports'),

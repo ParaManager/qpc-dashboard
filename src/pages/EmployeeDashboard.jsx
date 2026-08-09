@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useLang } from '../lib/LangContext.jsx'
 import { supabase } from '../lib/supabase'
-import { Avatar, MedalDisplay, statusClass, statusDot, DashRow, SPORT_META, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, sportLabel, initials, effectiveStatus, getCurrentSeason } from '../lib/helpers'
+import { Avatar, MedalDisplay, statusClass, statusDot, DashRow, SPORT_META, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, sportLabel, initials, effectiveStatus, getCurrentSeason, computeSportsBreakdown } from '../lib/helpers'
 import { computeEventStatus } from './Events'
 
 // Mirrors Dashboard.jsx's getEventStatus exactly, so Active Events /
@@ -81,12 +81,17 @@ export default function EmployeeDashboard({ employee, athletes, coaches, employe
     .sort((a, b) => new Date(a.start_date) - new Date(b.start_date))
     .slice(0, 4)
 
-  const sportEntries = SPORT_CATEGORIES.flatMap(category =>
-    ((category === 'Summer Paralympic' ? SPORTS_BY_CATEGORY[category].filter(s => s !== 'Special Olympics') : SPORTS_BY_CATEGORY[category]) || []).map(s => ({
-      sport: s, category,
-      count: allAthletes.filter(a => a.sport === s && a.sport_category === category).length,
-    }))
-  ).filter(e => e.count > 0)
+  // Sports catalog + athlete_sports — same multi-sport source of truth the
+  // Sports page uses, so this dashboard and that page can never disagree.
+  const [sportsCatalog, setSportsCatalog] = useState([])
+  const [athleteSportRows, setAthleteSportRows] = useState([])
+  useEffect(() => {
+    supabase.from('sports').select('id, name, category, status').then(({ data, error }) => { if (!error) setSportsCatalog(data || []) })
+    supabase.from('athlete_sports').select('athlete_id, sport_id').then(({ data, error }) => { if (!error) setAthleteSportRows(data || []) })
+  }, [])
+
+  const sportEntries = computeSportsBreakdown(sportsCatalog, athleteSportRows)
+  const activeSportsCount = sportsCatalog.filter(s => s.status === 'Active').length
 
   const employeeStatus = effectiveStatus(employee)
 
@@ -95,7 +100,7 @@ export default function EmployeeDashboard({ employee, athletes, coaches, employe
     { label: tx('nav.coaches','Coaches'), val: (coaches||[]).length, hint: L('all coaches','كل المدربين'), color:'#009F6B', icon:'ti-user-star', click: () => onNav('coaches') },
     { label: tx('nav.employees','Staff'), val: (employees||[]).length, hint: tx('employees.employee','staff'), color:'#8b5cf6', icon:'ti-id-badge-2', click: () => onNav('employees') },
     { label: tx('nav.referees','Referees'), val: (referees||[]).length, hint: tx('nav.referees','officials'), color:'#f59e0b', icon:'ti-flag-2', click: () => onNav('referees') },
-    { label: tx('dashboard.sports','Sports'), val: sportEntries.length, hint: tx('filters.all','in use'), color:'#EE334E', icon:'ti-ball-football', click: () => onNav('sports') },
+    { label: tx('dashboard.sports','Sports'), val: activeSportsCount, hint: tx('filters.all','in use'), color:'#EE334E', icon:'ti-ball-football', click: () => onNav('sports') },
     { label: tx('dashboard.activeEvents','Active Events'), val: activeEventsCount, hint: tx('dashboard.activeEventsHint','Upcoming & in progress'), color:'#0085C7', icon:'ti-calendar-event', click: () => onNav('events') },
     { label: tx('dashboard.pendingRequests','Pending Requests'), val: myPendingRequests, hint: L('mine','خاصة بي'), color:'#d97706', icon:'ti-clipboard-text', click: () => onNav('requests') },
     { label: L('My Tasks','مهامي'), val: myOpenTasks, hint: L('assigned to me','مسندة إليّ'), color:'#8b5cf6', icon:'ti-checklist', click: () => onNav('tasks') },

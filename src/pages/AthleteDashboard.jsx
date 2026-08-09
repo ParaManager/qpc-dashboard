@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useLang } from '../lib/LangContext.jsx'
 import { supabase } from '../lib/supabase'
-import { Avatar, DashRow, SPORT_META, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, sportLabel, initials, effectiveStatus, statusClass, statusDot, getCurrentSeason } from '../lib/helpers'
+import { Avatar, DashRow, SPORT_META, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, sportLabel, initials, effectiveStatus, statusClass, statusDot, getCurrentSeason, computeSportsBreakdown } from '../lib/helpers'
 import { computeEventStatus } from './Events'
 
 function getEventStatus(ev) {
@@ -74,14 +74,19 @@ export default function AthleteDashboard({ athlete, athletes, coaches, employees
 
   const allAthletes = athletes || []
 
-  // Sports Breakdown / Active Sports — system-wide, same logic as
+  // Sports catalog + athlete_sports — same multi-sport source of truth the
+  // Sports page uses, so this dashboard and that page can never disagree.
+  const [sportsCatalog, setSportsCatalog] = useState([])
+  const [athleteSportRows, setAthleteSportRows] = useState([])
+  useEffect(() => {
+    supabase.from('sports').select('id, name, category, status').then(({ data, error }) => { if (!error) setSportsCatalog(data || []) })
+    supabase.from('athlete_sports').select('athlete_id, sport_id').then(({ data, error }) => { if (!error) setAthleteSportRows(data || []) })
+  }, [])
+
+  // Sports Breakdown / Active Sports — system-wide, same source as
   // Admin/Coach/Staff dashboards (moved up so the KPI card below can use it).
-  const sportEntries = SPORT_CATEGORIES.flatMap(category =>
-    ((category === 'Summer Paralympic' ? SPORTS_BY_CATEGORY[category].filter(s => s !== 'Special Olympics') : SPORTS_BY_CATEGORY[category]) || []).map(s => ({
-      sport: s, category,
-      count: allAthletes.filter(a => a.sport === s && a.sport_category === category).length,
-    }))
-  ).filter(e => e.count > 0)
+  const sportEntries = computeSportsBreakdown(sportsCatalog, athleteSportRows)
+  const activeSportsCount = sportsCatalog.filter(s => s.status === 'Active').length
 
   // Active Events — system-wide, same logic as Admin/Coach/Staff dashboards.
   const activeEventsCount = (events||[]).filter(e => {
@@ -94,7 +99,7 @@ export default function AthleteDashboard({ athlete, athletes, coaches, employees
     { label: tx('nav.coaches','Coaches'), val: (coaches||[]).length, color:'#009F6B', icon:'ti-user-star' },
     { label: tx('nav.employees','Staff'), val: (employees||[]).length, color:'#8b5cf6', icon:'ti-id-badge-2' },
     { label: tx('nav.referees','Referees'), val: (referees||[]).length, color:'#f59e0b', icon:'ti-flag-2' },
-    { label: L('Active Sports','الرياضات النشطة'), val: sportEntries.length, color:'#EE334E', icon:'ti-ball-football' },
+    { label: L('Active Sports','الرياضات النشطة'), val: activeSportsCount, color:'#EE334E', icon:'ti-ball-football' },
     { label: tx('dashboard.activeEvents','Active Events'), val: activeEventsCount, color:'#0085C7', icon:'ti-calendar-event', click: () => onNav('events') },
   ]
 
