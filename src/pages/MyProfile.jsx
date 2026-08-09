@@ -236,6 +236,40 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 
+          {/* ── IDENTITY INFORMATION — shown once only, regardless of how
+              many roles this person currently holds. Shared personal/
+              identity fields (DOB, Qatar ID, expiries, gender, nationality)
+              are never repeated per-role below. */}
+          {(() => {
+            const isExpired = d => d && new Date(d) < new Date()
+            // First non-null value per field, checked in a fixed priority
+            // order across every current role record for this person.
+            const pick = (field) => myEmployee?.[field] ?? myCoach?.[field] ?? myAthlete?.[field] ?? myReferee?.[field] ?? null
+            const idFields = [
+              [ar ? 'تاريخ الميلاد' : 'Date of birth', pick('dob')],
+              [ar ? 'الرقم الشخصي' : 'Qatar ID Number', pick('id_number')],
+              [ar ? 'تاريخ انتهاء الهوية' : 'ID expiry', pick('id_expiry')],
+              [ar ? 'رقم جواز السفر' : 'Passport number', pick('passport_number')],
+              [ar ? 'تاريخ انتهاء الجواز' : 'Passport expiry', pick('passport_expiry')],
+              [ar ? 'الجنس' : 'Gender', (() => { const g = pick('gender'); return g ? (ar ? (g==='Male'?'ذكر':'أنثى') : g) : null })()],
+              [ar ? 'الجنسية' : 'Nationality', nationalityLabel(pick('nationality'))],
+            ].filter(([, v]) => v)
+            if (idFields.length === 0) return null
+            return (
+              <div className="info-card">
+                <div className="info-title" style={{ marginBottom: 10 }}>{ar ? 'معلومات الهوية' : 'Identity Information'}</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '4px 16px' }}>
+                  {idFields.map(([k, v]) => (
+                    <div key={k} className="detail-row" style={{ minWidth: 0 }}>
+                      <span className="dk">{k}</span>
+                      <span className="dv" style={{ color: k.toLowerCase().includes('expiry') && isExpired(v) ? '#dc2626' : undefined }}>{v}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          })()}
+
           {/* ── COACH — only rendered if this person currently holds a
               non-historical coach record. ── */}
           {myCoach && (
@@ -261,32 +295,6 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '4px 16px' }}>
                       {infoFields.map(([k, v]) => (
                         <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv">{v}</span></div>
-                      ))}
-                    </div>
-                  </div>
-                )
-              })()}
-
-              {(() => {
-                const isExpired = d => d && new Date(d) < new Date()
-                const idFields = [
-                  [ar ? 'الرقم الشخصي' : 'Qatar ID Number', myCoach.id_number],
-                  [ar ? 'تاريخ انتهاء الهوية' : 'ID expiry', myCoach.id_expiry],
-                  [ar ? 'رقم جواز السفر' : 'Passport number', myCoach.passport_number],
-                  [ar ? 'تاريخ انتهاء الجواز' : 'Passport expiry', myCoach.passport_expiry],
-                  [ar ? 'الجنسية' : 'Nationality', nationalityLabel(myCoach.nationality)],
-                  [ar ? 'الجنس' : 'Gender', myCoach.gender ? (ar ? (myCoach.gender==='Male'?'ذكر':'أنثى') : myCoach.gender) : null],
-                ].filter(([, v]) => v)
-                if (idFields.length === 0) return null
-                return (
-                  <div className="info-card">
-                    <div className="info-title" style={{ marginBottom: 10 }}>{ar ? 'معلومات الهوية' : 'Identity Information'}</div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '4px 16px' }}>
-                      {idFields.map(([k, v]) => (
-                        <div key={k} className="detail-row" style={{ minWidth: 0 }}>
-                          <span className="dk">{k}</span>
-                          <span className="dv" style={{ color: k.toLowerCase().includes('expiry') && isExpired(v) ? '#dc2626' : undefined }}>{v}</span>
-                        </div>
                       ))}
                     </div>
                   </div>
@@ -328,36 +336,6 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
                 )
               })()}
 
-              {(() => {
-                const isExpired = d => d && new Date(d) < new Date()
-                const idFields = [
-                  [ar ? 'تاريخ الميلاد' : 'Date of birth', myEmployee.dob],
-                  [ar ? 'الرقم الشخصي' : 'Qatar ID Number', myEmployee.id_number],
-                  [ar ? 'تاريخ انتهاء الهوية' : 'ID expiry', myEmployee.id_expiry],
-                  [ar ? 'رقم جواز السفر' : 'Passport number', myEmployee.passport_number],
-                  [ar ? 'تاريخ انتهاء الجواز' : 'Passport expiry', myEmployee.passport_expiry],
-                  [ar ? 'الجنسية' : 'Nationality', nationalityLabel(myEmployee.nationality)],
-                  [ar ? 'الجنس' : 'Gender', myEmployee.gender ? (ar ? (myEmployee.gender==='Male'?'ذكر':'أنثى') : myEmployee.gender) : null],
-                ].filter(([, v]) => v)
-                // Skip re-showing Identity Information here if the Coach
-                // card above already covered the same fields (same person,
-                // same documents) — avoids duplicating the same info twice.
-                if (myCoach || idFields.length === 0) return null
-                return (
-                  <div className="info-card">
-                    <div className="info-title" style={{ marginBottom: 10 }}>{ar ? 'معلومات الهوية' : 'Identity Information'}</div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '4px 16px' }}>
-                      {idFields.map(([k, v]) => (
-                        <div key={k} className="detail-row" style={{ minWidth: 0 }}>
-                          <span className="dk">{k}</span>
-                          <span className="dv" style={{ color: k.toLowerCase().includes('expiry') && isExpired(v) ? '#dc2626' : undefined }}>{v}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )
-              })()}
-
               {!myCoach && (
                 <button onClick={() => onNav('employees', { employeeId: myEmployee.id })}
                   className="info-card"
@@ -390,33 +368,6 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '4px 16px' }}>
                       {infoFields.map(([k, v]) => (
                         <div key={k} className="detail-row"><span className="dk">{k}</span><span className="dv">{v}</span></div>
-                      ))}
-                    </div>
-                  </div>
-                )
-              })()}
-
-              {(() => {
-                const isExpired = d => d && new Date(d) < new Date()
-                const idFields = [
-                  [ar ? 'تاريخ الميلاد' : 'Date of birth', myAthlete.dob],
-                  [ar ? 'الرقم الشخصي' : 'Qatar ID Number', myAthlete.id_number],
-                  [ar ? 'تاريخ انتهاء الهوية' : 'ID expiry', myAthlete.id_expiry],
-                  [ar ? 'رقم جواز السفر' : 'Passport number', myAthlete.passport_number],
-                  [ar ? 'تاريخ انتهاء الجواز' : 'Passport expiry', myAthlete.passport_expiry],
-                  [ar ? 'الجنسية' : 'Nationality', nationalityLabel(myAthlete.nationality)],
-                  [ar ? 'الجنس' : 'Gender', myAthlete.gender ? (ar ? (myAthlete.gender==='Male'?'ذكر':'أنثى') : myAthlete.gender) : null],
-                ].filter(([, v]) => v)
-                if (idFields.length === 0) return null
-                return (
-                  <div className="info-card">
-                    <div className="info-title" style={{ marginBottom: 10 }}>{ar ? 'معلومات الهوية' : 'Identity Information'}</div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '4px 16px' }}>
-                      {idFields.map(([k, v]) => (
-                        <div key={k} className="detail-row" style={{ minWidth: 0 }}>
-                          <span className="dk">{k}</span>
-                          <span className="dv" style={{ color: k.toLowerCase().includes('expiry') && isExpired(v) ? '#dc2626' : undefined }}>{v}</span>
-                        </div>
                       ))}
                     </div>
                   </div>
