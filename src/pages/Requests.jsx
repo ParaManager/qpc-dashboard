@@ -236,6 +236,23 @@ export default function Requests({ profile, navState }) {
     }
     setReviewSub(null); fetchFormSubs(reviewSub.form_id)
     setFormSubs(p => p.map(s => s.id===reviewSub.id ? {...s, status:reviewStatus, admin_notes:reviewNote} : s))
+    // Keep the Forms list's pending/total badges in sync immediately —
+    // these only otherwise refresh via fetchForms(), which this function
+    // never called, so the badge stayed stale until a manual page reload.
+    setSubCounts(prev => {
+      const prevStatus = reviewSub.status
+      if (prevStatus === reviewStatus) return prev
+      const current = prev[reviewSub.form_id] || { total: 0, pending: 0 }
+      const wasPending = prevStatus === 'pending'
+      const isPending  = reviewStatus === 'pending'
+      return {
+        ...prev,
+        [reviewSub.form_id]: {
+          total: current.total,
+          pending: current.pending + (isPending ? 1 : 0) - (wasPending ? 1 : 0),
+        },
+      }
+    })
   }
 
   // ── helpers ───────────────────────────────────────────────────────────────
@@ -272,9 +289,8 @@ export default function Requests({ profile, navState }) {
   // my-submissions), not just the main list view. ──
   const formModalJsx = showFormModal && (
         <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.45)',zIndex:9999,display:'flex',alignItems:'flex-start',justifyContent:'center',overflowY:'auto',padding:'40px 20px'}}
-          onClick={()=>setShowFormModal(false)}>
-          <div style={{background:'var(--surface)',borderRadius:16,width:'100%',maxWidth:700,boxShadow:'0 16px 48px rgba(0,0,0,.25)',border:'1px solid var(--border)'}}
-            onClick={e=>e.stopPropagation()}>
+          onMouseDown={e => { if (e.target === e.currentTarget) setShowFormModal(false) }}>
+          <div style={{background:'var(--surface)',borderRadius:16,width:'100%',maxWidth:700,boxShadow:'0 16px 48px rgba(0,0,0,.25)',border:'1px solid var(--border)'}}>
 
             {/* Modal header */}
             <div style={{padding:'18px 24px',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
@@ -640,9 +656,8 @@ export default function Requests({ profile, navState }) {
         {/* Review modal */}
         {reviewSub && (
           <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.45)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center'}}
-            onClick={()=>setReviewSub(null)}>
-            <div style={{background:'var(--surface)',borderRadius:16,padding:24,width:420,boxShadow:'0 8px 32px rgba(0,0,0,.2)',border:'1px solid var(--border)'}}
-              onClick={e=>e.stopPropagation()}>
+            onMouseDown={e => { if (e.target === e.currentTarget) setReviewSub(null) }}>
+            <div style={{background:'var(--surface)',borderRadius:16,padding:24,width:420,boxShadow:'0 8px 32px rgba(0,0,0,.2)',border:'1px solid var(--border)'}}>
               <div style={{fontWeight:700,fontSize:16,marginBottom:16}}>{ar?'مراجعة الطلب':'Review Request'}</div>
               <div className="form-group">
                 <label className="form-label">{ar?'الحالة':'Status'}</label>
