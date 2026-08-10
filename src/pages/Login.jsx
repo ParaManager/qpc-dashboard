@@ -7,7 +7,8 @@ import { normalizeQid } from '../lib/helpers'
 const ROLE_LABEL = {
   athlete:  { en: 'Athlete',      ar: 'رياضي' },
   coach:    { en: 'Coach',        ar: 'مدرب' },
-  employee: { en: 'Staff Member', ar: 'عضو الكادر' },
+  employee: { en: 'Staff',        ar: 'كادر' },
+  referee:  { en: 'Referee',      ar: 'حكم' },
 }
 
 export default function Login({ onRequestSent, onSigningUpChange, onGuestMode }) {
@@ -94,8 +95,13 @@ export default function Login({ onRequestSent, onSigningUpChange, onGuestMode })
   }
 
   // ── STEP 2 -> 3: identity confirmed, move to password creation ──
+  // Picks an ACTIVE role from the group to submit as the claimed role
+  // (server re-verifies regardless); falls back to the first role only
+  // when every role in the group is inactive (blocked earlier anyway).
   function confirmIdentity(candidate) {
-    setSelectedCandidate(candidate)
+    const roles = candidate.roles || [candidate]
+    const activeRole = roles.find(r => (r.record_status || 'Active') !== 'Inactive') || roles[0]
+    setSelectedCandidate({ ...candidate, _claimedRole: activeRole.role })
     setRegStep('password')
     setError('')
   }
@@ -113,7 +119,7 @@ export default function Login({ onRequestSent, onSigningUpChange, onGuestMode })
     // ref_id/person_id/name from the Step 1 lookup are display-only and
     // are never trusted for the actual write; submit_access_request
     // re-derives and re-verifies all of that server-side.
-    const claimedRole = c.role
+    const claimedRole = c._claimedRole || c.role
     const displayName = ar && c.name_ar ? c.name_ar : c.name
 
     onSigningUpChange?.(true)
@@ -310,7 +316,9 @@ export default function Login({ onRequestSent, onSigningUpChange, onGuestMode })
                   ? L('We found more than one matching record. Please select which one is you.','وجدنا أكثر من سجل مطابق. يرجى اختيار السجل الخاص بك.')
                   : L('Please confirm this is you before continuing.','يرجى تأكيد أن هذا أنت قبل المتابعة.')}
               </p>
-              {lookupCandidates.map((c, i) => (
+              {lookupCandidates.map((c, i) => {
+                const roles = c.roles || [c]
+                return (
                 <div key={i} style={{ display:'flex', alignItems:'center', gap:12, padding:'12px', border:'1px solid var(--border)', borderRadius:12, marginBottom:10 }}>
                   {c.photo_url
                     ? <img src={c.photo_url} alt="" style={{ width:48, height:48, borderRadius:'50%', objectFit:'cover', flexShrink:0 }} />
@@ -321,18 +329,33 @@ export default function Login({ onRequestSent, onSigningUpChange, onGuestMode })
                   <div style={{ flex:1, minWidth:0 }}>
                     <div style={{ fontWeight:600, fontSize:14 }}>{c.name}</div>
                     {c.name_ar && <div style={{ fontSize:12.5, color:'var(--text2)' }}>{c.name_ar}</div>}
-                    <div style={{ fontSize:11.5, color:'var(--text3)', marginTop:2 }}>
-                      {ar ? (ROLE_LABEL[c.role]?.ar||c.role) : (ROLE_LABEL[c.role]?.en||c.role)}
-                      {c.role === 'employee' && (c.designation || c.designation_ar) ? ` · ${ar && c.designation_ar ? c.designation_ar : c.designation}` : ''}
-                      {(c.role === 'athlete' || c.role === 'coach') && c.sport ? ` · ${c.sport}` : ''}
+                    <div style={{ marginTop:4, display:'flex', flexDirection:'column', gap:2 }}>
+                      {roles.map((r, ri) => {
+                        const isInactive = r.record_status === 'Inactive'
+                        return (
+                          <div key={ri} style={{ fontSize:11.5, color:'var(--text3)', display:'flex', alignItems:'center', gap:6 }}>
+                            <span>
+                              {ar ? (ROLE_LABEL[r.role]?.ar||r.role) : (ROLE_LABEL[r.role]?.en||r.role)}
+                              {r.role === 'employee' && (r.designation || r.designation_ar) ? ` — ${ar && r.designation_ar ? r.designation_ar : r.designation}` : ''}
+                              {(r.role === 'athlete' || r.role === 'coach') && r.sport ? ` — ${r.sport}` : ''}
+                            </span>
+                            {r.record_status && (
+                              <span style={{ fontSize:10, fontWeight:600, padding:'1px 7px', borderRadius:10, background: isInactive?'#EE334E15':'#009F6B15', color: isInactive?'#EE334E':'#009F6B' }}>
+                                {ar ? (isInactive?'غير نشط':'نشط') : r.record_status}
+                              </span>
+                            )}
+                          </div>
+                        )
+                      })}
                     </div>
                   </div>
                   <button type="button" onClick={() => confirmIdentity(c)}
-                    style={{ padding:'8px 14px', background:'#0085C7', color:'#fff', border:'none', borderRadius:8, fontSize:12.5, fontWeight:600, cursor:'pointer', flexShrink:0 }}>
+                    style={{ padding:'8px 14px', background:'#0085C7', color:'#fff', border:'none', borderRadius:8, fontSize:12.5, fontWeight:600, cursor:'pointer', flexShrink:0, alignSelf:'flex-start' }}>
                     {L('This is me','هذا أنا')}
                   </button>
                 </div>
-              ))}
+                )
+              })}
               <button type="button" onClick={resetRegistration}
                 style={{ width:'100%', padding:'11px', background:'transparent', color:'var(--text2)', border:'1px solid var(--border)', borderRadius:10, fontSize:14, fontWeight:600, cursor:'pointer', marginTop:6 }}>
                 {L('This is not me','هذا ليس أنا')}
@@ -353,7 +376,9 @@ export default function Login({ onRequestSent, onSigningUpChange, onGuestMode })
                 }
                 <div style={{ minWidth:0 }}>
                   <div style={{ fontWeight:600, fontSize:13 }}>{ar && selectedCandidate.name_ar ? selectedCandidate.name_ar : selectedCandidate.name}</div>
-                  <div style={{ fontSize:11, color:'var(--text3)' }}>{ar ? (ROLE_LABEL[selectedCandidate.role]?.ar||selectedCandidate.role) : (ROLE_LABEL[selectedCandidate.role]?.en||selectedCandidate.role)}</div>
+                  <div style={{ fontSize:11, color:'var(--text3)' }}>
+                    {(selectedCandidate.roles || [selectedCandidate]).map(r => ar ? (ROLE_LABEL[r.role]?.ar||r.role) : (ROLE_LABEL[r.role]?.en||r.role)).join(' · ')}
+                  </div>
                 </div>
                 <button type="button" onClick={resetRegistration} style={{ marginInlineStart:'auto', background:'none', border:'none', color:'#0085C7', fontSize:12, cursor:'pointer', flexShrink:0 }}>
                   {L('Change','تغيير')}
