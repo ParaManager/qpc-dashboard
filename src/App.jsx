@@ -923,10 +923,20 @@ export default function App() {
               routing to whichever single role page happened to match.
               Falls back to the legacy generic Profile page only when the
               account has no person_id linked yet (pre-migration data). */}
-          {page==='profile' && profile?.person_id && (
+          {/* Unified My Profile — always used whenever the account has ANY
+              linked role record (person_id OR a direct athlete_id/coach_id/
+              employee_id/referee_id), never gated on person_id alone. Many
+              legacy — and some newly-approved — records predate the
+              people-table backfill and have person_id = null; MyProfile
+              itself resolves those via the direct role ids instead, so
+              this routing never falls back to the legacy Profile page
+              just because person_id happens to be missing. Falls back to
+              the legacy generic Profile page only when the account has
+              no role record linked at all (e.g. guest/admin-only). */}
+          {page==='profile' && (profile?.person_id || profile?.athlete_id || profile?.coach_id || profile?.employee_id || profile?.referee_id) && (
             <MyProfile key={`profile-${refreshToken}`} profile={profile} athletes={athletes} coaches={coaches} employees={employees} referees={referees} onNav={goTo} />
           )}
-          {page==='profile' && !profile?.person_id && (
+          {page==='profile' && !(profile?.person_id || profile?.athlete_id || profile?.coach_id || profile?.employee_id || profile?.referee_id) && (
             <Profile key={`profile-${refreshToken}`} user={user} profile={profile} athletes={athletes} coaches={coaches} employees={employees} results={results} onNav={goTo} documents={documents} personDocs={personDocs} onRefresh={fetchAll} />
           )}
           {page==='notifications' && <Notifications key={`notifications-${refreshToken}`} profile={profile} onNav={goTo} />}
