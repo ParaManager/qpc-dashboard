@@ -356,12 +356,14 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
                 const infoFields = [
                   [ar ? 'العمر' : 'Age', age],
                   [ar ? 'رقم QSS' : 'QSS #', myAthlete.qss_number],
-                  [ar ? 'تاريخ الانضمام إلى QPC' : 'QPC Join Date', myAthlete.join_date || null],
                   [ar ? 'التصنيف' : 'Classification', myAthlete.classification],
                   [ar ? 'الإعاقة' : 'Disability', myAthlete.disability],
                   [ar ? 'الحالة' : 'Status', statusLabel(myAthlete)],
                   [ar ? 'تواريخ الحالة' : 'Status dates', statusDates],
                 ].filter(([, v]) => v)
+                // QPC Join Date always shown (never account creation date),
+                // falling back to — when the athlete's editable field is blank.
+                infoFields.splice(2, 0, [ar ? 'تاريخ الانضمام إلى QPC' : 'QPC Join Date', myAthlete.join_date || '—'])
                 return (
                   <div className="info-card">
                     <div className="info-title" style={{ marginBottom: 10 }}>{ar ? 'معلومات الرياضي' : 'Athlete Information'}</div>
