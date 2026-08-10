@@ -19,6 +19,7 @@ const GUEST_NAV = [
   { id: 'calendar', icon: 'ti-calendar', en: 'Calendar', ar: 'التقويم' },
   { id: 'events', icon: 'ti-calendar-event', en: 'Events', ar: 'الفعاليات' },
   { id: 'sports', icon: 'ti-ball-football', en: 'Sports', ar: 'الرياضات' },
+  { id: 'requests', icon: 'ti-clipboard-text', en: 'Requests', ar: 'الطلبات' },
   { id: 'about', icon: 'ti-info-circle', en: 'About QPC', ar: 'عن اللجنة' },
 ]
 
@@ -305,6 +306,143 @@ function AboutQPC() {
   )
 }
 
+function GuestRequestField({ field, value, onChange, ar }) {
+  const set = v => onChange(field.id, v)
+  switch (field.field_type) {
+    case 'textarea': return <textarea className="form-input" rows={3} value={value||''} onChange={e=>set(e.target.value)} style={{resize:'vertical'}} />
+    case 'number':   return <input type="number" className="form-input" value={value||''} onChange={e=>set(e.target.value)} />
+    case 'date':     return <input type="date" className="form-input" value={value||''} onChange={e=>set(e.target.value)} />
+    case 'email':    return <input type="email" className="form-input" value={value||''} onChange={e=>set(e.target.value)} />
+    case 'phone':    return <input type="tel" className="form-input" value={value||''} onChange={e=>set(e.target.value)} />
+    case 'yes_no':   return <div style={{display:'flex',gap:12}}>{['Yes','No'].map(o=><label key={o} style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer',fontSize:14}}><input type="radio" name={field.id} value={o} checked={value===o} onChange={()=>set(o)} />{ar?(o==='Yes'?'نعم':'لا'):o}</label>)}</div>
+    case 'dropdown': return <select className="form-input" value={value||''} onChange={e=>set(e.target.value)}><option value="">{ar?'— اختر —':'— Select —'}</option>{(field.options||[]).map((o,i)=><option key={i} value={o.label}>{ar?(o.label_ar||o.label):o.label}</option>)}</select>
+    case 'radio':    return <div style={{display:'flex',flexDirection:'column',gap:8}}>{(field.options||[]).map((o,i)=><label key={i} style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:14}}><input type="radio" name={field.id} value={o.label} checked={value===o.label} onChange={()=>set(o.label)}/>{ar?(o.label_ar||o.label):o.label}</label>)}</div>
+    case 'checkbox': {
+      const sel = Array.isArray(value)?value:[], tog=v=>set(sel.includes(v)?sel.filter(x=>x!==v):[...sel,v])
+      return <div style={{display:'flex',flexDirection:'column',gap:8}}>{(field.options||[]).map((o,i)=><label key={i} style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:14}}><input type="checkbox" checked={sel.includes(o.label)} onChange={()=>tog(o.label)}/>{ar?(o.label_ar||o.label):o.label}</label>)}</div>
+    }
+    default: return <input type="text" className="form-input" value={value||''} onChange={e=>set(e.target.value)} />
+  }
+}
+
+function GuestRequests() {
+  const { lang } = useLang()
+  const ar = lang === 'ar'
+  const L = (en, a) => ar ? a : en
+  const [forms, setForms] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [selectedForm, setSelectedForm] = useState(null)
+  const [answers, setAnswers] = useState({})
+  const [guestName, setGuestName] = useState('')
+  const [guestContact, setGuestContact] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [refNumber, setRefNumber] = useState(null)
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const { data } = await supabase.from('request_forms').select('*, request_form_fields(*)').eq('is_active', true)
+      if (cancelled) return
+      if (data) data.forEach(f => f.request_form_fields?.sort((a,b)=>a.sort_order-b.sort_order))
+      setForms(data||[])
+      setLoading(false)
+    })()
+    return () => { cancelled = true }
+  }, [])
+
+  async function submit() {
+    const missing = (selectedForm.request_form_fields||[]).filter(f=>f.is_required && !answers[f.id]?.toString().trim())
+    if (!guestName.trim()) return alert(ar?'الاسم مطلوب':'Name is required')
+    if (missing.length) return alert((ar?'الحقول المطلوبة: ':'Required: ')+missing.map(f=>ar?(f.label_ar||f.label):f.label).join(', '))
+    setSubmitting(true)
+    const { data, error } = await supabase.rpc('submit_guest_request', {
+      p_form_id: selectedForm.id, p_answers: answers, p_guest_name: guestName.trim(), p_guest_contact: guestContact.trim()||null,
+    })
+    setSubmitting(false)
+    if (error || data?.status !== 'created') return alert(ar?'تعذر الإرسال':'Submission failed')
+    setRefNumber(data.reference_number)
+  }
+
+  if (loading) return <div className="empty" style={{ padding: 60 }}>{ar?'جارٍ التحميل…':'Loading…'}</div>
+
+  if (refNumber) return (
+    <div className="card" style={{maxWidth:480,margin:'40px auto',textAlign:'center',padding:32}}>
+      <i className="ti ti-circle-check" style={{fontSize:40,color:'#009F6B'}}/>
+      <div style={{fontWeight:700,fontSize:16,margin:'12px 0 6px'}}>{L('Request Submitted','تم إرسال الطلب')}</div>
+      <div style={{color:'var(--text2)',fontSize:13,marginBottom:14}}>{L('Please keep your reference number for tracking.','يرجى الاحتفاظ برقم المرجع للمتابعة.')}</div>
+      <div style={{fontWeight:700,fontSize:18,letterSpacing:'.03em',color:'#0085C7'}}>{refNumber}</div>
+      <button className="btn btn-blue" style={{marginTop:20}} onClick={()=>{setRefNumber(null);setSelectedForm(null);setAnswers({});setGuestName('');setGuestContact('')}}>
+        {L('Submit another request','إرسال طلب آخر')}
+      </button>
+    </div>
+  )
+
+  if (selectedForm) {
+    const clr = selectedForm.color||'#0085C7'
+    return (
+      <div>
+        <button className="back-btn" onClick={()=>setSelectedForm(null)} style={{marginBottom:14}}>
+          <i className="ti ti-arrow-left"/> {L('Back','رجوع')}
+        </button>
+        <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:18}}>
+          <div style={{width:44,height:44,borderRadius:12,background:clr+'18',display:'flex',alignItems:'center',justifyContent:'center'}}>
+            <i className={`ti ${selectedForm.icon||'ti-clipboard-text'}`} style={{fontSize:22,color:clr}}/>
+          </div>
+          <div className="page-title">{ar?(selectedForm.title_ar||selectedForm.title):selectedForm.title}</div>
+        </div>
+        <div className="card" style={{maxWidth:640}}>
+          <div className="form-group" style={{marginBottom:18}}>
+            <label className="form-label">{L('Your Name','الاسم')} <span style={{color:'#EE334E'}}>*</span></label>
+            <input className="form-input" value={guestName} onChange={e=>setGuestName(e.target.value)} />
+          </div>
+          <div className="form-group" style={{marginBottom:18}}>
+            <label className="form-label">{L('Contact (email or phone)','التواصل (بريد أو هاتف)')}</label>
+            <input className="form-input" value={guestContact} onChange={e=>setGuestContact(e.target.value)} />
+          </div>
+          {(selectedForm.request_form_fields||[]).map(field=>(
+            <div key={field.id} className="form-group" style={{marginBottom:18}}>
+              <label className="form-label">{ar?(field.label_ar||field.label):field.label}{field.is_required && <span style={{color:'#EE334E',marginLeft:4}}>*</span>}</label>
+              <GuestRequestField field={field} value={answers[field.id]} onChange={(id,v)=>setAnswers(p=>({...p,[id]:v}))} ar={ar} />
+            </div>
+          ))}
+          <button className="btn btn-blue" disabled={submitting} onClick={submit}>
+            <i className="ti ti-send"/> {submitting?L('Submitting…','جارٍ الإرسال…'):L('Submit','إرسال')}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      <div className="page-header" style={{marginBottom:20}}>
+        <div>
+          <div className="page-title">{L('Requests','الطلبات')}</div>
+          <div className="page-sub">{L('Public request forms','نماذج الطلبات العامة')}</div>
+        </div>
+      </div>
+      {forms.length===0
+        ? <div className="empty">{L('No request forms available','لا توجد نماذج متاحة')}</div>
+        : <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))',gap:16}}>
+            {forms.map(f=>{
+              const clr = f.color||'#0085C7'
+              return (
+                <div key={f.id} style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:14,padding:18,cursor:'pointer',boxShadow:'var(--shadow)'}}
+                  onClick={()=>setSelectedForm(f)}>
+                  <div style={{width:42,height:42,borderRadius:11,background:clr+'15',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:12}}>
+                    <i className={`ti ${f.icon||'ti-clipboard-text'}`} style={{fontSize:20,color:clr}}/>
+                  </div>
+                  <div style={{fontWeight:700,fontSize:15,marginBottom:4}}>{ar?(f.title_ar||f.title):f.title}</div>
+                  {(ar?(f.description_ar||f.description):f.description) && <div style={{fontSize:12,color:'var(--text2)'}}>{ar?(f.description_ar||f.description):f.description}</div>}
+                </div>
+              )
+            })}
+          </div>
+      }
+    </div>
+  )
+}
+
 function GuestPortalInner({ onExit }) {
   const { lang, setLang } = useLang()
   const ar = lang === 'ar'
@@ -350,6 +488,7 @@ function GuestPortalInner({ onExit }) {
                 {page === 'calendar' && <Calendar profile={null} events={events} employees={[]} onNav={(p) => setPage(p === 'events' ? 'events' : page)} readOnly guestMode />}
                 {page === 'events' && <Events events={events} athletes={athletes} employees={[]} results={results} registrations={registrations} onRefresh={() => {}} onNav={() => {}} profile={null} eventCategories={[]} sportsList={[]} guestMode />}
                 {page === 'sports' && <Sports athletes={athletes} coaches={coaches} events={events} results={results} onNav={(p) => setPage(p === 'sports' ? 'sports' : page)} profile={null} />}
+                {page === 'requests' && <GuestRequests />}
                 {page === 'about' && <AboutQPC />}
               </>
             )}

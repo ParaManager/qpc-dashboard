@@ -37,20 +37,25 @@ const COLOR_OPTIONS = [
 ]
 
 const STATUS_META = {
-  pending:   { color:'#f59e0b', bg:'#fffbeb', label:'Pending',    label_ar:'قيد الانتظار' },
-  in_review: { color:'#0085C7', bg:'#e8f4fd', label:'In Review',  label_ar:'قيد المراجعة' },
-  approved:  { color:'#009F6B', bg:'#e8f7f2', label:'Approved',   label_ar:'مقبول' },
-  rejected:  { color:'#EE334E', bg:'#fef2f4', label:'Rejected',   label_ar:'مرفوض' },
+  submitted:        { color:'#f59e0b', bg:'#fffbeb', label:'Submitted',        label_ar:'تم الإرسال' },
+  under_review:     { color:'#0085C7', bg:'#e8f4fd', label:'Under Review',     label_ar:'قيد المراجعة' },
+  pending_approval: { color:'#8b5cf6', bg:'#f3f0ff', label:'Pending Approval', label_ar:'بانتظار الموافقة' },
+  returned:         { color:'#d97706', bg:'#fff7ed', label:'Returned',        label_ar:'أعيد للتصحيح' },
+  rejected:         { color:'#EE334E', bg:'#fef2f4', label:'Rejected',        label_ar:'مرفوض' },
+  approved:         { color:'#009F6B', bg:'#e8f7f2', label:'Approved',        label_ar:'مقبول' },
+  completed:        { color:'#0d9488', bg:'#e6fbf8', label:'Completed',       label_ar:'مكتمل' },
 }
+const ACTIVE_STATUSES = ['submitted','under_review','pending_approval']
 
-const ROLES = ['admin','coach','athlete','employee']
-const ROLE_LABELS_AR = { admin: 'مدير', coach: 'مدرب', athlete: 'رياضي', employee: 'عضو الكادر' }
+const ROLES = ['admin','coach','athlete','employee','guest']
+const ROLE_LABELS_AR = { admin: 'مدير', coach: 'مدرب', athlete: 'رياضي', employee: 'كادر', guest: 'ضيف' }
+const ROLE_LABELS_EN = { admin: 'admin', coach: 'coach', athlete: 'athlete', employee: 'staff', guest: 'guest' }
 
-const ROLE_COLORS = { admin:'#EE334E', coach:'#0085C7', athlete:'#009F6B', employee:'#8b5cf6' }
+const ROLE_COLORS = { admin:'#EE334E', coach:'#0085C7', athlete:'#009F6B', employee:'#8b5cf6', guest:'#64748b' }
 
 const emptyForm = () => ({
   title:'', title_ar:'', description:'', description_ar:'',
-  visible_to: [...ROLES], is_private: false, is_active: true,
+  visible_to: ROLES.filter(r=>r!=='guest'), is_private: false, is_active: true,
   icon: 'ti-clipboard-text', color: '#0085C7',
 })
 
@@ -59,6 +64,13 @@ const emptyField = () => ({
   label:'', label_ar:'', field_type:'text', is_required: false,
   options: [], sort_order: 0,
 })
+
+const emptyStep = () => ({
+  id: crypto.randomUUID(),
+  name:'', name_ar:'', approver_role:'admin', approver_user_id:null, is_required:true,
+})
+
+const WORKFLOW_APPROVER_ROLES = ['admin','coach','employee']
 
 export default function Requests({ profile, navState }) {
   const { tx, lang } = useLang()
@@ -78,6 +90,11 @@ export default function Requests({ profile, navState }) {
   const [editingForm, setEditingForm]   = useState(null)
   const [formData, setFormData]         = useState(emptyForm())
   const [fields, setFields]             = useState([emptyField()])
+  const [steps, setSteps]               = useState([])
+  const [staffProfiles, setStaffProfiles] = useState([])
+  const [actionNote, setActionNote]     = useState('')
+  const [subActions, setSubActions]     = useState([])
+  const [acting, setActing]             = useState(false)
   const [saving, setSaving]             = useState(false)
   const [answers, setAnswers]           = useState({})
   const [submitting, setSubmitting]     = useState(false)
@@ -90,10 +107,13 @@ export default function Requests({ profile, navState }) {
   const fetchForms = useCallback(async () => {
     setLoading(true)
     const { data } = await supabase.from('request_forms')
-      .select('*, request_form_fields(*)')
+      .select('*, request_form_fields(*), request_form_workflow_steps(*)')
       .order('created_at', { ascending: false })
     if (data) {
-      data.forEach(f => f.request_form_fields?.sort((a,b) => a.sort_order - b.sort_order))
+      data.forEach(f => {
+        f.request_form_fields?.sort((a,b) => a.sort_order - b.sort_order)
+        f.request_form_workflow_steps?.sort((a,b) => a.step_order - b.step_order)
+      })
       setForms(data)
       if (isAdmin) {
         const { data: subs } = await supabase.from('request_submissions').select('form_id, status')
@@ -127,7 +147,16 @@ export default function Requests({ profile, navState }) {
     if (data) setFormSubs(data)
   }, [])
 
+  const fetchSubActions = useCallback(async (subId) => {
+    const { data } = await supabase.from('request_submission_actions')
+      .select('*, profiles(full_name)')
+      .eq('submission_id', subId)
+      .order('acted_at', { ascending: true })
+    if (data) setSubActions(data)
+  }, [])
+
   useEffect(() => { fetchForms(); fetchMySubs() }, [fetchForms, fetchMySubs])
+  useEffect(() => { if (isAdmin) supabase.from('profiles').select('id, full_name, role').then(({data}) => data && setStaffProfiles(data)) }, [isAdmin])
 
   // Deep-link support: Dashboard's "Pending Requests" KPI card navigates here
   // with navState.statusFilter === 'pending'. Once forms/subCounts are loaded,
@@ -142,13 +171,25 @@ export default function Requests({ profile, navState }) {
 
   // ── form builder ──────────────────────────────────────────────────────────
   function openCreateForm() {
-    setEditingForm(null); setFormData(emptyForm()); setFields([emptyField()]); setShowFormModal(true)
+    setEditingForm(null); setFormData(emptyForm()); setFields([emptyField()]); setSteps([]); setShowFormModal(true)
   }
   function openEditForm(f) {
     setEditingForm(f)
-    setFormData({ title:f.title, title_ar:f.title_ar||'', description:f.description||'', description_ar:f.description_ar||'', visible_to:f.visible_to||[...ROLES], is_private:f.is_private, is_active:f.is_active, icon:f.icon||'ti-clipboard-text', color:f.color||'#0085C7' })
+    setFormData({ title:f.title, title_ar:f.title_ar||'', description:f.description||'', description_ar:f.description_ar||'', visible_to:f.visible_to||ROLES.filter(r=>r!=='guest'), is_private:f.is_private, is_active:f.is_active, icon:f.icon||'ti-clipboard-text', color:f.color||'#0085C7' })
     setFields((f.request_form_fields||[]).map(ff => ({ ...ff, options:ff.options||[] })))
+    setSteps((f.request_form_workflow_steps||[]).map(s => ({ ...s })))
     setShowFormModal(true)
+  }
+  const addStep    = ()      => setSteps(p => [...p, emptyStep()])
+  const removeStep = id      => setSteps(p => p.filter(s => s.id !== id))
+  const updateStep = (id,k,v)=> setSteps(p => p.map(s => s.id===id ? {...s,[k]:v} : s))
+  function moveStep(id, dir) {
+    setSteps(prev => {
+      const idx = prev.findIndex(s => s.id===id), next=[...prev], swap=idx+dir
+      if (swap<0||swap>=next.length) return prev
+      ;[next[idx],next[swap]]=[next[swap],next[idx]]
+      return next
+    })
   }
   const addField    = ()      => setFields(p => [...p, { ...emptyField(), sort_order:p.length }])
   const removeField = id      => setFields(p => p.filter(f => f.id !== id))
@@ -181,6 +222,12 @@ export default function Requests({ profile, navState }) {
       await supabase.from('request_form_fields').insert(
         fields.map((f,i) => ({ form_id:formId, label:f.label, label_ar:f.label_ar||'', field_type:f.field_type, is_required:f.is_required, options:['dropdown','radio','checkbox'].includes(f.field_type)?f.options:null, sort_order:i }))
       )
+      await supabase.from('request_form_workflow_steps').delete().eq('form_id',formId)
+      if (steps.length) {
+        await supabase.from('request_form_workflow_steps').insert(
+          steps.map((s,i) => ({ form_id:formId, step_order:i, name:s.name, name_ar:s.name_ar||'', approver_role:s.approver_user_id?null:(s.approver_role||null), approver_user_id:s.approver_user_id||null, is_required:s.is_required!==false }))
+        )
+      }
       toast(editingForm?(ar?'تم التحديث':'Updated'):(ar?'تم الإنشاء':'Created'),'success')
       setShowFormModal(false); fetchForms()
     } catch(e) { toast(e.message,'error') }
@@ -354,7 +401,7 @@ export default function Requests({ profile, navState }) {
                     <button key={r} type="button"
                       onClick={()=>setFormData(p=>({...p,visible_to:p.visible_to.includes(r)?p.visible_to.filter(x=>x!==r):[...p.visible_to,r]}))}
                       style={{padding:'5px 16px',borderRadius:20,border:`1.5px solid ${formData.visible_to.includes(r)?'#0085C7':'var(--border)'}`,background:formData.visible_to.includes(r)?'#0085C7':'transparent',color:formData.visible_to.includes(r)?'white':'var(--text2)',fontSize:13,fontWeight:formData.visible_to.includes(r)?600:400,cursor:'pointer',transition:'all .15s'}}>
-                      {ar ? (ROLE_LABELS_AR[r] || r) : r}
+                      {ar ? (ROLE_LABELS_AR[r] || r) : (ROLE_LABELS_EN[r] || r)}
                     </button>
                   ))}
                 </div>
@@ -425,6 +472,48 @@ export default function Requests({ profile, navState }) {
                 </div>
                 <button onClick={addField} className="btn btn-blue" style={{marginTop:12,width:'100%',justifyContent:'center'}}>
                   <i className="ti ti-plus"/> {ar?'إضافة حقل':'Add Field'}
+                </button>
+              </div>
+
+              {/* Approval workflow */}
+              <div>
+                <div style={{fontWeight:700,fontSize:14,marginBottom:4}}>{ar?'مسار الموافقة':'Approval Workflow'}</div>
+                <div style={{fontSize:12,color:'var(--text3)',marginBottom:12}}>{ar?'اختياري — اترك فارغاً لمراجعة إدارية مباشرة':'Optional — leave empty for direct admin review'}</div>
+                <div style={{display:'flex',flexDirection:'column',gap:10}}>
+                  {steps.map((step,idx)=>(
+                    <div key={step.id} style={{background:'var(--surface)',borderRadius:10,border:'1px solid var(--border)',overflow:'hidden',boxShadow:'0 1px 3px rgba(0,0,0,.04)'}}>
+                      <div style={{display:'flex',gap:8,alignItems:'center',padding:'9px 12px',background:'var(--surface2)',borderBottom:'1px solid var(--border)'}}>
+                        <span style={{fontSize:11,fontWeight:700,color:'var(--text3)',minWidth:16}}>{idx+1}.</span>
+                        <button onClick={()=>moveStep(step.id,-1)} disabled={idx===0} style={{background:'none',border:'none',cursor:idx===0?'default':'pointer',opacity:idx===0?.3:1}}><i className="ti ti-chevron-up"/></button>
+                        <button onClick={()=>moveStep(step.id,1)} disabled={idx===steps.length-1} style={{background:'none',border:'none',cursor:idx===steps.length-1?'default':'pointer',opacity:idx===steps.length-1?.3:1}}><i className="ti ti-chevron-down"/></button>
+                        <label style={{display:'flex',alignItems:'center',gap:5,fontSize:12,marginLeft:'auto',cursor:'pointer',userSelect:'none'}}>
+                          <input type="checkbox" checked={step.is_required!==false} onChange={e=>updateStep(step.id,'is_required',e.target.checked)}/>
+                          <span style={{color:step.is_required!==false?'#EE334E':'var(--text3)',fontWeight:600}}>{ar?'مطلوب':'Required'}</span>
+                        </label>
+                        <button onClick={()=>removeStep(step.id)} className="action-btn action-btn-delete" style={{padding:'3px 8px',flexShrink:0}}><i className="ti ti-trash" style={{fontSize:13}}/></button>
+                      </div>
+                      <div style={{padding:'12px 14px',display:'flex',flexDirection:'column',gap:8}}>
+                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+                          <input className="form-input" placeholder={ar?'اسم الخطوة (EN)':'Step name (EN)'} value={step.name} onChange={e=>updateStep(step.id,'name',e.target.value)}/>
+                          <input className="form-input" placeholder="اسم الخطوة (AR)" value={step.name_ar||''} onChange={e=>updateStep(step.id,'name_ar',e.target.value)} dir="rtl"/>
+                        </div>
+                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+                          <select className="form-input" value={step.approver_user_id?'':(step.approver_role||'admin')}
+                            onChange={e=>{updateStep(step.id,'approver_role',e.target.value); updateStep(step.id,'approver_user_id',null)}}>
+                            {WORKFLOW_APPROVER_ROLES.map(r=><option key={r} value={r}>{ar?(ROLE_LABELS_AR[r]||r):(ROLE_LABELS_EN[r]||r)}</option>)}
+                          </select>
+                          <select className="form-input" value={step.approver_user_id||''}
+                            onChange={e=>updateStep(step.id,'approver_user_id',e.target.value||null)}>
+                            <option value="">{ar?'— أي مستخدم من الدور —':'— Any user with role —'}</option>
+                            {staffProfiles.map(p=><option key={p.id} value={p.id}>{p.full_name} ({p.role})</option>)}
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <button onClick={addStep} className="btn btn-blue" style={{marginTop:12,width:'100%',justifyContent:'center'}}>
+                  <i className="ti ti-plus"/> {ar?'إضافة خطوة':'Add Step'}
                 </button>
               </div>
             </div>
@@ -554,7 +643,7 @@ export default function Requests({ profile, navState }) {
 
         {/* Status filter tabs */}
         <div style={{display:'flex',gap:6,marginBottom:16,flexWrap:'wrap'}}>
-          {['all','pending','in_review','approved','rejected'].map(s=>{
+          {['all','submitted','under_review','pending_approval','returned','approved','rejected','completed'].map(s=>{
             const m = s==='all' ? null : STATUS_META[s]
             const active = subFilter===s
             return (
@@ -571,21 +660,25 @@ export default function Requests({ profile, navState }) {
           ? <div className="empty">{ar?'لا توجد طلبات':'No submissions'}</div>
           : <div style={{display:'flex',flexDirection:'column',gap:8}}>
               {filteredSubs.map(s=>{
-                const initName = s.profiles?.full_name||'?'
-                const roleClr = ROLE_COLORS[s.profiles?.role]||'#999'
+                const initName = s.is_guest ? (s.guest_name||'Guest') : (s.profiles?.full_name||'?')
+                const roleClr = s.is_guest ? ROLE_COLORS.guest : (ROLE_COLORS[s.profiles?.role]||'#999')
                 return (
                   <div key={s.id}
                     style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:12,padding:'14px 18px',display:'flex',alignItems:'center',gap:14,cursor:'pointer',transition:'all .15s',boxShadow:'var(--shadow)'}}
                     onMouseEnter={e=>e.currentTarget.style.borderColor='var(--border2)'}
                     onMouseLeave={e=>e.currentTarget.style.borderColor='var(--border)'}
-                    onClick={()=>{setSelectedSub(s);setView('submission-view')}}>
+                    onClick={()=>{setSelectedSub(s);fetchSubActions(s.id);setActionNote('');setView('submission-view')}}>
                     <div style={{width:36,height:36,borderRadius:'50%',background:roleClr,display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700,color:'white',flexShrink:0}}>
                       {initials(initName)}
                     </div>
                     <div style={{flex:1}}>
-                      <div style={{fontWeight:600,fontSize:14}}>{initName}</div>
+                      <div style={{fontWeight:600,fontSize:14,display:'flex',alignItems:'center',gap:6}}>
+                        {initName}
+                        {s.is_guest && <span style={{fontSize:10,fontWeight:700,color:'#64748b',background:'#f1f5f9',padding:'2px 7px',borderRadius:10}}>{ar?'ضيف':'GUEST'}</span>}
+                      </div>
                       <div style={{fontSize:12,color:'var(--text3)',marginTop:2}}>
-                        {new Date(s.submitted_at).toLocaleDateString()} · <span style={{color:roleClr,fontWeight:500}}>{s.profiles?.role}</span>
+                        {new Date(s.submitted_at).toLocaleDateString()}{!s.is_guest && <> · <span style={{color:roleClr,fontWeight:500}}>{s.profiles?.role}</span></>}
+                        {s.reference_number && <> · {s.reference_number}</>}
                       </div>
                     </div>
                     {statusBadge(s.status)}
@@ -607,6 +700,36 @@ export default function Requests({ profile, navState }) {
   if (view==='submission-view' && selectedSub && isAdmin) {
     const form = forms.find(f=>f.id===selectedSub.form_id)
     const clr = form?.color||'#0085C7'
+    const hasWorkflow = (form?.request_form_workflow_steps||[]).length > 0
+    const subName = selectedSub.is_guest ? (selectedSub.guest_name||'Guest') : (selectedSub.profiles?.full_name||'?')
+    const subRoleClr = selectedSub.is_guest ? ROLE_COLORS.guest : (ROLE_COLORS[selectedSub.profiles?.role]||'#999')
+    const canAct = !ACTIVE_STATUSES.includes(selectedSub.status) ? false :
+      isAdmin || (selectedSub.current_approver_id ? selectedSub.current_approver_id===profile.id
+        : selectedSub.current_approver_role===profile.role)
+    const currentStepDef = hasWorkflow ? form.request_form_workflow_steps.find(s=>s.step_order===selectedSub.current_step_order) : null
+
+    async function doAction(action) {
+      setActing(true)
+      const { data, error } = await supabase.rpc('act_on_request_submission', { p_submission_id: selectedSub.id, p_action: action, p_comment: actionNote||null })
+      setActing(false)
+      if (error || data?.status!=='ok') return toast(data?.status==='not_permitted'?(ar?'غير مسموح':'Not permitted'):(error?.message||(ar?'فشل':'Failed')),'error')
+      toast(ar?'تم التحديث':'Updated','success')
+      if (isTrustedAdmin(profile)) {
+        logAdminActivity({ actor: profile, action: action==='approve'?'approved':action==='reject'?'rejected':action, entityType:'request', entityId:selectedSub.id, entityLabel: form?.title||'request', module:'requests' })
+      }
+      setActionNote('')
+      const newStatus = data?.new_status || selectedSub.status
+      setSelectedSub(p=>({...p, status:newStatus}))
+      fetchSubActions(selectedSub.id); fetchFormSubs(selectedSub.form_id); fetchForms()
+    }
+    async function doComplete() {
+      const { data, error } = await supabase.rpc('mark_request_completed', { p_submission_id: selectedSub.id })
+      if (error || data?.status!=='ok') return toast(ar?'فشل':'Failed','error')
+      toast(ar?'تم الإكمال':'Marked completed','success')
+      setSelectedSub(p=>({...p, status:'completed'}))
+      fetchFormSubs(selectedSub.form_id); fetchForms()
+    }
+
     return (
       <div>
         <div className="page-header" style={{marginBottom:20}}>
@@ -615,23 +738,79 @@ export default function Requests({ profile, navState }) {
               <i className="ti ti-arrow-left"/> {ar?'رجوع':'Back'}
             </button>
             <div style={{display:'flex',alignItems:'center',gap:12}}>
-              <div style={{width:36,height:36,borderRadius:'50%',background:ROLE_COLORS[selectedSub.profiles?.role]||'#999',display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:700,color:'white'}}>
-                {initials(selectedSub.profiles?.full_name||'?')}
+              <div style={{width:36,height:36,borderRadius:'50%',background:subRoleClr,display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:700,color:'white'}}>
+                {initials(subName)}
               </div>
               <div>
-                <div className="page-title">{selectedSub.profiles?.full_name}</div>
-                <div className="page-sub">{new Date(selectedSub.submitted_at).toLocaleString()}</div>
+                <div className="page-title" style={{display:'flex',alignItems:'center',gap:8}}>
+                  {subName}
+                  {selectedSub.is_guest && <span style={{fontSize:10,fontWeight:700,color:'#64748b',background:'#f1f5f9',padding:'2px 7px',borderRadius:10}}>{ar?'ضيف':'GUEST'}</span>}
+                </div>
+                <div className="page-sub">
+                  {new Date(selectedSub.submitted_at).toLocaleString()}
+                  {selectedSub.reference_number && <> · {selectedSub.reference_number}</>}
+                  {selectedSub.is_guest && selectedSub.guest_contact && <> · {selectedSub.guest_contact}</>}
+                </div>
               </div>
             </div>
           </div>
           <div style={{display:'flex',gap:10,alignItems:'center'}}>
             {statusBadge(selectedSub.status)}
-            <button className="btn btn-blue"
-              onClick={()=>{setReviewSub(selectedSub);setReviewNote(selectedSub.admin_notes||'');setReviewStatus(selectedSub.status==='pending'?'approved':selectedSub.status)}}>
-              <i className="ti ti-edit"/> {ar?'مراجعة':'Review'}
-            </button>
+            {!hasWorkflow && (
+              <button className="btn btn-blue"
+                onClick={()=>{setReviewSub(selectedSub);setReviewNote(selectedSub.admin_notes||'');setReviewStatus(ACTIVE_STATUSES.includes(selectedSub.status)?'approved':selectedSub.status)}}>
+                <i className="ti ti-edit"/> {ar?'مراجعة':'Review'}
+              </button>
+            )}
+            {selectedSub.status==='approved' && (
+              <button className="btn btn-blue" onClick={doComplete}><i className="ti ti-check"/> {ar?'وضع علامة مكتمل':'Mark Completed'}</button>
+            )}
           </div>
         </div>
+
+        {hasWorkflow && (
+          <div className="card" style={{maxWidth:640,marginBottom:16}}>
+            <div style={{fontWeight:700,fontSize:13,marginBottom:10}}>{ar?'مسار الموافقة':'Approval Workflow'}</div>
+            <div style={{display:'flex',flexDirection:'column',gap:8}}>
+              {form.request_form_workflow_steps.map(step=>{
+                const done = ['approved','completed'].includes(selectedSub.status) || step.step_order < (selectedSub.current_step_order??Infinity)
+                const isCurrent = ACTIVE_STATUSES.includes(selectedSub.status) && step.step_order===selectedSub.current_step_order
+                return (
+                  <div key={step.id} style={{display:'flex',alignItems:'center',gap:10,fontSize:13}}>
+                    <i className={`ti ${done?'ti-circle-check-filled':isCurrent?'ti-circle-dot':'ti-circle'}`} style={{color:done?'#009F6B':isCurrent?'#8b5cf6':'var(--text3)',fontSize:16}}/>
+                    <span style={{fontWeight:isCurrent?600:400}}>{ar?(step.name_ar||step.name):step.name}</span>
+                    <span style={{color:'var(--text3)',fontSize:11}}>({ar?(ROLE_LABELS_AR[step.approver_role]||''):(ROLE_LABELS_EN[step.approver_role]||'')})</span>
+                  </div>
+                )
+              })}
+            </div>
+            {canAct && (
+              <div style={{marginTop:16,paddingTop:16,borderTop:'1px solid var(--border)'}}>
+                <textarea className="form-input" rows={2} placeholder={ar?'تعليق (اختياري)':'Comment (optional)'} value={actionNote} onChange={e=>setActionNote(e.target.value)} style={{resize:'vertical',marginBottom:10}}/>
+                <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                  <button className="btn btn-blue" disabled={acting} onClick={()=>doAction('approve')}><i className="ti ti-check"/> {ar?'موافقة':'Approve'}</button>
+                  <button className="btn btn-red" disabled={acting} onClick={()=>doAction('reject')}><i className="ti ti-x"/> {ar?'رفض':'Reject'}</button>
+                  <button className="action-btn action-btn-edit" disabled={acting} onClick={()=>doAction('return')}><i className="ti ti-corner-up-left"/> {ar?'إعادة للتصحيح':'Return for Correction'}</button>
+                  <button className="btn-cancel" disabled={acting || !actionNote.trim()} onClick={()=>doAction('comment')}><i className="ti ti-message"/> {ar?'تعليق فقط':'Comment Only'}</button>
+                </div>
+              </div>
+            )}
+            {!selectedSub.is_guest && subActions.length>0 && (
+              <div style={{marginTop:16,paddingTop:16,borderTop:'1px solid var(--border)'}}>
+                <div style={{fontWeight:700,fontSize:12,marginBottom:8,color:'var(--text3)',textTransform:'uppercase',letterSpacing:'.04em'}}>{ar?'سجل الإجراءات':'Action History'}</div>
+                <div style={{display:'flex',flexDirection:'column',gap:10}}>
+                  {subActions.map(a=>(
+                    <div key={a.id} style={{fontSize:12.5}}>
+                      <span style={{fontWeight:600}}>{a.profiles?.full_name||'—'}</span>{' '}
+                      <span style={{color:'var(--text3)'}}>{a.action} · {new Date(a.acted_at).toLocaleString()}</span>
+                      {a.comment && <div style={{color:'var(--text2)',marginTop:2,fontStyle:'italic'}}>"{a.comment}"</div>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="card" style={{maxWidth:640}}>
           {(form?.request_form_fields||[]).map(field=>{
@@ -653,7 +832,7 @@ export default function Requests({ profile, navState }) {
           )}
         </div>
 
-        {/* Review modal */}
+        {/* Review modal (no-workflow forms only) */}
         {reviewSub && (
           <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.45)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center'}}
             onMouseDown={e => { if (e.target === e.currentTarget) setReviewSub(null) }}>
