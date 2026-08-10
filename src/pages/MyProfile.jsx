@@ -34,12 +34,23 @@ const DESIGNATION_AR = {
 }
 
 // Real, combined "My Profile" — built from every CURRENT role linked to the
-// logged-in person's person_id, not from profiles.role (the login/
-// permission role) and not from whichever single role happened to match
-// first. A person can genuinely hold more than one current role at once
-// (e.g. Coach + Staff) — all of them are shown, each as its own card.
-// Historical/inactive role records are surfaced only as a small "Former X"
-// note, never as a current role or as the page's primary identity.
+// logged-in person, not from profiles.role (the login/permission role) and
+// not from whichever single role happened to match first. A person can
+// genuinely hold more than one current role at once (e.g. Coach + Staff)
+// — all of them are shown, each as its own card. Historical/inactive role
+// records are surfaced only as a small "Former X" note, never as a current
+// role or as the page's primary identity.
+//
+// Resolution never depends solely on profile.person_id: many legacy (and
+// some newly-approved) role records predate the people-table backfill and
+// have person_id = null. When person_id is present it's used to group every
+// current role for that person; when it's null, the individual role ids
+// already saved on the profile at request time (athlete_id / coach_id /
+// employee_id / referee_id) are used directly instead — the profile is the
+// single source of truth for "which records are mine" either way, so this
+// page never falls back to a different/legacy layout for that reason.
+const isCoachDesignation = (emp) => emp && (emp.designation === 'Coach' || emp.designation_ar === 'مدرب')
+
 export default function MyProfile({ profile, athletes, coaches, employees, referees, onNav }) {
   const { lang, tx } = useLang()
   const ar = lang === 'ar'
@@ -47,12 +58,25 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
 
   const { roles, loading } = usePersonRoles(personId)
 
-  // Current (non-historical) role records — the actual source of truth for
-  // "what is this person right now", independent of profiles.role.
-  const myAthlete  = athletes.find(a => a.person_id === personId && !a.is_historical)
-  const myCoach    = coaches.find(c => c.person_id === personId && !c.is_historical)
-  const myEmployee = employees.find(e => e.person_id === personId && !e.is_historical)
-  const myReferee  = (referees || []).find(r => r.person_id === personId && !r.is_historical)
+  // Current (non-historical) role records. person_id grouping first;
+  // direct profile.<role>_id fallback when person_id is unavailable.
+  const byPersonOrId = (list, idField) => {
+    if (personId) return list.find(r => r.person_id === personId && !r.is_historical)
+    const directId = profile?.[idField]
+    if (directId == null) return null
+    return list.find(r => r.id === directId && !r.is_historical)
+  }
+  const myAthleteRaw  = byPersonOrId(athletes, 'athlete_id')
+  const myCoachRaw    = byPersonOrId(coaches, 'coach_id')
+  const myEmployee    = byPersonOrId(employees, 'employee_id')
+  const myReferee     = byPersonOrId(referees || [], 'referee_id')
+
+  // Rule A — Coach + a Staff record whose designation is "Coach" is ONE
+  // role (Coach), not two. The Staff record is absorbed: no separate
+  // Staff card/badge is shown when this applies.
+  const myCoach = myCoachRaw
+  const staffAbsorbedIntoCoach = !!(myCoach && isCoachDesignation(myEmployee))
+  const myAthlete = myAthleteRaw
 
   // My Sports (athlete_sports) — every assigned sport with its category
   // (derived from the sport) and coach, for the Athlete role card below.
@@ -67,10 +91,11 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
 
   // Historical/former matches — only used for the small "Former X" note,
   // and only shown when there's no CURRENT record of that same role.
-  const myFormerCoach    = !myCoach    ? coaches.find(c => c.person_id === personId && c.is_historical) : null
-  const myFormerEmployee = !myEmployee ? employees.find(e => e.person_id === personId && e.is_historical) : null
+  const myFormerCoach    = !myCoach ? (personId ? coaches.find(c => c.person_id === personId && c.is_historical) : null) : null
+  const myFormerEmployee = (!myEmployee && !staffAbsorbedIntoCoach) ? (personId ? employees.find(e => e.person_id === personId && e.is_historical) : null) : null
 
   const hasAnyCurrentRole = !!(myAthlete || myCoach || myEmployee || myReferee)
+  const hasAnyLink = !!(personId || profile?.athlete_id || profile?.coach_id || profile?.employee_id || profile?.referee_id)
 
   const statusLabel = (record) => {
     const s = effectiveStatus(record)
@@ -104,13 +129,12 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
   const [allDocs, setAllDocs] = useState([])
   const [docsLoaded, setDocsLoaded] = useState(false)
   useEffect(() => {
-    if (!personId) { setAllDocs([]); setDocsLoaded(true); return }
+    if (!hasAnyLink) { setAllDocs([]); setDocsLoaded(true); return }
     let cancelled = false
     setDocsLoaded(false)
 
-    const queries = [
-      supabase.from('person_shared_documents').select('*').eq('person_id', personId),
-    ]
+    const queries = []
+    if (personId) queries.push(supabase.from('person_shared_documents').select('*').eq('person_id', personId))
     if (myAthlete)  queries.push(supabase.from('athlete_documents').select('*').eq('athlete_id', myAthlete.id))
     if (myEmployee) queries.push(supabase.from('person_documents').select('*').eq('person_id', myEmployee.id).eq('person_type', 'employee'))
     if (myCoach)    queries.push(supabase.from('person_documents').select('*').eq('person_id', myCoach.id).eq('person_type', 'coach'))
@@ -131,9 +155,9 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
       setDocsLoaded(true)
     })
     return () => { cancelled = true }
-  }, [personId, myAthlete?.id, myEmployee?.id, myCoach?.id, myReferee?.id])
+  }, [personId, hasAnyLink, myAthlete?.id, myEmployee?.id, myCoach?.id, myReferee?.id])
 
-  if (!personId) {
+  if (!hasAnyLink) {
     return (
       <div className="empty" style={{ padding: 40, textAlign: 'center' }}>
         {ar ? 'لا يوجد سجل شخصي مرتبط بحسابك بعد.' : 'No linked person record for your account yet.'}
@@ -158,9 +182,11 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
   const email = myEmployee?.email || myCoach?.email || myAthlete?.email || profile?.email
 
   // Current-role labels for the badge row — e.g. "Coach" + "Staff — Technical Expert".
+  // A Staff record whose designation is "Coach" is absorbed into the Coach
+  // badge above and never shown as its own "Staff — Coach" badge.
   const roleBadgeLabels = [
     myCoach && (ar ? 'مدرب' : 'Coach'),
-    myEmployee && (ar
+    myEmployee && !staffAbsorbedIntoCoach && (ar
       ? `الكادر${myEmployee.designation_ar || myEmployee.designation ? ' — ' + (myEmployee.designation_ar || DESIGNATION_AR[myEmployee.designation] || myEmployee.designation) : ''}`
       : `Staff${myEmployee.designation ? ' — ' + myEmployee.designation : ''}`),
     myAthlete && (ar ? 'رياضي' : 'Athlete'),
@@ -310,9 +336,10 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
           )}
 
           {/* ── STAFF — only rendered if this person currently holds a
-              non-historical employee record. Shown alongside Coach above
-              when both are current, never instead of it. ── */}
-          {myEmployee && (
+              non-historical employee record AND it isn't absorbed into
+              the Coach role above (designation "Coach"). Shown alongside
+              Coach when both are current and genuinely distinct. ── */}
+          {myEmployee && !staffAbsorbedIntoCoach && (
             <>
               {(() => {
                 const yearsOfService = yearsOfServiceFrom(myEmployee.join_date)
