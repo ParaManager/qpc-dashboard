@@ -7,7 +7,7 @@ import { isTrustedAdmin } from '../lib/permissions'
 import { canEdit } from '../lib/useAuth'
 import { logAdminActivity } from '../lib/adminActivity'
 
-const ROLE_COLORS  = { admin:'#EE334E', readonly_admin:'#f59e0b', coach:'#0085C7', employee:'#8b5cf6', athlete:'#009F6B' }
+const ROLE_COLORS  = { admin:'#EE334E', readonly_admin:'#f59e0b', medical_staff:'#14b8a6', coach:'#0085C7', employee:'#8b5cf6', athlete:'#009F6B' }
 
 // ── Account-role source of truth ────────────────────────────────────────
 // The ONLY four assignable account roles in this system. `employee` stays
@@ -15,9 +15,9 @@ const ROLE_COLORS  = { admin:'#EE334E', readonly_admin:'#f59e0b', coach:'#0085C7
 // it is simply always labeled "Staff" in the UI. `guest` is intentionally
 // excluded: guests have no account/profile row to manage here. `referee`
 // is excluded too — not implemented as an account role yet.
-const ACCOUNT_ROLES = ['admin', 'readonly_admin', 'coach', 'employee', 'athlete']
-const ROLE_LABEL_EN = { admin: 'Admin', readonly_admin: 'Read-Only Admin', coach: 'Coach', employee: 'Staff', athlete: 'Athlete' }
-const ROLE_LABEL_AR = { admin: 'مسؤول', readonly_admin: 'مسؤول للعرض فقط', coach: 'مدرب', employee: 'كادر', athlete: 'رياضي' }
+const ACCOUNT_ROLES = ['admin', 'readonly_admin', 'medical_staff', 'coach', 'employee', 'athlete']
+const ROLE_LABEL_EN = { admin: 'Admin', readonly_admin: 'Read-Only Admin', medical_staff: 'Medical Staff', coach: 'Coach', employee: 'Staff', athlete: 'Athlete' }
+const ROLE_LABEL_AR = { admin: 'مسؤول', readonly_admin: 'مسؤول للعرض فقط', medical_staff: 'الكادر الطبي', coach: 'مدرب', employee: 'كادر', athlete: 'رياضي' }
 
 // Never falls back to 'admin' (or anything else) for a missing/unrecognized
 // value — returns null so callers can render an explicit "Unassigned/
@@ -276,12 +276,12 @@ export default function UserManagement({ profile, initUserId }) {
           const statusColor = STATUS_COLORS[u.status] || '#9aa3b2'
           const linkedName  = u.account_type === 'coach'   ? (ar && u.coaches?.name_ar ? u.coaches.name_ar : u.coaches?.name)
                             : u.account_type === 'athlete' ? (ar && u.athletes?.name_ar ? u.athletes.name_ar : u.athletes?.name)
-                            : u.account_type === 'employee' ? (ar && u.employees?.name_ar ? u.employees.name_ar : u.employees?.name)
+                            : (u.account_type === 'employee' || u.account_type === 'medical_staff') ? (ar && u.employees?.name_ar ? u.employees.name_ar : u.employees?.name)
                             : null
           // Employee approvals additionally show designation + the linked
           // employee record's own status, per the employee signup review
           // requirements — Coach/Athlete only ever showed the linked name.
-          const linkedExtra = u.account_type === 'employee' && u.employees
+          const linkedExtra = (u.account_type === 'employee' || u.account_type === 'medical_staff') && u.employees
             ? [
                 ar ? (u.employees.designation_ar || u.employees.designation) : u.employees.designation,
                 u.employees.status,

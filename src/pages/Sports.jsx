@@ -3,7 +3,7 @@ import { SPORTS, SPORT_META, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, UNIFIED_SPORT
 import { useLang } from '../lib/LangContext.jsx'
 import { supabase } from '../lib/supabase'
 import { canEdit } from '../lib/useAuth'
-import { isAdminRole } from '../lib/permissions'
+import { isAdminRole, canViewAthleteDetails } from '../lib/permissions'
 import { toast } from '../components/Toast'
 
 export default function Sports({ athletes, coaches, events, results, onNav, initSport, initCategory, profile }) {
@@ -17,6 +17,10 @@ export default function Sports({ athletes, coaches, events, results, onNav, init
   // clickable only from the dedicated "My Athletes" page, never from here.
   // Full Admin and Read-Only Admin keep click-through unchanged.
   const canClickPeople = isAdminRole(profile)
+  // Athlete rows specifically also open for Medical Staff (full read-only
+  // athlete-detail access is their one deliberate exception to the normal
+  // Staff-tier restrictions) — Coach rows are unaffected by this.
+  const canClickAthletes = canViewAthleteDetails(profile)
 
   // SPORTS_BY_CATEGORY groups every known sport by category, but its Summer
   // Paralympic list still includes the legacy flat 'Special Olympics'
@@ -185,7 +189,7 @@ export default function Sports({ athletes, coaches, events, results, onNav, init
             <div className="info-title">{tx('sports.athletes','Athletes')} ({myAths.length}) <span style={{ fontSize:10, fontWeight:400, textTransform:'none', letterSpacing:0 }}>— {tx('athletes.clickToView','click to view')}</span></div>
             {myAths.length === 0 ? <div className="empty">{tx('sports.noAthletes','No athletes')}</div> :
               myAths.map(a => (
-                <DashRow key={a.id} clickable={canClickPeople} onClick={() => onNav('athletes', { athleteId: a.id })}>
+                <DashRow key={a.id} clickable={canClickAthletes} onClick={() => onNav('athletes', { athleteId: a.id })}>
                   <Avatar name={a.name} id={a.id} size={32} fs={10} />
                   <div style={{ flex:1 }}><div style={{ fontSize:13, fontWeight:500 }}>{a.name}</div><div style={{ fontSize:11, color:'var(--text3)' }}>{a.classification}</div></div>
                   <MedalDisplay gold={a.medals_gold} silver={a.medals_silver} bronze={a.medals_bronze} />

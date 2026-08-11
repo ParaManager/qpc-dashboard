@@ -6,7 +6,7 @@ import EventCategoryModal from '../components/EventCategoryModal'
 import { ConfirmModal, toast } from '../components/Toast'
 import { supabase } from '../lib/supabase'
 import { canEdit } from '../lib/useAuth'
-import { isTrustedAdmin, isAdminRole } from '../lib/permissions'
+import { isTrustedAdmin, canViewAthleteDetails } from '../lib/permissions'
 import { logAdminActivity } from '../lib/adminActivity'
 import { useLang } from '../lib/LangContext.jsx'
 
@@ -356,7 +356,13 @@ export default function Events({ events, athletes, results, registrations, onRef
     // Full Admin and Read-Only Admin — Staff, Coach, and Athlete accounts
     // get a read-only participant list here (Coach's own roster is still
     // reachable, unaffected, from the dedicated "My Athletes" page).
-    const canClickPeople     = isAdminRole(profile)
+    // Registered-athlete / results-athlete rows stay clickable only for
+    // Full Admin and Read-Only Admin — Staff, Coach, and Athlete accounts
+    // get a read-only participant list here (Coach's own roster is still
+    // reachable, unaffected, from the dedicated "My Athletes" page).
+    // Medical Staff is the one exception: full read-only athlete-detail
+    // access, same as Read-Only Admin, everywhere athletes are listed.
+    const canClickAthletes   = canViewAthleteDetails(profile)
 
     const editRecord = {
       id: ev.id, name: ev.name, nameAr: ev.name_ar,
@@ -452,12 +458,12 @@ export default function Events({ events, athletes, results, registrations, onRef
             <div className="info-card">
               <div className="info-title">
                 {tx('events.registeredAthletes', 'Registered athletes')} ({regAthletes.length})
-                {canClickPeople && <span style={{ fontSize: 10, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}> — {tx('events.clickToView', 'click to view')}</span>}
+                {canClickAthletes && <span style={{ fontSize: 10, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}> — {tx('events.clickToView', 'click to view')}</span>}
               </div>
               {regAthletes.map(a => {
                 const stillEligible = evSports.length === 0 || athleteMatchesSports(a, evSports)
                 return (
-                  <DashRow key={a.id} clickable={canClickPeople} onClick={() => onNav('athletes', { athleteId: a.id })}>
+                  <DashRow key={a.id} clickable={canClickAthletes} onClick={() => onNav('athletes', { athleteId: a.id })}>
                     <Avatar name={a.name} id={a.id} size={30} fs={10} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 13, fontWeight: 500 }}>{ar && a.name_ar ? a.name_ar : a.name}</div>
@@ -540,7 +546,7 @@ export default function Events({ events, athletes, results, registrations, onRef
                 : evResults.map(r => {
                     const a = athletes.find(x => x.id === r.athlete_id)
                     return (
-                      <DashRow key={r.id} clickable={canClickPeople} onClick={() => a && onNav('athletes', { athleteId: a.id })}>
+                      <DashRow key={r.id} clickable={canClickAthletes} onClick={() => a && onNav('athletes', { athleteId: a.id })}>
                         <span style={{ fontSize: 18, flexShrink: 0 }}>{r.medal==='gold'?'🥇':r.medal==='silver'?'🥈':'🥉'}</span>
                         <div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 500 }}>{r.athlete_name}</div><div style={{ fontSize: 11, color: 'var(--text2)' }}>{r.discipline}</div></div>
                         <span className="badge badge-blue">{r.result}</span>

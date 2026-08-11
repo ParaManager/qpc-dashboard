@@ -11,7 +11,7 @@ import { ConfirmModal, toast } from '../components/Toast'
 import { supabase } from '../lib/supabase'
 import JSZip from 'jszip'
 import { canEdit } from '../lib/useAuth'
-import { isTrustedAdmin } from '../lib/permissions'
+import { isTrustedAdmin, canViewAthleteDetails } from '../lib/permissions'
 import { usePersonRoles, RoleBadges } from '../components/RoleBadges.jsx'
 import MultiSelectFilter from '../components/MultiSelectFilter.jsx'
 import StatusScopeModal from '../components/StatusScopeModal.jsx'
@@ -1146,7 +1146,27 @@ export default function Athletes({ athletes, coaches, employees, results, docume
   // Coach/Employee accounts get a fixed, non-configurable column set (per
   // the directory read-only view spec) — 'name' itself is the always-shown
   // sticky column, these are the additional ones.
-  const restrictedView = profile?.role === 'employee' || profile?.role === 'athlete' || (profile?.role === 'coach' && isAllAthletesView)
+  // Explicitly derived from the centralized canViewAthleteDetails()
+  // permission helper (src/lib/permissions.js), NOT from "does this role
+  // fail to match a list of restricted role strings". That distinction
+  // matters: Medical Staff's access here is now an intentional grant from
+  // the shared permission source of truth, not an accidental side effect
+  // of being a role string nobody had blacklisted yet. It also means any
+  // future narrowing of what full detail access even shows (e.g. hiding
+  // financial/disciplinary/federation-only sections from Medical Staff
+  // specifically, without touching Read-Only Admin) has one obvious place
+  // to branch from — this same helper — rather than another ad hoc flag.
+  //
+  // The Coach "My Athletes" exception is deliberately kept separate from
+  // canViewAthleteDetails(profile) (which, called with no specific athlete,
+  // correctly returns false for Coach — general/all-athletes lists are
+  // never Coach's own roster): every row on this page when NOT
+  // isAllAthletesView is already guaranteed (by App.jsx's myAthletes
+  // filter) to belong to this coach, so the page-level "am I looking at my
+  // own roster" flag is the correct, explicit substitute for a per-row
+  // canViewAthleteDetails(profile, athlete) check here.
+  const canViewDetails = canViewAthleteDetails(profile) || (profile?.role === 'coach' && !isAllAthletesView)
+  const restrictedView = !canViewDetails
   const RESTRICTED_COLS = ['name', 'name_ar', 'sport', 'disability', 'nationality', 'gender', 'age', 'coach_id', 'status']
   const COLS_STORAGE_KEY = 'qpc_athletes_visible_cols_v2'
   function loadStoredCols(fallback) {
