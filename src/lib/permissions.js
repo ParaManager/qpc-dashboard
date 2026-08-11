@@ -30,6 +30,33 @@ export function isReadOnlyAdmin(profile) {
   return profile?.role === 'readonly_admin'
 }
 
+// ── Athlete-detail visibility ────────────────────────────────────────────
+// Centralized so every place that lists athletes (Athletes page, Sports,
+// Sport Details, Events, Event Details, any reusable athlete row/card, the
+// direct Athlete Details route) agrees on who may open a full athlete
+// profile. This is deliberately NARROWER than isAdminRole() — it also
+// grants Medical Staff (an ordinary Staff-tier account otherwise) and a
+// Coach's own assigned athletes, neither of which should get any other
+// admin-level visibility.
+//
+// `athlete` + `athleteSportAssignments` are optional: pass them when
+// checking a Coach's access to one specific athlete (mirrors the same
+// "assigned via coach_id OR athlete_sports" rule App.jsx's own myAthletes
+// uses); omit them for general member lists (Sports/Events) where a Coach
+// must NOT get access regardless of assignment — those lists are never the
+// dedicated "My Athletes" context.
+export function canViewAthleteDetails(profile, athlete = null, athleteSportAssignments = []) {
+  const role = profile?.role
+  if (role === 'admin' || role === 'readonly_admin' || role === 'medical_staff') return true
+  if (role === 'coach' && athlete) {
+    if (String(athlete.coach_id) === String(profile?.coach_id)) return true
+    return athleteSportAssignments.some(as =>
+      String(as.coach_id) === String(profile?.coach_id) && String(as.athlete_id) === String(athlete.id)
+    )
+  }
+  return false
+}
+
 function normalizedEmail(profile, user) {
   // Trusted-admin distinctions only ever make sense for an actually-admin
   // effective role. This also closes a Role Preview leak: `user` (the raw
