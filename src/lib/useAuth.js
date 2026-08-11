@@ -5,6 +5,15 @@ export function useAuth() {
   const [user, setUser]         = useState(null)
   const [profile, setProfile]   = useState(null)
   const [loading, setLoading]   = useState(true)  // stays true until user+profile both resolved
+  // ── View As (support-engineer impersonation) ──────────────────────────
+  // `viewAsProfile` holds the FULL profile row of whichever user the
+  // signed-in support account has chosen to view as. It is purely local
+  // React state — no Supabase session, token, or auth.uid() is ever
+  // touched, so the support engineer's own login stays exactly as-is.
+  // Every other part of the app keeps reading `profile` as before; this
+  // hook just substitutes which row that name points to.
+  const [viewAsProfile, setViewAsProfile]     = useState(null)
+  const [viewAsSessionId, setViewAsSessionId] = useState(null)
   // Tracks the currently-known signed-in user id in a ref (not state), so the
   // onAuthStateChange closure below can always read the true latest value
   // synchronously — some Supabase-js v2 versions re-emit SIGNED_IN (not just
@@ -64,6 +73,8 @@ export function useAuth() {
       if (event === 'SIGNED_OUT') {
         setUser(null)
         setProfile(null)
+        setViewAsProfile(null)
+        setViewAsSessionId(null)
         knownUserIdRef.current = null
         return
       }
@@ -123,7 +134,45 @@ export function useAuth() {
     await supabase.auth.signOut({ scope: 'local' })
   }
 
-  return { user, profile, loading, signOut }
+  // ── View As controls ────────────────────────────────────────────────
+  // Only ever callable meaningfully by a profile with is_support = true —
+  // the UI that calls these (ViewAsSwitcher) is itself gated on that flag,
+  // and the audit-table RLS independently re-checks it server-side on
+  // insert, so a non-support account can't spoof a session row even by
+  // calling this directly.
+  async function startViewAs(targetProfile) {
+    if (!profile?.is_support || !targetProfile?.id) return
+    const { data } = await supabase.from('view_as_sessions')
+      .insert({ support_user_id: profile.id, viewed_user_id: targetProfile.id, viewed_role: targetProfile.role })
+      .select('id').single()
+    setViewAsSessionId(data?.id || null)
+    setViewAsProfile(targetProfile)
+  }
+
+  async function exitViewAs() {
+    if (viewAsSessionId) {
+      await supabase.from('view_as_sessions').update({ ended_at: new Date().toISOString() }).eq('id', viewAsSessionId)
+    }
+    setViewAsSessionId(null)
+    setViewAsProfile(null)
+  }
+
+  return {
+    user,
+    // `profile` transparently becomes the impersonated row while a View As
+    // session is active — every existing page/permission check in the app
+    // that reads `profile.role`, `profile.athlete_id`, etc. therefore
+    // renders exactly as that user would see it, with zero changes needed
+    // anywhere else in the codebase.
+    profile: viewAsProfile || profile,
+    realProfile: profile,
+    isViewingAs: !!viewAsProfile,
+    viewAsProfile,
+    loading,
+    signOut,
+    startViewAs,
+    exitViewAs,
+  }
 }
 
 export const isAdmin   = p => p?.role === 'admin'
