@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from './lib/supabase'
 import { useAuth, canEdit } from './lib/useAuth'
 import { isTrustedAdmin, isMainAdmin as isMainAdminCheck, isTrustedAdminEmail } from './lib/permissions'
-import { getCurrentSeason, effectiveStatus } from './lib/helpers'
+import { getCurrentSeason, effectiveStatus, resolveUserPhoto, ProfileAvatar } from './lib/helpers'
 import { ToastContainer } from './components/Toast'
 import Login     from './pages/Login'
 import Dashboard from './pages/Dashboard'
@@ -32,8 +32,8 @@ import Attendance  from './pages/Attendance'
 import Employees from './pages/Employees'
 import './index.css'
 import NotificationBell from './components/NotificationBell.jsx'
-import ViewAsBanner from './components/ViewAsBanner.jsx'
-import ViewAsSwitcher from './components/ViewAsSwitcher.jsx'
+import RolePreviewBanner from './components/RolePreviewBanner.jsx'
+import RolePreviewSwitcher from './components/RolePreviewSwitcher.jsx'
 import { useLang } from './lib/LangContext.jsx'
 
 const NAV_ADMIN = (tx) => [
@@ -90,7 +90,7 @@ const ROLE_DISPLAY_LABELS = {
 const ROLE_ICONS  = { admin: 'ti-shield', coach: 'ti-user-star', employee: 'ti-id-badge-2', athlete: 'ti-run', guest: 'ti-eye' }
 
 export default function App() {
-  const { user, profile, loading: authLoading, signOut, realProfile, isViewingAs, viewAsProfile, startViewAs, exitViewAs } = useAuth()
+  const { user, profile, loading: authLoading, signOut, realProfile, previewRole, isPreviewing, startPreview, exitPreview } = useAuth()
   const { lang, setLang, tx } = useLang()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -122,15 +122,34 @@ export default function App() {
   // assignment is reflected immediately on the very next onRefresh() call
   // from any page, not only when refreshToken happens to bump.
   const [athleteSportAssignments, setAthleteSportAssignments] = useState([])
-  const [athletes, setAthletes]           = useState([])
-  const [coaches, setCoaches]             = useState([])
+  const [athletesRaw, setAthletes]           = useState([])
+  const [coachesRaw, setCoaches]             = useState([])
   const [events, setEvents]               = useState([])
   const [results, setResults]             = useState([])
   const [registrations, setRegistrations] = useState([])
   const [documents, setDocuments]         = useState([])
-  const [employees, setEmployees]         = useState([])
+  const [employeesRaw, setEmployees]         = useState([])
   const [personDocs, setPersonDocs]         = useState([])
-  const [referees, setReferees]             = useState([])
+  const [refereesRaw, setReferees]             = useState([])
+  // Role Preview support personas ("Dina Test Athlete" etc.) — fetched
+  // once for a support account, and merged into the athletes/coaches/
+  // employees/referees arrays ONLY while that specific role is being
+  // previewed (see the merged consts below). They're never mixed into the
+  // real data at rest, so admin dashboards, directories, and reports never
+  // see them.
+  const [supportPersonas, setSupportPersonas] = useState({ athlete:null, coach:null, employee:null, referee:null })
+
+  // Role Preview: merge the matching test persona into the relevant array
+  // ONLY while that specific role is actively being previewed. Every other
+  // page/computation in this file keeps reading `athletes`/`coaches`/
+  // `employees`/`referees` exactly as before — no other call site needed
+  // to change — so admin dashboards, KPIs, and directories never include
+  // these rows except during the support account's own preview of that
+  // one role.
+  const athletes  = previewRole === 'athlete'  && supportPersonas.athlete  ? [...athletesRaw, supportPersonas.athlete]   : athletesRaw
+  const coaches   = previewRole === 'coach'    && supportPersonas.coach    ? [...coachesRaw, supportPersonas.coach]     : coachesRaw
+  const employees = previewRole === 'employee' && supportPersonas.employee ? [...employeesRaw, supportPersonas.employee] : employeesRaw
+  const referees  = previewRole === 'referee'  && supportPersonas.referee  ? [...refereesRaw, supportPersonas.referee]   : refereesRaw
   const [eventCategories, setEventCategories] = useState([])
   const [sportsList, setSportsList] = useState([])
   const [pendingRequestsCount, setPendingRequestsCount] = useState(0)
@@ -177,15 +196,15 @@ export default function App() {
     // create a duplicate, since a conflicting dedup_key is simply rejected.
 
    const [a, c, e, r, reg, docs, emp, pdocs, refs, reqSubs, profs, tasksRes, cats, sportsRes, evSportsRes] = await Promise.all([
-      supabase.from('athletes').select('*').order('name'),
-      supabase.from('coaches').select('*').order('name'),
+      supabase.from('athletes').select('*').eq('is_test_record', false).order('name'),
+      supabase.from('coaches').select('*').eq('is_test_record', false).order('name'),
       supabase.from('events').select('*').order('start_date'),
       supabase.from('results').select('*').order('date', { ascending: false }),
       supabase.from('event_registrations').select('*'),
       supabase.from('athlete_documents').select('*').order('uploaded_at', { ascending: false }),
-      supabase.from('employees').select('*').order('name'),
+      supabase.from('employees').select('*').eq('is_test_record', false).order('name'),
       supabase.from('person_documents').select('*').order('uploaded_at', { ascending: false }),
-      supabase.from('referees').select('*').order('number'),
+      supabase.from('referees').select('*').eq('is_test_record', false).order('number'),
       // Lightweight status-only fetch, same shape Requests.jsx itself already
       // uses to compute per-form pending counts — reused here just to get a
       // single dashboard-wide pending count without duplicating that logic.
@@ -478,6 +497,25 @@ export default function App() {
   // re-triggered this effect and reloaded all app data on every tab
   // switch even though nothing the user was looking at had changed.
   useEffect(() => { if (user) fetchAll() }, [user?.id, fetchAll])
+
+  // Fetch the support account's own test personas once — only ever needed
+  // by a profile with is_support = true, and only used locally to build
+  // the merged arrays above during Role Preview (never written back to
+  // the raw athletes/coaches/employees/referees state).
+  useEffect(() => {
+    if (!realProfile?.is_support) return
+    let cancelled = false
+    Promise.all([
+      realProfile.support_athlete_id  ? supabase.from('athletes').select('*').eq('id', realProfile.support_athlete_id).maybeSingle()   : Promise.resolve({ data:null }),
+      realProfile.support_coach_id    ? supabase.from('coaches').select('*').eq('id', realProfile.support_coach_id).maybeSingle()      : Promise.resolve({ data:null }),
+      realProfile.support_employee_id ? supabase.from('employees').select('*').eq('id', realProfile.support_employee_id).maybeSingle() : Promise.resolve({ data:null }),
+      realProfile.support_referee_id  ? supabase.from('referees').select('*').eq('id', realProfile.support_referee_id).maybeSingle()   : Promise.resolve({ data:null }),
+    ]).then(([ath, coa, emp, ref]) => {
+      if (cancelled) return
+      setSupportPersonas({ athlete: ath.data, coach: coa.data, employee: emp.data, referee: ref.data })
+    })
+    return () => { cancelled = true }
+  }, [realProfile?.id, realProfile?.is_support, realProfile?.support_athlete_id, realProfile?.support_coach_id, realProfile?.support_employee_id, realProfile?.support_referee_id])
   // Fire-and-forget: runs after the visible app data is already loaded, so
   // it never delays the initial render. Any failure inside is caught and
   // logged by runAdminReminders itself.
@@ -770,34 +808,11 @@ export default function App() {
   // broader person_id lookup across every linked role for multi-role
   // accounts, then finally the single-role lookups for accounts not yet
   // linked to a person_id at all.
-  const userPhoto = (() => {
-    if (myNameRecord?.photo_url) return myNameRecord.photo_url
-    if (profile?.person_id) {
-      const myEmp = employees.find(e => e.person_id === profile.person_id)
-      const myAth = athletes.find(a => a.person_id === profile.person_id)
-      const myCo  = coaches.find(c => c.person_id === profile.person_id)
-      const myRef = (referees || []).find(r => r.person_id === profile.person_id)
-      const fromPerson = myEmp?.photo_url || myAth?.photo_url || myCo?.photo_url || myRef?.photo_url
-      if (fromPerson) return fromPerson
-    }
-    if (isAthlete && myAthleteId) {
-      const a = athletes.find(a => String(a.id) === String(myAthleteId))
-      return a?.photo_url || null
-    }
-    if (isCoach && profile?.coach_id) {
-      const c = coaches.find(c => String(c.id) === String(profile.coach_id))
-      return c?.photo_url || null
-    }
-    if ((role === 'employee' || role === 'admin') && profile?.employee_id) {
-      const e = employees.find(e => String(e.id) === String(profile.employee_id))
-      return e?.photo_url || null
-    }
-    return null
-  })()
+  const userPhoto = resolveUserPhoto(profile, { athletes, coaches, employees, referees }, myNameRecord)
 
   return (
     <div className="app">
-      {isViewingAs && <ViewAsBanner viewedProfile={viewAsProfile} onExit={exitViewAs} />}
+      {isPreviewing && <RolePreviewBanner previewRole={previewRole} onExit={exitPreview} />}
       <div className={`sb-overlay${sidebarOpen ? ' open' : ''}`} onClick={() => setSidebarOpen(false)} />
       <div className={`sidebar${sidebarOpen ? ' open' : ''}`}>
         <div className="sb-logo">
@@ -845,11 +860,8 @@ export default function App() {
             title="Go to My Profile"
           >
             <div style={{ position:'relative', flexShrink:0 }}>
-              <div style={{ width:34, height:34, borderRadius:'50%', background:roleColor, display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:600, color:'#fff', overflow:'hidden', border:`2px solid ${roleColor}40` }}>
-                {userPhoto
-                  ? <img src={userPhoto} alt={userName} style={{ width:'100%', height:'100%', objectFit:'cover', objectPosition:'top center' }} />
-                  : userName.charAt(0).toUpperCase()
-                }
+              <div style={{ width:34, height:34, borderRadius:'50%', background:roleColor, display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden', border:`2px solid ${roleColor}40` }}>
+                <ProfileAvatar photoUrl={userPhoto} name={userName} id={profile?.id} size={34} fs={11} />
               </div>
               <div style={{ position:'absolute', bottom:0, right:0, width:9, height:9, borderRadius:'50%', background:'#22c55e', border:'2px solid #0f1923' }} />
             </div>
@@ -899,7 +911,7 @@ export default function App() {
               title="Switch language">
               {lang === 'en' ? 'عربي' : 'EN'}
             </button>
-            {realProfile?.is_support && !isViewingAs && <ViewAsSwitcher onStartViewAs={startViewAs} />}
+            {realProfile?.is_support && !isPreviewing && <RolePreviewSwitcher onStartPreview={startPreview} />}
             <NotificationBell isAdmin={isAdmin} userId={profile?.id} />
           </div>
         </div>
