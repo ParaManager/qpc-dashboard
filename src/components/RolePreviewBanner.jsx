@@ -2,6 +2,7 @@ import { useLang } from '../lib/LangContext.jsx'
 
 const ROLE_LABEL = {
   admin: { en: 'Admin', ar: 'مدير' },
+  readonly_admin: { en: 'Read-Only Admin', ar: 'مسؤول للعرض فقط' },
   coach: { en: 'Coach', ar: 'مدرب' },
   athlete: { en: 'Athlete', ar: 'رياضي' },
   employee: { en: 'Staff', ar: 'الكادر' },

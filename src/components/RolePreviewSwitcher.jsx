@@ -1,16 +1,17 @@
 import { useState } from 'react'
 import { useLang } from '../lib/LangContext.jsx'
 
-// Only Admin, Athlete, Coach, and Staff are selectable — Referee accounts
-// aren't implemented yet (nothing to preview), and Guest has no account at
-// all (Role Preview exists to test authenticated-account experiences, and
-// the real Guest flow is already its own always-available, unauthenticated
-// portal — nothing here removes or changes that).
+// Only Admin, Read-Only Admin, Athlete, Coach, and Staff are selectable —
+// Referee accounts aren't implemented yet (nothing to preview), and Guest
+// has no account at all (Role Preview exists to test authenticated-account
+// experiences, and the real Guest flow is already its own always-available,
+// unauthenticated portal — nothing here removes or changes that).
 const ROLES = [
-  { value: 'admin',    en: 'Admin',   ar: 'مدير' },
-  { value: 'athlete',  en: 'Athlete', ar: 'رياضي' },
-  { value: 'coach',    en: 'Coach',   ar: 'مدرب' },
-  { value: 'employee', en: 'Staff',   ar: 'الكادر' },
+  { value: 'admin',          en: 'Admin',            ar: 'مدير' },
+  { value: 'readonly_admin', en: 'Read-Only Admin',  ar: 'مسؤول للعرض فقط' },
+  { value: 'athlete',        en: 'Athlete',           ar: 'رياضي' },
+  { value: 'coach',          en: 'Coach',             ar: 'مدرب' },
+  { value: 'employee',       en: 'Staff',             ar: 'الكادر' },
 ]
 
 // Only ever rendered when the signed-in account's REAL profile has
