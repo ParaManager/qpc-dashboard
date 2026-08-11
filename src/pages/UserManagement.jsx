@@ -38,10 +38,32 @@ export default function UserManagement({ profile, initUserId }) {
 
   async function loadUsers() {
     setLoading(true)
-    const { data } = await supabase
+    // profiles now has TWO foreign keys into coaches/athletes/employees
+    // each (the normal <role>_id link, and the new support_<role>_id link
+    // used only by the Support account's Role Preview test personas) —
+    // PostgREST's embed shorthand `coaches(...)` became ambiguous the
+    // moment the second FK was added and started erroring on every call,
+    // which this code was silently swallowing (destructuring only `data`,
+    // never `error`) and falling back to an empty array. Naming the exact
+    // FK constraint for each embed resolves the ambiguity; the profiles.*
+    // columns themselves were never affected — no support/test-persona
+    // filtering has ever applied to this query.
+    const { data, error } = await supabase
       .from('profiles')
-      .select('*, coaches(name, name_ar), athletes(name, name_ar), employees(name, name_ar, designation, designation_ar, status)')
+      .select(`
+        *,
+        coaches:coaches!profiles_coach_id_fkey(name, name_ar),
+        athletes:athletes!profiles_athlete_id_fkey(name, name_ar),
+        employees:employees!profiles_employee_id_fkey(name, name_ar, designation, designation_ar, status)
+      `)
       .order('requested_at', { ascending: false })
+    if (error) {
+      console.error('[UserManagement] loadUsers failed:', error)
+      toast(error.message, 'error')
+      setUsers([])
+      setLoading(false)
+      return
+    }
     setUsers(data || [])
     setLoading(false)
   }
