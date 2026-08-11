@@ -32,7 +32,14 @@ export default function NotificationBell({ isAdmin, userId }) {
 
   // Load data and subscribe
   useEffect(() => {
-    if (userId)  loadNotifications()
+    if (userId) {
+      loadNotifications()
+    } else {
+      // userId goes null while a non-admin Role Preview is active — clear
+      // whatever was loaded before so Dina's real notifications don't
+      // linger visually in the dropdown/badge during preview.
+      setNotifs([])
+    }
 
     const channels = []
 

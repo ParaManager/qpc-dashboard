@@ -27,7 +27,7 @@ const TYPE_META = {
  * more than one, a picker opens so the user chooses which specific one to resolve —
  * never silently picking the first one for them.
  */
-export default function DashboardBanners({ profile, onNav, extraBanners = [], maxBanners = 2 }) {
+export default function DashboardBanners({ profile, onNav, extraBanners = [], maxBanners = 2, realProfile, previewRole }) {
   const { lang, tx } = useLang()
   const ar = lang === 'ar'
   const L = (en, a) => ar ? a : en
@@ -35,6 +35,11 @@ export default function DashboardBanners({ profile, onNav, extraBanners = [], ma
   const [activeNotifs, setActiveNotifs] = useState([])
   const [pickerFor, setPickerFor] = useState(null) // banner key currently showing its picker
   const containerRef = useRef(null)
+  // Same reasoning as App.jsx's notifCount / NotificationBell: these rows
+  // belong to Dina's real auth.uid(), unaffected by Role Preview, so a
+  // non-admin preview (e.g. previewing Coach) must not surface her real
+  // Admin notifications inside that role's dashboard banners.
+  const previewingNonAdmin = !!(realProfile?.is_support && previewRole && previewRole !== 'admin')
 
   // Close the open picker when clicking anywhere outside the banner container
   useEffect(() => {
@@ -46,7 +51,7 @@ export default function DashboardBanners({ profile, onNav, extraBanners = [], ma
   }, [])
 
   useEffect(() => {
-    if (!profile?.id) return
+    if (!profile?.id || previewingNonAdmin) { setActiveNotifs([]); return }
     // Dashboard banners exist to keep nagging about unresolved items, so they ignore
     // both `read` and `dismissed` — those only control the bell dropdown / list view.
     // A notification only disappears from here once it's actually resolved.
@@ -104,7 +109,7 @@ export default function DashboardBanners({ profile, onNav, extraBanners = [], ma
       .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${profile.id}` }, refresh)
       .subscribe()
     return () => supabase.removeChannel(sub)
-  }, [profile?.id])
+  }, [profile?.id, previewingNonAdmin])
 
   // needs_attendance is a session reminder shown via dedicated extraBanners
   // on the coach dashboard — exclude it here to avoid showing the same thing twice.
