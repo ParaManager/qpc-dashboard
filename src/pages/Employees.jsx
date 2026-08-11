@@ -8,7 +8,7 @@ import { SHARED_TYPES } from '../lib/documentEngine'
 import { ConfirmModal, toast } from '../components/Toast'
 import { supabase } from '../lib/supabase'
 import { canEdit } from '../lib/useAuth'
-import { isTrustedAdmin } from '../lib/permissions'
+import { isTrustedAdmin, isAdminRole } from '../lib/permissions'
 import { logAdminActivity } from '../lib/adminActivity'
 import CareerHistory from '../components/CareerHistory.jsx'
 import { useLang } from '../lib/LangContext.jsx'
@@ -1254,7 +1254,12 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
   // deliberately excludes the employee's name (a private field per the
   // directory read-only view spec) — unlike the admin default, 'name' is
   // NOT force-included here.
-  const restrictedView = profile?.role === 'coach' || profile?.role === 'employee' || profile?.role === 'athlete'
+  // Only Full Admin / Read-Only Admin may open Staff details — driven by
+  // the centralized isAdminRole() helper (src/lib/permissions.js) rather
+  // than an enumerated role blocklist, so any new Staff-tier role (e.g.
+  // Medical Staff, whose one detail-view exception is Athletes only — see
+  // canViewAthleteDetails) is restricted here by default, not by accident.
+  const restrictedView = !isAdminRole(profile)
   const RESTRICTED_COLS = ['name', 'designation', 'designation_ar', 'status', 'nationality', 'gender']
   function loadStoredEmpCols(fallback) {
     if (restrictedView) return RESTRICTED_COLS

@@ -8,7 +8,7 @@ import { usePersonRoles, RoleBadges } from '../components/RoleBadges.jsx'
 import NationalitySelect from '../components/NationalitySelect.jsx'
 import MultiSelectFilter from '../components/MultiSelectFilter.jsx'
 import { SHARED_TYPES, mergeDocuments } from '../lib/documentEngine'
-import { isTrustedAdmin } from '../lib/permissions'
+import { isTrustedAdmin, isAdminRole } from '../lib/permissions'
 import { logAdminActivity } from '../lib/adminActivity'
 import PhotoCropModal from '../components/PhotoCropModal'
 import * as XLSX from 'xlsx'
@@ -318,7 +318,12 @@ export default function Referees({ referees, onRefresh, profile }) {
   const L = (en, a) => ar ? a : en
   // Coach/Employee viewers get a fixed reduced column set (English/Arabic
   // name, Nationality, Gender only) and cannot open referee details.
-  const restrictedView = profile?.role === 'coach' || profile?.role === 'employee' || profile?.role === 'athlete'
+  // Only Full Admin / Read-Only Admin may open Referee details — driven by
+  // the centralized isAdminRole() helper (src/lib/permissions.js) rather
+  // than an enumerated role blocklist, so any new Staff-tier role (e.g.
+  // Medical Staff, whose one detail-view exception is Athletes only — see
+  // canViewAthleteDetails) is restricted here by default, not by accident.
+  const restrictedView = !isAdminRole(profile)
 
   const [search, setSearch]     = useState('')
   const [natF, setNatF]         = useState([])

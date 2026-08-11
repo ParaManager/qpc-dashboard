@@ -7,7 +7,7 @@ import { canEdit } from '../lib/useAuth'
 import { usePersonRoles, RoleBadges } from '../components/RoleBadges.jsx'
 import MultiSelectFilter from '../components/MultiSelectFilter.jsx'
 import StatusScopeModal from '../components/StatusScopeModal.jsx'
-import { isTrustedAdmin } from '../lib/permissions'
+import { isTrustedAdmin, isAdminRole } from '../lib/permissions'
 import { logAdminActivity } from '../lib/adminActivity'
 import CareerHistory from '../components/CareerHistory.jsx'
 import { useLang } from '../lib/LangContext.jsx'
@@ -238,7 +238,12 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
   // Coach/Employee viewers get a reduced card field set (no Employee #,
   // adds Sport Category + Gender) and cannot open coach details — Admin
   // is fully unaffected.
-  const restrictedView = profile?.role === 'coach' || profile?.role === 'employee' || profile?.role === 'athlete'
+  // Only Full Admin / Read-Only Admin may open Coach details — driven by
+  // the centralized isAdminRole() helper (src/lib/permissions.js) rather
+  // than an enumerated role blocklist, so any new Staff-tier role (e.g.
+  // Medical Staff, whose one detail-view exception is Athletes only — see
+  // canViewAthleteDetails) is restricted here by default, not by accident.
+  const restrictedView = !isAdminRole(profile)
 
   // Per-sport assignments (athlete_sports) — Assigned Athletes and the
   // athlete count must reflect a coach's assignments across ALL their
