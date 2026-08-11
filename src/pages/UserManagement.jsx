@@ -9,6 +9,26 @@ import { logAdminActivity } from '../lib/adminActivity'
 
 const ROLE_COLORS  = { admin:'#EE334E', readonly_admin:'#f59e0b', medical_staff:'#14b8a6', coach:'#0085C7', employee:'#8b5cf6', athlete:'#009F6B' }
 
+// ── "Notify User" mailto builder ─────────────────────────────────────────
+// Pure and self-contained on purpose: given the linked name/email already
+// resolved above and the current interface language, produces a plain
+// `mailto:` URL — no backend call, no stored draft, opens the Admin's own
+// default email client with everything pre-filled. Recipient is left
+// blank (not defaulted to anything) when no linked email is on file, per
+// spec — the Admin can still send, just has to type the address in.
+function buildApprovalMailto(name, email, ar) {
+  const subject = ar
+    ? 'تمت الموافقة على طلب الوصول إلى بوابة الاتحاد القطري لذوي الاحتياجات الخاصة'
+    : 'QPC Portal Access Approved'
+  const portalUrl = 'https://qpc-dashboard.vercel.app/'
+  const displayName = name || (ar ? 'عزيزي المستخدم' : 'there')
+  const body = ar
+    ? `السلام عليكم ${displayName}،\n\nيسرنا إبلاغكم بأنه تمت الموافقة على طلب الوصول إلى بوابة الاتحاد القطري لذوي الاحتياجات الخاصة.\n\nيمكنكم الآن تسجيل الدخول باستخدام رقم البطاقة الشخصية القطرية وكلمة المرور التي قمتم بإنشائها أثناء طلب الوصول.\n\nرابط البوابة:\n${portalUrl}\n\nفي حال واجهتم أي مشكلة في تسجيل الدخول، يرجى التواصل مع الاتحاد القطري لذوي الاحتياجات الخاصة.\n\nمع خالص التحية،\nالاتحاد القطري لذوي الاحتياجات الخاصة`
+    : `Hello ${displayName},\n\nWe are pleased to inform you that your request to access the Qatar Paralympic Committee Portal has been approved.\n\nYou may now sign in using your Qatar ID and the password you created during the access request process.\n\nPortal:\n${portalUrl}\n\nIf you experience any issues logging in, please contact the Qatar Paralympic Committee.\n\nKind regards,\nQatar Paralympic Committee`
+  const to = email ? encodeURIComponent(email).replace(/%40/g, '@') : ''
+  return `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+}
+
 // ── Account-role source of truth ────────────────────────────────────────
 // The ONLY four assignable account roles in this system. `employee` stays
 // the canonical internal/database key (unchanged, per existing schema) —
@@ -83,9 +103,9 @@ export default function UserManagement({ profile, initUserId }) {
       .from('profiles')
       .select(`
         *,
-        coaches:coaches!profiles_coach_id_fkey(name, name_ar),
-        athletes:athletes!profiles_athlete_id_fkey(name, name_ar),
-        employees:employees!profiles_employee_id_fkey(name, name_ar, designation, designation_ar, status)
+        coaches:coaches!profiles_coach_id_fkey(name, name_ar, email),
+        athletes:athletes!profiles_athlete_id_fkey(name, name_ar, email),
+        employees:employees!profiles_employee_id_fkey(name, name_ar, designation, designation_ar, status, email)
       `)
       .order('requested_at', { ascending: false })
     if (error) {
@@ -278,6 +298,15 @@ export default function UserManagement({ profile, initUserId }) {
                             : u.account_type === 'athlete' ? (ar && u.athletes?.name_ar ? u.athletes.name_ar : u.athletes?.name)
                             : (u.account_type === 'employee' || u.account_type === 'medical_staff') ? (ar && u.employees?.name_ar ? u.employees.name_ar : u.employees?.name)
                             : null
+          // Auto-populated recipient for "Notify User" below — pulled from
+          // whichever linked record (Athlete/Coach/Staff) this account
+          // maps to. Never required: left undefined when the linked
+          // record has no email on file, so the mailto: link still opens
+          // with an empty To field for the Admin to fill in.
+          const linkedEmail = u.account_type === 'coach'   ? u.coaches?.email
+                            : u.account_type === 'athlete' ? u.athletes?.email
+                            : (u.account_type === 'employee' || u.account_type === 'medical_staff') ? u.employees?.email
+                            : null
           // Employee approvals additionally show designation + the linked
           // employee record's own status, per the employee signup review
           // requirements — Coach/Athlete only ever showed the linked name.
@@ -376,6 +405,15 @@ export default function UserManagement({ profile, initUserId }) {
                         style={{ padding:'7px 14px', background:'var(--surface2)', color:'var(--text2)', border:'1px solid var(--border)', borderRadius:8, fontSize:12, cursor:'pointer' }}>
                         <i className="ti ti-user-off" /> {L('Deactivate','إلغاء التفعيل')}
                       </button>
+                      {/* Shown only once approval is complete (u.status === 'active'
+                          branch) — never for a still-pending request. Opens the
+                          Admin's own default mail client via mailto:, pre-filled
+                          with the linked record's email (blank if none) and the
+                          approval message. No email is sent by the app itself. */}
+                      <a href={buildApprovalMailto(linkedName, linkedEmail, ar)}
+                        style={{ padding:'7px 14px', background:'#0085C710', color:'#0085C7', border:'1px solid #0085C740', borderRadius:8, fontSize:12, cursor:'pointer', textDecoration:'none', display:'inline-flex', alignItems:'center', gap:5 }}>
+                        <i className="ti ti-mail" /> {L('Notify User','إشعار المستخدم')}
+                      </a>
                     </>
                   )}
 
