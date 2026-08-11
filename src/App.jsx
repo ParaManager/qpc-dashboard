@@ -3,6 +3,7 @@ import { supabase } from './lib/supabase'
 import { useAuth, canEdit } from './lib/useAuth'
 import { isTrustedAdmin, isMainAdmin as isMainAdminCheck, isTrustedAdminEmail } from './lib/permissions'
 import { getCurrentSeason, effectiveStatus, resolveUserPhoto, ProfileAvatar } from './lib/helpers'
+import { isPreviewMode } from './lib/rolePreview'
 import { ToastContainer } from './components/Toast'
 import Login     from './pages/Login'
 import Dashboard from './pages/Dashboard'
@@ -159,7 +160,15 @@ export default function App() {
   const [notifCount, setNotifCount]       = useState(0)
 
   useEffect(() => {
-    if (!profile?.id) { setNotifCount(0); return }
+    // Notification rows are owned by Dina's REAL auth.uid() — that never
+    // changes during Role Preview (only profile.role/<role>_id are
+    // overridden), so a plain user_id query would always return her real
+    // Admin notifications regardless of previewed role. The test personas
+    // have no notifications of their own to show, and showing Dina's real
+    // ones would leak Admin-only content into every non-admin preview —
+    // so the sidebar badge simply reads 0 while a non-admin role is being
+    // previewed, exactly like a brand-new test account would see.
+    if (!profile?.id || isPreviewMode(realProfile, previewRole)) { setNotifCount(0); return }
     function refreshCount() {
       supabase.from('notifications')
         .select('id', { count: 'exact', head: true })
@@ -172,7 +181,7 @@ export default function App() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${profile.id}` }, refreshCount)
       .subscribe()
     return () => supabase.removeChannel(sub)
-  }, [profile?.id])
+  }, [profile?.id, realProfile?.is_support, previewRole])
 
   const fetchAll = useCallback(async () => {
     // Auto-reset dated statuses where end date has passed
@@ -953,12 +962,12 @@ export default function App() {
               {lang === 'en' ? 'عربي' : 'EN'}
             </button>
             {realProfile?.is_support && !isPreviewing && <RolePreviewSwitcher onStartPreview={startPreview} />}
-            <NotificationBell isAdmin={isAdmin} userId={profile?.id} />
+            <NotificationBell isAdmin={isAdmin} userId={isPreviewMode(realProfile, previewRole) ? null : profile?.id} />
           </div>
         </div>
         <div id="content">
           {page==='dashboard' && !isCoach && !isEmployee && !isAthlete && <Dashboard key={`dashboard-${refreshToken}`} athletes={myAthletes} coaches={coaches} employees={employees} referees={referees} events={events} results={results} pendingRequestsCount={pendingRequestsCount} pendingAccountsCount={pendingAccountsCount} onNav={goTo} profile={profile} />}
-          {page==='dashboard' && isCoach  && <CoachDashboard key={`dashboard-${refreshToken}`} coach={myCoachRecord} athletes={athletes} myAthletes={myAthletes} coaches={coaches} employees={employees} referees={referees} events={events} results={results} onNav={goTo} profile={profile} />}
+          {page==='dashboard' && isCoach  && <CoachDashboard key={`dashboard-${refreshToken}`} coach={myCoachRecord} athletes={athletes} myAthletes={myAthletes} coaches={coaches} employees={employees} referees={referees} events={events} results={results} onNav={goTo} profile={profile} realProfile={realProfile} previewRole={previewRole} />}
           {page==='dashboard' && isEmployee && <EmployeeDashboard key={`dashboard-${refreshToken}`} employee={myEmployeeRecord} athletes={athletes} coaches={coaches} employees={employees} referees={referees} events={events} onNav={goTo} profile={profile} />}
           {(page==='dashboard' || page==='athlete-dashboard') && isAthlete && <AthleteDashboard key={`dashboard-${refreshToken}`} athlete={myAthlete} athletes={athletes} coaches={coaches} employees={employees} referees={referees} sportsList={sportsList} results={results} events={events} registrations={registrations} onNav={goTo} profile={profile} />}
           {page==='athletes'  && <Athletes  key={`athletes-${refreshToken}`} athletes={myAthletes} coaches={coaches} employees={employees} results={results} documents={documents} events={events} registrations={registrations} onRefresh={fetchAll} onNav={goTo} initAthleteId={navState.athleteId} initStatusFilter={navState.statusFilter} navState={navState} profile={profile} sportsList={sportsList} pageTitle={isCoach ? tx('athletes.myAthletes','My Athletes') : undefined} />}
@@ -996,8 +1005,8 @@ export default function App() {
           {page==='profile' && !(profile?.person_id || profile?.athlete_id || profile?.coach_id || profile?.employee_id || profile?.referee_id) && (
             <Profile key={`profile-${refreshToken}`} user={user} profile={profile} athletes={athletes} coaches={coaches} employees={employees} results={results} onNav={goTo} documents={documents} personDocs={personDocs} onRefresh={fetchAll} />
           )}
-          {page==='notifications' && <Notifications key={`notifications-${refreshToken}`} profile={profile} onNav={goTo} />}
-          {page==='resources'     && <Resources key={`resources-${refreshToken}`} profile={profile} onRefresh={fetchAll} />}
+          {page==='notifications' && <Notifications key={`notifications-${refreshToken}`} profile={profile} onNav={goTo} realProfile={realProfile} previewRole={previewRole} />}
+          {page==='resources'     && <Resources key={`resources-${refreshToken}`} profile={profile} onRefresh={fetchAll} realProfile={realProfile} previewRole={previewRole} />}
           {page==='requests'     && <Requests  key={`requests-${refreshToken}`} profile={profile} onNav={goTo} navState={navState} />}
           {page==='away' && isAdmin && <Away key={`away-${refreshToken}`} athletes={athletes} coaches={coaches} employees={employees} onNav={goTo} profile={profile} />}
           {page==='tasks'         && <Tasks key={`tasks-${refreshToken}`} profile={profile} isMainAdmin={isMainAdmin} onNav={goTo} />}
