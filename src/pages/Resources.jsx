@@ -6,6 +6,7 @@ import { toast, ConfirmModal } from '../components/Toast'
 import { canEdit } from '../lib/useAuth'
 import { isTrustedAdmin } from '../lib/permissions'
 import { logAdminActivity } from '../lib/adminActivity'
+import { effectiveRole, matchesAudience, isPreviewMode } from '../lib/rolePreview'
 
 const ALL_CATS = ['All', 'General', 'Requests Files', 'Technical Expert Links', 'Template Reports']
 const CATS_AR = { All:'الكل', General:'عام', 'Requests Files':'ملفات الطلبات', 'Technical Expert Links':'روابط الخبراء الفنيين', 'Template Reports':'نماذج التقارير' }
@@ -56,7 +57,7 @@ async function downloadResource(url, fileName) {
   } catch { window.open(url, '_blank') }
 }
 
-export default function Resources({ profile, onRefresh }) {
+export default function Resources({ profile, onRefresh, realProfile, previewRole }) {
   const { tx, lang } = useLang()
   const ar = lang === 'ar'
   const isAdmin = canEdit(profile)
@@ -87,6 +88,25 @@ export default function Resources({ profile, onRefresh }) {
   useEffect(() => { load() }, [])
 
   const visible = resources.filter(r => {
+    // RLS already restricts the raw `resources` query to what this
+    // Supabase user (Dina's real, Admin, auth.uid()) may see — which is
+    // everything (including her own private uploads). Role Preview needs
+    // a second, app-level narrowing on top of that so previewing a
+    // non-admin role never shows an Admin-only or Admin-private resource
+    // just because the underlying account really is an Admin. Mirrors the
+    // resources RLS policy's own shape (private → uploader only,
+    // non-private → visible_to/admin) rather than the simpler generic
+    // matchesAudience(), specifically so a real non-admin's own private
+    // upload still shows for THEM outside of preview — never widens
+    // access, only narrows what preview mode would otherwise inherit.
+    const role = effectiveRole(profile)
+    const isPreview = isPreviewMode(realProfile, previewRole)
+    if (r.is_private) {
+      if (isPreview) return false
+      if (r.uploaded_by !== profile?.id) return false
+    } else if (!matchesAudience(r.visible_to, role)) {
+      return false
+    }
     if (activeCat !== 'All' && (r.category || 'General') !== activeCat) return false
     if (!search) return true
     return matchesSearch(buildSearchText(r.title, r.title_ar, r.description, r.description_ar, r.category), search)
@@ -105,6 +125,14 @@ export default function Resources({ profile, onRefresh }) {
   // own total.
   const categoryCounts = ALL_CATS.reduce((acc, cat) => {
     acc[cat] = resources.filter(r => {
+      const role = effectiveRole(profile)
+      const isPreview = isPreviewMode(realProfile, previewRole)
+      if (r.is_private) {
+        if (isPreview) return false
+        if (r.uploaded_by !== profile?.id) return false
+      } else if (!matchesAudience(r.visible_to, role)) {
+        return false
+      }
       if (cat !== 'All' && (r.category || 'General') !== cat) return false
       if (!search) return true
       return matchesSearch(buildSearchText(r.title, r.title_ar, r.description, r.description_ar, r.category), search)

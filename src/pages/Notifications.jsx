@@ -40,7 +40,7 @@ const CAT_AR = {
 
 const CATEGORIES = ['All','Requests','Tasks','Documents','Resources','Away Management','Accounts','System']
 
-export default function Notifications({ profile, onNav }) {
+export default function Notifications({ profile, onNav, realProfile, previewRole }) {
   const { lang, tx } = useLang()
   const ar = lang === 'ar'
   const L = (en, a) => ar ? a : en
@@ -52,11 +52,16 @@ export default function Notifications({ profile, onNav }) {
   const [hasMore, setHasMore] = useState(false)
   const [filter, setFilter] = useState('all') // 'all' | 'unread'
   const [catFilter, setCatFilter] = useState('All')
+  // See App.jsx's notifCount effect for why: these rows are owned by
+  // Dina's real auth.uid(), which never changes during preview, so a
+  // non-admin preview must show an empty (not Dina's real) notification
+  // list rather than leak Admin-only content.
+  const previewingNonAdmin = !!(realProfile?.is_support && previewRole && previewRole !== 'admin')
 
-  useEffect(() => { load() }, [profile?.id])
+  useEffect(() => { load() }, [profile?.id, previewingNonAdmin])
 
   async function load() {
-    if (!profile?.id) return
+    if (!profile?.id || previewingNonAdmin) { setNotifs([]); setHasMore(false); setLoading(false); return }
     setLoading(true)
     const { data } = await supabase
       .from('notifications')
