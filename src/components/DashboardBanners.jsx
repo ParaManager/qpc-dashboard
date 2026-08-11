@@ -120,9 +120,21 @@ export default function DashboardBanners({ profile, onNav, extraBanners = [], ma
   // Falling back to "respect read/dismissed" for anything not explicitly
   // known here also means a future new type added elsewhere won't
   // accidentally inherit the nagging behavior just by existing.
+  // Only excuse_request/access_request stay visible while their underlying
+  // request is genuinely still pending (self-healed above / by whoever
+  // approves-rejects it) — both are already excluded from this bucket by
+  // the type check above. Every other type — including everything in
+  // TYPE_META (session_added, timetable_created, request_approved/
+  // rejected, account_approved/rejected) — is a normal, one-shot
+  // notification and must respect read/dismissed exactly like the bell
+  // dropdown and full Notifications list do. Previously these types
+  // bypassed read/dismissed entirely (`TYPE_META[n.type] ? true : ...`),
+  // so a notification the user had already read on the Notifications page
+  // kept counting here forever — that mismatch (page says "all caught up",
+  // dashboard/sidebar still show hundreds) was the actual bug.
   const otherNotifs = activeNotifs.filter(n =>
     n.type !== 'excuse_request' && n.type !== 'access_request' && !SESSION_REMINDER_TYPES.includes(n.type) &&
-    (TYPE_META[n.type] ? true : (!n.read && !n.dismissed))
+    !n.read && !n.dismissed
   )
 
   const banners = [...extraBanners]
