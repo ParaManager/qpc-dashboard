@@ -11,6 +11,16 @@ const TRUSTED_ADMIN_EMAILS = ['hsinou@gmail.com', 'mawahibqpc@gmail.com']
 const MAIN_ADMIN_EMAIL = 'hsinou@gmail.com'
 
 function normalizedEmail(profile, user) {
+  // Trusted-admin distinctions only ever make sense for an actually-admin
+  // effective role. This also closes a Role Preview leak: `user` (the raw
+  // Supabase auth object) is Dina's real, unchanged login and always
+  // carries her real email — intentionally never swapped, since faking
+  // that would mean actually authenticating as someone else. Gating on
+  // profile.role first means previewing Athlete/Coach/Staff/Referee can
+  // never inherit her real trusted-admin status just because her real
+  // email happens to match, while a real admin (or Admin preview, where
+  // profile.role is genuinely 'admin') is unaffected.
+  if (profile?.role !== 'admin') return ''
   // profiles.email is sometimes a QID or synthetic value (e.g. "COACH-32")
   // for non-admin accounts — auth.users.email (via the `user` object from
   // useAuth) is the authoritative address. Prefer it, fall back to

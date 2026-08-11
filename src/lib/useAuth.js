@@ -157,6 +157,12 @@ export function useAuth() {
   function buildPreviewProfile(base, role) {
     if (!base || !role || role === 'admin') return base
     const overrides = { role }
+    // `account_type` mirrors `role` everywhere else in the app (kept in
+    // sync at signup/approval time) and several pages read account_type
+    // in preference to role (e.g. Settings.jsx's admin-only section) —
+    // leaving it un-overridden let those spots keep treating a non-admin
+    // preview as Admin, since account_type is never touched otherwise.
+    overrides.account_type = role
     if (role === 'athlete') overrides.athlete_id = base.support_athlete_id || null
     if (role === 'coach')   overrides.coach_id   = base.support_coach_id || null
     if (role === 'employee') overrides.employee_id = base.support_employee_id || null
