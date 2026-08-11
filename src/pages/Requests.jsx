@@ -49,10 +49,10 @@ const STATUS_META = {
 const ACTIVE_STATUSES = ['submitted','under_review','pending_approval']
 
 const ROLES = ['admin','coach','athlete','employee','guest']
-const ROLE_LABELS_AR = { admin: 'مدير', coach: 'مدرب', athlete: 'رياضي', employee: 'كادر', guest: 'ضيف' }
-const ROLE_LABELS_EN = { admin: 'admin', coach: 'coach', athlete: 'athlete', employee: 'staff', guest: 'guest' }
+const ROLE_LABELS_AR = { admin: 'مدير', coach: 'مدرب', athlete: 'رياضي', employee: 'الكادر', referee: 'حكم', guest: 'ضيف' }
+const ROLE_LABELS_EN = { admin: 'Admin', coach: 'Coach', athlete: 'Athlete', employee: 'Staff', referee: 'Referee', guest: 'Guest' }
 
-const ROLE_COLORS = { admin:'#EE334E', coach:'#0085C7', athlete:'#009F6B', employee:'#8b5cf6', guest:'#64748b' }
+const ROLE_COLORS = { admin:'#EE334E', coach:'#0085C7', athlete:'#009F6B', employee:'#8b5cf6', referee:'#f59e0b', guest:'#64748b' }
 
 const emptyForm = () => ({
   title:'', title_ar:'', description:'', description_ar:'',
@@ -71,7 +71,7 @@ const emptyStep = () => ({
   name:'', name_ar:'', approver_role:'admin', approver_user_id:null, is_required:true,
 })
 
-const WORKFLOW_APPROVER_ROLES = ['admin','coach','employee']
+const WORKFLOW_APPROVER_ROLES = ['admin','coach','employee','referee']
 
 export default function Requests({ profile, navState }) {
   const { tx, lang } = useLang()
