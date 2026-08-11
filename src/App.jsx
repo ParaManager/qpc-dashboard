@@ -772,7 +772,12 @@ export default function App() {
   const isMainAdmin = isMainAdminCheck(profile, user)
   const isAthlete = role === 'athlete'
   const isCoach   = role === 'coach'
-  const isEmployee = role === 'employee'
+  // medical_staff reuses the entire Staff portal/nav/dashboard as-is (see
+  // requirement: "reuse the existing Staff portal... do not duplicate the
+  // whole Staff app") — its one behavioral difference (full read-only
+  // Athlete detail access) is handled separately via canViewAthleteDetails,
+  // not by branching navigation/dashboard here.
+  const isEmployee = role === 'employee' || role === 'medical_staff'
   const activeNav = isCoach ? NAV_COACH(tx) : isEmployee ? NAV_EMPLOYEE(tx) : isAdmin ? NAV_ADMIN(tx) : isAthlete ? NAV_ATHLETE(tx) : NAV_GUEST(tx)
 
   const myCoachId  = profile?.coach_id || null
