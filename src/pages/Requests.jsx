@@ -5,6 +5,7 @@ import { toast, ConfirmModal } from '../components/Toast'
 import { initials } from '../lib/helpers'
 import { isTrustedAdmin } from '../lib/permissions'
 import { logAdminActivity } from '../lib/adminActivity'
+import { printSubmission, downloadSubmissionPdf } from '../lib/printTemplates'
 
 const FIELD_TYPES = [
   { value:'text',     icon:'ti-forms',         label:'Short Text',     label_ar:'نص قصير' },
@@ -56,7 +57,7 @@ const ROLE_COLORS = { admin:'#EE334E', coach:'#0085C7', athlete:'#009F6B', emplo
 const emptyForm = () => ({
   title:'', title_ar:'', description:'', description_ar:'',
   visible_to: ROLES.filter(r=>r!=='guest'), is_private: false, is_active: true,
-  icon: 'ti-clipboard-text', color: '#0085C7',
+  icon: 'ti-clipboard-text', color: '#0085C7', print_template: 'default_qpc',
 })
 
 const emptyField = () => ({
@@ -133,7 +134,7 @@ export default function Requests({ profile, navState }) {
 
   const fetchMySubs = useCallback(async () => {
     const { data } = await supabase.from('request_submissions')
-      .select('*, request_forms(title, title_ar, icon, color)')
+      .select('*, request_forms(title, title_ar, icon, color, print_template, custom_template_key, request_form_fields(*))')
       .eq('submitted_by', profile.id)
       .order('submitted_at', { ascending: false })
     if (data) setSubmissions(data)
@@ -175,7 +176,7 @@ export default function Requests({ profile, navState }) {
   }
   function openEditForm(f) {
     setEditingForm(f)
-    setFormData({ title:f.title, title_ar:f.title_ar||'', description:f.description||'', description_ar:f.description_ar||'', visible_to:f.visible_to||ROLES.filter(r=>r!=='guest'), is_private:f.is_private, is_active:f.is_active, icon:f.icon||'ti-clipboard-text', color:f.color||'#0085C7' })
+    setFormData({ title:f.title, title_ar:f.title_ar||'', description:f.description||'', description_ar:f.description_ar||'', visible_to:f.visible_to||ROLES.filter(r=>r!=='guest'), is_private:f.is_private, is_active:f.is_active, icon:f.icon||'ti-clipboard-text', color:f.color||'#0085C7', print_template:f.print_template||'default_qpc' })
     setFields((f.request_form_fields||[]).map(ff => ({ ...ff, options:ff.options||[] })))
     setSteps((f.request_form_workflow_steps||[]).map(s => ({ ...s })))
     setShowFormModal(true)
@@ -220,7 +221,7 @@ export default function Requests({ profile, navState }) {
         formId = data.id
       }
       await supabase.from('request_form_fields').insert(
-        fields.map((f,i) => ({ form_id:formId, label:f.label, label_ar:f.label_ar||'', field_type:f.field_type, is_required:f.is_required, options:['dropdown','radio','checkbox'].includes(f.field_type)?f.options:null, sort_order:i }))
+        fields.map((f,i) => ({ form_id:formId, label:f.label, label_ar:f.label_ar||'', field_type:f.field_type, is_required:f.is_required, options:['dropdown','radio','checkbox'].includes(f.field_type)?f.options:null, sort_order:i, template_field_key:f.template_field_key||null }))
       )
       await supabase.from('request_form_workflow_steps').delete().eq('form_id',formId)
       if (steps.length) {
@@ -424,6 +425,28 @@ export default function Requests({ profile, navState }) {
                 </div>
               </div>
 
+              {/* Print template */}
+              <div className="form-group">
+                <label className="form-label">{ar?'قالب الطباعة':'Print Template'}</label>
+                <div style={{display:'flex',gap:8}}>
+                  <button type="button"
+                    onClick={()=>setFormData(p=>({...p,print_template:'default_qpc'}))}
+                    style={{padding:'6px 18px',borderRadius:20,border:`1.5px solid ${formData.print_template==='default_qpc'?'#0085C7':'var(--border)'}`,background:formData.print_template==='default_qpc'?'#0085C7':'transparent',color:formData.print_template==='default_qpc'?'white':'var(--text2)',fontSize:13,fontWeight:formData.print_template==='default_qpc'?600:400,cursor:'pointer',transition:'all .15s'}}>
+                    {ar?'قالب QPC الافتراضي':'Default QPC Template'}
+                  </button>
+                  <button type="button"
+                    onClick={()=>setFormData(p=>({...p,print_template:'custom'}))}
+                    style={{padding:'6px 18px',borderRadius:20,border:`1.5px solid ${formData.print_template==='custom'?'#0085C7':'var(--border)'}`,background:formData.print_template==='custom'?'#0085C7':'transparent',color:formData.print_template==='custom'?'white':'var(--text2)',fontSize:13,fontWeight:formData.print_template==='custom'?600:400,cursor:'pointer',transition:'all .15s'}}>
+                    {ar?'قالب مخصص':'Custom Template'}
+                  </button>
+                </div>
+                {formData.print_template==='custom' && (
+                  <div style={{fontSize:11,color:'var(--text3)',marginTop:6}}>
+                    {ar?'القوالب المخصصة متاحة حالياً لاستمارة تسجيل لاعب جديد فقط. أضف "مفتاح الحقل" لكل حقل أدناه لربطه بخلايا القالب.':'Custom templates are currently implemented for the New Athlete Registration Form only. Set a "Template field key" on each field below to map it to the template.'}
+                  </div>
+                )}
+              </div>
+
               {/* Fields */}
               <div>
                 <div style={{fontWeight:700,fontSize:14,marginBottom:12}}>{ar?'الحقول':'Form Fields'}</div>
@@ -450,6 +473,9 @@ export default function Requests({ profile, navState }) {
                         <input className="form-input" placeholder={ar ? "التسمية (EN)" : "Label (EN)"} value={field.label} onChange={e=>updateField(field.id,'label',e.target.value)}/>
                         <input className="form-input" placeholder="التسمية (AR)" value={field.label_ar||''} onChange={e=>updateField(field.id,'label_ar',e.target.value)} dir="rtl"/>
                       </div>
+                      {formData.print_template==='custom' && (
+                        <input className="form-input" style={{fontSize:12}} placeholder={ar?'مفتاح حقل القالب (مثال: full_name)':'Template field key (e.g. full_name)'} value={field.template_field_key||''} onChange={e=>updateField(field.id,'template_field_key',e.target.value.trim())}/>
+                      )}
                       {['dropdown','radio','checkbox'].includes(field.field_type) && (
                         <div style={{marginTop:8,padding:'10px 12px',background:'var(--surface2)',borderRadius:8,border:'1px solid var(--border)'}}>
                           <div style={{fontSize:11,color:'var(--text3)',marginBottom:8,fontWeight:700,letterSpacing:'.04em',textTransform:'uppercase'}}>{ar?'الخيارات':'Options'}</div>
@@ -558,6 +584,12 @@ export default function Requests({ profile, navState }) {
                     {s.admin_notes && <div style={{fontSize:12,color:'var(--text2)',marginTop:4,fontStyle:'italic'}}>"{s.admin_notes}"</div>}
                   </div>
                   {statusBadge(s.status)}
+                  <button className="action-btn action-btn-edit" title={ar?'طباعة':'Print'} onClick={()=>printSubmission(s.request_forms, s)}>
+                    <i className="ti ti-printer"/>
+                  </button>
+                  <button className="action-btn action-btn-edit" title={ar?'تنزيل PDF':'Download PDF'} onClick={()=>downloadSubmissionPdf(s.request_forms, s)}>
+                    <i className="ti ti-download"/>
+                  </button>
                 </div>
               )
             })}
@@ -756,6 +788,12 @@ export default function Requests({ profile, navState }) {
           </div>
           <div style={{display:'flex',gap:10,alignItems:'center'}}>
             {statusBadge(selectedSub.status)}
+            <button className="action-btn action-btn-edit" onClick={()=>printSubmission(form, selectedSub)}>
+              <i className="ti ti-printer"/> {ar?'طباعة':'Print'}
+            </button>
+            <button className="action-btn action-btn-edit" onClick={()=>downloadSubmissionPdf(form, selectedSub)}>
+              <i className="ti ti-download"/> {ar?'تنزيل PDF':'Download PDF'}
+            </button>
             {!hasWorkflow && (
               <button className="btn btn-blue"
                 onClick={()=>{setReviewSub(selectedSub);setReviewNote(selectedSub.admin_notes||'');setReviewStatus(ACTIVE_STATUSES.includes(selectedSub.status)?'approved':selectedSub.status)}}>
