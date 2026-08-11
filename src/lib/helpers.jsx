@@ -676,11 +676,15 @@ export function Loading() {
   return <div className="loading"><div className="spinner" /><span>Loading…</span></div>
 }
 
-export function DashRow({ children, onClick }) {
+export function DashRow({ children, onClick, clickable = true }) {
+  // `clickable=false` renders a plain, static row: no onClick handler, no
+  // chevron arrow, no pointer cursor/hover shift — used for member-list
+  // rows that must be read-only for Staff/Coach/Athlete (Sports, Events)
+  // while staying fully interactive for Admin/Read-Only Admin elsewhere.
   return (
-    <div className="dash-row" onClick={onClick}>
+    <div className={clickable ? 'dash-row' : 'dash-row dash-row--static'} onClick={clickable ? onClick : undefined}>
       {children}
-      <i className="ti ti-chevron-right row-arrow" />
+      {clickable && <i className="ti ti-chevron-right row-arrow" />}
     </div>
   )
 }
