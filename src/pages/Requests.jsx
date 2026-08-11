@@ -134,7 +134,7 @@ export default function Requests({ profile, navState }) {
 
   const fetchMySubs = useCallback(async () => {
     const { data } = await supabase.from('request_submissions')
-      .select('*, request_forms(title, title_ar, icon, color, print_template, custom_template_key, request_form_fields(*))')
+      .select('*, request_forms(title, title_ar, icon, color, print_template, custom_template_key, request_form_fields(*), request_form_workflow_steps(*))')
       .eq('submitted_by', profile.id)
       .order('submitted_at', { ascending: false })
     if (data) setSubmissions(data)
@@ -246,22 +246,39 @@ export default function Requests({ profile, navState }) {
     if (missing.length) return toast((ar?'الحقول المطلوبة: ':'Required: ')+missing.map(f=>ar?(f.label_ar||f.label):f.label).join(', '),'error')
     setSubmitting(true)
     try {
-      await supabase.from('request_submissions').insert({ form_id:selectedForm.id, submitted_by:profile.id, answers })
+      // Insert result must be checked explicitly — the Supabase client
+      // does NOT throw on an RLS rejection or constraint violation, it
+      // just returns { error }. Reading .single() also fails loudly if
+      // no row actually landed, instead of silently reporting success.
+      const { data: insertedSub, error } = await supabase.from('request_submissions')
+        .insert({ form_id:selectedForm.id, submitted_by:profile.id, answers })
+        .select('id')
+        .single()
+      if (error || !insertedSub) throw new Error(error?.message || (ar?'فشل إرسال الطلب. لم يتم حفظ أي بيانات.':'Submission failed. Nothing was saved.'))
+
       const { data: admins } = await supabase.from('profiles').select('id').eq('role','admin')
-      const { data: insertedSub } = await supabase.from('request_submissions').select('id').eq('form_id', selectedForm.id).eq('submitted_by', profile.id).order('submitted_at', { ascending:false }).limit(1).single()
       if (admins?.length) {
         await supabase.from('notifications').insert(admins.map(a => ({
           user_id:a.id,
           title: ar?`طلب جديد: ${selectedForm.title_ar||selectedForm.title}`:`New request: ${selectedForm.title}`,
           body: `${profile.full_name} ${ar?'أرسل طلباً':'submitted a request'}.`,
           type:'request', data:{ form_id:selectedForm.id, page:'requests' },
-          category:'Requests', target_path:'requests', related_entity_type:'request_submission', related_entity_id: insertedSub?.id || null,
-          dedup_key: insertedSub?.id ? `request-submitted-${insertedSub.id}-${a.id}` : null,
+          category:'Requests', target_path:'requests', related_entity_type:'request_submission', related_entity_id: insertedSub.id,
+          dedup_key: `request-submitted-${insertedSub.id}-${a.id}`,
         })))
       }
       toast(ar?'تم الإرسال!':'Submitted!','success')
-      setAnswers({}); setView('my-submissions'); fetchMySubs()
-    } catch(e) { toast(e.message,'error') }
+      setAnswers({})
+      // Refetch immediately so "My Submissions" (and the admin Submissions
+      // view, next time it's opened) reflect the new row without a manual
+      // page refresh.
+      await fetchMySubs()
+      setView('my-submissions')
+    } catch(e) {
+      // Keep the form open with everything the user typed intact — no
+      // silent close/reset on failure, and the real error is shown.
+      toast(e.message,'error')
+    }
     setSubmitting(false)
   }
 
@@ -565,29 +582,36 @@ export default function Requests({ profile, navState }) {
           <button className="back-btn" onClick={()=>setView('list')}>
             <i className="ti ti-arrow-left"/> {ar?'رجوع':'Back'}
           </button>
-          <div className="page-title">{ar?'طلباتي':'My Requests'}</div>
+          <div className="page-title">{ar?'طلباتي المرسلة':'My Submissions'}</div>
         </div>
       </div>
       {submissions.length===0
-        ? <div className="empty">{ar?'لا توجد طلبات بعد':'No requests submitted yet'}</div>
+        ? <div className="empty">{ar?'لا توجد طلبات مرسلة بعد':'No submissions yet'}</div>
         : <div style={{display:'flex',flexDirection:'column',gap:10}}>
             {submissions.map(s=>{
               const f=s.request_forms, clr=f?.color||'#0085C7'
+              const hasWf = (f?.request_form_workflow_steps||[]).length>0
+              const stepDef = hasWf ? f.request_form_workflow_steps.find(st=>st.step_order===s.current_step_order) : null
               return (
-                <div key={s.id} style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:12,padding:'14px 18px',display:'flex',alignItems:'center',gap:14,boxShadow:'var(--shadow)'}}>
+                <div key={s.id} style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:12,padding:'14px 18px',display:'flex',alignItems:'center',gap:14,boxShadow:'var(--shadow)',cursor:'pointer'}}
+                  onClick={()=>{setSelectedSub(s);setView('my-submission-view')}}>
                   <div style={{width:40,height:40,borderRadius:10,background:clr+'18',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
                     <i className={`ti ${f?.icon||'ti-clipboard-text'}`} style={{fontSize:18,color:clr}}/>
                   </div>
                   <div style={{flex:1}}>
                     <div style={{fontWeight:600,fontSize:14}}>{ar?(f?.title_ar||f?.title):f?.title}</div>
-                    <div style={{fontSize:12,color:'var(--text3)',marginTop:2}}>{new Date(s.submitted_at).toLocaleDateString()}</div>
+                    <div style={{fontSize:12,color:'var(--text3)',marginTop:2}}>
+                      {new Date(s.submitted_at).toLocaleDateString()}
+                      {s.reference_number && <> · {s.reference_number}</>}
+                      {stepDef && <> · {ar?(stepDef.name_ar||stepDef.name):stepDef.name}</>}
+                    </div>
                     {s.admin_notes && <div style={{fontSize:12,color:'var(--text2)',marginTop:4,fontStyle:'italic'}}>"{s.admin_notes}"</div>}
                   </div>
                   {statusBadge(s.status)}
-                  <button className="action-btn action-btn-edit" title={ar?'طباعة':'Print'} onClick={()=>printSubmission(s.request_forms, s)}>
+                  <button className="action-btn action-btn-edit" title={ar?'طباعة':'Print'} onClick={e=>{e.stopPropagation();printSubmission(s.request_forms, s)}}>
                     <i className="ti ti-printer"/>
                   </button>
-                  <button className="action-btn action-btn-edit" title={ar?'تنزيل PDF':'Download PDF'} onClick={()=>downloadSubmissionPdf(s.request_forms, s)}>
+                  <button className="action-btn action-btn-edit" title={ar?'تنزيل PDF':'Download PDF'} onClick={e=>{e.stopPropagation();downloadSubmissionPdf(s.request_forms, s)}}>
                     <i className="ti ti-download"/>
                   </button>
                 </div>
@@ -598,6 +622,77 @@ export default function Requests({ profile, navState }) {
       {formModalJsx}
     </div>
   )
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // MY SUBMISSION — READ-ONLY VIEW (non-admin, their own submission)
+  // ─────────────────────────────────────────────────────────────────────────
+  if (view==='my-submission-view' && selectedSub) {
+    const f = selectedSub.request_forms
+    const hasWf = (f?.request_form_workflow_steps||[]).length>0
+    return (
+      <div>
+        <div className="page-header" style={{marginBottom:20}}>
+          <div>
+            <button className="back-btn" onClick={()=>setView('my-submissions')}>
+              <i className="ti ti-arrow-left"/> {ar?'رجوع':'Back'}
+            </button>
+            <div className="page-title">{ar?(f?.title_ar||f?.title):f?.title}</div>
+            <div className="page-sub">
+              {new Date(selectedSub.submitted_at).toLocaleString()}
+              {selectedSub.reference_number && <> · {selectedSub.reference_number}</>}
+            </div>
+          </div>
+          <div style={{display:'flex',gap:10,alignItems:'center'}}>
+            {statusBadge(selectedSub.status)}
+            <button className="action-btn action-btn-edit" onClick={()=>printSubmission(f, selectedSub)}>
+              <i className="ti ti-printer"/> {ar?'طباعة':'Print'}
+            </button>
+            <button className="action-btn action-btn-edit" onClick={()=>downloadSubmissionPdf(f, selectedSub)}>
+              <i className="ti ti-download"/> {ar?'تنزيل PDF':'Download PDF'}
+            </button>
+          </div>
+        </div>
+
+        {hasWf && (
+          <div className="card" style={{maxWidth:640,marginBottom:16}}>
+            <div style={{fontWeight:700,fontSize:13,marginBottom:10}}>{ar?'مسار الموافقة':'Approval Workflow'}</div>
+            <div style={{display:'flex',flexDirection:'column',gap:8}}>
+              {f.request_form_workflow_steps.map(step=>{
+                const done = ['approved','completed'].includes(selectedSub.status) || step.step_order < (selectedSub.current_step_order??Infinity)
+                const isCurrent = ACTIVE_STATUSES.includes(selectedSub.status) && step.step_order===selectedSub.current_step_order
+                return (
+                  <div key={step.id} style={{display:'flex',alignItems:'center',gap:10,fontSize:13}}>
+                    <i className={`ti ${done?'ti-circle-check-filled':isCurrent?'ti-circle-dot':'ti-circle'}`} style={{color:done?'#009F6B':isCurrent?'#8b5cf6':'var(--text3)',fontSize:16}}/>
+                    <span style={{fontWeight:isCurrent?600:400}}>{ar?(step.name_ar||step.name):step.name}</span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        <div className="card" style={{maxWidth:640}}>
+          {(f?.request_form_fields||[]).map(field=>{
+            const ans = selectedSub.answers[field.id]
+            return (
+              <div key={field.id} style={{marginBottom:16,paddingBottom:16,borderBottom:'1px solid var(--border)'}}>
+                <div style={{fontSize:11,color:'var(--text3)',fontWeight:600,marginBottom:4,textTransform:'uppercase',letterSpacing:'.04em'}}>{ar?(field.label_ar||field.label):field.label}</div>
+                <div style={{fontSize:14,color:'var(--text)',fontWeight:500}}>
+                  {Array.isArray(ans)?ans.join(', '):(ans||<span style={{color:'var(--text3)'}}>—</span>)}
+                </div>
+              </div>
+            )
+          })}
+          {selectedSub.admin_notes && (
+            <div style={{background:'var(--surface2)',borderRadius:8,padding:'10px 14px',marginTop:4}}>
+              <div style={{fontSize:11,color:'var(--text3)',marginBottom:4,fontWeight:600}}>{ar?'ملاحظات':'Admin Notes'}</div>
+              <div style={{fontSize:13}}>{selectedSub.admin_notes}</div>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
 
   // ─────────────────────────────────────────────────────────────────────────
   // FILL FORM VIEW
@@ -916,7 +1011,7 @@ export default function Requests({ profile, navState }) {
         <div style={{display:'flex',gap:8}}>
           {!isAdmin && (
             <button className="action-btn action-btn-edit" onClick={()=>{setView('my-submissions');fetchMySubs()}}>
-              <i className="ti ti-history"/> {ar?'طلباتي':'My Requests'}
+              <i className="ti ti-history"/> {ar?'طلباتي المرسلة':'My Submissions'}
             </button>
           )}
           {isAdmin && (
