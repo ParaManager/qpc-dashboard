@@ -26,6 +26,18 @@ export default function UserManagement({ profile, initUserId }) {
 
   useEffect(() => { loadUsers() }, [])
 
+  // Keep this list/pending-count live for every admin who has it open —
+  // if another admin approves/rejects a request from their own session,
+  // this page previously had no way to find out until manually revisited
+  // (loadUsers() only ran once on mount). Always re-reads current profiles
+  // straight from Supabase, never a stale local count.
+  useEffect(() => {
+    const sub = supabase.channel('user-management-profiles')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, loadUsers)
+      .subscribe()
+    return () => supabase.removeChannel(sub)
+  }, [])
+
   // Scroll to and briefly highlight the specific request the admin came here for
   useEffect(() => {
     if (!highlightId || loading) return
