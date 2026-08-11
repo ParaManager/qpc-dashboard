@@ -202,6 +202,8 @@ select.filter { padding: 8px 12px; border-radius: 9px; border: 1px solid var(--b
 .dash-row { display: flex; align-items: center; gap: 10px; padding: 9px 8px; border-bottom: 1px solid #eef0f3; cursor: pointer; border-radius: 8px; transition: background .12s; margin: 0 -8px; }
 .dash-row:hover { background: #f4f6f9; }
 .dash-row:hover .row-arrow { opacity: 1; transform: translateX(0); }
+.dash-row.dash-row--static { cursor: default; }
+.dash-row.dash-row--static:hover { background: none; }
 .row-arrow { font-size: 14px; color: var(--text3); opacity: 0; transform: translateX(-4px); transition: all .15s; flex-shrink: 0; }
 
 /* EVENT CARD */
