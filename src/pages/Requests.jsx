@@ -76,7 +76,14 @@ const WORKFLOW_APPROVER_ROLES = ['admin','coach','employee','referee']
 export default function Requests({ profile, navState }) {
   const { tx, lang } = useLang()
   const ar = lang === 'ar'
-  const isAdmin = profile?.role === 'admin'
+  const isAdmin = profile?.role === 'admin' || profile?.role === 'readonly_admin'
+  // Write access (create/edit/delete forms, approve/reject/return workflow
+  // steps, review submissions) — deliberately narrower than `isAdmin`
+  // above, which only controls whether the admin views/pages render.
+  // Real enforcement is server-side: every mutating call this page makes
+  // (request_forms writes, act_on_request_submission, etc.) is already
+  // independently denied by RLS/RPC checks for anything but role='admin'.
+  const canEditData = profile?.role === 'admin'
 
   const [forms, setForms]             = useState([])
   const [submissions, setSubmissions] = useState([])
@@ -762,10 +769,12 @@ export default function Requests({ profile, navState }) {
               </div>
             </div>
           </div>
+          {canEditData && (
           <div style={{display:'flex',gap:8}}>
             <button className="action-btn action-btn-edit" onClick={()=>openEditForm(selectedForm)}><i className="ti ti-edit"/> {ar?'تعديل':'Edit'}</button>
             <button className="action-btn action-btn-delete" onClick={()=>setConfirmDel(selectedForm)}><i className="ti ti-trash"/></button>
           </div>
+          )}
         </div>
 
         {/* Status filter tabs */}
@@ -831,7 +840,7 @@ export default function Requests({ profile, navState }) {
     const subName = selectedSub.is_guest ? (selectedSub.guest_name||'Guest') : (selectedSub.profiles?.full_name||'?')
     const subRoleClr = selectedSub.is_guest ? ROLE_COLORS.guest : (ROLE_COLORS[selectedSub.profiles?.role]||'#999')
     const canAct = !ACTIVE_STATUSES.includes(selectedSub.status) ? false :
-      isAdmin || (selectedSub.current_approver_id ? selectedSub.current_approver_id===profile.id
+      canEditData || (selectedSub.current_approver_id ? selectedSub.current_approver_id===profile.id
         : selectedSub.current_approver_role===profile.role)
     const currentStepDef = hasWorkflow ? form.request_form_workflow_steps.find(s=>s.step_order===selectedSub.current_step_order) : null
 
@@ -889,13 +898,13 @@ export default function Requests({ profile, navState }) {
             <button className="action-btn action-btn-edit" onClick={()=>downloadSubmissionPdf(form, selectedSub)}>
               <i className="ti ti-download"/> {ar?'تنزيل PDF':'Download PDF'}
             </button>
-            {!hasWorkflow && (
+            {!hasWorkflow && canEditData && (
               <button className="btn btn-blue"
                 onClick={()=>{setReviewSub(selectedSub);setReviewNote(selectedSub.admin_notes||'');setReviewStatus(ACTIVE_STATUSES.includes(selectedSub.status)?'approved':selectedSub.status)}}>
                 <i className="ti ti-edit"/> {ar?'مراجعة':'Review'}
               </button>
             )}
-            {selectedSub.status==='approved' && (
+            {selectedSub.status==='approved' && canEditData && (
               <button className="btn btn-blue" onClick={doComplete}><i className="ti ti-check"/> {ar?'وضع علامة مكتمل':'Mark Completed'}</button>
             )}
           </div>
@@ -1014,7 +1023,7 @@ export default function Requests({ profile, navState }) {
               <i className="ti ti-history"/> {ar?'طلباتي المرسلة':'My Submissions'}
             </button>
           )}
-          {isAdmin && (
+          {canEditData && (
             <button className="btn btn-red" onClick={openCreateForm}>
               <i className="ti ti-plus"/> {ar?'نموذج جديد':'New Form'}
             </button>

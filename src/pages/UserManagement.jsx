@@ -4,9 +4,10 @@ import { useLang } from '../lib/LangContext.jsx'
 import { toast } from '../components/Toast'
 import { Avatar } from '../lib/helpers'
 import { isTrustedAdmin } from '../lib/permissions'
+import { canEdit } from '../lib/useAuth'
 import { logAdminActivity } from '../lib/adminActivity'
 
-const ROLE_COLORS  = { admin:'#EE334E', coach:'#0085C7', employee:'#8b5cf6', athlete:'#009F6B' }
+const ROLE_COLORS  = { admin:'#EE334E', readonly_admin:'#f59e0b', coach:'#0085C7', employee:'#8b5cf6', athlete:'#009F6B' }
 
 // ── Account-role source of truth ────────────────────────────────────────
 // The ONLY four assignable account roles in this system. `employee` stays
@@ -14,9 +15,9 @@ const ROLE_COLORS  = { admin:'#EE334E', coach:'#0085C7', employee:'#8b5cf6', ath
 // it is simply always labeled "Staff" in the UI. `guest` is intentionally
 // excluded: guests have no account/profile row to manage here. `referee`
 // is excluded too — not implemented as an account role yet.
-const ACCOUNT_ROLES = ['admin', 'coach', 'employee', 'athlete']
-const ROLE_LABEL_EN = { admin: 'Admin', coach: 'Coach', employee: 'Staff', athlete: 'Athlete' }
-const ROLE_LABEL_AR = { admin: 'مسؤول', coach: 'مدرب', employee: 'كادر', athlete: 'رياضي' }
+const ACCOUNT_ROLES = ['admin', 'readonly_admin', 'coach', 'employee', 'athlete']
+const ROLE_LABEL_EN = { admin: 'Admin', readonly_admin: 'Read-Only Admin', coach: 'Coach', employee: 'Staff', athlete: 'Athlete' }
+const ROLE_LABEL_AR = { admin: 'مسؤول', readonly_admin: 'مسؤول للعرض فقط', coach: 'مدرب', employee: 'كادر', athlete: 'رياضي' }
 
 // Never falls back to 'admin' (or anything else) for a missing/unrecognized
 // value — returns null so callers can render an explicit "Unassigned/
@@ -325,7 +326,14 @@ export default function UserManagement({ profile, initUserId }) {
                   )}
                 </div>
 
-                {/* Actions */}
+                {/* Actions — write-only, hidden entirely for Read-Only Admin.
+                    This is a UX convenience, not the real enforcement: every
+                    approve/reject/role-change/deactivate/delete call above
+                    still hits Supabase RLS policies that check
+                    profiles.role = 'admin' literally, so a readonly_admin
+                    account could never perform these even by calling the
+                    same functions directly. */}
+                {canEdit(profile) ? (
                 <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'flex-start' }}>
                   {u.status === 'pending' && (
                     <>
@@ -384,6 +392,11 @@ export default function UserManagement({ profile, initUserId }) {
                     </>
                   )}
                 </div>
+                ) : (
+                  <div style={{ fontSize:11, color:'var(--text3)', fontStyle:'italic', padding:'6px 0' }}>
+                    <i className="ti ti-eye" style={{ marginInlineEnd:4 }} /> {L('View only','عرض فقط')}
+                  </div>
+                )}
               </div>
 
               {u.rejection_reason && (
