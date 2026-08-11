@@ -99,10 +99,22 @@ export default function Notifications({ profile, onNav }) {
   }
 
   async function markAllRead() {
-    const unreadIds = notifs.filter(n => !n.read).map(n => n.id)
-    if (unreadIds.length === 0) return
-    await supabase.from('notifications').update({ read: true }).in('id', unreadIds)
-    setNotifs(prev => prev.map(n => unreadIds.includes(n.id) ? { ...n, read: true } : n))
+    // Previously only updated whatever subset of rows happened to already
+    // be loaded client-side (capped at PAGE_SIZE=100 per page). With more
+    // than 100 unread notifications, "Mark all read" silently left
+    // everything past the first page still unread in the database — the
+    // page itself looked "All caught up" (its own loaded rows were all
+    // marked), but the sidebar/dashboard unread counts (which always
+    // query the full table) kept showing the real, much larger number.
+    // Update every unread row for this user directly in the database,
+    // independent of what's currently loaded/paginated in `notifs`.
+    if (!profile?.id) return
+    const { error } = await supabase.from('notifications')
+      .update({ read: true })
+      .eq('user_id', String(profile.id))
+      .eq('read', false)
+    if (error) { console.error('[Notifications] markAllRead failed:', error); return }
+    setNotifs(prev => prev.map(n => ({ ...n, read: true })))
   }
 
   function handleClick(n) {
