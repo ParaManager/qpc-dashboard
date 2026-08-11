@@ -32,6 +32,8 @@ import Attendance  from './pages/Attendance'
 import Employees from './pages/Employees'
 import './index.css'
 import NotificationBell from './components/NotificationBell.jsx'
+import ViewAsBanner from './components/ViewAsBanner.jsx'
+import ViewAsSwitcher from './components/ViewAsSwitcher.jsx'
 import { useLang } from './lib/LangContext.jsx'
 
 const NAV_ADMIN = (tx) => [
@@ -88,7 +90,7 @@ const ROLE_DISPLAY_LABELS = {
 const ROLE_ICONS  = { admin: 'ti-shield', coach: 'ti-user-star', employee: 'ti-id-badge-2', athlete: 'ti-run', guest: 'ti-eye' }
 
 export default function App() {
-  const { user, profile, loading: authLoading, signOut } = useAuth()
+  const { user, profile, loading: authLoading, signOut, realProfile, isViewingAs, viewAsProfile, startViewAs, exitViewAs } = useAuth()
   const { lang, setLang, tx } = useLang()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -795,6 +797,7 @@ export default function App() {
 
   return (
     <div className="app">
+      {isViewingAs && <ViewAsBanner viewedProfile={viewAsProfile} onExit={exitViewAs} />}
       <div className={`sb-overlay${sidebarOpen ? ' open' : ''}`} onClick={() => setSidebarOpen(false)} />
       <div className={`sidebar${sidebarOpen ? ' open' : ''}`}>
         <div className="sb-logo">
@@ -896,6 +899,7 @@ export default function App() {
               title="Switch language">
               {lang === 'en' ? 'عربي' : 'EN'}
             </button>
+            {realProfile?.is_support && !isViewingAs && <ViewAsSwitcher onStartViewAs={startViewAs} />}
             <NotificationBell isAdmin={isAdmin} userId={profile?.id} />
           </div>
         </div>
