@@ -346,7 +346,7 @@ export default function EmployeeCardButton({ emp }) {
       onMouseLeave={e => { e.currentTarget.style.background = '' }}
     >
       <i className="ti ti-id-badge" style={{ fontSize:14 }} />
-      <span>{ar ? 'بطاقة الموظف' : 'ID Card'}</span>
+      <span>{ar ? 'بطاقة الكادر' : 'Staff ID'}</span>
     </button>
   )
 }
