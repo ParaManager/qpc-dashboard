@@ -123,7 +123,7 @@ export default function Requests({ profile, navState }) {
           subs.forEach(s => {
             if (!counts[s.form_id]) counts[s.form_id] = { total:0, pending:0 }
             counts[s.form_id].total++
-            if (s.status === 'pending') counts[s.form_id].pending++
+            if (ACTIVE_STATUSES.includes(s.status)) counts[s.form_id].pending++
           })
           setSubCounts(counts)
         }
@@ -167,7 +167,7 @@ export default function Requests({ profile, navState }) {
   useEffect(() => {
     if (navState?.statusFilter !== 'pending' || !isAdmin || view !== 'list' || loading) return
     const target = forms.find(f => (subCounts[f.id]?.pending || 0) > 0)
-    if (target) openFormDetail(target, 'pending')
+    if (target) openFormDetail(target, 'all')
   }, [navState, isAdmin, loading, forms, subCounts])
 
   // ── form builder ──────────────────────────────────────────────────────────
@@ -308,8 +308,8 @@ export default function Requests({ profile, navState }) {
       const prevStatus = reviewSub.status
       if (prevStatus === reviewStatus) return prev
       const current = prev[reviewSub.form_id] || { total: 0, pending: 0 }
-      const wasPending = prevStatus === 'pending'
-      const isPending  = reviewStatus === 'pending'
+      const wasPending = ACTIVE_STATUSES.includes(prevStatus)
+      const isPending  = ACTIVE_STATUSES.includes(reviewStatus)
       return {
         ...prev,
         [reviewSub.form_id]: {
@@ -322,7 +322,7 @@ export default function Requests({ profile, navState }) {
 
   // ── helpers ───────────────────────────────────────────────────────────────
   const statusBadge = s => {
-    const m = STATUS_META[s]||STATUS_META.pending
+    const m = STATUS_META[s]||STATUS_META.submitted
     return <span style={{ fontSize:11, fontWeight:600, color:m.color, background:m.bg, padding:'3px 10px', borderRadius:20 }}>{ar?m.label_ar:m.label}</span>
   }
 
@@ -744,7 +744,7 @@ export default function Requests({ profile, navState }) {
   // ─────────────────────────────────────────────────────────────────────────
   if (view==='form-detail' && selectedForm && isAdmin) {
     const clr = selectedForm.color||'#0085C7'
-    const pendingCount = filteredSubs.filter(s=>s.status==='pending').length
+    const pendingCount = filteredSubs.filter(s=>ACTIVE_STATUSES.includes(s.status)).length
     return (
       <div>
         <div className="page-header" style={{marginBottom:20}}>
