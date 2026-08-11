@@ -14,7 +14,7 @@ function getEventStatus(ev) {
   return computeEventStatus(ev.start_date, ev.end_date, ev.deadline)
 }
 
-export default function CoachDashboard({ coach, athletes, myAthletes: myAthletesProp, coaches, employees, referees, events, results, onNav, profile }) {
+export default function CoachDashboard({ coach, athletes, myAthletes: myAthletesProp, coaches, employees, referees, events, results, onNav, profile, realProfile, previewRole }) {
   const { lang, tx } = useLang()
   const ar = lang === 'ar'
   const L = (en, a) => ar ? a : en
@@ -260,6 +260,8 @@ export default function CoachDashboard({ coach, athletes, myAthletes: myAthletes
       <DashboardBanners
         profile={profile}
         onNav={onNav}
+        realProfile={realProfile}
+        previewRole={previewRole}
         extraBanners={[
           ...(reminders.needsAttendance.length > 0 ? [{
             key: 'needsAttendance', color: '#f59e0b', icon: 'ti-alert-circle',
