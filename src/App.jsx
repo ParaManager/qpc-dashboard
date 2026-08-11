@@ -755,7 +755,13 @@ export default function App() {
 
   const role      = profile?.role || 'guest'
   const userStatus = profile?.status || 'active'
-  const isAdmin   = role === 'admin'
+  // Includes readonly_admin on purpose: this drives which NAV ITEMS/PAGES
+  // render (view-level access), which Read-Only Admin should have at full
+  // parity with Admin. It must never be used to decide whether a write
+  // action is allowed — every actual create/edit/delete control in the
+  // app is separately gated by canEdit(profile), which checks role ===
+  // 'admin' exactly and therefore already excludes readonly_admin.
+  const isAdmin   = role === 'admin' || role === 'readonly_admin'
   // Trusted-admin status now comes from the centralized permissions helper
   // (src/lib/permissions.js), which is also mirrored by the SQL
   // is_trusted_admin() function used in RLS policies — a future third
