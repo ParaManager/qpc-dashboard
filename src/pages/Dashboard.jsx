@@ -181,7 +181,7 @@ export default function Dashboard({ athletes, coaches, employees, referees, even
         </div>
       </div>
 
-      <DashboardBanners profile={profile} onNav={onNav} />
+      <DashboardBanners profile={profile} onNav={onNav} pendingAccountsCount={pendingAccountsCount} />
 
       {/* ── KPI Cards ── */}
       <div className="kpi-grid">

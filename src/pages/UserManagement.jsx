@@ -108,12 +108,16 @@ export default function UserManagement({ profile, initUserId }) {
       // applicant, and remove any earlier account_rejected notification too —
       // if the account was previously rejected and is now approved, that old
       // rejection notice is stale and must not remain active.
-      // access_request rows carry applicant_id inside `data`; account_rejected
-      // rows are matched directly on related_entity_id instead.
-      const { error: delErr1 } = await supabase.from('notifications').delete().eq('type', 'access_request').eq('data->>applicant_id', user.id)
-      const { error: delErr2 } = await supabase.from('notifications').delete().eq('type', 'account_rejected').eq('related_entity_id', user.id)
+      // Routed through a SECURITY DEFINER RPC rather than a plain client-side
+      // delete: notifications' DELETE RLS is (user_id = auth.uid()), so a
+      // direct delete here only ever actually removed the acting admin's OWN
+      // copy — every other admin who'd received the same access_request
+      // notification (e.g. Dina's support account, when Ahcene was the one
+      // approving) kept it stuck forever with no error surfaced. The RPC
+      // clears it for every admin who has a copy, scoped narrowly to this
+      // one applicant_id.
+      const { error: delErr1 } = await supabase.rpc('resolve_access_request_notifications', { p_applicant_id: user.id })
       if (delErr1) console.error('[notifications] failed clearing access_request on approve:', delErr1)
-      if (delErr2) console.error('[notifications] failed clearing stale account_rejected on approve:', delErr2)
       toast(L(`${user.full_name || user.email} approved`, `تمت الموافقة على ${user.full_name || ''}`))
       if (isTrustedAdmin(profile)) {
         logAdminActivity({ actor: profile, action: 'approved', entityType: 'user', entityId: user.id, entityLabel: user.full_name || user.email, module: 'users' })
@@ -148,11 +152,10 @@ export default function UserManagement({ profile, initUserId }) {
       if (notifErr) console.error('[notifications] failed to insert account_rejected:', notifErr)
       // Resolve the original access_request, and remove any earlier
       // account_approved notification — if a previously-approved account is
-      // now being rejected, that old approval notice is stale.
-      const { error: delErr1 } = await supabase.from('notifications').delete().eq('type', 'access_request').eq('data->>applicant_id', user.id)
-      const { error: delErr2 } = await supabase.from('notifications').delete().eq('type', 'account_approved').eq('related_entity_id', user.id)
+      // now being rejected, that old approval notice is stale. Same RPC as
+      // approve() above, for the same RLS reason (see comment there).
+      const { error: delErr1 } = await supabase.rpc('resolve_access_request_notifications', { p_applicant_id: user.id })
       if (delErr1) console.error('[notifications] failed clearing access_request on reject:', delErr1)
-      if (delErr2) console.error('[notifications] failed clearing stale account_approved on reject:', delErr2)
       toast(L('Request rejected', 'تم رفض الطلب'))
       if (isTrustedAdmin(profile)) {
         logAdminActivity({ actor: profile, action: 'rejected', entityType: 'user', entityId: user.id, entityLabel: user.full_name || user.email, module: 'users' })
