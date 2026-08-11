@@ -5,15 +5,16 @@ export function useAuth() {
   const [user, setUser]         = useState(null)
   const [profile, setProfile]   = useState(null)
   const [loading, setLoading]   = useState(true)  // stays true until user+profile both resolved
-  // ── View As (support-engineer impersonation) ──────────────────────────
-  // `viewAsProfile` holds the FULL profile row of whichever user the
-  // signed-in support account has chosen to view as. It is purely local
-  // React state — no Supabase session, token, or auth.uid() is ever
-  // touched, so the support engineer's own login stays exactly as-is.
-  // Every other part of the app keeps reading `profile` as before; this
-  // hook just substitutes which row that name points to.
-  const [viewAsProfile, setViewAsProfile]     = useState(null)
-  const [viewAsSessionId, setViewAsSessionId] = useState(null)
+  // ── Role Preview (support-account testing) ─────────────────────────────
+  // `previewRole` is purely local React state, never a Supabase session,
+  // token, or auth.uid() change — the support account's own login stays
+  // untouched. No other person's profile is ever read into this hook;
+  // "profile" below is always the support account's own row, just with a
+  // few fields overridden to match whichever role/test-persona id is being
+  // previewed. See buildPreviewProfile() below.
+  const [previewRole, setPreviewRole] = useState(() => {
+    try { return sessionStorage.getItem('qpc_role_preview') || null } catch { return null }
+  })
   // Tracks the currently-known signed-in user id in a ref (not state), so the
   // onAuthStateChange closure below can always read the true latest value
   // synchronously — some Supabase-js v2 versions re-emit SIGNED_IN (not just
@@ -73,8 +74,8 @@ export function useAuth() {
       if (event === 'SIGNED_OUT') {
         setUser(null)
         setProfile(null)
-        setViewAsProfile(null)
-        setViewAsSessionId(null)
+        setPreviewRole(null)
+        try { sessionStorage.removeItem('qpc_role_preview') } catch {}
         knownUserIdRef.current = null
         return
       }
@@ -134,44 +135,55 @@ export function useAuth() {
     await supabase.auth.signOut({ scope: 'local' })
   }
 
-  // ── View As controls ────────────────────────────────────────────────
-  // Only ever callable meaningfully by a profile with is_support = true —
-  // the UI that calls these (ViewAsSwitcher) is itself gated on that flag,
-  // and the audit-table RLS independently re-checks it server-side on
-  // insert, so a non-support account can't spoof a session row even by
-  // calling this directly.
-  async function startViewAs(targetProfile) {
-    if (!profile?.is_support || !targetProfile?.id) return
-    const { data } = await supabase.from('view_as_sessions')
-      .insert({ support_user_id: profile.id, viewed_user_id: targetProfile.id, viewed_role: targetProfile.role })
-      .select('id').single()
-    setViewAsSessionId(data?.id || null)
-    setViewAsProfile(targetProfile)
+  // ── Role Preview controls ────────────────────────────────────────────
+  // Only meaningful for a profile with is_support = true — the switcher UI
+  // that calls startPreview() is itself gated on that flag, so no other
+  // account (Admin, Coach, Staff, Athlete, Referee) can reach this at all.
+  function startPreview(role) {
+    if (!profile?.is_support) return
+    setPreviewRole(role)
+    try { sessionStorage.setItem('qpc_role_preview', role) } catch {}
+  }
+  function exitPreview() {
+    setPreviewRole(null)
+    try { sessionStorage.removeItem('qpc_role_preview') } catch {}
   }
 
-  async function exitViewAs() {
-    if (viewAsSessionId) {
-      await supabase.from('view_as_sessions').update({ ended_at: new Date().toISOString() }).eq('id', viewAsSessionId)
-    }
-    setViewAsSessionId(null)
-    setViewAsProfile(null)
+  // Builds the profile object the rest of the app actually sees while
+  // previewing: same account, same id, same auth.uid() — only `role` and
+  // the one relevant `<role>_id` link are swapped to the support account's
+  // OWN test-persona record for that role (support_athlete_id etc., set on
+  // this very row). No other person's data is ever substituted in.
+  function buildPreviewProfile(base, role) {
+    if (!base || !role || role === 'admin') return base
+    const overrides = { role }
+    if (role === 'athlete') overrides.athlete_id = base.support_athlete_id || null
+    if (role === 'coach')   overrides.coach_id   = base.support_coach_id || null
+    if (role === 'employee') overrides.employee_id = base.support_employee_id || null
+    if (role === 'referee')  overrides.referee_id  = base.support_referee_id || null
+    // Test personas are never linked into the real `people` table, so
+    // person_id must be cleared too — otherwise a stale value from the
+    // support account's own real profile could accidentally resolve to a
+    // real person's shared identity/documents while previewing.
+    overrides.person_id = null
+    return { ...base, ...overrides }
   }
 
   return {
     user,
-    // `profile` transparently becomes the impersonated row while a View As
-    // session is active — every existing page/permission check in the app
-    // that reads `profile.role`, `profile.athlete_id`, etc. therefore
-    // renders exactly as that user would see it, with zero changes needed
-    // anywhere else in the codebase.
-    profile: viewAsProfile || profile,
+    // `profile` transparently reflects the active Role Preview — every
+    // existing page/permission check in the app that reads `profile.role`,
+    // `profile.athlete_id`, etc. therefore renders exactly as that role
+    // would, using the support account's own test data, with zero changes
+    // needed anywhere else in the codebase.
+    profile: (previewRole && profile?.is_support) ? buildPreviewProfile(profile, previewRole) : profile,
     realProfile: profile,
-    isViewingAs: !!viewAsProfile,
-    viewAsProfile,
+    previewRole,
+    isPreviewing: !!(previewRole && profile?.is_support),
     loading,
     signOut,
-    startViewAs,
-    exitViewAs,
+    startPreview,
+    exitPreview,
   }
 }
 

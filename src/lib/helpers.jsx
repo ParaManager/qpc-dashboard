@@ -621,6 +621,53 @@ export function Avatar({ name, id, size = 32, fs = 11 }) {
   )
 }
 
+// ── Centralized profile-photo resolution ──────────────────────────────
+// Single source of truth for "what photo does this person's account show",
+// used everywhere an avatar is rendered (sidebar, topbar, dashboard hero,
+// My Profile, lists/cards). Priority, checked in order, first match wins:
+//   1. The role record already resolved for what's being displayed
+//      (e.g. the exact athlete/coach/employee/referee row in view)
+//   2. Any linked role record sharing the same person_id (multi-role
+//      accounts — Coach+Staff, Athlete+Referee, etc.)
+//   3. The single role-id link on the profile itself
+//      (profile.athlete_id / coach_id / employee_id / referee_id)
+//   4. profile.avatar_url — the only photo source for accounts with no
+//      linked role record at all (pure Admin/Support accounts)
+// Falls back to null (never a guess) so callers render the initials
+// Avatar instead — never a broken image.
+export function resolveUserPhoto(profile, { athletes = [], coaches = [], employees = [], referees = [] } = {}, preferredRecord = null) {
+  if (preferredRecord?.photo_url) return preferredRecord.photo_url
+
+  if (profile?.person_id) {
+    const byPerson = [athletes, coaches, employees, referees]
+      .map(list => list.find(r => r.person_id === profile.person_id))
+      .find(r => r?.photo_url)
+    if (byPerson) return byPerson.photo_url
+  }
+
+  const byRoleId =
+    (profile?.athlete_id  && athletes.find(a => String(a.id) === String(profile.athlete_id)))  ||
+    (profile?.coach_id    && coaches.find(c => String(c.id) === String(profile.coach_id)))      ||
+    (profile?.employee_id && employees.find(e => String(e.id) === String(profile.employee_id))) ||
+    (profile?.referee_id  && referees.find(r => String(r.id) === String(profile.referee_id)))
+  if (byRoleId?.photo_url) return byRoleId.photo_url
+
+  return profile?.avatar_url || null
+}
+
+// Single reusable avatar element — photo when one resolves, otherwise the
+// same initials fallback everywhere, so every avatar in the app shares
+// identical crop/fit/shape regardless of role or page.
+export function ProfileAvatar({ photoUrl, name, id, size = 32, fs = 11, style }) {
+  if (photoUrl) {
+    return (
+      <img src={photoUrl} alt={name || ''}
+        style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', objectPosition: 'top center', flexShrink: 0, ...style }} />
+    )
+  }
+  return <Avatar name={name} id={id} size={size} fs={fs} />
+}
+
 export function Badge({ label, cls }) {
   return <span className={`badge ${cls || statusClass(label)}`}>{label}</span>
 }
