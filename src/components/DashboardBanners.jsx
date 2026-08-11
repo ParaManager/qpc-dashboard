@@ -27,7 +27,7 @@ const TYPE_META = {
  * more than one, a picker opens so the user chooses which specific one to resolve —
  * never silently picking the first one for them.
  */
-export default function DashboardBanners({ profile, onNav, extraBanners = [], maxBanners = 2, realProfile, previewRole }) {
+export default function DashboardBanners({ profile, onNav, extraBanners = [], maxBanners = 2, realProfile, previewRole, pendingAccountsCount }) {
   const { lang, tx } = useLang()
   const ar = lang === 'ar'
   const L = (en, a) => ar ? a : en
@@ -160,17 +160,44 @@ export default function DashboardBanners({ profile, onNav, extraBanners = [], ma
   }
 
   if (accessRequests.length > 0) {
-    banners.push({
+    // Gate on `pendingAccountsCount` — the exact same source of truth
+    // User Management uses (a live COUNT of profiles.status = 'pending')
+    // — when the caller provides it, rather than the raw notification
+    // count. The access_request notification rows are fragile: RLS only
+    // lets a client delete its OWN row (user_id = auth.uid()), so when one
+    // admin approves/rejects, every OTHER admin who'd received a copy of
+    // that notification kept it forever with no error — exactly what
+    // caused Dina's dashboard to keep showing "2 new sign-up requests"
+    // after User Management already showed 0 pending. Tying this banner's
+    // visibility/count to the live pending-accounts count instead means a
+    // stray leftover notification row can no longer show a stale banner —
+    // it disappears the instant the real pending count hits 0, in sync
+    // with User Management, regardless of notification cleanup succeeding.
+    const count = pendingAccountsCount != null ? pendingAccountsCount : accessRequests.length
+    if (count > 0) banners.push({
       key: 'accessRequests', color: '#0085C7', icon: 'ti-user-plus',
-      title: accessRequests.length === 1
+      title: count === 1
         ? L('1 new sign-up request', 'طلب تسجيل جديد')
-        : L(`${accessRequests.length} new sign-up requests`, `${accessRequests.length} طلبات تسجيل جديدة`),
+        : L(`${count} new sign-up requests`, `${count} طلبات تسجيل جديدة`),
       sub: accessRequests.slice(0,2).map(n => n.body).join(' · '),
       actionLabel: L('View','عرض'),
-      items: accessRequests.map(n => ({
+      items: accessRequests.length > 0 ? accessRequests.map(n => ({
         label: n.body || n.title,
         onSelect: () => onNav('users', n.data?.applicant_id ? { userId: n.data.applicant_id } : {}),
-      })),
+      })) : [{ label: L('View pending sign-ups','عرض طلبات التسجيل المعلقة'), onSelect: () => onNav('users') }],
+    })
+  } else if (pendingAccountsCount > 0) {
+    // No (or all-stale) access_request notification rows exist, but the
+    // real source of truth says there ARE pending accounts — still show
+    // the banner rather than silently under-reporting it.
+    banners.push({
+      key: 'accessRequests', color: '#0085C7', icon: 'ti-user-plus',
+      title: pendingAccountsCount === 1
+        ? L('1 new sign-up request', 'طلب تسجيل جديد')
+        : L(`${pendingAccountsCount} new sign-up requests`, `${pendingAccountsCount} طلبات تسجيل جديدة`),
+      sub: '',
+      actionLabel: L('View','عرض'),
+      items: [{ label: L('View pending sign-ups','عرض طلبات التسجيل المعلقة'), onSelect: () => onNav('users') }],
     })
   }
 
