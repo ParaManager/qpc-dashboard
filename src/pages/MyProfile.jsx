@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useLang } from '../lib/LangContext.jsx'
 import { usePersonRoles, RoleBadges } from '../components/RoleBadges.jsx'
-import { effectiveStatus, statusClass, Avatar, SPORT_NAMES_AR, SPORT_CATEGORY_NAMES_AR } from '../lib/helpers'
+import { effectiveStatus, statusClass, Avatar, ProfileAvatar, resolveUserPhoto, SPORT_NAMES_AR, SPORT_CATEGORY_NAMES_AR } from '../lib/helpers'
 import { supabase } from '../lib/supabase'
 import { classifyAthleteType, getAthleteDocumentRules, computeCompletion } from '../lib/documentEngine'
 
@@ -175,7 +175,7 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
     ? (myEmployee || myCoach || myAthlete || myReferee)?.name
     : (myEmployee?.name_ar || myCoach?.name_ar || myAthlete?.name_ar || myReferee?.name_ar)
 
-  const photoUrl = myEmployee?.photo_url || myCoach?.photo_url || myAthlete?.photo_url || myReferee?.photo_url
+  const photoUrl = resolveUserPhoto(profile, { athletes, coaches, employees, referees: referees || [] }, myEmployee || myCoach || myAthlete || myReferee)
 
   const nationality = (myEmployee || myCoach || myAthlete || myReferee)?.nationality
   const phone = myEmployee?.phone || myCoach?.phone || myAthlete?.phone
@@ -204,7 +204,7 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
       <div className="detail-grid">
         <div className="detail-profile">
           {photoUrl
-            ? <img src={photoUrl} alt={displayName} style={{ width: 90, height: 90, borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--border)', margin: '0 auto 14px' }} />
+            ? <ProfileAvatar photoUrl={photoUrl} name={displayName} size={90} style={{ margin: '0 auto 14px', display: 'block', border: '3px solid var(--border)' }} />
             : <div style={{ width: 90, height: 90, margin: '0 auto 14px' }}><Avatar name={displayName || '?'} id={Math.abs([...String(personId||'')].reduce((h,c)=>(h*31+c.charCodeAt(0))|0,0))} size={90} fs={26} /></div>
           }
           {hasAnyCurrentRole ? (
