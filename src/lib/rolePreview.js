@@ -54,7 +54,7 @@ export function canPreviewAccess(feature, profile) {
 // treated as hidden from everyone but admins; otherwise the role must be
 // explicitly listed.
 export function matchesAudience(visibleTo, role) {
-  if (role === 'admin') return true
+  if (role === 'admin' || role === 'readonly_admin') return true
   if (!visibleTo || visibleTo.length === 0) return false
   return visibleTo.includes(role)
 }

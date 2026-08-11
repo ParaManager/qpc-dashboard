@@ -1,6 +1,6 @@
-// Centralized trusted-admin identification — the single place that knows
-// the two trusted-admin email addresses, so no other file needs to repeat
-// or hardcode an email string comparison. Mirrors the equivalent SQL
+// Trusted-admin identification — the single place that knows the two
+// trusted-admin email addresses, so no other file needs to repeat or
+// hardcode an email string comparison. Mirrors the equivalent SQL
 // function public.is_trusted_admin(uid) used by RLS policies, so frontend
 // and database enforcement always agree.
 //
@@ -9,6 +9,26 @@
 // every check here as "should the UI show this", never as "is this safe".
 const TRUSTED_ADMIN_EMAILS = ['hsinou@gmail.com', 'mawahibqpc@gmail.com']
 const MAIN_ADMIN_EMAIL = 'hsinou@gmail.com'
+
+// ── admin vs readonly_admin ──────────────────────────────────────────────
+// `admin` = full write access. `readonly_admin` = sees everything an Admin
+// sees, can perform NO writes. These two are deliberately kept as
+// separate, non-overlapping role strings everywhere (frontend AND every
+// RLS write policy already checks role = 'admin' literally) rather than
+// giving readonly_admin the 'admin' role with a separate flag — that way
+// a bug that forgets to check the flag fails closed (denies), not open.
+const ADMIN_ROLES = ['admin', 'readonly_admin']
+
+// True for either admin-tier role — use for VIEW/navigation/page-access
+// decisions ("can this account open the Admin pages"), never for deciding
+// whether a write action is allowed.
+export function isAdminRole(profile) {
+  return ADMIN_ROLES.includes(profile?.role)
+}
+
+export function isReadOnlyAdmin(profile) {
+  return profile?.role === 'readonly_admin'
+}
 
 function normalizedEmail(profile, user) {
   // Trusted-admin distinctions only ever make sense for an actually-admin
