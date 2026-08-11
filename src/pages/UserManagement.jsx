@@ -6,7 +6,25 @@ import { Avatar } from '../lib/helpers'
 import { isTrustedAdmin } from '../lib/permissions'
 import { logAdminActivity } from '../lib/adminActivity'
 
-const ROLE_COLORS  = { admin:'#EE334E', coach:'#0085C7', athlete:'#009F6B', guest:'#8b5cf6' }
+const ROLE_COLORS  = { admin:'#EE334E', coach:'#0085C7', employee:'#8b5cf6', athlete:'#009F6B' }
+
+// ── Account-role source of truth ────────────────────────────────────────
+// The ONLY four assignable account roles in this system. `employee` stays
+// the canonical internal/database key (unchanged, per existing schema) —
+// it is simply always labeled "Staff" in the UI. `guest` is intentionally
+// excluded: guests have no account/profile row to manage here. `referee`
+// is excluded too — not implemented as an account role yet.
+const ACCOUNT_ROLES = ['admin', 'coach', 'employee', 'athlete']
+const ROLE_LABEL_EN = { admin: 'Admin', coach: 'Coach', employee: 'Staff', athlete: 'Athlete' }
+const ROLE_LABEL_AR = { admin: 'مسؤول', coach: 'مدرب', employee: 'كادر', athlete: 'رياضي' }
+
+// Never falls back to 'admin' (or anything else) for a missing/unrecognized
+// value — returns null so callers can render an explicit "Unassigned/
+// Unknown" state and the audit below can report it, instead of silently
+// misrepresenting who actually has admin access.
+function normalizeAccountRole(rawRole) {
+  return ACCOUNT_ROLES.includes(rawRole) ? rawRole : null
+}
 const STATUS_COLORS = { active:'#009F6B', pending:'#f59e0b', rejected:'#EE334E' }
 
 
@@ -252,7 +270,8 @@ export default function UserManagement({ profile, initUserId }) {
         <div className="empty">{L('No requests','لا توجد طلبات')}</div>
       ) : (
         filtered.map(u => {
-          const roleColor   = ROLE_COLORS[u.account_type]   || '#9aa3b2'
+          const normRole    = normalizeAccountRole(u.account_type)
+          const roleColor   = normRole ? ROLE_COLORS[normRole] : '#9aa3b2'
           const statusColor = STATUS_COLORS[u.status] || '#9aa3b2'
           const linkedName  = u.account_type === 'coach'   ? (ar && u.coaches?.name_ar ? u.coaches.name_ar : u.coaches?.name)
                             : u.account_type === 'athlete' ? (ar && u.athletes?.name_ar ? u.athletes.name_ar : u.athletes?.name)
@@ -278,7 +297,7 @@ export default function UserManagement({ profile, initUserId }) {
                   <div style={{ fontSize:13, color:'var(--text3)', marginTop:2 }}>{u.email}</div>
                   <div style={{ display:'flex', gap:6, marginTop:8, flexWrap:'wrap' }}>
                     <span style={{ padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:600, background:roleColor+'20', color:roleColor }}>
-                      {ar ? {'admin':'مسؤول','coach':'مدرب','employee':'عضو كادر','athlete':'رياضي','guest':'زائر'}[u.account_type]||u.account_type : u.account_type}
+                      {normRole ? (ar ? ROLE_LABEL_AR[normRole] : ROLE_LABEL_EN[normRole]) : L('Unassigned','غير محدد')}
                     </span>
                     <span style={{ padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:600, background:statusColor+'20', color:statusColor }}>
                       {ar ? {'active':'نشط','pending':'قيد الانتظار','rejected':'مرفوض'}[u.status]||u.status : u.status}
@@ -331,9 +350,19 @@ export default function UserManagement({ profile, initUserId }) {
 
                   {u.status === 'active' && (
                     <>
-                      <select value={u.account_type||'guest'} onChange={e=>changeRole(u.id, e.target.value)}
+                      <select value={normRole || ''} onChange={e=>changeRole(u.id, e.target.value)}
                         style={{ padding:'6px 10px', border:'1px solid var(--border)', borderRadius:8, fontSize:12, background:'var(--surface)', color:'var(--text)', cursor:'pointer' }}>
-                        {['admin','coach','athlete','guest'].map(r=><option key={r} value={r}>{ar?{'admin':'مسؤول','coach':'مدرب','athlete':'رياضي','guest':'زائر'}[r]:r}</option>)}
+                        {/* Explicit placeholder so a missing/unrecognized role never
+                            visually renders as whichever role happens to be first in
+                            the list (the browser's native <select> behavior when
+                            `value` doesn't match any <option> — this, combined with
+                            "Staff" being entirely absent from the old option list,
+                            is exactly why Staff accounts were rendering as "Admin":
+                            value="employee" matched no <option>, so the browser fell
+                            back to displaying the first one, admin.) An Admin must
+                            explicitly pick a role to clear this — it's never implied. */}
+                        {!normRole && <option value="" disabled>{L('Unassigned — select a role','غير محدد — اختر دوراً')}</option>}
+                        {ACCOUNT_ROLES.map(r=><option key={r} value={r}>{ar?ROLE_LABEL_AR[r]:ROLE_LABEL_EN[r]}</option>)}
                       </select>
                       <button onClick={() => deactivate(u.id)}
                         style={{ padding:'7px 14px', background:'var(--surface2)', color:'var(--text2)', border:'1px solid var(--border)', borderRadius:8, fontSize:12, cursor:'pointer' }}>
