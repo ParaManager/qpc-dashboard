@@ -251,7 +251,7 @@ export default function App() {
     if (pdocs.data) setPersonDocs(pdocs.data)
     if (refs.data)  setReferees(refs.data)
     if (sportsRes.data) setSportsList(sportsRes.data)
-    if (reqSubs.data) setPendingRequestsCount(reqSubs.data.filter(s => s.status === 'pending').length)
+    if (reqSubs.data) setPendingRequestsCount(reqSubs.data.filter(s => ['submitted','under_review','pending_approval'].includes(s.status)).length)
     if (profs.data)   setPendingAccountsCount(profs.data.filter(p => p.status === 'pending').length)
     if (cats.data)   setEventCategories(cats.data)
     // Per-sport coach assignments — refreshed here (not a separate
@@ -497,6 +497,35 @@ export default function App() {
   // re-triggered this effect and reloaded all app data on every tab
   // switch even though nothing the user was looking at had changed.
   useEffect(() => { if (user) fetchAll() }, [user?.id, fetchAll])
+
+  // Keep the Pending Requests / Pending Accounts KPIs and dashboard banner
+  // live for EVERY logged-in admin, not just the one who approved/rejected
+  // something. Previously these counts were only ever set once inside
+  // fetchAll() (on mount / manual refresh) — if Admin A approved a request
+  // from their own session, Admin B's already-open dashboard had no way to
+  // find out and kept showing the old count until they happened to
+  // navigate away and back (or refresh). Both counts are re-derived from a
+  // fresh, targeted count query straight from Supabase — never from a
+  // locally cached array — the moment either table changes for anyone.
+  useEffect(() => {
+    if (profile?.role !== 'admin') return
+    function refreshPendingAccounts() {
+      supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'pending')
+        .then(({ count }) => setPendingAccountsCount(count || 0))
+    }
+    function refreshPendingRequests() {
+      supabase.from('request_submissions').select('id', { count: 'exact', head: true })
+        .in('status', ['submitted', 'under_review', 'pending_approval'])
+        .then(({ count }) => setPendingRequestsCount(count || 0))
+    }
+    refreshPendingAccounts()
+    refreshPendingRequests()
+    const sub = supabase.channel('dashboard-pending-counts')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, refreshPendingAccounts)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'request_submissions' }, refreshPendingRequests)
+      .subscribe()
+    return () => supabase.removeChannel(sub)
+  }, [profile?.role])
 
   // Fetch the support account's own test personas once — only ever needed
   // by a profile with is_support = true, and only used locally to build
@@ -811,11 +840,23 @@ export default function App() {
   const userPhoto = resolveUserPhoto(profile, { athletes, coaches, employees, referees }, myNameRecord)
 
   return (
-    <div className="app">
+    <div style={{ display:'flex', flexDirection:'column', height:'100vh', overflow:'hidden' }}>
+      {/* Sits OUTSIDE .app on purpose — .app is `display:flex` with the
+          default ROW direction (sidebar + main side-by-side) and a hard
+          `height:100vh`. Rendering the banner as a normal flex child
+          *inside* .app made it a row-flex item with width:100% that
+          stretched to fill the full 100vh cross-axis height (flex
+          default align-items:stretch), which visually became a solid
+          purple rectangle covering the entire sidebar+main area — not an
+          intentional overlay, just row-flex sizing. Stacking it above
+          .app in an outer COLUMN flex container instead means it only
+          ever takes its own natural (small, sticky) height, and .app
+          shrinks to fill whatever's left via flex:1 below. */}
       {isPreviewing && <RolePreviewBanner previewRole={previewRole} onExit={exitPreview} />}
-      <div className={`sb-overlay${sidebarOpen ? ' open' : ''}`} onClick={() => setSidebarOpen(false)} />
-      <div className={`sidebar${sidebarOpen ? ' open' : ''}`}>
-        <div className="sb-logo">
+      <div className="app" style={{ height:'auto', flex:1, minHeight:0 }}>
+        <div className={`sb-overlay${sidebarOpen ? ' open' : ''}`} onClick={() => setSidebarOpen(false)} />
+        <div className={`sidebar${sidebarOpen ? ' open' : ''}`}>
+          <div className="sb-logo">
           <div className="agitos">
             <div className="agito" style={{ background:'#EE334E' }} />
             <div className="agito" style={{ background:'#0085C7' }} />
@@ -967,6 +1008,7 @@ export default function App() {
         </div>
       </div>
       <ToastContainer />
+      </div>
     </div>
   )
 }
