@@ -30,8 +30,10 @@ export default function RolePreviewSwitcher({ onStartPreview }) {
     <div style={{ position: 'relative' }}>
       <button onClick={() => setOpen(o => !o)}
         title={ar ? 'معاينة الدور' : 'Preview Role'}
-        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', borderRadius: 8, border: '1px solid #8b5cf6', background: '#8b5cf615', color: '#8b5cf6', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-        <i className="ti ti-device-tv" style={{ fontSize: 14 }} /> {ar ? 'معاينة الدور' : 'Preview Role'}
+        className="preview-role-btn"
+        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', borderRadius: 8, border: '1px solid #8b5cf6', background: '#8b5cf615', color: '#8b5cf6', fontSize: 12, fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}>
+        <i className="ti ti-device-tv" style={{ fontSize: 14, flexShrink: 0 }} />
+        <span className="preview-role-btn-label">{ar ? 'معاينة الدور' : 'Preview Role'}</span>
       </button>
 
       {open && (
