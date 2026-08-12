@@ -138,7 +138,7 @@ export default function App() {
   // previewed (see the merged consts below). They're never mixed into the
   // real data at rest, so admin dashboards, directories, and reports never
   // see them.
-  const [supportPersonas, setSupportPersonas] = useState({ athlete:null, coach:null, employee:null, referee:null })
+  const [supportPersonas, setSupportPersonas] = useState({ athlete:null, coach:null, employee:null, referee:null, medicalStaff:null })
 
   // Role Preview: merge the matching test persona into the relevant array
   // ONLY while that specific role is actively being previewed. Every other
@@ -149,7 +149,11 @@ export default function App() {
   // one role.
   const athletes  = previewRole === 'athlete'  && supportPersonas.athlete  ? [...athletesRaw, supportPersonas.athlete]   : athletesRaw
   const coaches   = previewRole === 'coach'    && supportPersonas.coach    ? [...coachesRaw, supportPersonas.coach]     : coachesRaw
-  const employees = previewRole === 'employee' && supportPersonas.employee ? [...employeesRaw, supportPersonas.employee] : employeesRaw
+  const employees = (previewRole === 'employee' && supportPersonas.employee)
+    ? [...employeesRaw, supportPersonas.employee]
+    : (previewRole === 'medical_staff' && supportPersonas.medicalStaff)
+      ? [...employeesRaw, supportPersonas.medicalStaff]
+      : employeesRaw
   const referees  = previewRole === 'referee'  && supportPersonas.referee  ? [...refereesRaw, supportPersonas.referee]   : refereesRaw
   const [eventCategories, setEventCategories] = useState([])
   const [sportsList, setSportsList] = useState([])
@@ -544,16 +548,17 @@ export default function App() {
     if (!realProfile?.is_support) return
     let cancelled = false
     Promise.all([
-      realProfile.support_athlete_id  ? supabase.from('athletes').select('*').eq('id', realProfile.support_athlete_id).maybeSingle()   : Promise.resolve({ data:null }),
-      realProfile.support_coach_id    ? supabase.from('coaches').select('*').eq('id', realProfile.support_coach_id).maybeSingle()      : Promise.resolve({ data:null }),
-      realProfile.support_employee_id ? supabase.from('employees').select('*').eq('id', realProfile.support_employee_id).maybeSingle() : Promise.resolve({ data:null }),
-      realProfile.support_referee_id  ? supabase.from('referees').select('*').eq('id', realProfile.support_referee_id).maybeSingle()   : Promise.resolve({ data:null }),
-    ]).then(([ath, coa, emp, ref]) => {
+      realProfile.support_athlete_id       ? supabase.from('athletes').select('*').eq('id', realProfile.support_athlete_id).maybeSingle()       : Promise.resolve({ data:null }),
+      realProfile.support_coach_id         ? supabase.from('coaches').select('*').eq('id', realProfile.support_coach_id).maybeSingle()          : Promise.resolve({ data:null }),
+      realProfile.support_employee_id      ? supabase.from('employees').select('*').eq('id', realProfile.support_employee_id).maybeSingle()     : Promise.resolve({ data:null }),
+      realProfile.support_referee_id       ? supabase.from('referees').select('*').eq('id', realProfile.support_referee_id).maybeSingle()       : Promise.resolve({ data:null }),
+      realProfile.support_medical_staff_id ? supabase.from('employees').select('*').eq('id', realProfile.support_medical_staff_id).maybeSingle() : Promise.resolve({ data:null }),
+    ]).then(([ath, coa, emp, ref, medStaff]) => {
       if (cancelled) return
-      setSupportPersonas({ athlete: ath.data, coach: coa.data, employee: emp.data, referee: ref.data })
+      setSupportPersonas({ athlete: ath.data, coach: coa.data, employee: emp.data, referee: ref.data, medicalStaff: medStaff.data })
     })
     return () => { cancelled = true }
-  }, [realProfile?.id, realProfile?.is_support, realProfile?.support_athlete_id, realProfile?.support_coach_id, realProfile?.support_employee_id, realProfile?.support_referee_id])
+  }, [realProfile?.id, realProfile?.is_support, realProfile?.support_athlete_id, realProfile?.support_coach_id, realProfile?.support_employee_id, realProfile?.support_referee_id, realProfile?.support_medical_staff_id])
   // Fire-and-forget: runs after the visible app data is already loaded, so
   // it never delays the initial render. Any failure inside is caught and
   // logged by runAdminReminders itself.
