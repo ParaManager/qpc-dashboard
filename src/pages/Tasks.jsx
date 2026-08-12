@@ -136,6 +136,7 @@ export default function Tasks({ profile, isMainAdmin, onNav, realProfile, previe
   const [archivedTasks, setArchivedTasks] = useState([])
   const [archivedLoading, setArchivedLoading] = useState(false)
   const [assigneeFilter, setAssigneeFilter] = useState([])
+  const [assigneeSearch, setAssigneeSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState([])
 
   const [editing, setEditing]   = useState(null)
@@ -195,30 +196,40 @@ export default function Tasks({ profile, isMainAdmin, onNav, realProfile, previe
   }
 
   async function loadEligible() {
-    const { data } = await supabase
-      .from('profiles')
-      .select('id, email, full_name, role, account_type, status, employee_id, person_id')
-      .eq('status', 'active')
-    let list = (data || []).filter(p => {
-      const isMain = isMainAdminEmail(p.email)
-      if (isMain) return true
-      if (!['admin', 'employee', 'coach'].includes(p.account_type || p.role)) return false
-      if (!p.employee_id) return false
-      if (!p.full_name || !p.full_name.trim()) return false
-      return true
-    })
-    // Enrich with Arabic name from employees table via employee_id
-    const empIds = list.filter(p => p.employee_id).map(p => p.employee_id)
-    if (empIds.length > 0) {
-      const { data: empData } = await supabase
-        .from('employees')
-        .select('id, name_ar')
-        .in('id', empIds)
-      const empMap = Object.fromEntries((empData || []).map(e => [String(e.id), e.name_ar]))
-      list = list.map(p => p.employee_id && empMap[String(p.employee_id)]
-        ? { ...p, name_ar: empMap[String(p.employee_id)] }
-        : p)
+    // Assignee list is built directly from the Staff/employees table (per
+    // spec: "must include all Staff members from the employees/staff
+    // table"), not just accounts that happen to already exist — a Staff
+    // record with no account yet still shows up and can be assigned to.
+    // Each entry is then enriched with whichever active profile (if any)
+    // is currently linked to that employee_id, purely for display/claim
+    // purposes — the employee_id itself is what actually gets stored on
+    // the task (assigned_employee_id), so the identity survives an
+    // account being created later. `id` here is what the form/select
+    // actually stores: the real profile id when an account exists, or a
+    // synthetic `emp:<employeeId>` placeholder when it doesn't — either
+    // way findAssignee()/handleSave() resolve it back to a stable
+    // employeeId + optional profileId pair.
+    const [{ data: emps }, { data: profs }] = await Promise.all([
+      supabase.from('employees').select('id, name, name_ar, status').eq('is_test_record', false),
+      supabase.from('profiles').select('id, email, full_name, role, account_type, status, employee_id').eq('status', 'active'),
+    ])
+    const profileByEmployeeId = {}
+    for (const p of (profs || [])) {
+      if (p.employee_id) profileByEmployeeId[String(p.employee_id)] = p
     }
+    let list = (emps || [])
+      .filter(e => e.name && e.name.trim())
+      .map(e => {
+        const linkedProfile = profileByEmployeeId[String(e.id)]
+        return {
+          id: linkedProfile ? linkedProfile.id : `emp:${e.id}`,
+          profileId: linkedProfile ? linkedProfile.id : null,
+          employeeId: e.id,
+          full_name: e.name,
+          name_ar: e.name_ar || null,
+          hasAccount: !!linkedProfile,
+        }
+      })
     setEligible(list)
   }
 
@@ -281,7 +292,7 @@ export default function Tasks({ profile, isMainAdmin, onNav, realProfile, previe
       dueDate: task.due_date || '',
       dueTime: task.due_time || '',
       status: task.status,
-      assignedTo: task.assigned_to || profile?.id || '',
+      assignedTo: task.assigned_to || (task.assigned_employee_id ? `emp:${task.assigned_employee_id}` : profile?.id) || '',
       notifyOnComplete: !!task.notify_on_complete,
       repeatType: task.repeat_type || 'None',
       customIntervalUnit: task.custom_interval_unit || 'days',
@@ -300,7 +311,26 @@ export default function Tasks({ profile, isMainAdmin, onNav, realProfile, previe
 
   async function handleSave() {
     if (!form.title.trim()) { toast(ar ? 'العنوان مطلوب' : 'Title is required', 'error'); return }
-    const assignedTo = isMainAdmin ? (form.assignedTo || profile?.id) : profile?.id
+    // form.assignedTo holds either a real profile id or a synthetic
+    // `emp:<employeeId>` placeholder (see loadEligible) when the selected
+    // Staff member has no account yet. Resolve both the profile id (if
+    // any) and the stable employee_id here — assigned_employee_id is what
+    // survives an account being created later; assigned_to is what makes
+    // the task actually visible to that account today, once one exists.
+    let assignedTo = null
+    let assignedEmployeeId = null
+    if (isMainAdmin) {
+      const raw = form.assignedTo || profile?.id
+      if (typeof raw === 'string' && raw.startsWith('emp:')) {
+        assignedEmployeeId = Number(raw.slice(4))
+      } else {
+        assignedTo = raw
+        assignedEmployeeId = eligible.find(p => p.id === raw)?.employeeId || null
+      }
+    } else {
+      assignedTo = profile?.id
+      assignedEmployeeId = profile?.employee_id || null
+    }
     const payload = {
       title: form.title.trim(),
       notes: form.notes.trim() || null,
@@ -310,6 +340,7 @@ export default function Tasks({ profile, isMainAdmin, onNav, realProfile, previe
       due_time: form.dueTime || null,
       status: form.status,
       assigned_to: assignedTo,
+      assigned_employee_id: assignedEmployeeId,
       notify_on_complete: form.notifyOnComplete,
       completed_at: form.status === 'done' ? new Date().toISOString() : null,
       updated_at: new Date().toISOString(),
@@ -469,12 +500,26 @@ export default function Tasks({ profile, isMainAdmin, onNav, realProfile, previe
               {isMainAdmin && (
                 <div className="form-group">
                   <label>{ar ? 'مُسندة إلى' : 'Assigned To'}</label>
+                  {/* Search box narrows the option list below by name —
+                      the full Staff table can be long, this is purely a
+                      client-side filter, not a separate query. */}
+                  <input
+                    className="form-input"
+                    placeholder={ar ? 'ابحث بالاسم…' : 'Search by name…'}
+                    value={assigneeSearch}
+                    onChange={e => setAssigneeSearch(e.target.value)}
+                    style={{ marginBottom: 6 }}
+                  />
                   <select className="form-input" value={form.assignedTo} onChange={e => setForm(f => ({ ...f, assignedTo: e.target.value }))}>
-                    {eligible.map(p => (
-                      <option key={p.id} value={p.id}>
-                        {p.id === profile?.id ? (ar ? `نفسي (${assigneeLabel(p)})` : `Myself (${assigneeLabel(p)})`) : assigneeLabel(p)}
-                      </option>
-                    ))}
+                    <option value={profile?.id}>{ar ? 'نفسي' : 'Myself'}</option>
+                    {eligible
+                      .filter(p => p.id !== profile?.id)
+                      .filter(p => !assigneeSearch.trim() || matchesSearch(buildSearchText(p.full_name, p.name_ar), assigneeSearch))
+                      .map(p => (
+                        <option key={p.id} value={p.id}>
+                          {assigneeLabel(p)}{!p.hasAccount ? (ar ? ' (بدون حساب)' : ' (no account)') : ''}
+                        </option>
+                      ))}
                   </select>
                 </div>
               )}
@@ -773,7 +818,13 @@ export default function Tasks({ profile, isMainAdmin, onNav, realProfile, previe
                   const dueSoon = isDueSoon(task)
                   const frameColor = overdue ? '#EE334E' : dueToday ? '#009F6B' : dueSoon ? '#f59e0b' : null
                   const frameBg = overdue ? '#FFF5F5' : dueToday ? '#F0FBF6' : dueSoon ? '#FFFBEB' : 'var(--surface)'
-                  const assignee = findAssignee(task.assigned_to)
+                  // task.assigned_to is null for a Staff member with no
+                  // account yet — fall back to matching on the stable
+                  // assigned_employee_id so the card still shows who it's
+                  // for instead of blank.
+                  const assignee = findAssignee(task.assigned_to) || (task.assigned_employee_id
+                    ? eligible.find(p => p.employeeId === task.assigned_employee_id)
+                    : null)
                   return (
                     <div key={task.id} onClick={() => openEdit(task)}
                       style={{

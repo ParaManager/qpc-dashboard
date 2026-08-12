@@ -130,6 +130,17 @@ export default function UserManagement({ profile, initUserId }) {
         approved_at: new Date().toISOString(),
         approved_by: profile?.id,
       }).eq('id', user.id)
+      // Claim any tasks that were assigned to this person's Staff record
+      // before they had an account (assigned_employee_id set, assigned_to
+      // still null) — routed through a SECURITY DEFINER RPC rather than a
+      // plain client-side update, since tasks' own RLS would otherwise
+      // block any admin who isn't specifically a trusted admin from
+      // setting someone ELSE's assigned_to. Idempotent — safe even if
+      // approve() is somehow triggered twice for the same user.
+      if (user.employee_id) {
+        const { error: claimErr } = await supabase.rpc('claim_employee_tasks', { p_employee_id: user.employee_id, p_profile_id: user.id })
+        if (claimErr) console.error('[tasks] failed claiming employee tasks on approve:', claimErr)
+      }
       // Stable dedup_key means a second approve click (or a retried request)
       // can never insert a duplicate approval notification for this user.
       const { error: notifErr } = await supabase.from('notifications').insert({
