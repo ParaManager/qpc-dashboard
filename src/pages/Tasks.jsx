@@ -4,6 +4,7 @@ import { useLang } from '../lib/LangContext.jsx'
 import { toast, ConfirmModal } from '../components/Toast'
 import { Avatar, initials, buildSearchText, matchesSearch } from '../lib/helpers'
 import { isMainAdminEmail } from '../lib/permissions'
+import { isPreviewMode } from '../lib/rolePreview'
 import MultiSelectFilter from '../components/MultiSelectFilter.jsx'
 
 const STATUSES = ['todo', 'in_progress', 'done']
@@ -122,7 +123,7 @@ function idHash(str) {
   return Math.abs(h)
 }
 
-export default function Tasks({ profile, isMainAdmin, onNav }) {
+export default function Tasks({ profile, isMainAdmin, onNav, realProfile, previewRole }) {
   const { tx, lang } = useLang()
   const ar = lang === 'ar'
 
@@ -142,6 +143,15 @@ export default function Tasks({ profile, isMainAdmin, onNav }) {
   const [form, setForm] = useState({ title: '', notes: '', priority: 'moderate', category: '', dueDate: '', dueTime: '', status: 'todo', assignedTo: profile?.id || '', notifyOnComplete: false, repeatType: 'None', customIntervalUnit: 'days', customIntervalValue: 1, repeatEndType: 'Never', repeatEndDate: '', repeatEndCount: '' })
 
   async function load() {
+    // Tasks are owned by Dina/Ahcene's REAL auth.uid() (assigned_to) —
+    // that never changes during Role Preview (only profile.role/<role>_id
+    // are overridden), and RLS grants trusted admins visibility into every
+    // task regardless of assignee. Without this guard, previewing any
+    // non-admin role would still show the support account's own real
+    // Admin tasks. Test personas have no tasks of their own (no real
+    // auth.uid()), so the honest state during preview is empty — same
+    // treatment as notifications elsewhere in the app.
+    if (isPreviewMode(realProfile, previewRole)) { setTasks([]); setLoading(false); return }
     setLoading(true)
     const { data, error } = await supabase.from('tasks').select('*').eq('archived', false).order('created_at', { ascending: false })
     if (error) { toast(error.message, 'error'); setLoading(false); return }
@@ -166,6 +176,7 @@ export default function Tasks({ profile, isMainAdmin, onNav }) {
   }
 
   async function loadArchived() {
+    if (isPreviewMode(realProfile, previewRole)) { setArchivedTasks([]); setArchivedLoading(false); return }
     setArchivedLoading(true)
     let q = supabase.from('tasks').select('*').eq('archived', true).order('updated_at', { ascending: false })
     if (!isMainAdmin) q = q.eq('assigned_to', profile?.id)
@@ -211,7 +222,7 @@ export default function Tasks({ profile, isMainAdmin, onNav }) {
     setEligible(list)
   }
 
-  useEffect(() => { load(); loadEligible() }, [])
+  useEffect(() => { load(); loadEligible() }, [previewRole, realProfile?.is_support])
 
   function assigneeLabel(p) {
     if (!p) return ''
@@ -592,9 +603,15 @@ export default function Tasks({ profile, isMainAdmin, onNav }) {
           <div className="page-title">{tx('nav.tasks','Tasks')}</div>
           <div className="page-sub">{ar ? 'تتبع كل ما يحتاج إلى متابعة' : 'Track what needs follow-up'}</div>
         </div>
-        <button className="btn btn-blue" onClick={openNew}>
-          <i className="ti ti-plus" /> {ar ? 'مهمة جديدة' : 'New Task'}
-        </button>
+        {/* Hidden during Role Preview — a new task would still be written
+            under the support account's REAL auth.uid(), not the previewed
+            persona (which has no real account to own a task), so creating
+            one here isn't a safe/meaningful action while previewing. */}
+        {!isPreviewMode(realProfile, previewRole) && (
+          <button className="btn btn-blue" onClick={openNew}>
+            <i className="ti ti-plus" /> {ar ? 'مهمة جديدة' : 'New Task'}
+          </button>
+        )}
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
