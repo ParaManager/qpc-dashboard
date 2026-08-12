@@ -806,7 +806,7 @@ export default function App() {
   // My Profile should open the same detail page used elsewhere for this
   // person (athlete/coach/employee), not a separate summary view — so we
   // resolve which one applies once here and reuse it at the profile route.
-  const myEmployeeRecord = (role === 'employee' || role === 'admin') && profile?.employee_id
+  const myEmployeeRecord = (role === 'employee' || role === 'medical_staff' || role === 'admin') && profile?.employee_id
     ? employees.find(e => String(e.id) === String(profile.employee_id)) || null
     : null
   // Same coach-designation list Employees.jsx already uses to decide when an
@@ -1025,7 +1025,7 @@ export default function App() {
           {page==='resources'     && <Resources key={`resources-${refreshToken}`} profile={profile} onRefresh={fetchAll} realProfile={realProfile} previewRole={previewRole} />}
           {page==='requests'     && <Requests  key={`requests-${refreshToken}`} profile={profile} onNav={goTo} navState={navState} />}
           {page==='away' && isAdmin && <Away key={`away-${refreshToken}`} athletes={athletes} coaches={coaches} employees={employees} onNav={goTo} profile={profile} />}
-          {page==='tasks'         && <Tasks key={`tasks-${refreshToken}`} profile={profile} isMainAdmin={isMainAdmin} onNav={goTo} />}
+          {page==='tasks'         && <Tasks key={`tasks-${refreshToken}`} profile={profile} isMainAdmin={isMainAdmin} onNav={goTo} realProfile={realProfile} previewRole={previewRole} />}
           {page==='referees'  && (isAdmin || isCoach || isEmployee || isAthlete) && <Referees key={`referees-${refreshToken}`} referees={referees} onRefresh={fetchAll} profile={profile} />}
           {page==='results'   && <Results   key={`results-${refreshToken}`} results={results} athletes={athletes} onRefresh={fetchAll} onNav={goTo} profile={profile} />}
           {page==='sports'    && (isAdmin || isCoach || isEmployee || isAthlete) && <Sports    key={`sports-${refreshToken}`} athletes={athletes} coaches={coaches} events={events} results={results} onNav={goTo} initSport={navState.sport} initCategory={navState.category} profile={profile} />}
