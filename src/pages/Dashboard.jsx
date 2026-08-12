@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Avatar, MedalDisplay, statusClass, statusDot, DashRow, SPORT_META, SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, sportLabel, initials, getCurrentSeason, computeAwayPeople, computeSportsBreakdown } from '../lib/helpers'
+import { Avatar, MedalDisplay, statusClass, statusDot, DashRow, SPORT_META, SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, sportLabel, initials, getCurrentSeason, computeAwayPeople, computeSportsBreakdown, resolveUserPhoto, ProfileAvatar } from '../lib/helpers'
 import { useLang } from '../lib/LangContext.jsx'
 import { supabase } from '../lib/supabase'
 import DashboardBanners from '../components/DashboardBanners'
@@ -162,7 +162,20 @@ export default function Dashboard({ athletes, coaches, employees, referees, even
             ? 'linear-gradient(to left, rgba(10,5,15,0.85) 0%, rgba(10,5,15,0.55) 40%, rgba(10,5,15,0.05) 65%)'
             : 'linear-gradient(to right, rgba(10,5,15,0.80) 0%, rgba(10,5,15,0.55) 40%, rgba(10,5,15,0.05) 65%)',
         }} />
-        <div style={{ position: 'relative', zIndex: 1, padding: '18px 28px', flex: 1 }}>
+        <div style={{ position: 'relative', zIndex: 1, padding: '18px 28px', flex: 1, display: 'flex', alignItems: 'center', gap: 16 }}>
+          {/* Same centralized resolveUserPhoto()/ProfileAvatar used by the
+              sidebar and My Profile — no separate photo-resolution logic
+              here, so this always matches whatever photo shows elsewhere
+              for this account. */}
+          <ProfileAvatar
+            photoUrl={resolveUserPhoto(profile, { athletes, coaches, employees, referees })}
+            name={(ar ? (personNameAr || profile?.full_name) : profile?.full_name) || tx('roles.admin','Admin')}
+            id={profile?.id}
+            size={56}
+            fs={19}
+            style={{ border: '2px solid rgba(255,255,255,.25)', flexShrink: 0 }}
+          />
+          <div>
           <div style={{ fontSize: 12, color: 'rgba(255,255,255,.5)', marginBottom: 6, fontWeight: 500 }}>
             {tx('dashboard.welcomeBack','Welcome back,')}
           </div>
@@ -177,6 +190,7 @@ export default function Dashboard({ athletes, coaches, employees, referees, even
             <span style={{ fontSize: 11.5, color: '#EE334E', fontWeight: 600 }}>
               {tx('nav.season','Season')} <span dir="ltr">{getCurrentSeason()}</span>
             </span>
+          </div>
           </div>
         </div>
       </div>
