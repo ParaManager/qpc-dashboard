@@ -165,7 +165,12 @@ export function useAuth() {
     overrides.account_type = role
     if (role === 'athlete') overrides.athlete_id = base.support_athlete_id || null
     if (role === 'coach')   overrides.coach_id   = base.support_coach_id || null
-    if (role === 'employee' || role === 'medical_staff') overrides.employee_id = base.support_employee_id || null
+    if (role === 'employee') overrides.employee_id = base.support_employee_id || null
+    // Medical Staff gets its OWN dedicated shared persona (QPC Test
+    // Medical Staff / support_medical_staff_id) rather than falling back
+    // to the plain Staff persona — keeps the two previews from ever
+    // rendering identical data.
+    if (role === 'medical_staff') overrides.employee_id = base.support_medical_staff_id || null
     if (role === 'referee')  overrides.referee_id  = base.support_referee_id || null
     // Test personas are never linked into the real `people` table, so
     // person_id must be cleared too — otherwise a stale value from the
