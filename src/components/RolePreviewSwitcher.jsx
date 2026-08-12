@@ -1,14 +1,17 @@
 import { useState } from 'react'
 import { useLang } from '../lib/LangContext.jsx'
 
-// Only Admin, Read-Only Admin, Medical Staff, Athlete, Coach, and Staff are
-// selectable — Referee accounts aren't implemented yet (nothing to
-// preview), and Guest has no account at all (Role Preview exists to test
-// authenticated-account experiences, and the real Guest flow is already
-// its own always-available, unauthenticated portal — nothing here removes
-// or changes that).
+// Only Read-Only Admin, Medical Staff, Athlete, Coach, and Staff are
+// selectable — Admin is deliberately excluded: support accounts are
+// already real Admins, so there's nothing to preview there, and exiting
+// preview always returns to the account's own real Admin access regardless
+// (see useAuth.js: buildPreviewProfile only ever overrides while a
+// previewRole is actually set). Referee accounts aren't implemented yet
+// (nothing to preview), and Guest has no account at all (Role Preview
+// exists to test authenticated-account experiences, and the real Guest
+// flow is already its own always-available, unauthenticated portal —
+// nothing here removes or changes that).
 const ROLES = [
-  { value: 'admin',          en: 'Admin',            ar: 'مدير' },
   { value: 'readonly_admin', en: 'Read-Only Admin',  ar: 'مسؤول للعرض فقط' },
   { value: 'medical_staff',  en: 'Medical Staff',    ar: 'الكادر الطبي' },
   { value: 'athlete',        en: 'Athlete',           ar: 'رياضي' },
