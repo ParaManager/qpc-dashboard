@@ -137,6 +137,7 @@ export default function Tasks({ profile, isMainAdmin, onNav, realProfile, previe
   const [archivedLoading, setArchivedLoading] = useState(false)
   const [assigneeFilter, setAssigneeFilter] = useState([])
   const [assigneeSearch, setAssigneeSearch] = useState('')
+  const [assigneeDropdownOpen, setAssigneeDropdownOpen] = useState(false)
   const [categoryFilter, setCategoryFilter] = useState([])
 
   const [editing, setEditing]   = useState(null)
@@ -230,7 +231,24 @@ export default function Tasks({ profile, isMainAdmin, onNav, realProfile, previe
           hasAccount: !!linkedProfile,
         }
       })
-    setEligible(list)
+    // Admin/support accounts (e.g. Dina) generally have no employee_id, so
+    // they'd otherwise never appear in the employees-derived list above —
+    // add every OTHER active admin-role profile explicitly so any admin
+    // can assign a task to any other admin, not just to Staff. The
+    // currently-logged-in admin is excluded here since they're already
+    // covered by the separate "Myself" option.
+    const adminEntries = (profs || [])
+      .filter(p => p.role === 'admin' && p.id !== profile?.id && !profileByEmployeeId[String(p.employee_id)])
+      .filter(p => p.full_name && p.full_name.trim())
+      .map(p => ({
+        id: p.id,
+        profileId: p.id,
+        employeeId: p.employee_id || null,
+        full_name: p.full_name,
+        name_ar: null,
+        hasAccount: true,
+      }))
+    setEligible([...list, ...adminEntries])
   }
 
   useEffect(() => { load(); loadEligible() }, [previewRole, realProfile?.is_support])
@@ -301,11 +319,15 @@ export default function Tasks({ profile, isMainAdmin, onNav, realProfile, previe
       repeatEndDate: task.repeat_end_date || '',
       repeatEndCount: task.repeat_end_count || '',
     })
+    setAssigneeSearch('')
+    setAssigneeDropdownOpen(false)
     setEditing(task)
   }
 
   function openNew() {
     setForm({ title: '', notes: '', priority: 'moderate', category: '', dueDate: '', dueTime: '', status: 'todo', assignedTo: profile?.id || '', notifyOnComplete: false, repeatType: 'None', customIntervalUnit: 'days', customIntervalValue: 1, repeatEndType: 'Never', repeatEndDate: '', repeatEndCount: '' })
+    setAssigneeSearch('')
+    setAssigneeDropdownOpen(false)
     setEditing('new')
   }
 
@@ -498,29 +520,69 @@ export default function Tasks({ profile, isMainAdmin, onNav, realProfile, previe
               </div>
 
               {isMainAdmin && (
-                <div className="form-group">
+                <div className="form-group" style={{ position: 'relative' }}>
                   <label>{ar ? 'مُسندة إلى' : 'Assigned To'}</label>
-                  {/* Search box narrows the option list below by name —
-                      the full Staff table can be long, this is purely a
-                      client-side filter, not a separate query. */}
-                  <input
-                    className="form-input"
-                    placeholder={ar ? 'ابحث بالاسم…' : 'Search by name…'}
-                    value={assigneeSearch}
-                    onChange={e => setAssigneeSearch(e.target.value)}
-                    style={{ marginBottom: 6 }}
-                  />
-                  <select className="form-input" value={form.assignedTo} onChange={e => setForm(f => ({ ...f, assignedTo: e.target.value }))}>
-                    <option value={profile?.id}>{ar ? 'نفسي' : 'Myself'}</option>
-                    {eligible
+                  {(() => {
+                    const selected = form.assignedTo === profile?.id
+                      ? { id: profile?.id, full_name: ar ? 'نفسي' : 'Myself' }
+                      : eligible.find(p => p.id === form.assignedTo)
+                    const filteredEligible = eligible
                       .filter(p => p.id !== profile?.id)
                       .filter(p => !assigneeSearch.trim() || matchesSearch(buildSearchText(p.full_name, p.name_ar), assigneeSearch))
-                      .map(p => (
-                        <option key={p.id} value={p.id}>
-                          {assigneeLabel(p)}{!p.hasAccount ? (ar ? ' (بدون حساب)' : ' (no account)') : ''}
-                        </option>
-                      ))}
-                  </select>
+                    return (
+                      <>
+                        <button type="button" className="form-input"
+                          onClick={() => setAssigneeDropdownOpen(o => !o)}
+                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', textAlign: ar ? 'right' : 'left', cursor: 'pointer' }}>
+                          <span>{selected ? assigneeLabel(selected) : (ar ? 'اختر…' : 'Select…')}</span>
+                          <i className="ti ti-chevron-down" style={{ fontSize: 14, opacity: .6 }} />
+                        </button>
+                        {assigneeDropdownOpen && (
+                          <>
+                            <div onClick={() => setAssigneeDropdownOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 998 }} />
+                            <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 4, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,.18)', zIndex: 999, overflow: 'hidden' }}>
+                              {/* Search lives at the top of the OPEN dropdown itself,
+                                  not as a separate always-visible field — filters the
+                                  scrollable list below it immediately as you type. */}
+                              <div style={{ padding: 8, borderBottom: '1px solid var(--border)' }}>
+                                <input
+                                  autoFocus
+                                  className="form-input"
+                                  placeholder={ar ? 'ابحث بالاسم…' : 'Search by name…'}
+                                  value={assigneeSearch}
+                                  onChange={e => setAssigneeSearch(e.target.value)}
+                                  onClick={e => e.stopPropagation()}
+                                />
+                              </div>
+                              <div style={{ maxHeight: 240, overflowY: 'auto' }}>
+                                <div
+                                  onClick={() => { setForm(f => ({ ...f, assignedTo: profile?.id })); setAssigneeDropdownOpen(false); setAssigneeSearch('') }}
+                                  style={{ padding: '9px 12px', cursor: 'pointer', fontSize: 13.5, fontWeight: form.assignedTo === profile?.id ? 700 : 400, background: form.assignedTo === profile?.id ? 'var(--surface2)' : 'transparent' }}
+                                  onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
+                                  onMouseLeave={e => e.currentTarget.style.background = form.assignedTo === profile?.id ? 'var(--surface2)' : 'transparent'}>
+                                  {ar ? 'نفسي' : 'Myself'}
+                                </div>
+                                {filteredEligible.length === 0 && (
+                                  <div style={{ padding: '12px', fontSize: 12.5, color: 'var(--text3)', textAlign: 'center' }}>
+                                    {ar ? 'لا نتائج' : 'No matches'}
+                                  </div>
+                                )}
+                                {filteredEligible.map(p => (
+                                  <div key={p.id}
+                                    onClick={() => { setForm(f => ({ ...f, assignedTo: p.id })); setAssigneeDropdownOpen(false); setAssigneeSearch('') }}
+                                    style={{ padding: '9px 12px', cursor: 'pointer', fontSize: 13.5, fontWeight: form.assignedTo === p.id ? 700 : 400, background: form.assignedTo === p.id ? 'var(--surface2)' : 'transparent' }}
+                                    onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
+                                    onMouseLeave={e => e.currentTarget.style.background = form.assignedTo === p.id ? 'var(--surface2)' : 'transparent'}>
+                                    {assigneeLabel(p)}{!p.hasAccount ? (ar ? ' (بدون حساب)' : ' (no account)') : ''}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </>
+                    )
+                  })()}
                 </div>
               )}
 
