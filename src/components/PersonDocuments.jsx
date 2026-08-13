@@ -6,6 +6,7 @@ import { canEdit } from '../lib/useAuth'
 import JSZip from 'jszip'
 import { SHARED_TYPES, getNonAthleteDocumentRules, mergeDocuments, computeCompletion, normalizeType } from '../lib/documentEngine'
 import { DOC_TYPES, DOC_TYPES_AR, DOC_ICONS, DOC_COLORS } from '../lib/documentTypes'
+import { DocPreviewButton } from '../lib/helpers'
 
 // Re-exported so any existing import of these from this file keeps working
 // without change — the canonical definitions now live in
@@ -310,6 +311,7 @@ export default function PersonDocuments({ personId, personType, personName, docs
                         title={lang==='ar'?'تحميل':'Download'}>
                         <i className="ti ti-download" />
                       </button>
+                      <DocPreviewButton url={doc.file_url} name={doc.name} />
                       {canEdit(profile) && (
                         <button onClick={() => setConfirmDel(doc)}
                           style={{ display:'flex', alignItems:'center', justifyContent:'center', width:28, height:28, borderRadius:7, background:'#fef2f2', border:'1px solid #fca5a5', color:'#dc2626', cursor:'pointer' }}

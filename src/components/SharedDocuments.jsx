@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
 import { toast } from './Toast'
 import { canEdit } from '../lib/useAuth'
+import { DocPreviewButton } from '../lib/helpers'
 
 const SHARED_DOC_TYPES = ['Passport', 'QID', 'Personal Photo', 'CV']
 const SHARED_DOC_TYPES_AR = { 'Passport': 'جواز السفر', 'QID': 'الرقم الشخصي', 'Personal Photo': 'صورة شخصية', 'CV': 'السيرة الذاتية' }
@@ -112,6 +113,7 @@ export default function SharedDocuments({ personId, profile }) {
                 <a href={doc.file_url} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, borderRadius: 7, border: '1px solid var(--border)', color: 'var(--text2)' }}>
                   <i className="ti ti-download" style={{ fontSize: 13 }} />
                 </a>
+                <DocPreviewButton url={doc.file_url} name={doc.name} size={26} iconSize={13} />
                 {canEdit(profile) && (
                   <button onClick={() => handleDelete(doc)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, borderRadius: 7, border: '1px solid #fca5a5', background: '#fef2f2', color: '#dc2626', cursor: 'pointer' }}>
                     <i className="ti ti-trash" style={{ fontSize: 13 }} />
