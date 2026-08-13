@@ -1530,8 +1530,8 @@ export default function Athletes({ athletes, coaches, employees, results, docume
       (gender === 'All genders'  || a.gender === gender) &&
       !!a.name && // exclude blank names
       (!q || matchesSearch(searchableValues.get(a.id) || '', q)) &&
-      (skip('sport_category') || athleteSportCategories.some(cat => matchMulti(colFilters.sport_category, cat))) &&
-      (skip('sport') || athleteSportNames.some(s => matchMulti(colFilters.sport, s))) &&
+      (skip('sport_category') || !colFilters.sport_category?.length || athleteSportCategories.some(cat => matchMulti(colFilters.sport_category, cat))) &&
+      (skip('sport') || !colFilters.sport?.length || athleteSportNames.some(s => matchMulti(colFilters.sport, s))) &&
       (skip('status') || matchMulti(colFilters.status, effectiveStatus(a))) &&
       (skip('gender') || matchMulti(colFilters.gender, a.gender)) &&
       (skip('nationality') || matchMulti(colFilters.nationality, a.nationality)) &&
