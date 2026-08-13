@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
 import { qpcLogo as QPC_LOGO } from '../lib/logos'
-import { statusDot, statusClass, DashRow, SPORT_META, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, sportLabel } from '../lib/helpers'
+import { statusDot, statusClass, DashRow, SPORT_META, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, sportLabel, BackButton } from '../lib/helpers'
 import { computeEventStatus } from './Events'
 import Calendar from './Calendar'
 import Events from './Events'
@@ -381,9 +381,7 @@ function GuestRequests() {
     const clr = selectedForm.color||'#0085C7'
     return (
       <div>
-        <button className="back-btn" onClick={()=>setSelectedForm(null)} style={{marginBottom:14}}>
-          <i className="ti ti-arrow-left"/> {L('Back','رجوع')}
-        </button>
+        <BackButton onClick={()=>setSelectedForm(null)} label={L('Back','رجوع')} style={{marginBottom:14}} />
         <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:18}}>
           <div style={{width:44,height:44,borderRadius:12,background:clr+'18',display:'flex',alignItems:'center',justifyContent:'center'}}>
             <i className={`ti ${selectedForm.icon||'ti-clipboard-text'}`} style={{fontSize:22,color:clr}}/>

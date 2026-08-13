@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
-import { Avatar, buildSearchText, matchesSearch } from '../lib/helpers'
+import { Avatar, buildSearchText, matchesSearch, BackButton } from '../lib/helpers'
 import { toast } from '../components/Toast'
 import { toLocalDateStr, exportAttendanceXlsx } from './Timetable'
 
@@ -236,9 +236,7 @@ export default function Attendance({ profile, coachId, myAthletes, initSessionId
 
     return (
       <div>
-        <button className="back-btn" onClick={() => setViewMode('overview')}>
-          <i className="ti ti-arrow-left" /> {L('Back to overview','رجوع إلى النظرة العامة')}
-        </button>
+        <BackButton onClick={() => setViewMode('overview')} label={L('Back to overview','رجوع إلى النظرة العامة')} />
 
         {session && (
           <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14, padding:16, marginBottom:16, boxShadow:'var(--shadow)' }}>

@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useEffect, useLayoutEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
-import { Avatar, avColor, initials, buildSearchText, matchesSearch, ClickablePhoto, DocPreviewButton } from '../lib/helpers'
+import { Avatar, avColor, initials, buildSearchText, matchesSearch, ClickablePhoto, DocPreviewButton, BackButton } from '../lib/helpers'
 import { toast, ConfirmModal } from '../components/Toast'
 import { canEdit } from '../lib/useAuth'
 import { usePersonRoles, RoleBadges } from '../components/RoleBadges.jsx'
@@ -176,9 +176,7 @@ function RefereeDetail({ r: initialR, ar, L, tcNat, profile, onBack, onEdit, onD
   return (
     <div>
       {docConfirm && <ConfirmModal title={L('Delete document','حذف وثيقة')} message={`${L('Delete','حذف')} "${docConfirm.name}"?`} onConfirm={() => handleDocDelete(docConfirm)} onCancel={() => setDocConfirm(null)} />}
-      <button className="back-btn" onClick={onBack}>
-        <i className="ti ti-arrow-left" /> {L('Back to referees','رجوع إلى الحكام')}
-      </button>
+      <BackButton onClick={onBack} label={L('Back to referees','رجوع إلى الحكام')} />
       {canEdit(profile) && (
         <div style={{ display:'flex', gap:8, marginBottom:16 }}>
           <button className="action-btn action-btn-edit" onClick={onEdit}><i className="ti ti-pencil" /> {L('Edit','تعديل')}</button>

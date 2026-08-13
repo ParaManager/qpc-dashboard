@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useLayoutEffect } from 'react'
-import { initials, statusClass, effectiveStatus, COACH_DESIGNATIONS, buildSearchText, matchesSearch, extractQidFromFilename, normalizeQid, SUPPORTED_DOC_FILE_TYPES, MAX_DOC_FILE_SIZE_BYTES, ClickablePhoto } from '../lib/helpers'
+import { initials, statusClass, effectiveStatus, COACH_DESIGNATIONS, buildSearchText, matchesSearch, extractQidFromFilename, normalizeQid, SUPPORTED_DOC_FILE_TYPES, MAX_DOC_FILE_SIZE_BYTES, ClickablePhoto, BackButton } from '../lib/helpers'
 import DesignationField from '../components/DesignationField'
 import PersonDocuments from '../components/PersonDocuments'
 import ImportCompletionSummary from '../components/ImportCompletionSummary'
@@ -1689,7 +1689,7 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
               onConfirm={() => handleDelete(emp.id, emp.name, linked?.coach?.id)} onCancel={() => setConfirm(null)} />
           )
         })()}
-        <button className="back-btn" onClick={() => setSelected(null)}><i className="ti ti-arrow-left" /> {tx('actions.back','Back')}</button>
+        <BackButton onClick={() => setSelected(null)} label={tx('actions.back','Back')} />
         <div style={{ display:'flex', gap:10, marginBottom:16, flexWrap:'wrap' }}>
           {canEdit(profile) && (
             <button className="action-btn action-btn-edit" onClick={() => setEditForm({ ...emp })}><i className="ti ti-pencil" /> {tx('actions.edit','Edit')}</button>

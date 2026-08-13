@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import MultiSelectFilter from '../components/MultiSelectFilter.jsx'
-import { Avatar, Badge, statusDot, statusClass, DashRow, sportLabel, buildSearchText, matchesSearch } from '../lib/helpers'
+import { Avatar, Badge, statusDot, statusClass, DashRow, sportLabel, buildSearchText, matchesSearch, BackButton } from '../lib/helpers'
 import FormModal from '../components/FormModal'
 import EventCategoryModal from '../components/EventCategoryModal'
 import { ConfirmModal, toast } from '../components/Toast'
@@ -397,9 +397,7 @@ export default function Events({ events, athletes, results, registrations, onRef
         {form && <FormModal type="event" record={form === 'edit' ? editRecord : null} onSave={handleSave} onClose={() => setForm(null)} eventCategories={eventCategories} sportsList={sportsList} />}
         {confirm && <ConfirmModal title={tx('confirm.deleteEvent', 'Delete event')} message={`Delete "${ev.name}"?`} onConfirm={() => handleDelete(ev.id, ev.name)} onCancel={() => setConfirm(null)} />}
 
-        <button className="back-btn" onClick={() => setSelected(null)}>
-          <i className="ti ti-arrow-left" /> {tx('events.backToEvents', 'Back to events')}
-        </button>
+        <BackButton onClick={() => setSelected(null)} label={tx('events.backToEvents', 'Back to events')} />
 
         {canEditProfile && (
           <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>

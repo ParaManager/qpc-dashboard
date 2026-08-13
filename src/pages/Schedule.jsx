@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
-import { Avatar, Badge } from '../lib/helpers'
+import { Avatar, Badge, BackButton } from '../lib/helpers'
 import { toast, ConfirmModal } from '../components/Toast'
 import { CreateTimetableForm, EditTimetableForm, EditScopeModal, DayTimeForm, generateUpcomingSessions, formatDateWithDay, exportAttendanceXlsx } from './Timetable'
 
@@ -287,9 +287,7 @@ export default function Schedule({ profile, coachId, myAthletes, onNav, readOnly
             }}
           />
         )}
-        <button className="back-btn" onClick={() => { setSelected(null); setDirectSession(null) }}>
-          <i className="ti ti-arrow-left" /> {L('Back to schedule','رجوع إلى الجدول')}
-        </button>
+        <BackButton onClick={() => { setSelected(null); setDirectSession(null) }} label={L('Back to schedule','رجوع إلى الجدول')} />
         <div style={{ display:'flex', gap:10, marginBottom:16, flexWrap:'wrap' }}>
           {!readOnly && !viewOnly && <>
             <button className="action-btn action-btn-edit" onClick={() => {

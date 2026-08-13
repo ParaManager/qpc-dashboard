@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { SPORTS, SPORT_META, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, UNIFIED_SPORTS_GROUPS, SPORT_CATEGORY_NAMES_AR, SPORT_NAMES_AR, SPORT_DESC_AR, UNIFIED_GROUP_NAMES_AR, sportLabel, Avatar, Badge, MedalDisplay, statusDot, initials, DashRow } from '../lib/helpers'
+import { SPORTS, SPORT_META, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, UNIFIED_SPORTS_GROUPS, SPORT_CATEGORY_NAMES_AR, SPORT_NAMES_AR, SPORT_DESC_AR, UNIFIED_GROUP_NAMES_AR, sportLabel, Avatar, Badge, MedalDisplay, statusDot, initials, DashRow, BackButton } from '../lib/helpers'
 import { useLang } from '../lib/LangContext.jsx'
 import { supabase } from '../lib/supabase'
 import { canEdit } from '../lib/useAuth'
@@ -135,7 +135,7 @@ export default function Sports({ athletes, coaches, events, results, onNav, init
     const bronzeCount = myAths.reduce((t,a) => t + (a.medals_bronze || 0), 0)
     return (
       <div>
-        <button className="back-btn" onClick={() => setSelected(null)}><i className="ti ti-arrow-left" /> {tx('sports.backToSports','Back to sports')}</button>
+        <BackButton onClick={() => setSelected(null)} label={tx('sports.backToSports','Back to sports')} />
         <div style={{ display:'flex', alignItems:'center', gap:16, marginBottom:20 }}>
           <div style={{ width:60, height:60, borderRadius:16, background:meta.color+'15', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
             <i className={`ti ${meta.icon}`} style={{ fontSize:30, color:meta.color }} />

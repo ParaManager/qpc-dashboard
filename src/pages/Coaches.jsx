@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Avatar, MedalDisplay, Badge, initials, avColor, DashRow, SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, SPORT_CATEGORY_NAMES_AR, SPORT_NAMES_AR, sportLabel, effectiveStatus, buildSearchText, matchesSearch, ClickablePhoto } from '../lib/helpers'
+import { Avatar, MedalDisplay, Badge, initials, avColor, DashRow, SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, SPORT_CATEGORY_NAMES_AR, SPORT_NAMES_AR, sportLabel, effectiveStatus, buildSearchText, matchesSearch, ClickablePhoto, BackButton } from '../lib/helpers'
 import FormModal from '../components/FormModal'
 import { ConfirmModal, toast } from '../components/Toast'
 import { supabase } from '../lib/supabase'
@@ -593,7 +593,7 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
           )
         })()}
 
-        <button className="back-btn" onClick={goBack}><i className="ti ti-arrow-left" /> {tx('actions.back','Back')}</button>
+        <BackButton onClick={goBack} label={tx('actions.back','Back')} />
         <div style={{ display:'flex', gap:10, marginBottom:16, flexWrap:'wrap' }}>
           {canEdit(profile) && <>
             <button className="action-btn action-btn-edit" onClick={() => setForm('edit')}><i className="ti ti-pencil" /> {tx('actions.edit','Edit')}</button>

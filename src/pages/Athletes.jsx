@@ -2,7 +2,7 @@
 import { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react'
 import * as XLSX from 'xlsx'
 import { generateStatisticsReport } from '../lib/statisticsReport'
-import { Avatar, MedalDisplay, Badge, avColor, initials, DashRow, SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, SPORT_CATEGORY_NAMES_AR, SPORT_NAMES_AR, sportLabel, effectiveStatus, buildSearchText, matchesSearch, normalizeSearch, extractQidFromFilename, TARGET_CATEGORY_OPTIONS, ClickablePhoto, DocPreviewButton } from '../lib/helpers'
+import { Avatar, MedalDisplay, Badge, avColor, initials, DashRow, SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, SPORT_CATEGORY_NAMES_AR, SPORT_NAMES_AR, sportLabel, effectiveStatus, buildSearchText, matchesSearch, normalizeSearch, extractQidFromFilename, TARGET_CATEGORY_OPTIONS, ClickablePhoto, DocPreviewButton, BackButton } from '../lib/helpers'
 import PhotoCropModal from '../components/PhotoCropModal'
 import AthleteSportsCard from '../components/AthleteSportsCard'
 import ImportCompletionSummary from '../components/ImportCompletionSummary'
@@ -2002,7 +2002,7 @@ ${myDocs.length > 0 ? `<div class="section">
           </div>
         )}
 
-        <button className="back-btn" onClick={() => setSelected(null)}><i className="ti ti-arrow-left" /> {tx('actions.back','Back')}</button>
+        <BackButton onClick={() => setSelected(null)} label={tx('actions.back','Back')} />
         <div style={{ display:'flex', gap:10, marginBottom:16, flexWrap:'wrap' }}>
           {canEdit(profile) && <>
             <button className="action-btn action-btn-edit" onClick={() => setForm('edit')}><i className="ti ti-pencil" /> {tx('actions.edit','Edit')}</button>

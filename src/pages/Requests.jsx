@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
 import { toast, ConfirmModal } from '../components/Toast'
-import { initials } from '../lib/helpers'
+import { initials, BackButton } from '../lib/helpers'
 import { isTrustedAdmin } from '../lib/permissions'
 import { logAdminActivity } from '../lib/adminActivity'
 import { printSubmission, downloadSubmissionPdf } from '../lib/printTemplates'
@@ -586,9 +586,7 @@ export default function Requests({ profile, navState }) {
     <div>
       <div className="page-header" style={{marginBottom:20}}>
         <div>
-          <button className="back-btn" onClick={()=>setView('list')}>
-            <i className="ti ti-arrow-left"/> {ar?'رجوع':'Back'}
-          </button>
+          <BackButton onClick={()=>setView('list')} label={ar?'رجوع':'Back'} />
           <div className="page-title">{ar?'طلباتي المرسلة':'My Submissions'}</div>
         </div>
       </div>
@@ -640,9 +638,7 @@ export default function Requests({ profile, navState }) {
       <div>
         <div className="page-header" style={{marginBottom:20}}>
           <div>
-            <button className="back-btn" onClick={()=>setView('my-submissions')}>
-              <i className="ti ti-arrow-left"/> {ar?'رجوع':'Back'}
-            </button>
+            <BackButton onClick={()=>setView('my-submissions')} label={ar?'رجوع':'Back'} />
             <div className="page-title">{ar?(f?.title_ar||f?.title):f?.title}</div>
             <div className="page-sub">
               {new Date(selectedSub.submitted_at).toLocaleString()}
@@ -710,9 +706,7 @@ export default function Requests({ profile, navState }) {
       <div>
         <div className="page-header" style={{marginBottom:20}}>
           <div>
-            <button className="back-btn" onClick={()=>setView('list')}>
-              <i className="ti ti-arrow-left"/> {ar?'رجوع':'Back'}
-            </button>
+            <BackButton onClick={()=>setView('list')} label={ar?'رجوع':'Back'} />
             <div style={{display:'flex',alignItems:'center',gap:12}}>
               <div style={{width:44,height:44,borderRadius:12,background:clr+'18',display:'flex',alignItems:'center',justifyContent:'center'}}>
                 <i className={`ti ${selectedForm.icon||'ti-clipboard-text'}`} style={{fontSize:22,color:clr}}/>
@@ -756,9 +750,7 @@ export default function Requests({ profile, navState }) {
       <div>
         <div className="page-header" style={{marginBottom:20}}>
           <div>
-            <button className="back-btn" onClick={()=>setView('list')}>
-              <i className="ti ti-arrow-left"/> {ar?'رجوع':'Back'}
-            </button>
+            <BackButton onClick={()=>setView('list')} label={ar?'رجوع':'Back'} />
             <div style={{display:'flex',alignItems:'center',gap:12}}>
               <div style={{width:44,height:44,borderRadius:12,background:clr+'18',display:'flex',alignItems:'center',justifyContent:'center'}}>
                 <i className={`ti ${selectedForm.icon||'ti-clipboard-text'}`} style={{fontSize:22,color:clr}}/>
@@ -870,9 +862,7 @@ export default function Requests({ profile, navState }) {
       <div>
         <div className="page-header" style={{marginBottom:20}}>
           <div>
-            <button className="back-btn" onClick={()=>setView('form-detail')}>
-              <i className="ti ti-arrow-left"/> {ar?'رجوع':'Back'}
-            </button>
+            <BackButton onClick={()=>setView('form-detail')} label={ar?'رجوع':'Back'} />
             <div style={{display:'flex',alignItems:'center',gap:12}}>
               <div style={{width:36,height:36,borderRadius:'50%',background:subRoleClr,display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:700,color:'white'}}>
                 {initials(subName)}
