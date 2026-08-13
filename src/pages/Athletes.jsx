@@ -2,7 +2,7 @@
 import { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react'
 import * as XLSX from 'xlsx'
 import { generateStatisticsReport } from '../lib/statisticsReport'
-import { Avatar, MedalDisplay, Badge, avColor, initials, DashRow, SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, SPORT_CATEGORY_NAMES_AR, SPORT_NAMES_AR, sportLabel, effectiveStatus, buildSearchText, matchesSearch, normalizeSearch, extractQidFromFilename, TARGET_CATEGORY_OPTIONS, ClickablePhoto, DocPreviewButton, BackButton } from '../lib/helpers'
+import { Avatar, MedalDisplay, Badge, avColor, initials, DashRow, SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, SPORT_CATEGORY_NAMES_AR, SPORT_NAMES_AR, sportLabel, effectiveStatus, buildSearchText, matchesSearch, normalizeSearch, extractQidFromFilename, TARGET_CATEGORY_OPTIONS, ClickablePhoto, DocPreviewButton, BackButton, getCurrentSeason } from '../lib/helpers'
 import PhotoCropModal from '../components/PhotoCropModal'
 import AthleteSportsCard from '../components/AthleteSportsCard'
 import ImportCompletionSummary from '../components/ImportCompletionSummary'
@@ -730,6 +730,152 @@ function formatFileSize(bytes) {
   return `${(bytes/(1024*1024)).toFixed(1)} MB`
 }
 
+// ── PDF export (filtered/sorted athlete list, with photos + QPC letterhead) ──
+// Loads an image URL into a base64 data URL for embedding in the PDF.
+// Silently resolves to null on any failure (missing/broken photo, CORS,
+// network) so one bad photo never blocks the whole export.
+async function loadImageAsDataURL(url) {
+  if (!url) return null
+  try {
+    const res = await fetch(url, { mode: 'cors' })
+    if (!res.ok) return null
+    const blob = await res.blob()
+    return await new Promise((resolve) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result)
+      reader.onerror = () => resolve(null)
+      reader.readAsDataURL(blob)
+    })
+  } catch {
+    return null
+  }
+}
+
+async function exportPDF(athletes, coaches, documents, visibleCols, allCols, lang, athleteSportsByAthlete = {}) {
+  const { default: jsPDF } = await import('jspdf')
+  const autoTable = (await import('jspdf-autotable')).default
+
+  const ar = lang === 'ar'
+  const STATUS_AR = {'Active':'نشط','Inactive':'غير نشط','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي','Injured':'مصاب','Under Medical Review':'تحت المراجعة الطبية','Suspended':'موقوف','Retired':'متقاعد'}
+  const L = (en, a) => ar ? a : en
+
+  // Same formatter shapes as exportExcel's colMap, kept independent since
+  // this runs in a separate async/dynamic-import context and only needs
+  // plain display strings (no Excel date objects).
+  const colMap = {
+    name:            a => ar && a.name_ar ? a.name_ar : a.name,
+    name_ar:         a => a.name_ar || '',
+    qss_number:      a => a.qss_number || '',
+    id_number:       a => a.id_number || '',
+    career_profile:  a => a.career_profile || '',
+    sport_category:  a => {
+      const rows = athleteSportsByAthlete[a.id]
+      if (rows?.length) return [...new Set(rows.map(r => r.sportCategory).filter(Boolean))].map(c => ar ? (SPORT_CATEGORY_NAMES_AR[c]||c) : c).join(', ')
+      return a.sport_category ? (ar ? (SPORT_CATEGORY_NAMES_AR[a.sport_category]||a.sport_category) : a.sport_category) : ''
+    },
+    sport: a => {
+      const rows = athleteSportsByAthlete[a.id]
+      if (rows?.length) return [...new Set(rows.map(r => r.sportName).filter(Boolean))].join(', ')
+      return a.sport ? sportLabel(a.sport, a.sport_category, ar) : ''
+    },
+    classification:  a => a.classification || '',
+    disability:      a => a.disability || '',
+    statistics_disability: a => a.statistics_disability || '',
+    nationality:     a => a.nationality || '',
+    gender:          a => a.gender ? (ar ? (a.gender==='Male'?'ذكر':'أنثى') : a.gender) : '',
+    dob:             a => a.dob || '',
+    age:             a => a.age ?? '',
+    residency_status: a => a.residency_status || '',
+    target_category: a => a.target_category || '',
+    age_category:       a => a.age_category || '',
+    sport_age_category: a => a.sport_age_category || '',
+    coach_id:        a => { const c = coaches.find(c => c.id === a.coach_id); return c ? (ar && c.name_ar ? c.name_ar : c.name) : '' },
+    status:          a => { const es=effectiveStatus(a); return ar ? (STATUS_AR[es]||es||'') : (es||'') },
+    medical_status:  a => a.medical_status || '',
+    phone:           a => a.phone || '',
+    email:           a => a.email || '',
+    join_date:       a => a.join_date || '',
+    passport_number: a => a.passport_number || '',
+    passport_expiry: a => a.passport_expiry || '',
+    id_expiry:       a => a.id_expiry || '',
+    medals:          a => (a.medals_gold||0) + (a.medals_silver||0) + (a.medals_bronze||0),
+    documents:       a => { const ds = athleteDocStatus(a.id, documents, a); return ds.key==='complete' ? (ar?'مكتمل':'Complete') : ds.key==='missing' ? (ar?`${ds.missing} ناقص`:`${ds.missing} Missing`) : (ar?'لا يوجد وثائق':'No Documents') },
+    missing_documents: a => { const ds = athleteDocStatus(a.id, documents, a); return ds.key==='complete' ? '' : ds.key==='none' ? (ar?'جميع الوثائق مفقودة':'All documents missing') : ds.missingTypes.map(t => ar ? (DOC_TYPES_AR[t]||t) : t).join(', ') },
+  }
+
+  const visibleDefs = allCols.filter(c => visibleCols.includes(c.key))
+
+  // Preload the QPC letterhead logo and every visible athlete's profile
+  // photo (same photo_url field the app itself displays) as data URLs —
+  // jsPDF can only embed images it already has in memory, not remote URLs.
+  const [logoDataUrl, photoDataUrls] = await Promise.all([
+    loadImageAsDataURL('/logo-qpc.png'),
+    Promise.all(athletes.map(a => loadImageAsDataURL(a.photo_url))),
+  ])
+
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' })
+  const pageWidth = doc.internal.pageSize.getWidth()
+
+  // ── Letterhead (repeated on every page via autoTable's didDrawPage) ──
+  function drawHeader() {
+    let y = 34
+    if (logoDataUrl) {
+      try { doc.addImage(logoDataUrl, 'PNG', 40, 18, 40, 40) } catch {}
+    }
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(14)
+    doc.setTextColor(20, 20, 20)
+    doc.text(L('Qatar Paralympic Committee', 'اللجنة البارالمبية القطرية'), pageWidth / 2, y, { align: 'center' })
+    doc.setFontSize(11)
+    doc.setFont('helvetica', 'normal')
+    doc.text(L('Athletes List', 'قائمة الرياضيين'), pageWidth / 2, y + 16, { align: 'center' })
+    doc.setFontSize(9)
+    doc.setTextColor(90, 90, 90)
+    doc.text(`${L('Season', 'الموسم')} ${getCurrentSeason()}`, pageWidth / 2, y + 30, { align: 'center' })
+    const exportDate = new Date().toISOString().slice(0, 10)
+    doc.text(`${L('Export date', 'تاريخ التصدير')}: ${exportDate}`, pageWidth - 40, 24, { align: 'right' })
+    doc.setDrawColor(200, 200, 200)
+    doc.line(40, y + 40, pageWidth - 40, y + 40)
+  }
+
+  const PHOTO_COL_W = 26
+  const head = [[L('Photo', 'الصورة'), ...visibleDefs.map(c => c.label)]]
+  const body = athletes.map(a => [
+    '', // photo cell content is drawn as an image, not text
+    ...visibleDefs.map(col => {
+      const v = colMap[col.key]?.(a)
+      return (v === null || v === undefined) ? '' : String(v)
+    }),
+  ])
+
+  autoTable(doc, {
+    head,
+    body,
+    startY: 88,
+    margin: { top: 88, left: 40, right: 40, bottom: 30 },
+    styles: { fontSize: 8, cellPadding: 4, valign: 'middle', overflow: 'linebreak' },
+    headStyles: { fillColor: [0, 133, 199], textColor: 255, fontStyle: 'bold' },
+    alternateRowStyles: { fillColor: [245, 247, 250] },
+    columnStyles: { 0: { cellWidth: PHOTO_COL_W, minCellHeight: PHOTO_COL_W } },
+    showHead: 'everyPage', // repeat table header on every page
+    didDrawPage: drawHeader,
+    didDrawCell: (data) => {
+      if (data.section === 'body' && data.column.index === 0) {
+        const dataUrl = photoDataUrls[data.row.index]
+        if (dataUrl) {
+          const size = PHOTO_COL_W - 6
+          const x = data.cell.x + (data.cell.width - size) / 2
+          const y = data.cell.y + (data.cell.height - size) / 2
+          try { doc.addImage(dataUrl, x, y, size, size) } catch {}
+        }
+      }
+    },
+  })
+
+  const date = new Date().toISOString().slice(0, 10)
+  doc.save(`QPC_${ar ? 'الرياضيون' : 'Athletes'}_${date}.pdf`)
+}
+
 function exportExcel(athletes, coaches, documents, visibleCols, allCols, lang, athleteSportsByAthlete = {}) {
   const ar = lang === 'ar'
   const STATUS_AR = {'Active':'نشط','Inactive':'غير نشط','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي','Injured':'مصاب','Under Medical Review':'تحت المراجعة الطبية','Suspended':'موقوف','Retired':'متقاعد'}
@@ -1135,6 +1281,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
   const [edits, setEdits]           = useState({})
   const [savingAll, setSavingAll]   = useState(false)
   const [generatingReport, setGeneratingReport] = useState(false)
+  const [pdfExporting, setPdfExporting] = useState(false)
   // Coaches only ever see their own athletes here (already filtered before this
   // page even receives them), so the Sport and Coach columns are pure repetition
   // of things they already know — default them out for coaches, but keep them
@@ -2865,6 +3012,19 @@ ${myDocs.length > 0 ? `<div class="section">
           {!editMode && (
             <button className="btn" style={{ background:'#009F6B' }} onClick={() => exportExcel(list, coaches, documents||[], visibleCols, ALL_COLS, lang, athleteSportsByAthlete)}>
               <i className="ti ti-table-export" /> {tx('actions.exportExcel','Export Excel')}
+            </button>
+          )}
+          {!editMode && (
+            <button className="btn" style={{ background:'#c0392b' }} disabled={pdfExporting}
+              onClick={async () => {
+                setPdfExporting(true)
+                try {
+                  await exportPDF(list, coaches, documents||[], visibleCols, ALL_COLS, lang, athleteSportsByAthlete)
+                } finally {
+                  setPdfExporting(false)
+                }
+              }}>
+              <i className="ti ti-file-type-pdf" /> {pdfExporting ? tx('actions.exporting','Exporting...') : tx('actions.exportPdf','Export PDF')}
             </button>
           )}
           {/* Ministry Statistics button removed from this page per spec — the
