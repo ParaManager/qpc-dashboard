@@ -1,3 +1,5 @@
+import { useState, useEffect } from 'react'
+
 export const AV_COLORS = ['#0085C7','#EE334E','#009F6B','#8b5cf6','#e67e22','#16a085','#c0392b','#2980b9']
 
 export const SPORT_CATEGORIES = [
@@ -655,14 +657,81 @@ export function resolveUserPhoto(profile, { athletes = [], coaches = [], employe
   return profile?.avatar_url || null
 }
 
+// ── Reusable profile-photo preview (lightbox) ─────────────────────────
+// Single centralized modal used by every clickable profile picture in the
+// app, so opening/closing behavior (backdrop click, Escape, X button,
+// aspect-ratio-preserving fit) is identical everywhere instead of being
+// reimplemented per page.
+export function PhotoLightbox({ src, alt, onClose }) {
+  useEffect(() => {
+    function handleKeyDown(e) { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [onClose])
+
+  return (
+    <div
+      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 3000,
+        background: 'rgba(10,10,14,.78)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
+      }}>
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Close"
+        style={{
+          position: 'absolute', top: 18, right: 18, width: 38, height: 38, borderRadius: '50%',
+          background: 'rgba(255,255,255,.12)', border: '1px solid rgba(255,255,255,.25)', color: '#fff',
+          fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+        <i className="ti ti-x" />
+      </button>
+      <img
+        src={src}
+        alt={alt || ''}
+        onMouseDown={(e) => e.stopPropagation()}
+        style={{
+          maxWidth: '92vw', maxHeight: '88vh', width: 'auto', height: 'auto',
+          objectFit: 'contain', borderRadius: 10, boxShadow: '0 20px 60px rgba(0,0,0,.5)',
+        }} />
+    </div>
+  )
+}
+
+// Wraps any rendered photo (an <img>, an avatar div, etc.) so clicking it
+// opens the shared PhotoLightbox. No-ops (renders children unchanged, no
+// click handler, no cursor change) when there is no real photoUrl — so
+// initials/default-avatar fallbacks are never clickable.
+export function ClickablePhoto({ photoUrl, alt, children }) {
+  const [open, setOpen] = useState(false)
+  if (!photoUrl) return children
+
+  return (
+    <>
+      <span
+        onClick={() => setOpen(true)}
+        style={{ cursor: 'pointer', display: 'contents' }}>
+        {children}
+      </span>
+      {open && <PhotoLightbox src={photoUrl} alt={alt} onClose={() => setOpen(false)} />}
+    </>
+  )
+}
+
 // Single reusable avatar element — photo when one resolves, otherwise the
 // same initials fallback everywhere, so every avatar in the app shares
-// identical crop/fit/shape regardless of role or page.
+// identical crop/fit/shape regardless of role or page. When a real photo
+// is shown, it's wrapped in the shared ClickablePhoto lightbox; initials
+// fallbacks are never clickable.
 export function ProfileAvatar({ photoUrl, name, id, size = 32, fs = 11, style }) {
   if (photoUrl) {
     return (
-      <img src={photoUrl} alt={name || ''}
-        style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', objectPosition: 'top center', flexShrink: 0, ...style }} />
+      <ClickablePhoto photoUrl={photoUrl} alt={name}>
+        <img src={photoUrl} alt={name || ''}
+          style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', objectPosition: 'top center', flexShrink: 0, cursor: 'pointer', ...style }} />
+      </ClickablePhoto>
     )
   }
   return <Avatar name={name} id={id} size={size} fs={fs} />
