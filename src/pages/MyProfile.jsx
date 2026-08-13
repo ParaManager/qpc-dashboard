@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useLang } from '../lib/LangContext.jsx'
 import { usePersonRoles, RoleBadges } from '../components/RoleBadges.jsx'
-import { effectiveStatus, statusClass, Avatar, ProfileAvatar, resolveUserPhoto, SPORT_NAMES_AR, SPORT_CATEGORY_NAMES_AR } from '../lib/helpers'
+import { effectiveStatus, statusClass, Avatar, ProfileAvatar, resolveUserPhoto, SPORT_NAMES_AR, SPORT_CATEGORY_NAMES_AR, DocPreviewButton } from '../lib/helpers'
 import { supabase } from '../lib/supabase'
 import { classifyAthleteType, getAthleteDocumentRules, computeCompletion } from '../lib/documentEngine'
 
@@ -469,9 +469,12 @@ export default function MyProfile({ profile, athletes, coaches, employees, refer
                         <div style={{ fontSize: 10.5, color: 'var(--text3)' }}>{doc.type}</div>
                       </div>
                     </div>
-                    <a href={doc.file_url} target="_blank" rel="noreferrer" style={{ flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: 6, border: '1px solid var(--border)', color: 'var(--text2)' }}>
-                      <i className="ti ti-download" style={{ fontSize: 12 }} />
-                    </a>
+                    <div style={{ flexShrink: 0, display: 'flex', gap: 6 }}>
+                      <a href={doc.file_url} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: 6, border: '1px solid var(--border)', color: 'var(--text2)' }}>
+                        <i className="ti ti-download" style={{ fontSize: 12 }} />
+                      </a>
+                      <DocPreviewButton url={doc.file_url} name={doc.name} size={24} iconSize={12} />
+                    </div>
                   </div>
                 ))}
               </div>

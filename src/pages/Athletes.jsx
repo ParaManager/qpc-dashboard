@@ -2,7 +2,7 @@
 import { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react'
 import * as XLSX from 'xlsx'
 import { generateStatisticsReport } from '../lib/statisticsReport'
-import { Avatar, MedalDisplay, Badge, avColor, initials, DashRow, SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, SPORT_CATEGORY_NAMES_AR, SPORT_NAMES_AR, sportLabel, effectiveStatus, buildSearchText, matchesSearch, normalizeSearch, extractQidFromFilename, TARGET_CATEGORY_OPTIONS, ClickablePhoto } from '../lib/helpers'
+import { Avatar, MedalDisplay, Badge, avColor, initials, DashRow, SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, SPORT_CATEGORY_NAMES_AR, SPORT_NAMES_AR, sportLabel, effectiveStatus, buildSearchText, matchesSearch, normalizeSearch, extractQidFromFilename, TARGET_CATEGORY_OPTIONS, ClickablePhoto, DocPreviewButton } from '../lib/helpers'
 import PhotoCropModal from '../components/PhotoCropModal'
 import AthleteSportsCard from '../components/AthleteSportsCard'
 import ImportCompletionSummary from '../components/ImportCompletionSummary'
@@ -2459,11 +2459,14 @@ ${myDocs.length > 0 ? `<div class="section">
                             </div>
                             <div style={{ display:'flex', gap:6, flexShrink:0 }}>
                               {(canEdit(profile) || doc.type !== 'Mission Passport') && (
-                                <button
-                                  onClick={() => downloadDoc(doc.file_url, a.name, doc.type, doc.name)}
-                                  style={{ display:'flex', alignItems:'center', justifyContent:'center', width:28, height:28, borderRadius:7, background:'var(--surface)', border:'1px solid var(--border)', color:'var(--text2)', cursor:'pointer', fontSize:14 }} title={lang==='ar'?'تحميل':'Download'}>
-                                  <i className="ti ti-download" />
-                                </button>
+                                <>
+                                  <button
+                                    onClick={() => downloadDoc(doc.file_url, a.name, doc.type, doc.name)}
+                                    style={{ display:'flex', alignItems:'center', justifyContent:'center', width:28, height:28, borderRadius:7, background:'var(--surface)', border:'1px solid var(--border)', color:'var(--text2)', cursor:'pointer', fontSize:14 }} title={lang==='ar'?'تحميل':'Download'}>
+                                    <i className="ti ti-download" />
+                                  </button>
+                                  <DocPreviewButton url={doc.file_url} name={doc.name} />
+                                </>
                               )}
                               {canEdit(profile) && (
                                 <button onClick={() => setDocConfirm(doc)}

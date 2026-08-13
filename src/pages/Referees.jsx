@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useEffect, useLayoutEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
-import { Avatar, avColor, initials, buildSearchText, matchesSearch, ClickablePhoto } from '../lib/helpers'
+import { Avatar, avColor, initials, buildSearchText, matchesSearch, ClickablePhoto, DocPreviewButton } from '../lib/helpers'
 import { toast, ConfirmModal } from '../components/Toast'
 import { canEdit } from '../lib/useAuth'
 import { usePersonRoles, RoleBadges } from '../components/RoleBadges.jsx'
@@ -293,6 +293,7 @@ function RefereeDetail({ r: initialR, ar, L, tcNat, profile, onBack, onEdit, onD
                               style={{ display:'flex', alignItems:'center', justifyContent:'center', width:28, height:28, borderRadius:7, background:'var(--surface)', border:'1px solid var(--border)', color:'var(--text2)', fontSize:14, textDecoration:'none' }}>
                               <i className="ti ti-download" />
                             </a>
+                            <DocPreviewButton url={doc.file_url} name={doc.name} />
                             {canEdit(profile) && (
                               <button onClick={() => setDocConfirm(doc)}
                                 style={{ display:'flex', alignItems:'center', justifyContent:'center', width:28, height:28, borderRadius:7, background:'#fef2f2', border:'1px solid #fca5a5', color:'#dc2626', cursor:'pointer' }}>
