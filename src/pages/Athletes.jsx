@@ -1,6 +1,8 @@
 
 import { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react'
 import * as XLSX from 'xlsx'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 import { generateStatisticsReport } from '../lib/statisticsReport'
 import { Avatar, MedalDisplay, Badge, avColor, initials, DashRow, SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, SPORT_CATEGORY_NAMES_AR, SPORT_NAMES_AR, sportLabel, effectiveStatus, buildSearchText, matchesSearch, normalizeSearch, extractQidFromFilename, TARGET_CATEGORY_OPTIONS, ClickablePhoto, DocPreviewButton, BackButton, getCurrentSeason } from '../lib/helpers'
 import PhotoCropModal from '../components/PhotoCropModal'
@@ -752,9 +754,6 @@ async function loadImageAsDataURL(url) {
 }
 
 async function exportPDF(athletes, coaches, documents, visibleCols, allCols, lang, athleteSportsByAthlete = {}) {
-  const { default: jsPDF } = await import('jspdf')
-  const autoTable = (await import('jspdf-autotable')).default
-
   const ar = lang === 'ar'
   const STATUS_AR = {'Active':'نشط','Inactive':'غير نشط','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي','Injured':'مصاب','Under Medical Review':'تحت المراجعة الطبية','Suspended':'موقوف','Retired':'متقاعد'}
   const L = (en, a) => ar ? a : en
