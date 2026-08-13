@@ -735,21 +735,59 @@ function formatFileSize(bytes) {
 // ── PDF export (filtered/sorted athlete list, with photos + QPC letterhead) ──
 // Loads an image URL into a base64 data URL for embedding in the PDF.
 // Silently resolves to null on any failure (missing/broken photo, CORS,
-// network) so one bad photo never blocks the whole export.
+// network, non-image response) so one bad photo never blocks the whole
+// export.
 async function loadImageAsDataURL(url) {
   if (!url) return null
   try {
     const res = await fetch(url, { mode: 'cors' })
     if (!res.ok) return null
     const blob = await res.blob()
+    // Guard against a "successful" fetch that isn't actually image bytes
+    // (e.g. an HTML error page returned with a 200 status, or a CORS
+    // opaque response) — feeding that into jsPDF is what produces hard-to-
+    // trace internal errors, so we bail out to null here instead.
+    if (!blob || !blob.type || !blob.type.startsWith('image/') || blob.size === 0) return null
     return await new Promise((resolve) => {
       const reader = new FileReader()
-      reader.onload = () => resolve(reader.result)
+      reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : null)
       reader.onerror = () => resolve(null)
       reader.readAsDataURL(blob)
     })
   } catch {
     return null
+  }
+}
+
+// jsPDF's addImage() accepts an explicit format, but auto-detection can be
+// unreliable for some data URLs it doesn't recognize — since we already
+// know the MIME type from the fetched blob (encoded in the data URL
+// itself), we extract it directly rather than relying on sniffing.
+function getImageFormatFromDataUrl(dataUrl) {
+  const match = /^data:image\/([a-zA-Z0-9.+-]+);base64,/.exec(dataUrl || '')
+  if (!match) return null
+  const ext = match[1].toLowerCase()
+  if (ext === 'jpg' || ext === 'jpeg') return 'JPEG'
+  if (ext === 'png') return 'PNG'
+  if (ext === 'webp') return 'WEBP'
+  if (ext === 'gif') return 'GIF'
+  if (ext === 'bmp') return 'BMP'
+  return null // unsupported/unrecognized type — caller skips the image
+}
+
+// Single choke point for every doc.addImage() call in the export: never
+// calls addImage with missing/invalid data, and any failure inside jsPDF
+// itself (corrupt image bytes, etc.) is swallowed so one bad image can't
+// abort the whole export.
+function safeAddImage(doc, dataUrl, x, y, w, h) {
+  if (!dataUrl || typeof dataUrl !== 'string') return
+  const format = getImageFormatFromDataUrl(dataUrl)
+  if (!format) return
+  if ([x, y, w, h].some(n => typeof n !== 'number' || isNaN(n))) return
+  try {
+    doc.addImage(dataUrl, format, x, y, w, h)
+  } catch (err) {
+    console.error('PDF export: skipped an image that failed to embed', err)
   }
 }
 
@@ -802,14 +840,21 @@ async function exportPDF(athletes, coaches, documents, visibleCols, allCols, lan
     missing_documents: a => { const ds = athleteDocStatus(a.id, documents, a); return ds.key==='complete' ? '' : ds.key==='none' ? (ar?'جميع الوثائق مفقودة':'All documents missing') : ds.missingTypes.map(t => ar ? (DOC_TYPES_AR[t]||t) : t).join(', ') },
   }
 
-  const visibleDefs = allCols.filter(c => visibleCols.includes(c.key))
+  // Every value that ends up as table content is forced to a plain string
+  // right here — head labels included — so nothing undefined ever reaches
+  // jsPDF/autoTable's own text-processing internals.
+  const safeStr = v => (v === null || v === undefined) ? '' : String(v)
+
+  const visibleDefs = (allCols || []).filter(c => (visibleCols || []).includes(c.key))
 
   // Preload the QPC letterhead logo and every visible athlete's profile
   // photo (same photo_url field the app itself displays) as data URLs —
   // jsPDF can only embed images it already has in memory, not remote URLs.
+  // Each entry resolves to null (never undefined, never throws) on any
+  // failure, so downstream code only ever has to check truthiness.
   const [logoDataUrl, photoDataUrls] = await Promise.all([
     loadImageAsDataURL('/logo-qpc.png'),
-    Promise.all(athletes.map(a => loadImageAsDataURL(a.photo_url))),
+    Promise.all((athletes || []).map(a => loadImageAsDataURL(a?.photo_url))),
   ])
 
   const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' })
@@ -817,10 +862,8 @@ async function exportPDF(athletes, coaches, documents, visibleCols, allCols, lan
 
   // ── Letterhead (repeated on every page via autoTable's didDrawPage) ──
   function drawHeader() {
-    let y = 34
-    if (logoDataUrl) {
-      try { doc.addImage(logoDataUrl, 'PNG', 40, 18, 40, 40) } catch {}
-    }
+    const y = 34
+    safeAddImage(doc, logoDataUrl, 40, 18, 40, 40) // no-ops cleanly if the logo failed to load
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(14)
     doc.setTextColor(20, 20, 20)
@@ -838,41 +881,44 @@ async function exportPDF(athletes, coaches, documents, visibleCols, allCols, lan
   }
 
   const PHOTO_COL_W = 26
-  const head = [[L('Photo', 'الصورة'), ...visibleDefs.map(c => c.label)]]
-  const body = athletes.map(a => [
+  const head = [[safeStr(L('Photo', 'الصورة')), ...visibleDefs.map(c => safeStr(c.label))]]
+  const body = (athletes || []).map(a => [
     '', // photo cell content is drawn as an image, not text
-    ...visibleDefs.map(col => {
-      const v = colMap[col.key]?.(a)
-      return (v === null || v === undefined) ? '' : String(v)
-    }),
+    ...visibleDefs.map(col => safeStr(colMap[col.key]?.(a))),
   ])
 
-  autoTable(doc, {
-    head,
-    body,
-    startY: 88,
-    margin: { top: 88, left: 40, right: 40, bottom: 30 },
-    styles: { fontSize: 8, cellPadding: 4, valign: 'middle', overflow: 'linebreak' },
-    headStyles: { fillColor: [0, 133, 199], textColor: 255, fontStyle: 'bold' },
-    alternateRowStyles: { fillColor: [245, 247, 250] },
-    columnStyles: { 0: { cellWidth: PHOTO_COL_W, minCellHeight: PHOTO_COL_W } },
-    showHead: 'everyPage', // repeat table header on every page
-    didDrawPage: drawHeader,
-    didDrawCell: (data) => {
-      if (data.section === 'body' && data.column.index === 0) {
-        const dataUrl = photoDataUrls[data.row.index]
-        if (dataUrl) {
+  try {
+    autoTable(doc, {
+      head,
+      body,
+      startY: 88,
+      margin: { top: 88, left: 40, right: 40, bottom: 30 },
+      styles: { fontSize: 8, cellPadding: 4, valign: 'middle', overflow: 'linebreak' },
+      headStyles: { fillColor: [0, 133, 199], textColor: 255, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [245, 247, 250] },
+      columnStyles: { 0: { cellWidth: PHOTO_COL_W, minCellHeight: PHOTO_COL_W } },
+      showHead: 'everyPage', // repeat table header on every page
+      didDrawPage: drawHeader,
+      didDrawCell: (data) => {
+        if (data.section === 'body' && data.column.index === 0) {
+          // A missing/broken athlete photo (null in photoDataUrls) is
+          // simply skipped here — the row still exports normally, just
+          // without a picture in that cell.
+          const dataUrl = photoDataUrls[data.row.index]
           const size = PHOTO_COL_W - 6
           const x = data.cell.x + (data.cell.width - size) / 2
           const y = data.cell.y + (data.cell.height - size) / 2
-          try { doc.addImage(dataUrl, x, y, size, size) } catch {}
+          safeAddImage(doc, dataUrl, x, y, size, size)
         }
-      }
-    },
-  })
+      },
+    })
 
-  const date = new Date().toISOString().slice(0, 10)
-  doc.save(`QPC_${ar ? 'الرياضيون' : 'Athletes'}_${date}.pdf`)
+    const date = new Date().toISOString().slice(0, 10)
+    doc.save(`QPC_${ar ? 'الرياضيون' : 'Athletes'}_${date}.pdf`)
+  } catch (err) {
+    console.error('PDF export failed', err)
+    toast(ar ? 'تعذر إنشاء ملف PDF' : 'Could not generate the PDF')
+  }
 }
 
 function exportExcel(athletes, coaches, documents, visibleCols, allCols, lang, athleteSportsByAthlete = {}) {
