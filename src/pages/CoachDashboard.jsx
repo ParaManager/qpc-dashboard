@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useLang } from '../lib/LangContext.jsx'
 import { supabase } from '../lib/supabase'
-import { Avatar, MedalDisplay, statusClass, statusDot, DashRow, SPORT_META, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, sportLabel, initials, effectiveStatus, getCurrentSeason, computeSportsBreakdown } from '../lib/helpers'
+import { Avatar, MedalDisplay, statusClass, statusDot, DashRow, SPORT_META, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, sportLabel, initials, effectiveStatus, getCurrentSeason, computeSportsBreakdown, ClickablePhoto } from '../lib/helpers'
 import DashboardBanners from '../components/DashboardBanners'
 import { formatDateWithDay } from './Timetable'
 import { computeEventStatus } from './Events'
@@ -226,7 +226,9 @@ export default function CoachDashboard({ coach, athletes, myAthletes: myAthletes
         <div style={{ position: 'relative', zIndex: 1, padding: '18px 28px', flex: 1, display:'flex', alignItems:'center', gap:16 }}>
           <div style={{ width:56, height:56, borderRadius:'50%', background: coach.photo_url ? 'transparent' : '#009F6B', display:'flex', alignItems:'center', justifyContent:'center', fontSize:19, fontWeight:700, color:'#fff', flexShrink:0, overflow:'hidden', border:'3px solid rgba(255,255,255,.2)' }}>
             {coach.photo_url
-              ? <img src={coach.photo_url} style={{ width:'100%', height:'100%', objectFit:'cover', objectPosition:'top center' }} />
+              ? <ClickablePhoto photoUrl={coach.photo_url} alt={coach.name}>
+                  <img src={coach.photo_url} style={{ width:'100%', height:'100%', objectFit:'cover', objectPosition:'top center', cursor:'pointer' }} />
+                </ClickablePhoto>
               : initials(coach.name)
             }
           </div>

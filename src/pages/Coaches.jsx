@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Avatar, MedalDisplay, Badge, initials, avColor, DashRow, SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, SPORT_CATEGORY_NAMES_AR, SPORT_NAMES_AR, sportLabel, effectiveStatus, buildSearchText, matchesSearch } from '../lib/helpers'
+import { Avatar, MedalDisplay, Badge, initials, avColor, DashRow, SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, SPORT_CATEGORY_NAMES_AR, SPORT_NAMES_AR, sportLabel, effectiveStatus, buildSearchText, matchesSearch, ClickablePhoto } from '../lib/helpers'
 import FormModal from '../components/FormModal'
 import { ConfirmModal, toast } from '../components/Toast'
 import { supabase } from '../lib/supabase'
@@ -621,7 +621,9 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
             {/* PHOTO */}
             <div style={{ position:'relative', width:90, height:90, margin:'0 auto 14px' }}>
               {c.photo_url
-                ? <img src={c.photo_url} alt={c.name} style={{ width:90, height:90, borderRadius:'50%', objectFit:'cover', border:'3px solid var(--border)' }} />
+                ? <ClickablePhoto photoUrl={c.photo_url} alt={c.name}>
+                    <img src={c.photo_url} alt={c.name} style={{ width:90, height:90, borderRadius:'50%', objectFit:'cover', border:'3px solid var(--border)', cursor:'pointer' }} />
+                  </ClickablePhoto>
                 : <div style={{ width:90, height:90, borderRadius:'50%', background:'#009F6B', display:'flex', alignItems:'center', justifyContent:'center', fontSize:28, fontWeight:600, color:'#fff' }}>{initials(c.name)}</div>
               }
               {canEdit(profile) && (

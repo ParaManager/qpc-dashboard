@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useLayoutEffect } from 'react'
-import { initials, statusClass, effectiveStatus, COACH_DESIGNATIONS, buildSearchText, matchesSearch, extractQidFromFilename, normalizeQid, SUPPORTED_DOC_FILE_TYPES, MAX_DOC_FILE_SIZE_BYTES } from '../lib/helpers'
+import { initials, statusClass, effectiveStatus, COACH_DESIGNATIONS, buildSearchText, matchesSearch, extractQidFromFilename, normalizeQid, SUPPORTED_DOC_FILE_TYPES, MAX_DOC_FILE_SIZE_BYTES, ClickablePhoto } from '../lib/helpers'
 import DesignationField from '../components/DesignationField'
 import PersonDocuments from '../components/PersonDocuments'
 import ImportCompletionSummary from '../components/ImportCompletionSummary'
@@ -1718,7 +1718,9 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
           <div className="detail-profile">
             <div style={{ position:'relative', width:90, height:90, margin:'0 auto 14px' }}>
               {emp.photo_url
-                ? <img src={emp.photo_url} alt={emp.name} style={{ width:90, height:90, borderRadius:'50%', objectFit:'cover', border:'3px solid var(--border)' }} />
+                ? <ClickablePhoto photoUrl={emp.photo_url} alt={emp.name}>
+                    <img src={emp.photo_url} alt={emp.name} style={{ width:90, height:90, borderRadius:'50%', objectFit:'cover', border:'3px solid var(--border)', cursor:'pointer' }} />
+                  </ClickablePhoto>
                 : <div style={{ width:90, height:90, borderRadius:'50%', background:color, display:'flex', alignItems:'center', justifyContent:'center', fontSize:28, fontWeight:600, color:'#fff' }}>{initials(emp.name)}</div>
               }
               {canEdit(profile) && (

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useLang } from '../lib/LangContext.jsx'
 import { supabase } from '../lib/supabase'
-import { Avatar, MedalDisplay, statusClass, statusDot, DashRow, SPORT_META, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, sportLabel, initials, effectiveStatus, getCurrentSeason, computeSportsBreakdown } from '../lib/helpers'
+import { Avatar, MedalDisplay, statusClass, statusDot, DashRow, SPORT_META, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, sportLabel, initials, effectiveStatus, getCurrentSeason, computeSportsBreakdown, ClickablePhoto } from '../lib/helpers'
 import { computeEventStatus } from './Events'
 
 // Mirrors Dashboard.jsx's getEventStatus exactly, so Active Events /
@@ -124,7 +124,9 @@ export default function EmployeeDashboard({ employee, athletes, coaches, employe
         <div style={{ position: 'relative', zIndex: 1, padding: '18px 28px', flex: 1, display:'flex', alignItems:'center', gap:16 }}>
           <div style={{ width:56, height:56, borderRadius:'50%', background: employee.photo_url ? 'transparent' : '#8b5cf6', display:'flex', alignItems:'center', justifyContent:'center', fontSize:19, fontWeight:700, color:'#fff', flexShrink:0, overflow:'hidden', border:'3px solid rgba(255,255,255,.2)' }}>
             {employee.photo_url
-              ? <img src={employee.photo_url} style={{ width:'100%', height:'100%', objectFit:'cover', objectPosition:'top center' }} />
+              ? <ClickablePhoto photoUrl={employee.photo_url} alt={employee.name}>
+                  <img src={employee.photo_url} style={{ width:'100%', height:'100%', objectFit:'cover', objectPosition:'top center', cursor:'pointer' }} />
+                </ClickablePhoto>
               : initials(employee.name)
             }
           </div>

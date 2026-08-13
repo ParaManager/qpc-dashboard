@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
-import { Avatar, MedalDisplay, initials, avColor, sportLabel } from '../lib/helpers'
+import { Avatar, MedalDisplay, initials, avColor, sportLabel, ClickablePhoto } from '../lib/helpers'
 import AthleteCardButton, { generateAthleteCard } from '../components/AthleteCard'
 import EmployeeCardButton, { generateEmployeeCard } from '../components/EmployeeCard'
 import CareerHistory from '../components/CareerHistory.jsx'
@@ -221,7 +221,9 @@ ${myResults.length>0?`<div class="section"><div class="section-title">${L2('Comp
                 flexShrink: 0,
               }}>
                 {personData?.photo_url
-                  ? <img src={personData.photo_url} style={{ width:'100%', height:'100%', objectFit:'cover', objectPosition:'top center' }} />
+                  ? <ClickablePhoto photoUrl={personData.photo_url} alt={profile?.full_name}>
+                      <img src={personData.photo_url} style={{ width:'100%', height:'100%', objectFit:'cover', objectPosition:'top center', cursor:'pointer' }} />
+                    </ClickablePhoto>
                   : <span>{initials(profile?.full_name || user?.email || '?')}</span>
                 }
               </div>

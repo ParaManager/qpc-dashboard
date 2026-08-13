@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useEffect, useLayoutEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
-import { Avatar, avColor, initials, buildSearchText, matchesSearch } from '../lib/helpers'
+import { Avatar, avColor, initials, buildSearchText, matchesSearch, ClickablePhoto } from '../lib/helpers'
 import { toast, ConfirmModal } from '../components/Toast'
 import { canEdit } from '../lib/useAuth'
 import { usePersonRoles, RoleBadges } from '../components/RoleBadges.jsx'
@@ -191,7 +191,9 @@ function RefereeDetail({ r: initialR, ar, L, tcNat, profile, onBack, onEdit, onD
             {/* Photo */}
             <div style={{ position:'relative', width:90, height:90, margin:'0 auto 14px' }}>
               {r.photo_url
-                ? <img src={r.photo_url} alt={r.name} style={{ width:90, height:90, borderRadius:'50%', objectFit:'cover', border:'3px solid var(--border)' }} />
+                ? <ClickablePhoto photoUrl={r.photo_url} alt={r.name}>
+                    <img src={r.photo_url} alt={r.name} style={{ width:90, height:90, borderRadius:'50%', objectFit:'cover', border:'3px solid var(--border)', cursor:'pointer' }} />
+                  </ClickablePhoto>
                 : <div style={{ width:90, height:90, borderRadius:'50%', background:avColor(r.id), display:'flex', alignItems:'center', justifyContent:'center', fontSize:28, fontWeight:600, color:'#fff' }}>{initials(r.name||r.name_ar||'?')}</div>
               }
               {canEdit(profile) && (
