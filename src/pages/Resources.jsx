@@ -70,7 +70,7 @@ export default function Resources({ profile, onRefresh, realProfile, previewRole
   const [confirmDel, setConfirmDel] = useState(null)
   const [uploading, setUploading]   = useState(false)
 
-  const [form, setForm] = useState({ resourceType: 'file', title: '', titleAr: '', description: '', descriptionAr: '', linkUrl: '', isPrivate: false, visibleTo: ['admin','coach','athlete','employee'], category: 'General' })
+  const [form, setForm] = useState({ resourceType: 'file', title: '', titleAr: '', description: '', descriptionAr: '', linkUrl: '', isPrivate: false, visibleTo: ['admin','readonly_admin','medical_staff','coach','athlete','employee'], category: 'General' })
   const [activeCat, setActiveCat] = useState('All')
   const [linkPopup, setLinkPopup] = useState(null) // { url, title }
   const fileInput = useRef(null)
@@ -151,7 +151,7 @@ export default function Resources({ profile, onRefresh, realProfile, previewRole
   }
 
   function resetForm() {
-    setForm({ resourceType: 'file', title: '', titleAr: '', description: '', descriptionAr: '', linkUrl: '', isPrivate: false, visibleTo: ['admin','coach','athlete','employee'], category: 'General' })
+    setForm({ resourceType: 'file', title: '', titleAr: '', description: '', descriptionAr: '', linkUrl: '', isPrivate: false, visibleTo: ['admin','readonly_admin','medical_staff','coach','athlete','employee'], category: 'General' })
     setPendingFile(null)
     setDragOver(false)
     setEditingResource(null)
@@ -374,10 +374,12 @@ export default function Resources({ profile, onRefresh, realProfile, previewRole
   }
 
   const ROLE_LABELS = {
-    admin:    ar ? 'المسؤولون' : 'Admins',
-    coach:    ar ? 'المدربون' : 'Coaches',
-    athlete:  ar ? 'الرياضيون' : 'Athletes',
-    employee: ar ? 'الكادر' : 'Staff',
+    admin:          ar ? 'المسؤولون' : 'Admins',
+    readonly_admin: ar ? 'مسؤولون بصلاحية القراءة فقط' : 'Read-Only Admins',
+    medical_staff:  ar ? 'الطاقم الطبي' : 'Medical Staff',
+    coach:          ar ? 'المدربون' : 'Coaches',
+    athlete:        ar ? 'الرياضيون' : 'Athletes',
+    employee:       ar ? 'الكادر' : 'Staff',
   }
 
 
@@ -763,12 +765,14 @@ export default function Resources({ profile, onRefresh, realProfile, previewRole
                   <div style={{ marginTop:6, display:'flex', gap:5, flexWrap:'wrap' }}>
                     {(() => {
                       const ROLE_LABEL = {
-                        admin:    ar ? 'المسؤولون' : 'Admins',
-                        coach:    ar ? 'المدربون' : 'Coaches',
-                        athlete:  ar ? 'الرياضيون' : 'Athletes',
-                        employee: ar ? 'الكادر' : 'Staff',
+                        admin:          ar ? 'المسؤولون' : 'Admins',
+                        readonly_admin: ar ? 'مسؤولون بصلاحية القراءة فقط' : 'Read-Only Admins',
+                        medical_staff:  ar ? 'الطاقم الطبي' : 'Medical Staff',
+                        coach:          ar ? 'المدربون' : 'Coaches',
+                        athlete:        ar ? 'الرياضيون' : 'Athletes',
+                        employee:       ar ? 'الكادر' : 'Staff',
                       }
-                      const ALL_ROLES = ['admin','coach','athlete','employee']
+                      const ALL_ROLES = ['admin','readonly_admin','medical_staff','coach','athlete','employee']
                       if (r.is_private) {
                         return <span className="badge badge-gray" style={{ fontSize:10 }}>{ar ? 'فقط أنا' : 'Only Me'}</span>
                       }
