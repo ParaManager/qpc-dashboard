@@ -657,6 +657,94 @@ export function resolveUserPhoto(profile, { athletes = [], coaches = [], employe
   return profile?.avatar_url || null
 }
 
+// ── Reusable document preview (PDF modal / image lightbox / new tab) ──
+// Single source of truth for what preview to open, plus one button that
+// works everywhere document rows expose a Download control — Athletes,
+// Coaches, Employees (Staff), Referees, My Profile, and any shared
+// document component. Deliberately does not gate on permissions itself:
+// each caller only renders this next to a Download control it already
+// decided the current profile may see, so preview access always matches
+// existing download access exactly.
+export function getDocPreviewKind(name) {
+  const ext = (name || '').split('.').pop()?.toLowerCase() || ''
+  if (ext === 'pdf') return 'pdf'
+  if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext)) return 'image'
+  if (['txt', 'csv', 'html', 'htm', 'json'].includes(ext)) return 'newtab'
+  // doc/docx/xls/xlsx/ppt/pptx/zip and anything unrecognized: no browser-
+  // safe inline preview — caller keeps Download as the only action.
+  return null
+}
+
+export function PdfPreviewModal({ src, onClose }) {
+  useEffect(() => {
+    function handleKeyDown(e) { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [onClose])
+
+  return (
+    <div
+      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 3000,
+        background: 'rgba(10,10,14,.78)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+      }}>
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Close"
+        style={{
+          position: 'absolute', top: 18, right: 18, width: 38, height: 38, borderRadius: '50%',
+          background: 'rgba(255,255,255,.12)', border: '1px solid rgba(255,255,255,.25)', color: '#fff',
+          fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1,
+        }}>
+        <i className="ti ti-x" />
+      </button>
+      <div
+        onMouseDown={(e) => e.stopPropagation()}
+        style={{
+          width: '94vw', maxWidth: 900, height: '90vh', maxHeight: 900,
+          background: '#fff', borderRadius: 10, overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,.5)',
+        }}>
+        <iframe src={src} title="Document preview" style={{ width: '100%', height: '100%', border: 'none' }} />
+      </div>
+    </div>
+  )
+}
+
+// Drop-in preview button — render immediately next to an existing Download
+// control. Renders nothing when the file type has no safe inline preview
+// (e.g. .doc/.docx), leaving Download as the only, already-correct action.
+export function DocPreviewButton({ url, name, size = 28, iconSize = 14, style }) {
+  const [open, setOpen] = useState(false)
+  const kind = getDocPreviewKind(name)
+  if (!kind || !url) return null
+
+  function handleClick() {
+    if (kind === 'newtab') { window.open(url, '_blank', 'noopener,noreferrer'); return }
+    setOpen(true)
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={handleClick}
+        title="Preview"
+        style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center', width: size, height: size,
+          borderRadius: 7, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text2)',
+          cursor: 'pointer', fontSize: iconSize, ...style,
+        }}>
+        <i className="ti ti-eye" />
+      </button>
+      {open && kind === 'pdf' && <PdfPreviewModal src={url} onClose={() => setOpen(false)} />}
+      {open && kind === 'image' && <PhotoLightbox src={url} alt={name} onClose={() => setOpen(false)} />}
+    </>
+  )
+}
+
 // ── Reusable profile-photo preview (lightbox) ─────────────────────────
 // Single centralized modal used by every clickable profile picture in the
 // app, so opening/closing behavior (backdrop click, Escape, X button,
