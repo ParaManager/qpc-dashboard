@@ -657,6 +657,23 @@ export function resolveUserPhoto(profile, { athletes = [], coaches = [], employe
   return profile?.avatar_url || null
 }
 
+// ── Shared Back navigation button ──────────────────────────────────────
+// One consistent, reusable outlined "Back" control used on every detail
+// page (Athletes, Coaches, Staff, Referees, Sports, Events, Requests,
+// Results, etc.) instead of each page styling its own text link. Behavior
+// (onClick → same navigation it always called) is untouched — this only
+// standardizes the visual: left arrow icon, outlined compact button, clear
+// hover state. Visual details (colors/hover/mobile sizing) live in the
+// `.back-btn` CSS class.
+export function BackButton({ onClick, label, style }) {
+  return (
+    <button type="button" className="back-btn" onClick={onClick} style={style}>
+      <i className="ti ti-arrow-left" />
+      <span>{label}</span>
+    </button>
+  )
+}
+
 // ── Reusable document preview (PDF modal / image lightbox / new tab) ──
 // Single source of truth for what preview to open, plus one button that
 // works everywhere document rows expose a Download control — Athletes,
