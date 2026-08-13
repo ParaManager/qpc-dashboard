@@ -791,7 +791,7 @@ function safeAddImage(doc, dataUrl, x, y, w, h) {
   }
 }
 
-async function exportPDF(athletes, coaches, documents, visibleCols, allCols, lang, athleteSportsByAthlete = {}) {
+async function exportAthletesListPDF(athletes, coaches, documents, visibleCols, allCols, lang, athleteSportsByAthlete = {}) {
   const ar = lang === 'ar'
   const STATUS_AR = {'Active':'نشط','Inactive':'غير نشط','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي','Injured':'مصاب','Under Medical Review':'تحت المراجعة الطبية','Suspended':'موقوف','Retired':'متقاعد'}
   const L = (en, a) => ar ? a : en
@@ -1930,7 +1930,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
   }
 
   // ── PDF EXPORT ──
-  function exportPDF(a, coach, myResults, myDocs, myEvents) {
+  function exportAthleteProfilePDF(a, coach, myResults, myDocs, myEvents) {
     const age = calcAge(a.dob)
     const yearsActive = calcYearsActive(a.join_date)
     const bests = getPersonalBests(myResults)
@@ -2200,7 +2200,7 @@ ${myDocs.length > 0 ? `<div class="section">
             <button className="action-btn action-btn-edit" onClick={() => setForm('edit')}><i className="ti ti-pencil" /> {tx('actions.edit','Edit')}</button>
             <button className="action-btn action-btn-delete" onClick={() => setConfirm(true)}><i className="ti ti-trash" /> {tx('actions.delete','Delete')}</button>
           </>}
-          <button className="action-btn action-btn-edit" onClick={() => exportPDF(a, coach, myResults, myDocs, myEvents)}
+          <button className="action-btn action-btn-edit" onClick={() => exportAthleteProfilePDF(a, coach, myResults, myDocs, myEvents)}
             style={{ borderColor:'#009F6B', color:'#009F6B' }}
             onMouseEnter={e => { e.currentTarget.style.background='#e6f4ee' }}
             onMouseLeave={e => { e.currentTarget.style.background='' }}>
@@ -3064,7 +3064,7 @@ ${myDocs.length > 0 ? `<div class="section">
               onClick={async () => {
                 setPdfExporting(true)
                 try {
-                  await exportPDF(list, coaches, documents||[], visibleCols, ALL_COLS, lang, athleteSportsByAthlete)
+                  await exportAthletesListPDF(list, coaches, documents||[], visibleCols, ALL_COLS, lang, athleteSportsByAthlete)
                 } finally {
                   setPdfExporting(false)
                 }
