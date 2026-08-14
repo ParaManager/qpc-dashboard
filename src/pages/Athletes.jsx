@@ -791,7 +791,7 @@ function safeAddImage(doc, dataUrl, x, y, w, h) {
   }
 }
 
-async function exportAthletesListPDF(athletes, coaches, documents, visibleCols, allCols, lang, athleteSportsByAthlete = {}) {
+async function exportAthletesListPDF(athletes, coaches, documents, visibleCols, allCols, lang, athleteSportsByAthlete = {}, filterSummaryText = '') {
   const ar = lang === 'ar'
   const STATUS_AR = {'Active':'نشط','Inactive':'غير نشط','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي','Injured':'مصاب','Under Medical Review':'تحت المراجعة الطبية','Suspended':'موقوف','Retired':'متقاعد'}
   const L = (en, a) => ar ? a : en
@@ -847,6 +847,17 @@ async function exportAthletesListPDF(athletes, coaches, documents, visibleCols, 
 
   const visibleDefs = (allCols || []).filter(c => (visibleCols || []).includes(c.key))
 
+  // Columns whose content is genuinely Arabic prose (names, sport, coach,
+  // status, medical status) get the Arabic font + RTL reversal in Arabic
+  // mode. Everything else (QSS #, IDs, phone, dates, passport numbers —
+  // all Latin/numeric regardless of language) is deliberately left alone,
+  // since jsPDF's RTL reversal is a naive whole-string flip that would
+  // scramble digits and dates if applied to them.
+  const ARABIC_COL_KEYS = new Set(['name', 'sport', 'coach_id', 'status', 'medical_status'])
+  const arabicColIndexes = new Set(
+    visibleDefs.reduce((acc, c, i) => { if (ARABIC_COL_KEYS.has(c.key)) acc.push(i + 1); return acc }, []) // +1: index 0 is the photo column
+  )
+
   // Preload the QPC letterhead logo and every visible athlete's profile
   // photo (same photo_url field the app itself displays) as data URLs —
   // jsPDF can only embed images it already has in memory, not remote URLs.
@@ -860,27 +871,71 @@ async function exportAthletesListPDF(athletes, coaches, documents, visibleCols, 
   const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' })
   const pageWidth = doc.internal.pageSize.getWidth()
 
-  // ── Letterhead (repeated on every page via autoTable's didDrawPage) ──
-  function drawHeader() {
-    const y = 34
-    safeAddImage(doc, logoDataUrl, 40, 18, 40, 40) // no-ops cleanly if the logo failed to load
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(14)
-    doc.setTextColor(20, 20, 20)
-    doc.text(safeStr(L('Qatar Paralympic Committee', 'اللجنة البارالمبية القطرية')), pageWidth / 2, y, { align: 'center' })
-    doc.setFontSize(11)
-    doc.setFont('helvetica', 'normal')
-    doc.text(safeStr(L('Athletes List', 'قائمة الرياضيين')), pageWidth / 2, y + 16, { align: 'center' })
-    doc.setFontSize(9)
-    doc.setTextColor(90, 90, 90)
-    doc.text(safeStr(`${L('Season', 'الموسم')} ${getCurrentSeason()}`), pageWidth / 2, y + 30, { align: 'center' })
-    const exportDate = new Date().toISOString().slice(0, 10)
-    doc.text(safeStr(`${L('Export date', 'تاريخ التصدير')}: ${exportDate}`), pageWidth - 40, 24, { align: 'right' })
-    doc.setDrawColor(200, 200, 200)
-    doc.line(40, y + 40, pageWidth - 40, y + 40)
+  // ── Arabic font (Amiri, subset) — the default Helvetica has no Arabic
+  // glyphs at all, which is what produces mojibake/garbled boxes. Loaded
+  // lazily so English-only exports never pay for this chunk. Falls back to
+  // Helvetica (with a console warning) if the font somehow fails to load,
+  // rather than crashing the export.
+  let arabicFontOk = false
+  if (ar) {
+    try {
+      const { AMIRI_REGULAR_BASE64 } = await import('../lib/fonts/AmiriFont')
+      doc.addFileToVFS('Amiri-Regular.ttf', AMIRI_REGULAR_BASE64)
+      doc.addFont('Amiri-Regular.ttf', 'Amiri', 'normal')
+      doc.addFont('Amiri-Regular.ttf', 'Amiri', 'bold') // no bold weight available — reuse regular glyphs for the bold role
+      arabicFontOk = true
+    } catch (err) {
+      console.error('PDF export: Arabic font failed to load, falling back to Helvetica', err)
+    }
+  }
+  const FONT = arabicFontOk ? 'Amiri' : 'helvetica'
+  const setPdfFont = (style) => doc.setFont(FONT, style)
+
+  // Logo box: preserve real aspect ratio and cap to a small, fixed height
+  // instead of the previous fixed 40×40 square (which stretched non-square
+  // logos and looked oversized).
+  const LOGO_MAX_H = 26, LOGO_MAX_W = 60
+  let logoW = 0, logoH = 0
+  if (logoDataUrl) {
+    try {
+      const props = doc.getImageProperties(logoDataUrl)
+      const ratio = Math.min(LOGO_MAX_W / props.width, LOGO_MAX_H / props.height)
+      logoW = props.width * ratio
+      logoH = props.height * ratio
+    } catch { /* falls back to not drawing the logo */ }
   }
 
-  const PHOTO_COL_W = 26
+  // ── Letterhead (repeated on every page via autoTable's didDrawPage) ──
+  // Compact: smaller logo, tighter line spacing, smaller type than before.
+  function drawHeader() {
+    const topY = 20
+    safeAddImage(doc, logoDataUrl, 36, topY, logoW, logoH) // no-ops cleanly if the logo failed to load
+    setPdfFont('bold')
+    doc.setFontSize(12.5)
+    doc.setTextColor(20, 20, 20)
+    doc.setR2L(false)
+    doc.text(safeStr(L('Qatar Paralympic Committee', 'اللجنة البارالمبية القطرية')), pageWidth / 2, topY + 8, { align: 'center' })
+    setPdfFont('normal')
+    doc.setFontSize(9.5)
+    doc.text(safeStr(L('Athletes List', 'قائمة الرياضيين')), pageWidth / 2, topY + 21, { align: 'center' })
+    doc.setFontSize(8)
+    doc.setTextColor(110, 110, 110)
+    // Mixed Arabic label + numeric season/date — intentionally NOT reversed
+    // (R2L stays false) so the digits stay in correct reading order; only
+    // pure-Arabic runs (title/subtitle above) get full RTL reversal.
+    doc.text(safeStr(`${L('Season', 'الموسم')} ${getCurrentSeason()}`), pageWidth / 2, topY + 32, { align: 'center' })
+    const exportDate = new Date().toISOString().slice(0, 10)
+    doc.text(safeStr(`${L('Export date', 'تاريخ التصدير')}: ${exportDate}`), pageWidth - 36, topY + 6, { align: 'right' })
+    if (filterSummaryText) {
+      doc.setFontSize(7.5)
+      doc.text(safeStr(filterSummaryText), pageWidth - 36, topY + 18, { align: 'right', maxWidth: pageWidth - 200 })
+    }
+    doc.setDrawColor(210, 210, 210)
+    doc.line(36, topY + 26, pageWidth - 36, topY + 26)
+  }
+
+  const HEADER_H = 62
+  const PHOTO_COL_W = 22
   const head = [[safeStr(L('Photo', 'الصورة')), ...visibleDefs.map(c => safeStr(c.label))]]
   const body = (athletes || []).map(a => [
     '', // photo cell content is drawn as an image, not text
@@ -891,14 +946,31 @@ async function exportAthletesListPDF(athletes, coaches, documents, visibleCols, 
     autoTable(doc, {
       head,
       body,
-      startY: 88,
-      margin: { top: 88, left: 40, right: 40, bottom: 30 },
-      styles: { fontSize: 8, cellPadding: 4, valign: 'middle', overflow: 'linebreak' },
-      headStyles: { fillColor: [0, 133, 199], textColor: 255, fontStyle: 'bold' },
-      alternateRowStyles: { fillColor: [245, 247, 250] },
-      columnStyles: { 0: { cellWidth: PHOTO_COL_W, minCellHeight: PHOTO_COL_W } },
+      startY: HEADER_H,
+      margin: { top: HEADER_H, left: 36, right: 36, bottom: 26 },
+      styles: { font: FONT, fontSize: 7.5, cellPadding: 3, valign: 'middle', overflow: 'linebreak', halign: ar ? 'right' : 'left', lineColor: [225, 228, 232], lineWidth: 0.5 },
+      headStyles: { font: FONT, fillColor: [0, 133, 199], textColor: 255, fontStyle: 'bold', fontSize: 7.5, halign: ar ? 'right' : 'left' },
+      alternateRowStyles: { fillColor: [246, 248, 250] },
+      columnStyles: { 0: { cellWidth: PHOTO_COL_W, minCellHeight: PHOTO_COL_W, halign: 'center' } },
       showHead: 'everyPage', // repeat table header on every page
       didDrawPage: drawHeader,
+      // Right-align only the columns whose content is real Arabic prose;
+      // everything else keeps left alignment even in Arabic mode (numbers/
+      // dates read the same direction regardless of UI language).
+      didParseCell: (data) => {
+        if (data.column.index === 0) return // photo column stays centered
+        if (!ar) return
+        data.cell.styles.halign = (data.section === 'head' || arabicColIndexes.has(data.column.index)) ? 'right' : 'left'
+      },
+      // Toggle jsPDF's RTL character-reversal per cell, right before it's
+      // drawn — only for header cells and the specific Arabic-prose
+      // columns, never for numeric/date columns, so a phone number or a
+      // passport expiry date never gets reversed into nonsense.
+      willDrawCell: (data) => {
+        if (!ar) return
+        const isArabicCell = data.column.index !== 0 && (data.section === 'head' || arabicColIndexes.has(data.column.index))
+        doc.setR2L(isArabicCell)
+      },
       didDrawCell: (data) => {
         if (data.section === 'body' && data.column.index === 0) {
           // A missing/broken athlete photo (null in photoDataUrls) is
@@ -913,6 +985,7 @@ async function exportAthletesListPDF(athletes, coaches, documents, visibleCols, 
       },
     })
 
+    doc.setR2L(false) // reset the global flag before saving / any later doc use
     const date = new Date().toISOString().slice(0, 10)
     doc.save(`QPC_${ar ? 'الرياضيون' : 'Athletes'}_${date}.pdf`)
   } catch (err) {
@@ -3064,7 +3137,16 @@ ${myDocs.length > 0 ? `<div class="section">
               onClick={async () => {
                 setPdfExporting(true)
                 try {
-                  await exportAthletesListPDF(list, coaches, documents||[], visibleCols, ALL_COLS, lang, athleteSportsByAthlete)
+                  const ar = lang === 'ar'
+                  const parts = []
+                  if (search) parts.push(`${ar?'بحث':'Search'}: "${search}"`)
+                  if (sport !== 'All sports') parts.push(`${ar?'الرياضة':'Sport'}: ${sport}`)
+                  if (sportCategory !== 'All categories') parts.push(`${ar?'الفئة':'Category'}: ${sportCategory}`)
+                  if (status !== 'All statuses') parts.push(`${ar?'الحالة':'Status'}: ${status}`)
+                  if (gender !== 'All genders') parts.push(`${ar?'الجنس':'Gender'}: ${gender}`)
+                  Object.entries(colFilters).forEach(([k, v]) => { if (v?.length) parts.push(`${k}: ${v.join(', ')}`) })
+                  const filterSummaryText = parts.length ? parts.join('  •  ') : (ar ? 'كل الرياضيين' : 'All athletes')
+                  await exportAthletesListPDF(list, coaches, documents||[], visibleCols, ALL_COLS, lang, athleteSportsByAthlete, filterSummaryText)
                 } finally {
                   setPdfExporting(false)
                 }
