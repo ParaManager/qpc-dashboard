@@ -857,15 +857,24 @@ async function exportAthletesListPDF(athletes, coaches, documents, visibleCols, 
   // jsPDF/autoTable's own text-processing internals.
   const safeStr = v => (v === null || v === undefined) ? '' : String(v)
 
-  // Column ORDER: in Arabic mode the visible/selected columns are used in
-  // reverse, so the table reads right-to-left the way the rest of the
-  // Arabic site does — the first column the user selected on the page
-  // ends up rightmost, with each subsequent selected column continuing
-  // toward the left. The photo column is not a "selected" column and
-  // keeps its fixed position. English keeps the normal left-to-right
-  // selected order, unchanged.
+  // Column ORDER: in Arabic mode the selected columns are used in reverse,
+  // so the table reads right-to-left the way the rest of the Arabic site
+  // does — the first column the user selected on the page ends up
+  // rightmost, with each subsequent selected column continuing toward the
+  // left. English keeps the normal left-to-right selected order,
+  // unchanged. The photo isn't itself a selectable column — it's paired
+  // with 'name' (inserted immediately to its left in Arabic, since array
+  // order renders left→right on the page) so it never drifts away from
+  // the athlete it belongs to; if 'name' isn't selected, photo just takes
+  // its normal leading position.
   const visibleDefs = (allCols || []).filter(c => (visibleCols || []).includes(c.key))
-  const orderedDefs = ar ? [...visibleDefs].reverse() : visibleDefs
+  const orderedDataDefs = ar ? [...visibleDefs].reverse() : visibleDefs
+  const PHOTO_COL = { key: '__photo__', label: L('Photo', 'الصورة'), isPhoto: true }
+  const nameIdx = orderedDataDefs.findIndex(c => c.key === 'name')
+  const columns = ar && nameIdx !== -1
+    ? [...orderedDataDefs.slice(0, nameIdx), PHOTO_COL, ...orderedDataDefs.slice(nameIdx)]
+    : [PHOTO_COL, ...orderedDataDefs]
+  const photoColIndex = columns.findIndex(c => c.isPhoto)
 
   // Columns whose content is genuinely Arabic prose (names, sport, coach,
   // status, medical status) get the Arabic font + RTL reversal in Arabic
@@ -873,11 +882,10 @@ async function exportAthletesListPDF(athletes, coaches, documents, visibleCols, 
   // all Latin/numeric regardless of language) is deliberately left alone,
   // since jsPDF's RTL reversal is a naive whole-string flip that would
   // scramble digits and dates if applied to them. Indexes are computed
-  // against orderedDefs (the actual on-page column order), not the
-  // original selection order.
+  // against the final `columns` array (the actual on-page order).
   const ARABIC_COL_KEYS = new Set(['name', 'sport', 'coach_id', 'status', 'medical_status'])
   const arabicColIndexes = new Set(
-    orderedDefs.reduce((acc, c, i) => { if (ARABIC_COL_KEYS.has(c.key)) acc.push(i + 1); return acc }, []) // +1: index 0 is the photo column
+    columns.reduce((acc, c, i) => { if (!c.isPhoto && ARABIC_COL_KEYS.has(c.key)) acc.push(i); return acc }, [])
   )
 
   // Preload the QPC letterhead logo and every visible athlete's profile
@@ -952,11 +960,8 @@ async function exportAthletesListPDF(athletes, coaches, documents, visibleCols, 
 
   const HEADER_H = 76
   const PHOTO_COL_W = 22
-  const head = [[safeStr(L('Photo', 'الصورة')), ...orderedDefs.map(c => safeStr(c.label))]]
-  const body = (athletes || []).map(a => [
-    '', // photo cell content is drawn as an image, not text
-    ...orderedDefs.map(col => safeStr(colMap[col.key]?.(a))),
-  ])
+  const head = [columns.map(c => safeStr(c.label))]
+  const body = (athletes || []).map(a => columns.map(col => col.isPhoto ? '' : safeStr(colMap[col.key]?.(a))))
 
   try {
     autoTable(doc, {
@@ -967,7 +972,7 @@ async function exportAthletesListPDF(athletes, coaches, documents, visibleCols, 
       styles: { font: FONT, fontSize: 7.5, cellPadding: 3, valign: 'middle', overflow: 'linebreak', halign: ar ? 'right' : 'left', lineColor: [225, 228, 232], lineWidth: 0.5 },
       headStyles: { font: FONT, fillColor: [0, 133, 199], textColor: 255, fontStyle: 'bold', fontSize: 7.5, halign: ar ? 'right' : 'left' },
       alternateRowStyles: { fillColor: [246, 248, 250] },
-      columnStyles: { 0: { cellWidth: PHOTO_COL_W, minCellHeight: PHOTO_COL_W, halign: 'center' } },
+      columnStyles: { [photoColIndex]: { cellWidth: PHOTO_COL_W, minCellHeight: PHOTO_COL_W, halign: 'center' } },
       showHead: 'everyPage', // repeat table header on every page
       didDrawPage: drawHeader,
       // Right-align only the columns whose content is real Arabic prose;
@@ -980,12 +985,12 @@ async function exportAthletesListPDF(athletes, coaches, documents, visibleCols, 
       // top of that double-processes the text and is exactly what was
       // producing mixed/garbled output before.
       didParseCell: (data) => {
-        if (data.column.index === 0) return // photo column stays centered
+        if (data.column.index === photoColIndex) return // photo column stays centered
         if (!ar) return
         data.cell.styles.halign = (data.section === 'head' || arabicColIndexes.has(data.column.index)) ? 'right' : 'left'
       },
       didDrawCell: (data) => {
-        if (data.section === 'body' && data.column.index === 0) {
+        if (data.section === 'body' && data.column.index === photoColIndex) {
           // A missing/broken athlete photo (null in photoDataUrls) is
           // simply skipped here — the row still exports normally, just
           // without a picture in that cell.
