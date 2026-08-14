@@ -812,7 +812,19 @@ async function exportAthletesListPDF(athletes, coaches, documents, visibleCols, 
     },
     sport: a => {
       const rows = athleteSportsByAthlete[a.id]
-      if (rows?.length) return [...new Set(rows.map(r => r.sportName).filter(Boolean))].join(', ')
+      if (rows?.length) {
+        // Junction-sourced names are catalog form ("Para Athletics"/"SO
+        // Athletics"/"Unified Athletics") — strip that prefix to match
+        // SPORT_NAMES_AR's short-form keys, same convention used
+        // everywhere else in this page (filters, search). Falls back to
+        // the original catalog name if no Arabic translation is found,
+        // never to a transliteration.
+        const stripSportPrefix = (name) => name ? name.replace(/^(Para |SO |Unified )/, '') : name
+        return [...new Set(rows.map(r => {
+          const short = stripSportPrefix(r.sportName)
+          return ar ? (SPORT_NAMES_AR[short] || r.sportName) : r.sportName
+        }).filter(Boolean))].join(', ')
+      }
       return a.sport ? sportLabel(a.sport, a.sport_category, ar) : ''
     },
     classification:  a => a.classification || '',
@@ -891,10 +903,9 @@ async function exportAthletesListPDF(athletes, coaches, documents, visibleCols, 
   const FONT = arabicFontOk ? 'Amiri' : 'helvetica'
   const setPdfFont = (style) => doc.setFont(FONT, style)
 
-  // Logo box: preserve real aspect ratio and cap to a small, fixed height
-  // instead of the previous fixed 40×40 square (which stretched non-square
-  // logos and looked oversized).
-  const LOGO_MAX_H = 26, LOGO_MAX_W = 60
+  // Logo box: preserve real aspect ratio, sized clearly visible in the
+  // header (~1.6× the previous compact size) without stretching.
+  const LOGO_MAX_H = 42, LOGO_MAX_W = 100
   let logoW = 0, logoH = 0
   if (logoDataUrl) {
     try {
@@ -906,35 +917,30 @@ async function exportAthletesListPDF(athletes, coaches, documents, visibleCols, 
   }
 
   // ── Letterhead (repeated on every page via autoTable's didDrawPage) ──
-  // Compact: smaller logo, tighter line spacing, smaller type than before.
   function drawHeader() {
-    const topY = 20
+    const topY = 14
     safeAddImage(doc, logoDataUrl, 36, topY, logoW, logoH) // no-ops cleanly if the logo failed to load
     setPdfFont('bold')
     doc.setFontSize(12.5)
     doc.setTextColor(20, 20, 20)
-    doc.setR2L(false)
-    doc.text(safeStr(L('Qatar Paralympic Committee', 'اللجنة البارالمبية القطرية')), pageWidth / 2, topY + 8, { align: 'center' })
+    doc.text(safeStr(L('Qatar Paralympic Committee', 'اللجنة البارالمبية القطرية')), pageWidth / 2, topY + 12, { align: 'center' })
     setPdfFont('normal')
     doc.setFontSize(9.5)
-    doc.text(safeStr(L('Athletes List', 'قائمة الرياضيين')), pageWidth / 2, topY + 21, { align: 'center' })
+    doc.text(safeStr(L('Athletes List', 'قائمة الرياضيين')), pageWidth / 2, topY + 25, { align: 'center' })
     doc.setFontSize(8)
     doc.setTextColor(110, 110, 110)
-    // Mixed Arabic label + numeric season/date — intentionally NOT reversed
-    // (R2L stays false) so the digits stay in correct reading order; only
-    // pure-Arabic runs (title/subtitle above) get full RTL reversal.
-    doc.text(safeStr(`${L('Season', 'الموسم')} ${getCurrentSeason()}`), pageWidth / 2, topY + 32, { align: 'center' })
+    doc.text(safeStr(`${L('Season', 'الموسم')} ${getCurrentSeason()}`), pageWidth / 2, topY + 36, { align: 'center' })
     const exportDate = new Date().toISOString().slice(0, 10)
-    doc.text(safeStr(`${L('Export date', 'تاريخ التصدير')}: ${exportDate}`), pageWidth - 36, topY + 6, { align: 'right' })
+    doc.text(safeStr(`${L('Export date', 'تاريخ التصدير')}: ${exportDate}`), pageWidth - 36, topY + 10, { align: 'right' })
     if (filterSummaryText) {
       doc.setFontSize(7.5)
-      doc.text(safeStr(filterSummaryText), pageWidth - 36, topY + 18, { align: 'right', maxWidth: pageWidth - 200 })
+      doc.text(safeStr(filterSummaryText), pageWidth - 36, topY + 22, { align: 'right', maxWidth: pageWidth - 200 })
     }
     doc.setDrawColor(210, 210, 210)
-    doc.line(36, topY + 26, pageWidth - 36, topY + 26)
+    doc.line(36, topY + 44, pageWidth - 36, topY + 44)
   }
 
-  const HEADER_H = 62
+  const HEADER_H = 76
   const PHOTO_COL_W = 22
   const head = [[safeStr(L('Photo', 'الصورة')), ...visibleDefs.map(c => safeStr(c.label))]]
   const body = (athletes || []).map(a => [
@@ -956,20 +962,17 @@ async function exportAthletesListPDF(athletes, coaches, documents, visibleCols, 
       didDrawPage: drawHeader,
       // Right-align only the columns whose content is real Arabic prose;
       // everything else keeps left alignment even in Arabic mode (numbers/
-      // dates read the same direction regardless of UI language).
+      // dates read the same direction regardless of UI language). Note:
+      // no doc.setR2L() anywhere — jsPDF's built-in Arabic shaping
+      // (preProcessText) plus its always-on Unicode BiDi reordering
+      // (postProcessText) already produce correct RTL order for genuine
+      // Arabic runs on their own; layering a manual character-reversal on
+      // top of that double-processes the text and is exactly what was
+      // producing mixed/garbled output before.
       didParseCell: (data) => {
         if (data.column.index === 0) return // photo column stays centered
         if (!ar) return
         data.cell.styles.halign = (data.section === 'head' || arabicColIndexes.has(data.column.index)) ? 'right' : 'left'
-      },
-      // Toggle jsPDF's RTL character-reversal per cell, right before it's
-      // drawn — only for header cells and the specific Arabic-prose
-      // columns, never for numeric/date columns, so a phone number or a
-      // passport expiry date never gets reversed into nonsense.
-      willDrawCell: (data) => {
-        if (!ar) return
-        const isArabicCell = data.column.index !== 0 && (data.section === 'head' || arabicColIndexes.has(data.column.index))
-        doc.setR2L(isArabicCell)
       },
       didDrawCell: (data) => {
         if (data.section === 'body' && data.column.index === 0) {
@@ -985,7 +988,6 @@ async function exportAthletesListPDF(athletes, coaches, documents, visibleCols, 
       },
     })
 
-    doc.setR2L(false) // reset the global flag before saving / any later doc use
     const date = new Date().toISOString().slice(0, 10)
     doc.save(`QPC_${ar ? 'الرياضيون' : 'Athletes'}_${date}.pdf`)
   } catch (err) {
