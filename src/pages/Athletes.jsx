@@ -857,17 +857,27 @@ async function exportAthletesListPDF(athletes, coaches, documents, visibleCols, 
   // jsPDF/autoTable's own text-processing internals.
   const safeStr = v => (v === null || v === undefined) ? '' : String(v)
 
+  // Column ORDER: in Arabic mode the visible/selected columns are used in
+  // reverse, so the table reads right-to-left the way the rest of the
+  // Arabic site does — the first column the user selected on the page
+  // ends up rightmost, with each subsequent selected column continuing
+  // toward the left. The photo column is not a "selected" column and
+  // keeps its fixed position. English keeps the normal left-to-right
+  // selected order, unchanged.
   const visibleDefs = (allCols || []).filter(c => (visibleCols || []).includes(c.key))
+  const orderedDefs = ar ? [...visibleDefs].reverse() : visibleDefs
 
   // Columns whose content is genuinely Arabic prose (names, sport, coach,
   // status, medical status) get the Arabic font + RTL reversal in Arabic
   // mode. Everything else (QSS #, IDs, phone, dates, passport numbers —
   // all Latin/numeric regardless of language) is deliberately left alone,
   // since jsPDF's RTL reversal is a naive whole-string flip that would
-  // scramble digits and dates if applied to them.
+  // scramble digits and dates if applied to them. Indexes are computed
+  // against orderedDefs (the actual on-page column order), not the
+  // original selection order.
   const ARABIC_COL_KEYS = new Set(['name', 'sport', 'coach_id', 'status', 'medical_status'])
   const arabicColIndexes = new Set(
-    visibleDefs.reduce((acc, c, i) => { if (ARABIC_COL_KEYS.has(c.key)) acc.push(i + 1); return acc }, []) // +1: index 0 is the photo column
+    orderedDefs.reduce((acc, c, i) => { if (ARABIC_COL_KEYS.has(c.key)) acc.push(i + 1); return acc }, []) // +1: index 0 is the photo column
   )
 
   // Preload the QPC letterhead logo and every visible athlete's profile
@@ -942,10 +952,10 @@ async function exportAthletesListPDF(athletes, coaches, documents, visibleCols, 
 
   const HEADER_H = 76
   const PHOTO_COL_W = 22
-  const head = [[safeStr(L('Photo', 'الصورة')), ...visibleDefs.map(c => safeStr(c.label))]]
+  const head = [[safeStr(L('Photo', 'الصورة')), ...orderedDefs.map(c => safeStr(c.label))]]
   const body = (athletes || []).map(a => [
     '', // photo cell content is drawn as an image, not text
-    ...visibleDefs.map(col => safeStr(colMap[col.key]?.(a))),
+    ...orderedDefs.map(col => safeStr(colMap[col.key]?.(a))),
   ])
 
   try {
