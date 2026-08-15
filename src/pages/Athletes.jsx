@@ -861,18 +861,18 @@ async function exportAthletesListPDF(athletes, coaches, documents, visibleCols, 
   // so the table reads right-to-left the way the rest of the Arabic site
   // does — the first column the user selected on the page ends up
   // rightmost, with each subsequent selected column continuing toward the
-  // left. English keeps the normal left-to-right selected order,
-  // unchanged. The photo isn't itself a selectable column — it's paired
-  // with 'name' (inserted immediately to its left in Arabic, since array
-  // order renders left→right on the page) so it never drifts away from
-  // the athlete it belongs to; if 'name' isn't selected, photo just takes
-  // its normal leading position.
+  // left. The photo isn't itself a selectable column — in Arabic it's
+  // placed as the very rightmost column (paired immediately beside
+  // 'name', which sits just to its left) so it never drifts away from the
+  // athlete it belongs to; if 'name' isn't selected, photo falls back to
+  // its normal leading position. English keeps photo leading and the
+  // normal left-to-right selected order, unchanged.
   const visibleDefs = (allCols || []).filter(c => (visibleCols || []).includes(c.key))
   const orderedDataDefs = ar ? [...visibleDefs].reverse() : visibleDefs
   const PHOTO_COL = { key: '__photo__', label: L('Photo', 'الصورة'), isPhoto: true }
   const nameIdx = orderedDataDefs.findIndex(c => c.key === 'name')
   const columns = ar && nameIdx !== -1
-    ? [...orderedDataDefs.slice(0, nameIdx), PHOTO_COL, ...orderedDataDefs.slice(nameIdx)]
+    ? [...orderedDataDefs.slice(0, nameIdx + 1), PHOTO_COL, ...orderedDataDefs.slice(nameIdx + 1)]
     : [PHOTO_COL, ...orderedDataDefs]
   const photoColIndex = columns.findIndex(c => c.isPhoto)
 
