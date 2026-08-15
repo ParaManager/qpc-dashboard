@@ -963,6 +963,35 @@ async function exportAthletesListPDF(athletes, coaches, documents, visibleCols, 
   const head = [columns.map(c => safeStr(c.label))]
   const body = (athletes || []).map(a => columns.map(col => col.isPhoto ? '' : safeStr(colMap[col.key]?.(a))))
 
+  // Give every column a minimum width equal to its own header label's
+  // measured text width (using the same font that will actually render
+  // it), so short headers like "الصورة"/"الحالة"/"رقم QSS" never wrap onto
+  // a second line — this is only a floor, so data-heavy columns (Athlete
+  // Name) still grow freely beyond it via autoTable's normal content-based
+  // sizing. If the selected columns still can't all fit their header
+  // floors within the page width, the header font shrinks a little first
+  // (down to a small minimum) before any wrapping would be allowed.
+  const HEADER_CELL_PADDING = 10 // ~ horizontal cellPadding*2 + a small buffer
+  const availableTableWidth = pageWidth - 36 - 36
+  let headerFontSize = 7.5
+  let colMinWidths = {}
+  for (let attempt = 0; attempt < 6; attempt++) {
+    setPdfFont('bold')
+    doc.setFontSize(headerFontSize)
+    colMinWidths = {}
+    columns.forEach((c, i) => {
+      colMinWidths[i] = c.isPhoto ? PHOTO_COL_W : Math.ceil(doc.getTextWidth(safeStr(c.label))) + HEADER_CELL_PADDING
+    })
+    const total = Object.values(colMinWidths).reduce((sum, w) => sum + w, 0)
+    if (total <= availableTableWidth || headerFontSize <= 6) break
+    headerFontSize -= 0.5
+  }
+  const columnStyles = Object.fromEntries(
+    columns.map((c, i) => [i, c.isPhoto
+      ? { cellWidth: PHOTO_COL_W, minCellHeight: PHOTO_COL_W, halign: 'center' }
+      : { minCellWidth: colMinWidths[i] }])
+  )
+
   try {
     autoTable(doc, {
       head,
@@ -970,9 +999,9 @@ async function exportAthletesListPDF(athletes, coaches, documents, visibleCols, 
       startY: HEADER_H,
       margin: { top: HEADER_H, left: 36, right: 36, bottom: 26 },
       styles: { font: FONT, fontSize: 7.5, cellPadding: 3, valign: 'middle', overflow: 'linebreak', halign: ar ? 'right' : 'left', lineColor: [225, 228, 232], lineWidth: 0.5 },
-      headStyles: { font: FONT, fillColor: [0, 133, 199], textColor: 255, fontStyle: 'bold', fontSize: 7.5, halign: ar ? 'right' : 'left' },
+      headStyles: { font: FONT, fillColor: [0, 133, 199], textColor: 255, fontStyle: 'bold', fontSize: headerFontSize, halign: ar ? 'right' : 'left', cellPadding: { top: 4, right: 4, bottom: 4, left: 4 } },
       alternateRowStyles: { fillColor: [246, 248, 250] },
-      columnStyles: { [photoColIndex]: { cellWidth: PHOTO_COL_W, minCellHeight: PHOTO_COL_W, halign: 'center' } },
+      columnStyles,
       showHead: 'everyPage', // repeat table header on every page
       didDrawPage: drawHeader,
       // Right-align only the columns whose content is real Arabic prose;
