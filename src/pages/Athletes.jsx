@@ -959,18 +959,22 @@ async function exportAthletesListPDF(athletes, coaches, documents, visibleCols, 
   }
 
   const HEADER_H = 76
-  const PHOTO_COL_W = 22
+  const PHOTO_IMG_SIZE = 18 // the actual drawn photo square — stays this size regardless of column width
   const head = [columns.map(c => safeStr(c.label))]
   const body = (athletes || []).map(a => columns.map(col => col.isPhoto ? '' : safeStr(colMap[col.key]?.(a))))
 
-  // Give every column a minimum width equal to its own header label's
-  // measured text width (using the same font that will actually render
-  // it), so short headers like "الصورة"/"الحالة"/"رقم QSS" never wrap onto
-  // a second line — this is only a floor, so data-heavy columns (Athlete
-  // Name) still grow freely beyond it via autoTable's normal content-based
-  // sizing. If the selected columns still can't all fit their header
-  // floors within the page width, the header font shrinks a little first
-  // (down to a small minimum) before any wrapping would be allowed.
+  // Give every column — including the photo column — a minimum width equal
+  // to its own header label's measured text width (using the same font
+  // that will actually render it), so short headers like
+  // "الصورة"/"الحالة"/"رقم QSS" never wrap onto a second/third line. This
+  // is only a floor: data-heavy columns (Athlete Name) still grow freely
+  // beyond it via autoTable's normal content-based sizing, and the photo
+  // column's actual image stays a small fixed square (PHOTO_IMG_SIZE)
+  // centered in whatever width the header ends up needing — a wider photo
+  // column does not mean a bigger photo. If the selected columns still
+  // can't all fit their header floors within the page width, the header
+  // font shrinks a little first (down to a small minimum) before any
+  // wrapping would be allowed.
   const HEADER_CELL_PADDING = 10 // ~ horizontal cellPadding*2 + a small buffer
   const availableTableWidth = pageWidth - 36 - 36
   let headerFontSize = 7.5
@@ -980,7 +984,8 @@ async function exportAthletesListPDF(athletes, coaches, documents, visibleCols, 
     doc.setFontSize(headerFontSize)
     colMinWidths = {}
     columns.forEach((c, i) => {
-      colMinWidths[i] = c.isPhoto ? PHOTO_COL_W : Math.ceil(doc.getTextWidth(safeStr(c.label))) + HEADER_CELL_PADDING
+      const headerW = Math.ceil(doc.getTextWidth(safeStr(c.label))) + HEADER_CELL_PADDING
+      colMinWidths[i] = c.isPhoto ? Math.max(PHOTO_IMG_SIZE + 8, headerW) : headerW
     })
     const total = Object.values(colMinWidths).reduce((sum, w) => sum + w, 0)
     if (total <= availableTableWidth || headerFontSize <= 6) break
@@ -988,7 +993,7 @@ async function exportAthletesListPDF(athletes, coaches, documents, visibleCols, 
   }
   const columnStyles = Object.fromEntries(
     columns.map((c, i) => [i, c.isPhoto
-      ? { cellWidth: PHOTO_COL_W, minCellHeight: PHOTO_COL_W, halign: 'center' }
+      ? { minCellWidth: colMinWidths[i], minCellHeight: PHOTO_IMG_SIZE + 8, halign: 'center' }
       : { minCellWidth: colMinWidths[i] }])
   )
 
@@ -1024,7 +1029,7 @@ async function exportAthletesListPDF(athletes, coaches, documents, visibleCols, 
           // simply skipped here — the row still exports normally, just
           // without a picture in that cell.
           const dataUrl = photoDataUrls[data.row.index]
-          const size = PHOTO_COL_W - 6
+          const size = PHOTO_IMG_SIZE
           const x = data.cell.x + (data.cell.width - size) / 2
           const y = data.cell.y + (data.cell.height - size) / 2
           safeAddImage(doc, dataUrl, x, y, size, size)
