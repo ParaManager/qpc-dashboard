@@ -4,7 +4,7 @@ import { useAuth, canEdit } from './lib/useAuth'
 import { isTrustedAdmin, isMainAdmin as isMainAdminCheck, isTrustedAdminEmail } from './lib/permissions'
 import { getCurrentSeason, effectiveStatus, resolveUserPhoto, ProfileAvatar } from './lib/helpers'
 import { isPreviewMode } from './lib/rolePreview'
-import { ToastContainer } from './components/Toast'
+import { ToastContainer, toast } from './components/Toast'
 import Login     from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Athletes  from './pages/Athletes'
@@ -613,6 +613,22 @@ export default function App() {
     const start = Date.now()
     try {
       await fetchAll()
+      // fetchAll() only repopulates App.jsx's own central state (athletes,
+      // coaches, events, etc.), which pages that just read it via props
+      // already pick up automatically. But several pages (Tasks, Requests,
+      // Athletes' per-sport assignment breakdown, etc.) fetch some of their
+      // own data independently in a mount-time effect — fetchAll() alone
+      // never reaches those. Rather than duplicating each page's fetch
+      // logic here, bump the same refreshToken every page is already keyed
+      // on (key={`${page}-${refreshToken}`}) — React remounts the current
+      // page, which re-runs its own mount-time fetch effects exactly like
+      // navigating to it fresh would. This is the one centralized signal
+      // both fetchAll() callers and self-fetching pages share, instead of
+      // three different ad-hoc refresh mechanisms.
+      setRefreshToken(t => t + 1)
+    } catch (err) {
+      console.error('Refresh failed:', err)
+      toast(lang === 'ar' ? 'تعذر التحديث' : 'Refresh failed', 'error')
     } finally {
       const elapsed = Date.now() - start
       setTimeout(() => setIsRefreshing(false), Math.max(0, 500 - elapsed))
