@@ -4,7 +4,7 @@ import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { generateStatisticsReport } from '../lib/statisticsReport'
-import { Avatar, MedalDisplay, Badge, avColor, initials, DashRow, SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, SPORT_CATEGORY_NAMES_AR, SPORT_NAMES_AR, sportLabel, effectiveStatus, buildSearchText, matchesSearch, normalizeSearch, extractQidFromFilename, TARGET_CATEGORY_OPTIONS, targetCategoryLabel, ClickablePhoto, DocPreviewButton, BackButton, getCurrentSeason } from '../lib/helpers'
+import { Avatar, MedalDisplay, Badge, avColor, initials, DashRow, SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, SPORT_CATEGORY_NAMES_AR, SPORT_NAMES_AR, sportLabel, effectiveStatus, buildSearchText, matchesSearch, normalizeSearch, extractQidFromFilename, TARGET_CATEGORY_OPTIONS, targetCategoryLabel, ClickablePhoto, DocPreviewButton, BackButton, getCurrentSeason, loadImageAsDataURL, safeAddImage } from '../lib/helpers'
 import PhotoCropModal from '../components/PhotoCropModal'
 import AthleteSportsCard from '../components/AthleteSportsCard'
 import ImportCompletionSummary from '../components/ImportCompletionSummary'
@@ -733,64 +733,6 @@ function formatFileSize(bytes) {
 }
 
 // ── PDF export (filtered/sorted athlete list, with photos + QPC letterhead) ──
-// Loads an image URL into a base64 data URL for embedding in the PDF.
-// Silently resolves to null on any failure (missing/broken photo, CORS,
-// network, non-image response) so one bad photo never blocks the whole
-// export.
-async function loadImageAsDataURL(url) {
-  if (!url) return null
-  try {
-    const res = await fetch(url, { mode: 'cors' })
-    if (!res.ok) return null
-    const blob = await res.blob()
-    // Guard against a "successful" fetch that isn't actually image bytes
-    // (e.g. an HTML error page returned with a 200 status, or a CORS
-    // opaque response) — feeding that into jsPDF is what produces hard-to-
-    // trace internal errors, so we bail out to null here instead.
-    if (!blob || !blob.type || !blob.type.startsWith('image/') || blob.size === 0) return null
-    return await new Promise((resolve) => {
-      const reader = new FileReader()
-      reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : null)
-      reader.onerror = () => resolve(null)
-      reader.readAsDataURL(blob)
-    })
-  } catch {
-    return null
-  }
-}
-
-// jsPDF's addImage() accepts an explicit format, but auto-detection can be
-// unreliable for some data URLs it doesn't recognize — since we already
-// know the MIME type from the fetched blob (encoded in the data URL
-// itself), we extract it directly rather than relying on sniffing.
-function getImageFormatFromDataUrl(dataUrl) {
-  const match = /^data:image\/([a-zA-Z0-9.+-]+);base64,/.exec(dataUrl || '')
-  if (!match) return null
-  const ext = match[1].toLowerCase()
-  if (ext === 'jpg' || ext === 'jpeg') return 'JPEG'
-  if (ext === 'png') return 'PNG'
-  if (ext === 'webp') return 'WEBP'
-  if (ext === 'gif') return 'GIF'
-  if (ext === 'bmp') return 'BMP'
-  return null // unsupported/unrecognized type — caller skips the image
-}
-
-// Single choke point for every doc.addImage() call in the export: never
-// calls addImage with missing/invalid data, and any failure inside jsPDF
-// itself (corrupt image bytes, etc.) is swallowed so one bad image can't
-// abort the whole export.
-function safeAddImage(doc, dataUrl, x, y, w, h) {
-  if (!dataUrl || typeof dataUrl !== 'string') return
-  const format = getImageFormatFromDataUrl(dataUrl)
-  if (!format) return
-  if ([x, y, w, h].some(n => typeof n !== 'number' || isNaN(n))) return
-  try {
-    doc.addImage(dataUrl, format, x, y, w, h)
-  } catch (err) {
-    console.error('PDF export: skipped an image that failed to embed', err)
-  }
-}
-
 async function exportAthletesListPDF(athletes, coaches, documents, visibleCols, allCols, lang, athleteSportsByAthlete = {}, filterSummaryText = '') {
   const ar = lang === 'ar'
   const STATUS_AR = {'Active':'نشط','Inactive':'غير نشط','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي','Injured':'مصاب','Under Medical Review':'تحت المراجعة الطبية','Suspended':'موقوف','Retired':'متقاعد'}
