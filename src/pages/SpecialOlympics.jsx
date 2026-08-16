@@ -6,6 +6,7 @@ import { isAdminRole, canViewAthleteDetails } from '../lib/permissions'
 import {
   ProfileAvatar, DashRow, Badge, statusClass, buildSearchText, matchesSearch,
   effectiveStatus, getCurrentSeason, loadImageAsDataURL, safeAddImage,
+  sportLabel, SPORT_NAMES_AR, targetCategoryLabel,
 } from '../lib/helpers'
 import { toast } from '../components/Toast'
 
@@ -22,21 +23,34 @@ function isSpecialOlympics(person) {
     || person.sport_category === 'Winter Special Olympics'
 }
 
-// Selectable PDF columns for the athlete table — checked in the export
-// modal. 'photo' is handled as a pseudo-column (paired next to the name
-// columns, like the Athletes page PDF) rather than a plain data field.
+// Canonical Special Olympics athlete export columns — mirrors the same
+// field set the Athletes page's own PDF/Excel export uses (colMap in
+// Athletes.jsx), so this isn't a separate/incomplete list: every field
+// available there that makes sense for an athlete report is available
+// here too. 'photo' is a pseudo-column, paired next to the name columns
+// like the Athletes page PDF, not a plain data field.
 const SO_ATHLETE_COLS = [
-  { key: 'photo',           labelEn: 'Photo',          labelAr: 'الصورة',           default: true, isPhoto: true },
-  { key: 'name',            labelEn: 'English Name',   labelAr: 'الاسم بالانجليزي', default: true },
-  { key: 'name_ar',         labelEn: 'Arabic Name',    labelAr: 'الاسم بالعربي',    default: false },
-  { key: 'nationality',     labelEn: 'Nationality',    labelAr: 'الجنسية',          default: true },
-  { key: 'classification',  labelEn: 'Classification', labelAr: 'التصنيف',          default: true },
-  { key: 'gender',          labelEn: 'Gender',         labelAr: 'الجنس',            default: false },
-  { key: 'dob',             labelEn: 'Date of Birth',  labelAr: 'تاريخ الميلاد',    default: false },
-  { key: 'age',             labelEn: 'Age',            labelAr: 'العمر',            default: false },
-  { key: 'status',          labelEn: 'Status',         labelAr: 'الحالة',           default: true },
-  { key: 'medical_status',  labelEn: 'Medical Status', labelAr: 'الحالة الطبية',    default: false },
-  { key: 'qss_number',      labelEn: 'QSS #',          labelAr: 'رقم QSS',          default: false },
+  { key: 'photo',            labelEn: 'Photo',              labelAr: 'الصورة',              default: true,  isPhoto: true },
+  { key: 'name',             labelEn: "Athlete's English Name", labelAr: 'اسم اللاعب بالانجليزي', default: true },
+  { key: 'name_ar',          labelEn: "Athlete's Arabic Name",  labelAr: 'اسم اللاعب بالعربي',    default: false },
+  { key: 'sport',            labelEn: 'Sport',              labelAr: 'الرياضة',             default: true },
+  { key: 'nationality',      labelEn: 'Nationality',        labelAr: 'الجنسية',             default: true },
+  { key: 'classification',   labelEn: 'Classification',     labelAr: 'التصنيف',             default: true },
+  { key: 'target_category',  labelEn: 'Targeted Athlete',   labelAr: 'الفئات المستهدفة',    default: false },
+  { key: 'coach_id',         labelEn: 'Coach',              labelAr: 'المدرب',              default: false },
+  { key: 'gender',           labelEn: 'Gender',             labelAr: 'الجنس',               default: false },
+  { key: 'dob',              labelEn: 'Date of Birth',      labelAr: 'تاريخ الميلاد',        default: false },
+  { key: 'age',              labelEn: 'Age',                labelAr: 'العمر',               default: false },
+  { key: 'status',           labelEn: 'Status',             labelAr: 'الحالة',              default: true },
+  { key: 'medical_status',   labelEn: 'Medical Status',     labelAr: 'الحالة الطبية',        default: false },
+  { key: 'qss_number',       labelEn: 'QSS #',              labelAr: 'رقم QSS',             default: false },
+  { key: 'id_number',        labelEn: 'Personal ID',        labelAr: 'الرقم الشخصي',        default: false },
+  { key: 'phone',            labelEn: 'Phone',              labelAr: 'الهاتف',              default: false },
+  { key: 'email',            labelEn: 'Email',              labelAr: 'البريد الإلكتروني',     default: false },
+  { key: 'join_date',        labelEn: 'Join Date',          labelAr: 'تاريخ الانضمام',        default: false },
+  { key: 'passport_number',  labelEn: 'Passport Number',    labelAr: 'رقم الجواز',           default: false },
+  { key: 'passport_expiry',  labelEn: 'Passport Expiry',    labelAr: 'انتهاء الجواز',         default: false },
+  { key: 'id_expiry',        labelEn: 'ID Expiry',          labelAr: 'انتهاء البطاقة',        default: false },
 ]
 
 export default function SpecialOlympics({ athletes = [], coaches = [], onNav, profile }) {
@@ -88,7 +102,7 @@ export default function SpecialOlympics({ athletes = [], coaches = [], onNav, pr
     try {
       // Live data at export time — re-reads the same soAthletes/soCoaches
       // the page is currently showing, never a cached/earlier snapshot.
-      await exportSpecialOlympicsPDF(soAthletes, soCoaches, exportLang, exportCols)
+      await exportSpecialOlympicsPDF(soAthletes, soCoaches, coaches, exportLang, exportCols)
     } catch (err) {
       console.error('Special Olympics PDF export failed', err)
       toast(ar ? 'تعذر إنشاء ملف PDF' : 'Could not generate the PDF')
@@ -100,11 +114,11 @@ export default function SpecialOlympics({ athletes = [], coaches = [], onNav, pr
   return (
     <div>
       <div style={{
-        display:'flex', alignItems:'center', gap:18, flexWrap:'wrap',
-        background:'linear-gradient(135deg,#0085C7,#00A5E0)', borderRadius:16,
-        padding:'22px 26px', marginBottom:20, color:'#fff',
+        display:'flex', alignItems:'center', gap:20, flexWrap:'wrap',
+        background:'linear-gradient(135deg,#c0392b,#e74c3c)', borderRadius:16,
+        padding:'20px 26px', marginBottom:20, color:'#fff',
       }}>
-        <div style={{ width:64, height:64, borderRadius:12, background:'#fff', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, padding:6 }}>
+        <div style={{ width:92, height:92, borderRadius:14, background:'#fff', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, padding:8 }}>
           <img src="/logo-so.png" alt="Special Olympics" style={{ maxWidth:'100%', maxHeight:'100%', objectFit:'contain' }} />
         </div>
         <div style={{ flex:1, minWidth:180 }}>
@@ -189,14 +203,20 @@ export default function SpecialOlympics({ athletes = [], coaches = [], onNav, pr
         }
       </div>
 
-      {exportModalOpen && (
+      {exportModalOpen && (() => {
+        // The modal's OWN language follows the export-language toggle
+        // (exportLang), independent of the page's current display
+        // language (`ar`/`lang`) — selecting Arabic here must localize
+        // every label in the modal itself, not just the resulting PDF.
+        const modalAr = exportLang === 'ar'
+        return (
         <div
           onMouseDown={(e) => { if (e.target === e.currentTarget) setExportModalOpen(false) }}
           style={{ position:'fixed', inset:0, zIndex:2000, background:'rgba(10,10,14,.5)', backdropFilter:'blur(3px)', display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
-          <div ref={modalRef} onMouseDown={e => e.stopPropagation()}
+          <div ref={modalRef} dir={modalAr ? 'rtl' : 'ltr'} onMouseDown={e => e.stopPropagation()}
             style={{ width:'100%', maxWidth:420, maxHeight:'86vh', background:'var(--surface)', borderRadius:14, boxShadow:'0 20px 60px rgba(0,0,0,.35)', display:'flex', flexDirection:'column', overflow:'hidden' }}>
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'16px 18px', borderBottom:'1px solid var(--border)' }}>
-              <div style={{ fontSize:15, fontWeight:700 }}>{ar ? 'تصدير PDF — الأولمبياد الخاص' : 'Export PDF — Special Olympics'}</div>
+              <div style={{ fontSize:15, fontWeight:700 }}>{modalAr ? 'تصدير PDF — الأولمبياد الخاص' : 'Export PDF — Special Olympics'}</div>
               <button type="button" onClick={() => setExportModalOpen(false)} style={{ width:28, height:28, borderRadius:8, border:'none', background:'var(--surface2)', color:'var(--text2)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
                 <i className="ti ti-x" />
               </button>
@@ -204,7 +224,7 @@ export default function SpecialOlympics({ athletes = [], coaches = [], onNav, pr
 
             <div style={{ padding:'16px 18px', overflowY:'auto', flex:1 }}>
               <div style={{ fontSize:11.5, fontWeight:600, color:'var(--text3)', textTransform:'uppercase', letterSpacing:.4, marginBottom:8 }}>
-                {ar ? 'الخطوة 1 — اللغة' : 'Step 1 — Language'}
+                {modalAr ? 'الخطوة 1 — اللغة' : 'Step 1 — Language'}
               </div>
               <div style={{ display:'flex', gap:8, marginBottom:20 }}>
                 {[{ v:'en', l:'English' }, { v:'ar', l:'العربية' }].map(opt => (
@@ -222,14 +242,14 @@ export default function SpecialOlympics({ athletes = [], coaches = [], onNav, pr
 
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8 }}>
                 <div style={{ fontSize:11.5, fontWeight:600, color:'var(--text3)', textTransform:'uppercase', letterSpacing:.4 }}>
-                  {ar ? 'الخطوة 2 — الأعمدة' : 'Step 2 — Columns'}
+                  {modalAr ? 'الخطوة 2 — الأعمدة' : 'Step 2 — Columns'}
                 </div>
                 <div style={{ display:'flex', gap:8 }}>
                   <button type="button" onClick={() => setExportCols(SO_ATHLETE_COLS.map(c => c.key))} style={{ fontSize:11, color:'#0085C7', background:'none', border:'none', cursor:'pointer', fontWeight:600 }}>
-                    {ar ? 'تحديد الكل' : 'Select All'}
+                    {modalAr ? 'تحديد الكل' : 'Select All'}
                   </button>
                   <button type="button" onClick={() => setExportCols([])} style={{ fontSize:11, color:'var(--text3)', background:'none', border:'none', cursor:'pointer', fontWeight:600 }}>
-                    {ar ? 'مسح الكل' : 'Clear All'}
+                    {modalAr ? 'مسح الكل' : 'Clear All'}
                   </button>
                 </div>
               </div>
@@ -237,12 +257,12 @@ export default function SpecialOlympics({ athletes = [], coaches = [], onNav, pr
                 {SO_ATHLETE_COLS.map(c => (
                   <label key={c.key} style={{ display:'flex', alignItems:'center', gap:9, padding:'8px 12px', fontSize:13, borderBottom:'1px solid var(--border)', cursor:'pointer' }}>
                     <input type="checkbox" checked={exportCols.includes(c.key)} onChange={() => toggleCol(c.key)} />
-                    <span>{ar ? c.labelAr : c.labelEn}</span>
+                    <span>{modalAr ? c.labelAr : c.labelEn}</span>
                   </label>
                 ))}
               </div>
               <div style={{ fontSize:11, color:'var(--text3)', marginTop:8 }}>
-                {ar ? 'معلومات المدرب تُدرج دائمًا بشكل منفصل بغض النظر عن اختيارك.' : 'Coach information is always included separately, regardless of your selection.'}
+                {modalAr ? 'معلومات المدرب تُدرج دائمًا بشكل منفصل بغض النظر عن اختيارك.' : 'Coach information is always included separately, regardless of your selection.'}
               </div>
             </div>
 
@@ -257,12 +277,13 @@ export default function SpecialOlympics({ athletes = [], coaches = [], onNav, pr
                   border:'none', borderRadius:9, padding:'11px 16px', fontSize:14, fontWeight:700,
                   cursor: exportCols.length === 0 ? 'not-allowed' : 'pointer',
                 }}>
-                <i className="ti ti-file-type-pdf" /> {ar ? 'تصدير PDF' : 'Export PDF'}
+                <i className="ti ti-file-type-pdf" /> {modalAr ? 'تصدير PDF' : 'Export PDF'}
               </button>
             </div>
           </div>
         </div>
-      )}
+        )
+      })()}
     </div>
   )
 }
@@ -274,7 +295,7 @@ export default function SpecialOlympics({ athletes = [], coaches = [], onNav, pr
 // are passed in at call time — i.e. live data, not a cached snapshot.
 // `exportLang`/`selectedColKeys` come from the export modal, independent of
 // the page's own current display language/state.
-async function exportSpecialOlympicsPDF(soAthletes, soCoaches, exportLang, selectedColKeys) {
+async function exportSpecialOlympicsPDF(soAthletes, soCoaches, allCoaches, exportLang, selectedColKeys) {
   const ar = exportLang === 'ar'
   const L = (en, a) => ar ? a : en
   const STATUS_AR = {'Active':'نشط','Inactive':'غير نشط','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي','Injured':'مصاب','Under Medical Review':'تحت المراجعة الطبية','Suspended':'موقوف','Retired':'متقاعد'}
@@ -352,7 +373,15 @@ async function exportSpecialOlympicsPDF(soAthletes, soCoaches, exportLang, selec
   // current font — same technique used by the Athletes list PDF export, so
   // short headers never wrap and wide data columns (Name) absorb whatever
   // space is left.
-  function drawTable(startY, titleEn, titleAr, photoColIndex, headLabels, bodyRows, photoUrls, accentTint) {
+  // Columns whose content is genuinely Arabic prose (names, sport, coach,
+  // status, medical status, nationality, gender, target category) get
+  // right-aligned in Arabic mode — same convention as the Athletes list
+  // PDF. Numeric/date/ID columns (QSS #, phone, expiry dates, etc.) are
+  // deliberately left out and stay left-aligned even in Arabic mode, so
+  // they're never visually flipped.
+  const ARABIC_PROSE_KEYS = new Set(['name', 'name_ar', 'sport', 'coach_id', 'status', 'medical_status', 'nationality', 'gender', 'target_category', 'designation'])
+
+  function drawTable(startY, titleEn, titleAr, photoColIndex, headLabels, colKeys, bodyRows, photoUrls, accentTint) {
     setPdfFont('bold')
     doc.setFontSize(11.5)
     doc.setTextColor(SO_RED[0], SO_RED[1], SO_RED[2])
@@ -373,9 +402,11 @@ async function exportSpecialOlympicsPDF(soAthletes, soCoaches, exportLang, selec
       headerFontSize -= 0.5
     }
     const columnStyles = Object.fromEntries(
-      headLabels.map((_, i) => [i, i === photoColIndex
-        ? { minCellWidth: colMinWidths[i], minCellHeight: PHOTO_IMG_SIZE + 8, halign: 'center' }
-        : { minCellWidth: colMinWidths[i] }])
+      headLabels.map((_, i) => {
+        if (i === photoColIndex) return [i, { minCellWidth: colMinWidths[i], minCellHeight: PHOTO_IMG_SIZE + 8, halign: 'center' }]
+        const isProse = ar && ARABIC_PROSE_KEYS.has(colKeys[i])
+        return [i, { minCellWidth: colMinWidths[i], halign: ar ? (isProse ? 'right' : 'left') : 'left' }]
+      })
     )
 
     autoTable(doc, {
@@ -383,17 +414,12 @@ async function exportSpecialOlympicsPDF(soAthletes, soCoaches, exportLang, selec
       body: bodyRows,
       startY: startY + 8,
       margin: { top: HEADER_H, left: 36, right: 36, bottom: 26 },
-      styles: { font: FONT, fontSize: 7.5, cellPadding: 3, valign: 'middle', overflow: 'linebreak', halign: ar ? 'right' : 'left', lineColor: [230, 210, 210], lineWidth: 0.5 },
+      styles: { font: FONT, fontSize: 7.5, cellPadding: 3, valign: 'middle', overflow: 'linebreak', halign: 'left', lineColor: [230, 210, 210], lineWidth: 0.5 },
       headStyles: { font: FONT, fontSize: headerFontSize, fillColor: SO_RED, textColor: 255, fontStyle: 'bold', halign: ar ? 'right' : 'left' },
       alternateRowStyles: { fillColor: accentTint },
       columnStyles,
       showHead: 'everyPage',
       didDrawPage: drawHeader,
-      didParseCell: (data) => {
-        if (data.column.index === photoColIndex) return
-        if (!ar) return
-        data.cell.styles.halign = 'right'
-      },
       didDrawCell: (data) => {
         if (data.section === 'body' && data.column.index === photoColIndex) {
           const dataUrl = photoUrls[data.row.index]
@@ -422,13 +448,16 @@ async function exportSpecialOlympicsPDF(soAthletes, soCoaches, exportLang, selec
     ? [...coachColumns.map(k => coachLabels[k]).reverse(), L('Photo','الصورة')]
     : [L('Photo','الصورة'), ...coachColumns.map(k => coachLabels[k])]
   const coachPhotoColIndex = ar ? coachColumns.length : 0
+  const coachColKeys = ar
+    ? [...[...coachColumns].reverse(), '__photo__']
+    : ['__photo__', ...coachColumns]
   const coachBody = soCoaches.map(c => {
     const cells = coachColumns.map(k => safeStr(coachGetters[k](c)))
     return ar ? ['', ...cells.reverse()] : ['', ...cells]
   })
 
   let y = HEADER_H + 22
-  y = drawTable(y, 'Coaches', 'المدربون', coachPhotoColIndex, coachHeadLabels, coachBody, coachPhotos, [252, 235, 235])
+  y = drawTable(y, 'Coaches', 'المدربون', coachPhotoColIndex, coachHeadLabels, coachColKeys, coachBody, coachPhotos, [252, 235, 235])
 
   if (y > doc.internal.pageSize.getHeight() - 120) {
     doc.addPage()
@@ -442,14 +471,24 @@ async function exportSpecialOlympicsPDF(soAthletes, soCoaches, exportLang, selec
   const ATHLETE_GETTERS = {
     name: a => a.name || '',
     name_ar: a => a.name_ar || '',
+    sport: a => a.sport ? sportLabel(a.sport, a.sport_category, ar) : '',
     nationality: a => translateCountry(a.nationality, ar ? 'ar' : 'en'),
     classification: a => a.classification || '',
+    target_category: a => a.target_category ? targetCategoryLabel(a.target_category, ar ? 'ar' : 'en') : '',
+    coach_id: a => { const c = allCoaches.find(c => c.id === a.coach_id); return c ? (ar && c.name_ar ? c.name_ar : c.name) : '' },
     gender: a => a.gender ? (ar ? (a.gender==='Male'?'ذكر':'أنثى') : a.gender) : '',
     dob: a => a.dob || '',
     age: a => a.age ?? '',
     status: a => statusLabel(effectiveStatus(a)),
     medical_status: a => a.medical_status || '',
     qss_number: a => a.qss_number || '',
+    id_number: a => a.id_number || '',
+    phone: a => a.phone || '',
+    email: a => a.email || '',
+    join_date: a => a.join_date || '',
+    passport_number: a => a.passport_number || '',
+    passport_expiry: a => a.passport_expiry || '',
+    id_expiry: a => a.id_expiry || '',
   }
   const selectedDataCols = SO_ATHLETE_COLS.filter(c => !c.isPhoto && selectedColKeys.includes(c.key))
   const includePhoto = selectedColKeys.includes('photo')
@@ -471,6 +510,9 @@ async function exportSpecialOlympicsPDF(soAthletes, soCoaches, exportLang, selec
     ? (ar ? [...orderedDataCols.map(c => c.labelAr), L('Photo','الصورة')] : [L('Photo','الصورة'), ...orderedDataCols.map(c => c.labelEn)])
     : orderedDataCols.map(c => ar ? c.labelAr : c.labelEn)
   const athletePhotoColIndex = includePhoto ? (ar ? orderedDataCols.length : 0) : -1
+  const athleteColKeys = includePhoto
+    ? (ar ? [...orderedDataCols.map(c => c.key), '__photo__'] : ['__photo__', ...orderedDataCols.map(c => c.key)])
+    : orderedDataCols.map(c => c.key)
   const athleteBody = soAthletes.map(a => {
     const cells = orderedDataCols.map(c => safeStr(ATHLETE_GETTERS[c.key]?.(a)))
     if (!includePhoto) return cells
@@ -478,7 +520,7 @@ async function exportSpecialOlympicsPDF(soAthletes, soCoaches, exportLang, selec
   })
 
   if (orderedDataCols.length > 0 || includePhoto) {
-    drawTable(y, 'Athletes', 'الرياضيون', athletePhotoColIndex, athleteHeadLabels, athleteBody, athletePhotos, [253, 245, 245])
+    drawTable(y, 'Athletes', 'الرياضيون', athletePhotoColIndex, athleteHeadLabels, athleteColKeys, athleteBody, athletePhotos, [253, 245, 245])
   }
 
   const date = new Date().toISOString().slice(0, 10)
