@@ -2957,7 +2957,7 @@ ${myDocs.length > 0 ? `<div class="section">
 
   // ── COLUMN DEFINITIONS ──
   const ALL_COLS = [
-    { key:'name',            label:tx('athletes.athlete','Athlete'),          default:true,  editable:true  },
+    { key:'name',            label:tx('athletes.athlete',"Athlete's Name"),   default:true,  editable:true  },
     { key:'name_ar',         label:lang==='ar' ? tx('athletes.athlete','الاسم بالإنجليزي') : tx('athletes.arabicName','Arabic Name'),   default:false, editable:false },
     { key:'qss_number',      label:tx('athletes.qssNumber','QSS #'),          default:false, editable:false },
     { key:'id_number',       label:tx('athletes.qatarID','Qatar ID'),         default:false, editable:false },
