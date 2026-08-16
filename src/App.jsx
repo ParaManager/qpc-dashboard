@@ -570,69 +570,65 @@ export default function App() {
   // Manual refresh for mobile/tablet, where pull-to-refresh isn't available in a
   // Manual refresh for mobile/tablet. Two different problems live under one button:
   // (1) stale DATA — fixed by re-fetching from Supabase, same as any reload would do.
-  // (2) stale CODE — when this app is added to the home screen, iOS/Android run it
-  // in a standalone webview that does NOT re-check for a new JS bundle the way a
-  // normal browser tab does — AND this app has its own service worker doing
-  // network-first-with-cache-fallback caching (see public/sw.js), which can keep
-  // serving an old cached bundle even after a normal reload. A real fix needs to
-  // clear that cache and unregister the worker before reloading, not just change
-  // the URL — a cache-busted query string alone doesn't make the service worker
-  // treat the request any differently.
-  function isStandalone() {
-    return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true
+  // (2) stale CODE — this app has its own service worker doing network-first-with-
+  // cache-fallback caching (see public/sw.js), which can keep serving an old cached
+  // bundle after a Vercel deploy even after a normal reload — and when the app is
+  // added to the home screen, iOS/Android run it in a standalone webview that
+  // doesn't re-check for a new JS bundle the way a normal browser tab does either.
+  // A real fix needs to unregister the worker and clear its cache before reloading,
+  // not just change the URL — a cache-busted query string alone doesn't make the
+  // service worker treat the request any differently. This applies in both normal
+  // browser tabs and standalone/installed mode, so both go through the same path
+  // below rather than two different implementations.
+
+  // Unregisters the service worker and clears the Cache Storage API entries
+  // it created — this is Cache Storage only (public/sw.js's own cache),
+  // never localStorage/sessionStorage/cookies, so the Supabase auth session
+  // and Role Preview (sessionStorage, see useAuth.js) are untouched and the
+  // person stays signed in and in whatever preview state they were in.
+  async function clearServiceWorkerAndCaches() {
+    try {
+      if ('serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations()
+        await Promise.all(registrations.map(r => r.unregister()))
+      }
+      if ('caches' in window) {
+        const keys = await caches.keys()
+        await Promise.all(keys.map(k => caches.delete(k)))
+      }
+    } catch (e) {
+      // Even if clearing fails for some reason, still let the reload proceed
+      // rather than leaving the person stuck with no way forward.
+      console.error('Failed to clear service worker/cache:', e)
+    }
   }
 
   async function handleRefresh() {
     if (isRefreshing) return
     setIsRefreshing(true)
 
-    if (isStandalone()) {
-      try {
-        if ('serviceWorker' in navigator) {
-          const registrations = await navigator.serviceWorker.getRegistrations()
-          await Promise.all(registrations.map(r => r.unregister()))
-        }
-        if ('caches' in window) {
-          const keys = await caches.keys()
-          await Promise.all(keys.map(k => caches.delete(k)))
-        }
-      } catch (e) {
-        // Even if clearing fails for some reason, still attempt the reload below
-        // rather than leaving the person stuck with no way forward.
-        console.error('Failed to clear service worker/cache:', e)
-      }
-      // Force a real reload from the server — by this point there's no service
-      // worker left to intercept the request, and no cache left for it to serve
-      // from even if there were.
-      const url = new URL(window.location.href)
-      url.searchParams.set('_refresh', Date.now().toString())
-      window.location.href = url.toString()
-      return
-    }
-
-    const start = Date.now()
+    // 1. Refresh app data first, so it's already current even in the brief
+    // moment before the reload below actually kicks in. Non-fatal if this
+    // fails — still proceed to check for a newer deployed bundle either way.
     try {
       await fetchAll()
-      // fetchAll() only repopulates App.jsx's own central state (athletes,
-      // coaches, events, etc.), which pages that just read it via props
-      // already pick up automatically. But several pages (Tasks, Requests,
-      // Athletes' per-sport assignment breakdown, etc.) fetch some of their
-      // own data independently in a mount-time effect — fetchAll() alone
-      // never reaches those. Rather than duplicating each page's fetch
-      // logic here, bump the same refreshToken every page is already keyed
-      // on (key={`${page}-${refreshToken}`}) — React remounts the current
-      // page, which re-runs its own mount-time fetch effects exactly like
-      // navigating to it fresh would. This is the one centralized signal
-      // both fetchAll() callers and self-fetching pages share, instead of
-      // three different ad-hoc refresh mechanisms.
-      setRefreshToken(t => t + 1)
     } catch (err) {
       console.error('Refresh failed:', err)
-      toast(lang === 'ar' ? 'تعذر التحديث' : 'Refresh failed', 'error')
-    } finally {
-      const elapsed = Date.now() - start
-      setTimeout(() => setIsRefreshing(false), Math.max(0, 500 - elapsed))
+      toast(lang === 'ar' ? 'تعذر تحديث البيانات' : 'Failed to refresh data', 'error')
     }
+
+    // 2 & 3. Check/update the service worker and clear its cache, so nothing
+    // stale can be served after the reload below.
+    await clearServiceWorkerAndCaches()
+
+    // 4. Reload from the server so the newest Vercel-deployed bundle loads —
+    // by this point there's no service worker left to intercept the request
+    // and no cache left for it to serve from even if there were. The
+    // spinner stays on (isRefreshing never resets) since the page is about
+    // to unload anyway.
+    const url = new URL(window.location.href)
+    url.searchParams.set('_refresh', Date.now().toString())
+    window.location.href = url.toString()
   }
 
   // Keep the sidebar section containing the current page expanded, even if the
