@@ -1381,7 +1381,7 @@ function AthleteCoachHistory({ athleteId, coaches, employees, lang }) {
   )
 }
 
-export default function Athletes({ athletes, coaches, employees, results, documents, events, registrations, onRefresh, onNav, initAthleteId, initStatusFilter, navState, profile, pageTitle, isAllAthletesView = false, sportsList = [] }) {
+export default function Athletes({ athletes, coaches, employees, results, documents, events, registrations, onRefresh, onNav, initAthleteId, initStatusFilter, onConsumeNavState, navState, profile, pageTitle, isAllAthletesView = false, sportsList = [] }) {
   const { tx, lang, tc } = useLang()
 
   // Bulk athlete_sports fetch — one query for the whole table (not one per
@@ -1601,13 +1601,23 @@ export default function Athletes({ athletes, coaches, employees, results, docume
   const docInput   = useRef(null)
   const [cropFile, setCropFile] = useState(null) // { athleteId, file } pending crop
   useEffect(() => {
-    if (initAthleteId != null) setSelected(initAthleteId)
+    if (initAthleteId != null) {
+      setSelected(initAthleteId)
+      onConsumeNavState?.('athleteId') // one-time "open this athlete" intent — must not reapply on a later remount
+    }
     // Routed here from elsewhere (e.g. a Dashboard KPI card) with a status
     // to pre-filter by — applied through the same colFilters the visible
     // per-column "Status" dropdown reads, so it's never an invisible
     // filter: the dropdown itself shows the selection, and it counts
     // through the exact same active-filters mechanism as a manual pick.
-    if (initStatusFilter)      setColFilters(f => ({ ...f, status: [initStatusFilter] }))
+    // Consumed exactly once: immediately cleared from the parent's
+    // navState so a later remount (global Refresh button, an unrelated
+    // nav-reset, etc.) can never silently reapply it after the person has
+    // changed or cleared the filter themselves.
+    if (initStatusFilter) {
+      setColFilters(f => ({ ...f, status: [initStatusFilter] }))
+      onConsumeNavState?.('statusFilter')
+    }
   }, [initAthleteId, initStatusFilter])
 
   // Reset everything when nav clicked while already on athletes page — but

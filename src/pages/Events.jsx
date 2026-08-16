@@ -149,7 +149,7 @@ function OfficialsPicker({ roleKey, title, officials, employees, eventId, canEdi
 
 
 
-export default function Events({ events, athletes, results, registrations, onRefresh, onNav, initEventId, initStatusFilter, profile, eventCategories = [], employees = [], sportsList = [], guestMode = false }) {
+export default function Events({ events, athletes, results, registrations, onRefresh, onNav, initEventId, initStatusFilter, onConsumeNavState, profile, eventCategories = [], employees = [], sportsList = [], guestMode = false }) {
   const { lang, tx } = useLang()
   const ar = lang === 'ar'
 
@@ -187,8 +187,19 @@ export default function Events({ events, athletes, results, registrations, onRef
   const [athleteSearch, setAthleteSearch] = useState('')
 
   useEffect(() => {
-    if (initEventId)      setSelected(initEventId)
-    if (initStatusFilter) setStatusF(initStatusFilter)
+    if (initEventId) {
+      setSelected(initEventId)
+      onConsumeNavState?.('eventId') // one-time "open this event" intent — must not reapply on a later remount
+    }
+    // One-time nav-originated status filter (e.g. a Dashboard KPI card) —
+    // consumed exactly once, then immediately cleared from the parent's
+    // navState so a later remount (global Refresh button, unrelated
+    // nav-reset, etc.) can never silently reapply it after the person has
+    // changed or cleared the filter themselves.
+    if (initStatusFilter) {
+      setStatusF(initStatusFilter)
+      onConsumeNavState?.('statusFilter')
+    }
   }, [initEventId, initStatusFilter])
 
   useEffect(() => {
