@@ -111,26 +111,6 @@ export default function SpecialOlympics({ athletes = [], coaches = [], onNav, pr
 
       <div className="info-card" style={{ marginBottom:20 }}>
         <div className="info-title">
-          {ar ? 'الرياضيون' : 'Athletes'} ({filteredAthletes.length})
-          {canClickAthletes && <span style={{ fontSize:10, fontWeight:400, textTransform:'none', letterSpacing:0 }}> — {tx('athletes.clickToView','click to view')}</span>}
-        </div>
-        {filteredAthletes.length === 0
-          ? <div className="empty">{ar ? 'لا يوجد رياضيون' : 'No athletes'}</div>
-          : filteredAthletes.map(a => (
-              <DashRow key={a.id} clickable={canClickAthletes} onClick={() => onNav('athletes', { athleteId: a.id })}>
-                <ProfileAvatar photoUrl={a.photo_url} name={a.name} id={a.id} size={34} fs={11} />
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontSize:13, fontWeight:500 }}>{ar && a.name_ar ? a.name_ar : a.name}</div>
-                  <div style={{ fontSize:11, color:'var(--text3)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{translateCountry(a.nationality, lang)}</div>
-                </div>
-                <Badge label={effectiveStatus(a)} cls={statusClass(effectiveStatus(a))} />
-              </DashRow>
-            ))
-        }
-      </div>
-
-      <div className="info-card">
-        <div className="info-title">
           {ar ? 'المدربون' : 'Coaches'} ({filteredCoaches.length})
           {canClickCoaches && <span style={{ fontSize:10, fontWeight:400, textTransform:'none', letterSpacing:0 }}> — {tx('athletes.clickToView','click to view')}</span>}
         </div>
@@ -144,6 +124,26 @@ export default function SpecialOlympics({ athletes = [], coaches = [], onNav, pr
                   <div style={{ fontSize:11, color:'var(--text3)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{translateCountry(c.nationality, lang)}</div>
                 </div>
                 <Badge label={effectiveStatus(c)} cls={statusClass(effectiveStatus(c))} />
+              </DashRow>
+            ))
+        }
+      </div>
+
+      <div className="info-card">
+        <div className="info-title">
+          {ar ? 'الرياضيون' : 'Athletes'} ({filteredAthletes.length})
+          {canClickAthletes && <span style={{ fontSize:10, fontWeight:400, textTransform:'none', letterSpacing:0 }}> — {tx('athletes.clickToView','click to view')}</span>}
+        </div>
+        {filteredAthletes.length === 0
+          ? <div className="empty">{ar ? 'لا يوجد رياضيون' : 'No athletes'}</div>
+          : filteredAthletes.map(a => (
+              <DashRow key={a.id} clickable={canClickAthletes} onClick={() => onNav('athletes', { athleteId: a.id })}>
+                <ProfileAvatar photoUrl={a.photo_url} name={a.name} id={a.id} size={34} fs={11} />
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontSize:13, fontWeight:500 }}>{ar && a.name_ar ? a.name_ar : a.name}</div>
+                  <div style={{ fontSize:11, color:'var(--text3)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{translateCountry(a.nationality, lang)}</div>
+                </div>
+                <Badge label={effectiveStatus(a)} cls={statusClass(effectiveStatus(a))} />
               </DashRow>
             ))
         }
