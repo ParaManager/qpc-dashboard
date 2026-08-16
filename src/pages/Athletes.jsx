@@ -875,14 +875,21 @@ async function exportAthletesListPDF(athletes, coaches, documents, visibleCols, 
   // left alone, since jsPDF's RTL reversal is a naive whole-string flip
   // that would scramble digits and dates if applied to them. Indexes are
   // computed against the final `columns` array (the actual on-page order).
-  const ARABIC_COL_KEYS = new Set(['name', 'name_ar', 'sport', 'coach_id', 'status', 'medical_status'])
+  const ARABIC_COL_KEYS = new Set(['name', 'name_ar', 'sport', 'coach_id', 'status', 'medical_status', 'target_category'])
   const arabicColIndexes = new Set(
     columns.reduce((acc, c, i) => { if (!c.isPhoto && ARABIC_COL_KEYS.has(c.key)) acc.push(i); return acc }, [])
   )
-  // name_ar always contains real Arabic text, even in an otherwise-English
-  // export — its column index is tracked separately so the font override
-  // below applies regardless of the export's overall language.
-  const nameArColIndex = columns.findIndex(c => c.key === 'name_ar')
+  // Columns that are ALWAYS real Arabic text regardless of export
+  // language — 'name_ar' (Arabic Name) and 'target_category' (الفئات
+  // المستهدفة, whose header and values are intentionally Arabic-only, per
+  // TARGET_CATEGORY_OPTIONS). Their column indexes are tracked separately
+  // so the font override below applies even in an otherwise-English
+  // export, instead of falling back to Helvetica (which has no Arabic
+  // glyphs and produces garbled text).
+  const ALWAYS_ARABIC_COL_KEYS = new Set(['name_ar', 'target_category'])
+  const alwaysArabicColIndexes = new Set(
+    columns.reduce((acc, c, i) => { if (!c.isPhoto && ALWAYS_ARABIC_COL_KEYS.has(c.key)) acc.push(i); return acc }, [])
+  )
 
   // Preload the QPC letterhead logo and every visible athlete's profile
   // photo (same photo_url field the app itself displays) as data URLs —
@@ -901,12 +908,13 @@ async function exportAthletesListPDF(athletes, coaches, documents, visibleCols, 
   // glyphs at all, which is what produces mojibake/garbled boxes. Loaded
   // lazily so exports that will never render Arabic text don't pay for
   // this chunk. Needed not just for full Arabic exports, but also for an
-  // English export that includes the "Arabic Name" (name_ar) column —
-  // that column's cells still contain real Arabic text and need the same
-  // font even though the rest of the document stays Helvetica/LTR. Falls
-  // back to Helvetica (with a console warning) if the font somehow fails
-  // to load, rather than crashing the export.
-  const needsArabicFont = ar || (visibleCols || []).includes('name_ar')
+  // English export that includes an intentionally-Arabic-only column
+  // (Arabic Name, الفئات المستهدفة) — those cells still contain real
+  // Arabic text and need the same font even though the rest of the
+  // document stays Helvetica/LTR. Falls back to Helvetica (with a
+  // console warning) if the font somehow fails to load, rather than
+  // crashing the export.
+  const needsArabicFont = ar || (visibleCols || []).some(k => ALWAYS_ARABIC_COL_KEYS.has(k))
   let arabicFontOk = false
   if (needsArabicFont) {
     try {
@@ -941,6 +949,11 @@ async function exportAthletesListPDF(athletes, coaches, documents, visibleCols, 
   }
 
   // ── Letterhead (repeated on every page via autoTable's didDrawPage) ──
+  // QPC maroon/burgundy, sampled from the official logo — replaces the
+  // previous blue as the report's one accent/header color, so the PDF
+  // visually matches the letterhead logo instead of an unrelated color.
+  const QPC_MAROON = [87, 25, 50]
+
   function drawHeader() {
     const topY = 14
     safeAddImage(doc, logoDataUrl, 36, topY, logoW, logoH) // no-ops cleanly if the logo failed to load
@@ -960,7 +973,8 @@ async function exportAthletesListPDF(athletes, coaches, documents, visibleCols, 
       doc.setFontSize(7.5)
       doc.text(safeStr(filterSummaryText), pageWidth - 36, topY + 22, { align: 'right', maxWidth: pageWidth - 200 })
     }
-    doc.setDrawColor(210, 210, 210)
+    doc.setDrawColor(QPC_MAROON[0], QPC_MAROON[1], QPC_MAROON[2])
+    doc.setLineWidth(1.1)
     doc.line(36, topY + 44, pageWidth - 36, topY + 44)
   }
 
@@ -986,10 +1000,15 @@ async function exportAthletesListPDF(athletes, coaches, documents, visibleCols, 
   let headerFontSize = 7.5
   let colMinWidths = {}
   for (let attempt = 0; attempt < 6; attempt++) {
-    setPdfFont('bold')
     doc.setFontSize(headerFontSize)
     colMinWidths = {}
     columns.forEach((c, i) => {
+      // Measure each header with the font that will actually render it —
+      // an always-Arabic column (Arabic Name, الفئات المستهدفة) still
+      // measures with Amiri even in an English export, since Helvetica
+      // has no glyph widths for Arabic text and would under/over-measure it.
+      const measureFont = (arabicFontOk && ALWAYS_ARABIC_COL_KEYS.has(c.key)) ? 'Amiri' : FONT
+      doc.setFont(measureFont, 'bold')
       const headerW = Math.ceil(doc.getTextWidth(safeStr(c.label))) + HEADER_CELL_PADDING
       colMinWidths[i] = c.isPhoto ? Math.max(PHOTO_IMG_SIZE + 8, headerW) : headerW
     })
@@ -1009,9 +1028,9 @@ async function exportAthletesListPDF(athletes, coaches, documents, visibleCols, 
       body,
       startY: HEADER_H,
       margin: { top: HEADER_H, left: 36, right: 36, bottom: 26 },
-      styles: { font: FONT, fontSize: 7.5, cellPadding: 3, valign: 'middle', overflow: 'linebreak', halign: ar ? 'right' : 'left', lineColor: [225, 228, 232], lineWidth: 0.5 },
-      headStyles: { font: FONT, fillColor: [0, 133, 199], textColor: 255, fontStyle: 'bold', fontSize: headerFontSize, halign: ar ? 'right' : 'left', cellPadding: { top: 4, right: 4, bottom: 4, left: 4 } },
-      alternateRowStyles: { fillColor: [246, 248, 250] },
+      styles: { font: FONT, fontSize: 7.5, cellPadding: { top: 3, right: 4, bottom: 3, left: 4 }, valign: 'middle', overflow: 'linebreak', halign: ar ? 'right' : 'left', lineColor: [232, 220, 224], lineWidth: 0.4 },
+      headStyles: { font: FONT, fillColor: QPC_MAROON, textColor: 255, fontStyle: 'bold', fontSize: headerFontSize, halign: ar ? 'right' : 'left', cellPadding: { top: 4, right: 4, bottom: 4, left: 4 } },
+      alternateRowStyles: { fillColor: [249, 244, 245] },
       columnStyles,
       showHead: 'everyPage', // repeat table header on every page
       didDrawPage: drawHeader,
@@ -1026,12 +1045,17 @@ async function exportAthletesListPDF(athletes, coaches, documents, visibleCols, 
       // producing mixed/garbled output before.
       didParseCell: (data) => {
         if (data.column.index === photoColIndex) return // photo column stays centered
-        // The Arabic Name column always contains real Arabic text, even in
-        // an English (LTR/Helvetica) export — force it onto the Amiri font
-        // regardless of export language, so it renders correctly instead
-        // of falling back to Helvetica's missing Arabic glyphs.
-        if (arabicFontOk && data.column.index === nameArColIndex) {
+        // Intentionally-Arabic-only columns (Arabic Name, الفئات المستهدفة)
+        // always contain real Arabic text, even in an English (LTR/
+        // Helvetica) export — force them onto the Amiri font regardless of
+        // export language, so they render correctly instead of falling
+        // back to Helvetica's missing Arabic glyphs. Their header cells
+        // get the same treatment (data.section === 'head' still matches
+        // this column index), and in an English export they also stay
+        // right-aligned since the text itself is Arabic.
+        if (arabicFontOk && alwaysArabicColIndexes.has(data.column.index)) {
           data.cell.styles.font = 'Amiri'
+          data.cell.styles.halign = 'right'
         }
         if (!ar) return
         data.cell.styles.halign = (data.section === 'head' || arabicColIndexes.has(data.column.index)) ? 'right' : 'left'
