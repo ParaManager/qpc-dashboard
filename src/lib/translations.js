@@ -75,7 +75,7 @@ export const AR = {
     disMultiple:'إعاقات متعددة', disOther:'أخرى',
     emergencyPhone:'هاتف الطوارئ', notesPlaceholder:'أضف ملاحظات عن هذا الرياضي…',
     editMode:'وضع التعديل نشط', editModeDesc:'انقر على أي خلية للتعديل.',
-    athlete:'اسم اللاعب', sport:'الرياضة', classification:'التصنيف',
+    athlete:'اسم اللاعب', athleteEnglishName:'اسم اللاعب بالانجليزي', athleteArabicName:'اسم اللاعب بالعربي', sport:'الرياضة', classification:'التصنيف',
     nationality:'الجنسية', coach:'المدرب', status:'الحالة',
     medals:'الميداليات', documents:'الوثائق', gender:'الجنس',
     dob:'تاريخ الميلاد', disability:'الإعاقة', arabicName:'الاسم بالعربية',
