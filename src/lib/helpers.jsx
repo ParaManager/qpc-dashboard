@@ -542,7 +542,23 @@ export function statusDot(status) {
 // الفئات المستهدفة — allowed values only, no free text. Single shared
 // source used by the Add/Edit form dropdown, the table column filter, and
 // exports, so nothing hardcodes this list a second time.
-export const TARGET_CATEGORY_OPTIONS = ['اللاعب الواعد', 'اللاعب الأمل', 'اللاعب المميز', 'اللاعب النخبة']
+export const TARGET_CATEGORY_OPTIONS = ['اللاعب الواعد', 'اللاعب الأمل', 'اللاعب المميز', 'اللاعب النخبة', 'غير مصنف', 'لا ينطبق']
+
+// English labels for the Targeted Athlete category — only the two newest
+// options have one, since the original four have "(no English translation
+// provided yet)" by established design (see FormModal.jsx) and must keep
+// displaying exactly as before. The canonical stored value stays the
+// Arabic string for every option (existing convention); this map only
+// controls what English UI shows for it.
+export const TARGET_CATEGORY_LABELS_EN = {
+  'غير مصنف': 'Unclassified',
+  'لا ينطبق': 'Not Applicable (N/A)',
+}
+
+export function targetCategoryLabel(value, lang) {
+  if (!value) return ''
+  return lang === 'ar' ? value : (TARGET_CATEGORY_LABELS_EN[value] || value)
+}
 
 export const COACH_DESIGNATIONS = ['Coach', 'Assistant Coach', 'Technical Expert', 'Physiotherapist', 'Doctor']
 
