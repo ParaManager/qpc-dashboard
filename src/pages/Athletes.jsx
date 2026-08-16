@@ -1467,10 +1467,6 @@ export default function Athletes({ athletes, coaches, employees, results, docume
   }
 
   const [search, setSearch]         = useState('')
-  const [sport, setSport]           = useState('All sports')
-  const [sportCategory, setSportCategory] = useState('All categories')
-  const [status, setStatus]         = useState('All statuses')
-  const [gender, setGender]         = useState('All genders')
   const [sort, setSort]             = useState('name-asc')
   const [selected, setSelected]     = useState(initAthleteId ?? null)
   const [pendingStatusSave, setPendingStatusSave] = useState(null)
@@ -1591,12 +1587,27 @@ export default function Athletes({ athletes, coaches, employees, results, docume
     return () => { document.removeEventListener('mousedown', onOutside); document.removeEventListener('keydown', onEscape) }
   }, [colPickerOpen])
   const [colFilters, setColFilters] = useState({})
+  const [activeFiltersOpen, setActiveFiltersOpen] = useState(false)
+  const activeFiltersRef = useRef(null)
+  useEffect(() => {
+    if (!activeFiltersOpen) return
+    function onOutside(e) { if (activeFiltersRef.current && !activeFiltersRef.current.contains(e.target)) setActiveFiltersOpen(false) }
+    function onEscape(e) { if (e.key === 'Escape') setActiveFiltersOpen(false) }
+    document.addEventListener('mousedown', onOutside)
+    document.addEventListener('keydown', onEscape)
+    return () => { document.removeEventListener('mousedown', onOutside); document.removeEventListener('keydown', onEscape) }
+  }, [activeFiltersOpen])
   const photoInput = useRef(null)
   const docInput   = useRef(null)
   const [cropFile, setCropFile] = useState(null) // { athleteId, file } pending crop
   useEffect(() => {
     if (initAthleteId != null) setSelected(initAthleteId)
-    if (initStatusFilter)      setStatus(initStatusFilter)
+    // Routed here from elsewhere (e.g. a Dashboard KPI card) with a status
+    // to pre-filter by — applied through the same colFilters the visible
+    // per-column "Status" dropdown reads, so it's never an invisible
+    // filter: the dropdown itself shows the selection, and it counts
+    // through the exact same active-filters mechanism as a manual pick.
+    if (initStatusFilter)      setColFilters(f => ({ ...f, status: [initStatusFilter] }))
   }, [initAthleteId, initStatusFilter])
 
   // Reset everything when nav clicked while already on athletes page — but
@@ -1607,10 +1618,6 @@ export default function Athletes({ athletes, coaches, employees, results, docume
     if (navState?.reset && initAthleteId == null) {
       setSelected(null)
       setSearch('')
-      setSport('All sports')
-      setSportCategory('All categories')
-      setStatus('All statuses')
-      setGender('All genders')
       setSort('name-asc')
       setColFilters({})
     }
@@ -1635,19 +1642,66 @@ export default function Athletes({ athletes, coaches, employees, results, docume
 
   function resetFilters() {
     setSearch('')
-    setSport('All sports')
-    setSportCategory('All categories')
-    setStatus('All statuses')
-    setGender('All genders')
     setSort('name-asc')
     setColFilters({})
   }
 
-  const hasActiveFilters = search || sport !== 'All sports' || sportCategory !== 'All categories' || status !== 'All statuses' || gender !== 'All genders' || sort !== 'name-asc' || Object.values(colFilters).some(v => Array.isArray(v) && v.length > 0)
-  const activeFilterCount = [
-    sport !== 'All sports', sportCategory !== 'All categories', status !== 'All statuses', gender !== 'All genders',
-    ...Object.values(colFilters).map(v => Array.isArray(v) && v.length > 0),
-  ].filter(Boolean).length
+  // ── Single source of truth for "what filters are currently active" ──
+  // Both the "N active filters" badge and the Active Filters viewer read
+  // from this exact same list, so they can never disagree — and since it's
+  // built purely from `search` + `colFilters` (the only filter state that
+  // has a real, visible UI control), there is no way for a filter to be
+  // "active" without also being visible and identifiable here. Sorting is
+  // deliberately excluded — it changes order, not which rows match.
+  // Mirrors the same label/value formatting used by each column's own
+  // inline dropdown (see LABEL_FNS further down) so the viewer always
+  // matches what's shown in the table header.
+  const FILTER_LABELS = {
+    sport_category: tx('athletes.sportCategory','Sport Category'),
+    sport: tx('form.sport','Sport'),
+    status: tx('athletes.status','Status'),
+    gender: tx('athletes.gender','Gender'),
+    nationality: tx('athletes.nationality','Nationality'),
+    disability: tx('form.disability','Disability'),
+    statistics_disability: lang==='ar' ? 'الإعاقة الإحصائية' : 'Statistics disability',
+    age_category: tx('athletes.ageCategory','Age Category'),
+    sport_age_category: tx('athletes.sportAgeCategory','Sport Age Cat.'),
+    target_category: lang==='ar' ? 'الفئات المستهدفة' : 'Target Category',
+    medical_status: tx('athletes.medicalStatus','Medical Status'),
+    coachName: tx('athletes.coach','Coach'),
+    documents: tx('athletes.documents','Documents'),
+  }
+  const FILTER_VALUE_LABELS = {
+    sport: s => sportLabel(s, null, lang==='ar'),
+    sport_category: s => (lang==='ar' ? (SPORT_CATEGORY_NAMES_AR[s]||s) : s),
+    status: s => ({ 'Active':tx('status.active','Active'), 'On Leave':lang==='ar'?'في إجازة':'On Leave', 'In Competition':lang==='ar'?'في منافسة':'In Competition', 'In Training Camp':lang==='ar'?'في معسكر تدريبي':'In Training Camp', 'Inactive':tx('status.inactive','Inactive'), 'Injured':lang==='ar'?'مصاب':'Injured', 'Under Medical Review':lang==='ar'?'تحت المراجعة الطبية':'Under Medical Review', 'Suspended':lang==='ar'?'موقوف':'Suspended', 'Retired':lang==='ar'?'متقاعد':'Retired' }[s] || s),
+    gender: s => ({ 'Male':tx('form.male','Male'), 'Female':tx('form.female','Female') }[s] || s),
+    nationality: s => tc(s),
+    disability: s => (lang==='ar' ? (tDis(s)||s) : s),
+    statistics_disability: s => tStatDis(s),
+    coachName: s => (coaches.find(c => c.name === s)?.[lang==='ar' ? 'name_ar' : 'name'] || s),
+    medical_status: s => ({ 'None': lang==='ar'?'بدون':'None', 'Screening': lang==='ar'?'الفحص':'Screening', 'Medical Certificate': lang==='ar'?'شهادة طبية':'Medical Certificate' }[s] || s),
+    documents: s => ({ 'Complete': lang==='ar'?'مكتمل':'Complete', 'Missing': lang==='ar'?'ناقص':'Missing Documents', 'None': lang==='ar'?'لا يوجد وثائق':'No Documents' }[s] || s),
+    target_category: s => targetCategoryLabel(s, lang),
+  }
+  const formatFilterValue = (key, v) => v === 'Blank' ? (lang==='ar' ? 'فارغ' : 'Blank') : (FILTER_VALUE_LABELS[key]?.(v) ?? v)
+  const activeFilters = [
+    ...(search ? [{ key: '__search__', label: lang==='ar' ? 'بحث' : 'Search', value: `"${search}"`, clear: () => setSearch('') }] : []),
+    ...Object.entries(colFilters)
+      .filter(([, v]) => Array.isArray(v) && v.length > 0)
+      .map(([key, values]) => ({
+        key,
+        // A colFilters key with no known label still shows up here (using
+        // the raw key as a fallback) rather than being silently dropped —
+        // an unrecognized/stale filter must stay visible and removable,
+        // never invisible.
+        label: FILTER_LABELS[key] || key,
+        value: values.map(v => formatFilterValue(key, v)).join(', '),
+        clear: () => setColFilters(f => { const next = { ...f }; delete next[key]; return next }),
+      })),
+  ]
+  const activeFilterCount = activeFilters.length
+  const hasActiveFilters = activeFilterCount > 0
 
   // Show every known sport (Paralympic + Special Olympics), not just ones currently
   // in use — so a sport with zero athletes today is still findable once someone new
@@ -1719,10 +1773,6 @@ export default function Athletes({ athletes, coaches, employees, results, docume
     const athleteSportNames = athleteSportRows?.length ? athleteSportRows.map(r => stripSportPrefix(r.sportName)).filter(Boolean) : (a.sport ? [a.sport] : [])
     const athleteSportCategories = athleteSportRows?.length ? athleteSportRows.map(r => r.sportCategory).filter(Boolean) : (a.sport_category ? [a.sport_category] : [])
     return (
-      (sport  === 'All sports'   || athleteSportNames.includes(sport))  &&
-      (sportCategory === 'All categories' || athleteSportCategories.includes(sportCategory)) &&
-      (status === 'All statuses' || effectiveStatus(a) === status) &&
-      (gender === 'All genders'  || a.gender === gender) &&
       !!a.name && // exclude blank names
       (!q || matchesSearch(searchableValues.get(a.id) || '', q)) &&
       (skip('sport_category') || !colFilters.sport_category?.length || athleteSportCategories.some(cat => matchMulti(colFilters.sport_category, cat))) &&
@@ -1746,7 +1796,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
 
   const filteredList = useMemo(() => {
     return athletes.filter(a => passesAthleteFilters(a, search, null))
-  }, [athletes, coaches, documents, search, sport, sportCategory, status, gender, colFilters, searchableValues])
+  }, [athletes, coaches, documents, search, colFilters, searchableValues])
 
   // Per-column option counts for the MultiSelectFilter dropdowns — computed
   // from athletes matching every filter EXCEPT the column being opened,
@@ -3269,13 +3319,10 @@ ${myDocs.length > 0 ? `<div class="section">
                 setPdfExporting(true)
                 try {
                   const ar = lang === 'ar'
-                  const parts = []
-                  if (search) parts.push(`${ar?'بحث':'Search'}: "${search}"`)
-                  if (sport !== 'All sports') parts.push(`${ar?'الرياضة':'Sport'}: ${sport}`)
-                  if (sportCategory !== 'All categories') parts.push(`${ar?'الفئة':'Category'}: ${sportCategory}`)
-                  if (status !== 'All statuses') parts.push(`${ar?'الحالة':'Status'}: ${status}`)
-                  if (gender !== 'All genders') parts.push(`${ar?'الجنس':'Gender'}: ${gender}`)
-                  Object.entries(colFilters).forEach(([k, v]) => { if (v?.length) parts.push(`${k}: ${v.join(', ')}`) })
+                  // Same activeFilters list the badge/viewer show — a PDF
+                  // export's filter summary can never disagree with what
+                  // the person sees on screen when they clicked Export.
+                  const parts = activeFilters.map(f => `${f.label}: ${f.value}`)
                   const filterSummaryText = parts.length ? parts.join('  •  ') : (ar ? 'كل الرياضيين' : 'All athletes')
                   await exportAthletesListPDF(list, coaches, documents||[], visibleCols, ALL_COLS, lang, athleteSportsByAthlete, filterSummaryText)
                 } finally {
@@ -3387,9 +3434,45 @@ ${myDocs.length > 0 ? `<div class="section">
       <div className="filters">
         <div className="search-wrap"><i className="ti ti-search" /><input placeholder={tx('athletes.searchAthletes','Search athletes, IDs, sport, coach, nationality…')} value={search} onChange={e => setSearch(e.target.value)} /></div>
         {activeFilterCount > 0 && (
-          <span style={{ fontSize:11, fontWeight:600, color:'#0085C7', background:'#0085C715', padding:'4px 10px', borderRadius:20, whiteSpace:'nowrap' }}>
-            {activeFilterCount} {lang==='ar' ? 'فلتر نشط' : activeFilterCount === 1 ? 'active filter' : 'active filters'}
-          </span>
+          <div style={{ position:'relative' }} ref={activeFiltersRef}>
+            <button
+              type="button"
+              onClick={() => setActiveFiltersOpen(v => !v)}
+              style={{ display:'flex', alignItems:'center', gap:5, fontSize:11, fontWeight:600, color:'#0085C7', background:'#0085C715', border:'none', padding:'4px 10px', borderRadius:20, whiteSpace:'nowrap', cursor:'pointer' }}>
+              {activeFilterCount} {lang==='ar' ? 'فلتر نشط' : activeFilterCount === 1 ? 'active filter' : 'active filters'}
+              <i className="ti ti-chevron-down" style={{ fontSize:12 }} />
+            </button>
+            {activeFiltersOpen && (
+              <div style={{ position:'absolute', top:'calc(100% + 6px)', [lang==='ar'?'right':'left']:0, zIndex:200, minWidth:260, maxWidth:340, background:'var(--surface)', border:'1px solid var(--border)', borderRadius:10, boxShadow:'0 8px 24px rgba(0,0,0,.15)', overflow:'hidden' }}>
+                <div style={{ padding:'10px 14px', borderBottom:'1px solid var(--border)', fontSize:12, fontWeight:600, color:'var(--text)' }}>
+                  {lang==='ar' ? `الفلاتر النشطة (${activeFilterCount})` : `Active filters (${activeFilterCount})`}
+                </div>
+                <div style={{ maxHeight:280, overflowY:'auto' }}>
+                  {activeFilters.map(f => (
+                    <div key={f.key} style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 14px', fontSize:12, borderBottom:'1px solid var(--border)' }}>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ color:'var(--text3)', fontSize:10.5 }}>{f.label}</div>
+                        <div style={{ color:'var(--text)', fontWeight:500, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{f.value}</div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={f.clear}
+                        title={lang==='ar' ? 'إزالة' : 'Remove'}
+                        style={{ flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center', width:22, height:22, borderRadius:6, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--text2)', cursor:'pointer' }}>
+                        <i className="ti ti-x" style={{ fontSize:11 }} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { resetFilters(); setActiveFiltersOpen(false) }}
+                  style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:5, width:'100%', padding:'9px 14px', border:'none', borderTop:'1px solid var(--border)', background:'#fef2f2', color:'#dc2626', fontSize:12, fontWeight:600, cursor:'pointer' }}>
+                  <i className="ti ti-x" style={{ fontSize:12 }} /> {tx('actions.resetFilters','Reset filters')}
+                </button>
+              </div>
+            )}
+          </div>
         )}
         {hasActiveFilters && (
           <button onClick={resetFilters}
