@@ -794,6 +794,35 @@ function safeAddImage(doc, dataUrl, x, y, w, h) {
 async function exportAthletesListPDF(athletes, coaches, documents, visibleCols, allCols, lang, athleteSportsByAthlete = {}, filterSummaryText = '') {
   const ar = lang === 'ar'
   const STATUS_AR = {'Active':'نشط','Inactive':'غير نشط','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي','Injured':'مصاب','Under Medical Review':'تحت المراجعة الطبية','Suspended':'موقوف','Retired':'متقاعد'}
+  // Established app-wide Arabic maps (same values used elsewhere in this
+  // file — exportExcel, the live table) for the other localized fields
+  // that have a real Arabic mapping. Fields with no existing Arabic
+  // mapping anywhere in the app (classification, age_category,
+  // sport_age_category) are deliberately left as raw values in both
+  // languages rather than inventing a translation.
+  const DIS_MAP = {'visual impairment':'إعاقة بصرية','hearing impairment':'إعاقة سمعية','physical impairment':'إعاقة جسدية','intellectual disability':'إعاقة ذهنية','intellectual impairment':'إعاقة ذهنية','spinal cord injury':'إصابة الحبل الشوكي','cerebral palsy':'شلل دماغي','amputation':'بتر','down syndrome':'متلازمة داون',"down's syndrome":'متلازمة داون','downs syndrome':'متلازمة داون','down':'متلازمة داون','autism spectrum':'التوحد','autism':'التوحد','multiple disabilities':'إعاقات متعددة','limb deficiency':'نقص الأطراف','les autres':'أخرى'}
+  const tDis = d => {
+    if (!d || !ar) return d || ''
+    const key = d.toLowerCase().trim()
+    if (DIS_MAP[key]) return DIS_MAP[key]
+    for (const [k, v] of Object.entries(DIS_MAP)) {
+      if (key.includes(k) || k.includes(key)) return v
+    }
+    return d
+  }
+  const STATS_DIS_AR = {
+    'Physical Disability':        'الإعاقات الجسدية / الحركية',
+    'Intellectual Disability':    'الإعاقة الذهنية',
+    'Visual Disability':          'الإعاقة البصرية',
+    'Hearing Disability':         'الإعاقة السمعية',
+    'Speech & Language Disorders':'اضطرابات النطق واللغة',
+    'Psychosocial Disability':    'الإعاقة النفسية والاجتماعية',
+    'Multiple Disability':        'الإعاقات المتعددة',
+    'Developmental Disability':   'الإعاقات النمائية',
+    'Down Syndrome':              'متلازمة داون',
+    'Autism':                     'اضطراب التوحد',
+  }
+  const tStatDis = d => { if (!d) return ''; return ar ? (STATS_DIS_AR[d] || d) : d }
   const L = (en, a) => ar ? a : en
 
   // Explicit per-column field resolvers — column identity always decides
@@ -835,8 +864,8 @@ async function exportAthletesListPDF(athletes, coaches, documents, visibleCols, 
       return a.sport ? sportLabel(a.sport, a.sport_category, ar) : ''
     },
     classification:  a => a.classification || '',
-    disability:      a => a.disability || '',
-    statistics_disability: a => a.statistics_disability || '',
+    disability:      a => tDis(a.disability),
+    statistics_disability: a => tStatDis(a.statistics_disability),
     // Nationality → shared translateCountry() map (same one the live
     // Athletes page uses via tc()/useLang()), not a separate/invented
     // mapping. Falls back to the English value when no Arabic entry exists.
@@ -844,7 +873,7 @@ async function exportAthletesListPDF(athletes, coaches, documents, visibleCols, 
     gender:          a => a.gender ? (ar ? (a.gender==='Male'?'ذكر':'أنثى') : a.gender) : '',
     dob:             a => a.dob || '',
     age:             a => a.age ?? '',
-    residency_status: a => a.residency_status || '',
+    residency_status: a => a.residency_status ? (ar ? (RESIDENCY_AR[a.residency_status]||a.residency_status) : a.residency_status) : '',
     target_category: a => a.target_category ? targetCategoryLabel(a.target_category, ar ? 'ar' : 'en') : '',
     age_category:       a => a.age_category || '',
     sport_age_category: a => a.sport_age_category || '',
@@ -867,23 +896,34 @@ async function exportAthletesListPDF(athletes, coaches, documents, visibleCols, 
   // jsPDF/autoTable's own text-processing internals.
   const safeStr = v => (v === null || v === undefined) ? '' : String(v)
 
-  // Column ORDER: in Arabic mode the selected columns are used in reverse,
-  // so the table reads right-to-left the way the rest of the Arabic site
-  // does — the first column the user selected on the page ends up
-  // rightmost, with each subsequent selected column continuing toward the
-  // left. The photo isn't itself a selectable column — in Arabic it's
-  // placed as the very rightmost column (paired immediately beside
-  // 'name', which sits just to its left) so it never drifts away from the
-  // athlete it belongs to; if 'name' isn't selected, photo falls back to
-  // its normal leading position. English keeps photo leading and the
-  // normal left-to-right selected order, unchanged.
+  // Column ORDER: in Arabic mode the selected columns (other than the two
+  // name columns) are used in reverse, so the table reads right-to-left
+  // the way the rest of the Arabic site does — the first column the user
+  // selected ends up rightmost, with each subsequent selected column
+  // continuing toward the left. The two name columns and the photo are
+  // pinned together as a group at the very right: reading right-to-left,
+  // that group is Photo, then Athlete's Arabic Name, then Athlete's
+  // English Name — so if both name columns are selected, the Arabic name
+  // appears before (to the right of) the English name, exactly like the
+  // rest of an RTL row. If neither name column is selected, photo falls
+  // back to its normal leading position. English keeps photo leading and
+  // the normal left-to-right selected order, unchanged. Only the name
+  // columns are ever pinned like this — everything else stays dynamic.
   const visibleDefs = (allCols || []).filter(c => (visibleCols || []).includes(c.key))
-  const orderedDataDefs = ar ? [...visibleDefs].reverse() : visibleDefs
   const PHOTO_COL = { key: '__photo__', label: L('Photo', 'الصورة'), isPhoto: true }
-  const nameIdx = orderedDataDefs.findIndex(c => c.key === 'name')
-  const columns = ar && nameIdx !== -1
-    ? [...orderedDataDefs.slice(0, nameIdx + 1), PHOTO_COL, ...orderedDataDefs.slice(nameIdx + 1)]
-    : [PHOTO_COL, ...orderedDataDefs]
+  let columns
+  if (ar) {
+    const otherDefs = visibleDefs.filter(c => c.key !== 'name' && c.key !== 'name_ar')
+    const orderedOtherDefs = [...otherDefs].reverse()
+    const nameCol = visibleDefs.find(c => c.key === 'name')
+    const nameArCol = visibleDefs.find(c => c.key === 'name_ar')
+    const nameGroup = [nameCol, nameArCol].filter(Boolean) // left→right: English name, then Arabic name, then Photo — so read right→left it's Photo, Arabic name, English name
+    columns = nameGroup.length
+      ? [...orderedOtherDefs, ...nameGroup, PHOTO_COL]
+      : [PHOTO_COL, ...orderedOtherDefs]
+  } else {
+    columns = [PHOTO_COL, ...visibleDefs]
+  }
   const photoColIndex = columns.findIndex(c => c.isPhoto)
 
   // Columns whose content is genuinely Arabic prose (names, sport, coach,
@@ -2957,8 +2997,8 @@ ${myDocs.length > 0 ? `<div class="section">
 
   // ── COLUMN DEFINITIONS ──
   const ALL_COLS = [
-    { key:'name',            label:tx('athletes.athlete',"Athlete's Name"),   default:true,  editable:true  },
-    { key:'name_ar',         label:lang==='ar' ? tx('athletes.athlete','الاسم بالإنجليزي') : tx('athletes.arabicName','Arabic Name'),   default:false, editable:false },
+    { key:'name',            label:tx('athletes.athleteEnglishName',"Athlete's English Name"), default:true,  editable:true  },
+    { key:'name_ar',         label:tx('athletes.athleteArabicName',"Athlete's Arabic Name"),   default:false, editable:false },
     { key:'qss_number',      label:tx('athletes.qssNumber','QSS #'),          default:false, editable:false },
     { key:'id_number',       label:tx('athletes.qatarID','Qatar ID'),         default:false, editable:false },
     { key:'career_profile',  label:tx('athletes.careerProfile','Career Profile #'), default:false, editable:false },
@@ -3011,12 +3051,12 @@ ${myDocs.length > 0 ? `<div class="section">
         <div style={{ display:'flex', alignItems:'center', gap:10 }}>
           {a.photo_url ? <img src={a.photo_url} alt={a.name} style={{ width:32, height:32, borderRadius:'50%', objectFit:'cover', flexShrink:0 }} /> : <Avatar name={a.name} id={a.id} />}
           <div>
-            <div style={{ fontWeight:500 }}>{lang==='ar' && a.name_ar ? a.name_ar : a.name}</div>
+            <div style={{ fontWeight:500 }}>{a.name}</div>
             <div style={{ fontSize:11, color:'#9aa3b2' }}>{tc(a.nationality)}</div>
           </div>
         </div>
       )
-      case 'name_ar':          return <span style={{ color:'var(--text2)', direction: lang==='ar'?'ltr':'rtl' }}>{lang==='ar' ? (a.name||'—') : (a.name_ar||'—')}</span>
+      case 'name_ar':          return <span style={{ color:'var(--text2)', direction:'rtl' }}>{a.name_ar||'—'}</span>
       case 'qss_number':       return <span style={{ color:'var(--text2)', fontFamily:'monospace', fontSize:12 }}>{a.qss_number || '—'}</span>
       case 'career_profile':   return <span style={{ color:'var(--text2)', fontFamily:'monospace', fontSize:12 }}>{a.career_profile || '—'}</span>
       case 'sport_category': {
