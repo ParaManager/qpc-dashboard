@@ -673,6 +673,68 @@ export function resolveUserPhoto(profile, { athletes = [], coaches = [], employe
   return profile?.avatar_url || null
 }
 
+// ── Shared PDF-export image helpers (jsPDF) ─────────────────────────────
+// Used by every PDF export that embeds photos/logos (Athletes list export,
+// Special Olympics report, etc.) — centralized here so each export doesn't
+// reimplement the same fetch/format/embed logic.
+// Loads an image URL into a base64 data URL for embedding in a PDF.
+// Silently resolves to null on any failure (missing/broken photo, CORS,
+// network, non-image response) so one bad photo never blocks the whole
+// export.
+export async function loadImageAsDataURL(url) {
+  if (!url) return null
+  try {
+    const res = await fetch(url, { mode: 'cors' })
+    if (!res.ok) return null
+    const blob = await res.blob()
+    // Guard against a "successful" fetch that isn't actually image bytes
+    // (e.g. an HTML error page returned with a 200 status, or a CORS
+    // opaque response) — feeding that into jsPDF is what produces hard-to-
+    // trace internal errors, so we bail out to null here instead.
+    if (!blob || !blob.type || !blob.type.startsWith('image/') || blob.size === 0) return null
+    return await new Promise((resolve) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : null)
+      reader.onerror = () => resolve(null)
+      reader.readAsDataURL(blob)
+    })
+  } catch {
+    return null
+  }
+}
+
+// jsPDF's addImage() accepts an explicit format, but auto-detection can be
+// unreliable for some data URLs it doesn't recognize — since we already
+// know the MIME type from the fetched blob (encoded in the data URL
+// itself), we extract it directly rather than relying on sniffing.
+export function getImageFormatFromDataUrl(dataUrl) {
+  const match = /^data:image\/([a-zA-Z0-9.+-]+);base64,/.exec(dataUrl || '')
+  if (!match) return null
+  const ext = match[1].toLowerCase()
+  if (ext === 'jpg' || ext === 'jpeg') return 'JPEG'
+  if (ext === 'png') return 'PNG'
+  if (ext === 'webp') return 'WEBP'
+  if (ext === 'gif') return 'GIF'
+  if (ext === 'bmp') return 'BMP'
+  return null // unsupported/unrecognized type — caller skips the image
+}
+
+// Single choke point for every doc.addImage() call in a PDF export: never
+// calls addImage with missing/invalid data, and any failure inside jsPDF
+// itself (corrupt image bytes, etc.) is swallowed so one bad image can't
+// abort the whole export.
+export function safeAddImage(doc, dataUrl, x, y, w, h) {
+  if (!dataUrl || typeof dataUrl !== 'string') return
+  const format = getImageFormatFromDataUrl(dataUrl)
+  if (!format) return
+  if ([x, y, w, h].some(n => typeof n !== 'number' || isNaN(n))) return
+  try {
+    doc.addImage(dataUrl, format, x, y, w, h)
+  } catch (err) {
+    console.error('PDF export: skipped an image that failed to embed', err)
+  }
+}
+
 // ── Shared Back navigation button ──────────────────────────────────────
 // One consistent, reusable outlined "Back" control used on every detail
 // page (Athletes, Coaches, Staff, Referees, Sports, Events, Requests,

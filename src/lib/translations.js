@@ -19,7 +19,7 @@ export const AR = {
   nav: {
     overview:'نظرة عامة', people:'الأشخاص', competitions:'المنافسات',
     dashboard:'لوحة التحكم', athletes:'الرياضيون', coaches:'المدربون',
-    employees:'الكادر', sports:'الرياضات', events:'الفعاليات',
+    employees:'الكادر', sports:'الرياضات', specialOlympics:'الأولمبياد الخاص', events:'الفعاليات',
     results:'النتائج', signOut:'تسجيل الخروج', adminPortal:'بوابة الإدارة', season:'موسم',
     schedule:'الجدول الزمني', attendance:'الحضور والغياب',
     calendar:'التقويم', schedules:'الجداول',
