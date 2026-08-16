@@ -4,7 +4,7 @@ import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { generateStatisticsReport } from '../lib/statisticsReport'
-import { Avatar, MedalDisplay, Badge, avColor, initials, DashRow, SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, SPORT_CATEGORY_NAMES_AR, SPORT_NAMES_AR, sportLabel, effectiveStatus, buildSearchText, matchesSearch, normalizeSearch, extractQidFromFilename, TARGET_CATEGORY_OPTIONS, ClickablePhoto, DocPreviewButton, BackButton, getCurrentSeason } from '../lib/helpers'
+import { Avatar, MedalDisplay, Badge, avColor, initials, DashRow, SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, SPORT_CATEGORY_NAMES_AR, SPORT_NAMES_AR, sportLabel, effectiveStatus, buildSearchText, matchesSearch, normalizeSearch, extractQidFromFilename, TARGET_CATEGORY_OPTIONS, targetCategoryLabel, ClickablePhoto, DocPreviewButton, BackButton, getCurrentSeason } from '../lib/helpers'
 import PhotoCropModal from '../components/PhotoCropModal'
 import AthleteSportsCard from '../components/AthleteSportsCard'
 import ImportCompletionSummary from '../components/ImportCompletionSummary'
@@ -845,7 +845,7 @@ async function exportAthletesListPDF(athletes, coaches, documents, visibleCols, 
     dob:             a => a.dob || '',
     age:             a => a.age ?? '',
     residency_status: a => a.residency_status || '',
-    target_category: a => a.target_category || '',
+    target_category: a => a.target_category ? targetCategoryLabel(a.target_category, ar ? 'ar' : 'en') : '',
     age_category:       a => a.age_category || '',
     sport_age_category: a => a.sport_age_category || '',
     coach_id:        a => { const c = coaches.find(c => c.id === a.coach_id); return c ? (ar && c.name_ar ? c.name_ar : c.name) : '' },
@@ -1149,7 +1149,7 @@ function exportExcel(athletes, coaches, documents, visibleCols, allCols, lang, a
     medals:          a => (a.medals_gold||0) + (a.medals_silver||0) + (a.medals_bronze||0),
     documents:       a => { const ds = athleteDocStatus(a.id, documents, a); return ds.key==='complete' ? (ar?'مكتمل':'Complete') : ds.key==='missing' ? (ar?`${ds.missing} ناقص`:`${ds.missing} Missing`) : (ar?'لا يوجد وثائق':'No Documents') },
     missing_documents: a => { const ds = athleteDocStatus(a.id, documents, a); return ds.key==='complete' ? '' : ds.key==='none' ? (ar?'جميع الوثائق مفقودة':'All documents missing') : ds.missingTypes.map(t => ar ? (DOC_TYPES_AR[t]||t) : t).join(', ') },
-    target_category: a => a.target_category || '',
+    target_category: a => a.target_category ? targetCategoryLabel(a.target_category, ar ? 'ar' : 'en') : '',
   }
 
   // Preserve ALL_COLS' own order (identity → sport → personal → status →
@@ -2211,7 +2211,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
     ${field(L('Club','النادي'), a.club)}
     ${field(L('Designation','الوظيفة'), isAr ? (DESIG_AR[a.designation]||a.designation) : a.designation)}
     ${field(L('Residency status','الصفة'), isAr ? (RESID_AR[a.residency_status]||a.residency_status) : a.residency_status)}
-    ${field('الفئات المستهدفة', a.target_category)}
+    ${field('الفئات المستهدفة', a.target_category ? targetCategoryLabel(a.target_category, isAr ? 'ar' : 'en') : '')}
   </div>
 </div>
 
@@ -2510,7 +2510,7 @@ ${myDocs.length > 0 ? `<div class="section">
                 [tx('form.club','Club'), a.club],
                 [lang==='ar'?'الوظيفة':'Designation', a.designation ? (lang==='ar' ? (DESIG_AR[a.designation]||a.designation) : a.designation) : null],
                 [tx('form.residencyStatus','Residency status'), a.residency_status],
-                ['الفئات المستهدفة', a.target_category],
+                ['الفئات المستهدفة', a.target_category ? targetCategoryLabel(a.target_category, lang) : null],
                 [tx('form.qssNumber','QSS number'), a.qss_number],
                 [tx('athletes.joinedQPC','Joined QPC'), formatFriendlyDate(a.join_date, lang==='ar')],
                 [lang==='ar'?'فترة الحالة المؤقتة':'Temporary status dates', statusDates],
@@ -3052,7 +3052,7 @@ ${myDocs.length > 0 ? `<div class="section">
       case 'nationality':      return <span style={{ color:'var(--text2)' }}>{tc(a.nationality) || '—'}</span>
       case 'gender':           return <span style={{ color:'var(--text2)' }}>{a.gender ? (lang==='ar' ? (a.gender==='Male'?'ذكر':'أنثى') : a.gender) : '—'}</span>
       case 'residency_status': return <span style={{ color:'var(--text2)' }}>{a.residency_status ? (lang==='ar' ? (RESIDENCY_AR[a.residency_status]||a.residency_status) : a.residency_status) : '—'}</span>
-      case 'target_category':  return <span style={{ color:'var(--text2)' }}>{a.target_category || '—'}</span>
+      case 'target_category':  return <span style={{ color:'var(--text2)' }}>{a.target_category ? targetCategoryLabel(a.target_category, lang) : '—'}</span>
       case 'dob':              return <span style={{ color:'var(--text2)' }}>{a.dob || '—'}</span>
       case 'age':              return <span style={{ color:'var(--text2)' }}>{calcAge(a.dob) ?? '—'}</span>
       case 'age_category':       return <span style={{ color:'var(--text2)' }}>{a.age_category || '—'}</span>
@@ -3161,7 +3161,7 @@ ${myDocs.length > 0 ? `<div class="section">
       case 'nationality':  return <input style={{ ...inlineInput, width:100 }} value={getVal(a,'nationality')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'nationality',e.target.value)} />
       case 'gender':       return <select style={inlineSelect} value={getVal(a,'gender')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'gender',e.target.value)}>{['','Male','Female'].map(s=><option key={s} value={s}>{s||'—'}</option>)}</select>
       case 'residency_status': return <select style={inlineSelect} value={getVal(a,'residency_status')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'residency_status',e.target.value)}>{['','Qatari Male','Qatari Female','Resident Male','Resident Female','Professional Male','Professional Female','Born in Qatar','Qatari Mother'].map(s=><option key={s} value={s}>{s||'—'}</option>)}</select>
-      case 'target_category':  return <select style={inlineSelect} value={getVal(a,'target_category')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'target_category',e.target.value)}>{['', ...TARGET_CATEGORY_OPTIONS].map(s=><option key={s} value={s}>{s||'—'}</option>)}</select>
+      case 'target_category':  return <select style={inlineSelect} value={getVal(a,'target_category')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'target_category',e.target.value)}>{['', ...TARGET_CATEGORY_OPTIONS].map(s=><option key={s} value={s}>{s ? targetCategoryLabel(s, lang) : '—'}</option>)}</select>
       case 'dob':          return <input style={inlineInput} type="date" value={getVal(a,'dob')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'dob',e.target.value)} />
       case 'age':          return renderCell(a, key) // read-only: computed live from dob, not stored
       case 'age_category': return renderCell(a, key) // read-only: auto-computed from dob by a DB trigger
@@ -3470,6 +3470,7 @@ ${myDocs.length > 0 ? `<div class="section">
                     sport_category: s => (lang==='ar' ? (SPORT_CATEGORY_NAMES_AR[s]||s) : s),
                     medical_status: s => ({ 'None': lang==='ar'?'بدون':'None', 'Screening': lang==='ar'?'الفحص':'Screening', 'Medical Certificate': lang==='ar'?'شهادة طبية':'Medical Certificate' }[s] || s),
                     documents: s => ({ 'Complete': lang==='ar'?'مكتمل':'Complete', 'Missing': lang==='ar'?'ناقص':'Missing Documents', 'None': lang==='ar'?'لا يوجد وثائق':'No Documents' }[s] || s),
+                    target_category: s => targetCategoryLabel(s, lang),
                   }
                   const labelFn = LABEL_FNS[col.key] || (s => s)
                   const rawList = hasStatusOpts
