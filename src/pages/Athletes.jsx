@@ -20,7 +20,7 @@ import StatusScopeModal from '../components/StatusScopeModal.jsx'
 import { classifyAthleteType, getAthleteDocumentRules, mergeDocuments, computeCompletion, SHARED_TYPES } from '../lib/documentEngine'
 import { logAdminActivity } from '../lib/adminActivity'
 import CareerHistory from '../components/CareerHistory.jsx'
-import { useLang } from '../lib/LangContext.jsx'
+import { useLang, translateCountry } from '../lib/LangContext.jsx'
 import AthleteCardButton from '../components/AthleteCard'
 
 const DOC_TYPES  = [
@@ -796,11 +796,18 @@ async function exportAthletesListPDF(athletes, coaches, documents, visibleCols, 
   const STATUS_AR = {'Active':'نشط','Inactive':'غير نشط','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي','Injured':'مصاب','Under Medical Review':'تحت المراجعة الطبية','Suspended':'موقوف','Retired':'متقاعد'}
   const L = (en, a) => ar ? a : en
 
-  // Same formatter shapes as exportExcel's colMap, kept independent since
-  // this runs in a separate async/dynamic-import context and only needs
-  // plain display strings (no Excel date objects).
+  // Explicit per-column field resolvers — column identity always decides
+  // which underlying field is read, never the export language. Language
+  // only controls which *label set* is used to display that field's value
+  // (status text, sport name, nationality name, etc.), and only for
+  // columns that are genuinely localized content — never by silently
+  // swapping one column's data into another column.
   const colMap = {
-    name:            a => ar && a.name_ar ? a.name_ar : a.name,
+    // English Name → always the true English name field, in both languages.
+    name:            a => a.name || '',
+    // Arabic Name → always the true Arabic name field, in both languages.
+    // (If both 'name' and 'name_ar' are selected together, they now show
+    // their own distinct field instead of both collapsing onto name_ar.)
     name_ar:         a => a.name_ar || '',
     qss_number:      a => a.qss_number || '',
     id_number:       a => a.id_number || '',
@@ -830,7 +837,10 @@ async function exportAthletesListPDF(athletes, coaches, documents, visibleCols, 
     classification:  a => a.classification || '',
     disability:      a => a.disability || '',
     statistics_disability: a => a.statistics_disability || '',
-    nationality:     a => a.nationality || '',
+    // Nationality → shared translateCountry() map (same one the live
+    // Athletes page uses via tc()/useLang()), not a separate/invented
+    // mapping. Falls back to the English value when no Arabic entry exists.
+    nationality:     a => ar ? translateCountry(a.nationality, 'ar') : (a.nationality || ''),
     gender:          a => a.gender ? (ar ? (a.gender==='Male'?'ذكر':'أنثى') : a.gender) : '',
     dob:             a => a.dob || '',
     age:             a => a.age ?? '',
@@ -877,16 +887,20 @@ async function exportAthletesListPDF(athletes, coaches, documents, visibleCols, 
   const photoColIndex = columns.findIndex(c => c.isPhoto)
 
   // Columns whose content is genuinely Arabic prose (names, sport, coach,
-  // status, medical status) get the Arabic font + RTL reversal in Arabic
-  // mode. Everything else (QSS #, IDs, phone, dates, passport numbers —
-  // all Latin/numeric regardless of language) is deliberately left alone,
-  // since jsPDF's RTL reversal is a naive whole-string flip that would
-  // scramble digits and dates if applied to them. Indexes are computed
-  // against the final `columns` array (the actual on-page order).
-  const ARABIC_COL_KEYS = new Set(['name', 'sport', 'coach_id', 'status', 'medical_status'])
+  // status, medical status) get the Arabic font + right alignment in
+  // Arabic mode. Everything else (QSS #, IDs, phone, dates, passport
+  // numbers — all Latin/numeric regardless of language) is deliberately
+  // left alone, since jsPDF's RTL reversal is a naive whole-string flip
+  // that would scramble digits and dates if applied to them. Indexes are
+  // computed against the final `columns` array (the actual on-page order).
+  const ARABIC_COL_KEYS = new Set(['name', 'name_ar', 'sport', 'coach_id', 'status', 'medical_status'])
   const arabicColIndexes = new Set(
     columns.reduce((acc, c, i) => { if (!c.isPhoto && ARABIC_COL_KEYS.has(c.key)) acc.push(i); return acc }, [])
   )
+  // name_ar always contains real Arabic text, even in an otherwise-English
+  // export — its column index is tracked separately so the font override
+  // below applies regardless of the export's overall language.
+  const nameArColIndex = columns.findIndex(c => c.key === 'name_ar')
 
   // Preload the QPC letterhead logo and every visible athlete's profile
   // photo (same photo_url field the app itself displays) as data URLs —
@@ -903,11 +917,16 @@ async function exportAthletesListPDF(athletes, coaches, documents, visibleCols, 
 
   // ── Arabic font (Amiri, subset) — the default Helvetica has no Arabic
   // glyphs at all, which is what produces mojibake/garbled boxes. Loaded
-  // lazily so English-only exports never pay for this chunk. Falls back to
-  // Helvetica (with a console warning) if the font somehow fails to load,
-  // rather than crashing the export.
+  // lazily so exports that will never render Arabic text don't pay for
+  // this chunk. Needed not just for full Arabic exports, but also for an
+  // English export that includes the "Arabic Name" (name_ar) column —
+  // that column's cells still contain real Arabic text and need the same
+  // font even though the rest of the document stays Helvetica/LTR. Falls
+  // back to Helvetica (with a console warning) if the font somehow fails
+  // to load, rather than crashing the export.
+  const needsArabicFont = ar || (visibleCols || []).includes('name_ar')
   let arabicFontOk = false
-  if (ar) {
+  if (needsArabicFont) {
     try {
       const { AMIRI_REGULAR_BASE64 } = await import('../lib/fonts/AmiriFont')
       doc.addFileToVFS('Amiri-Regular.ttf', AMIRI_REGULAR_BASE64)
@@ -918,7 +937,12 @@ async function exportAthletesListPDF(athletes, coaches, documents, visibleCols, 
       console.error('PDF export: Arabic font failed to load, falling back to Helvetica', err)
     }
   }
-  const FONT = arabicFontOk ? 'Amiri' : 'helvetica'
+  // Document-wide default font: Amiri only when the export itself is
+  // Arabic. An English export stays Helvetica overall — only the specific
+  // name_ar column (handled separately in didParseCell below) is forced
+  // to Amiri so its Arabic text renders correctly without changing the
+  // rest of the page's LTR/English styling.
+  const FONT = (ar && arabicFontOk) ? 'Amiri' : 'helvetica'
   const setPdfFont = (style) => doc.setFont(FONT, style)
 
   // Logo box: preserve real aspect ratio, sized clearly visible in the
@@ -1020,6 +1044,13 @@ async function exportAthletesListPDF(athletes, coaches, documents, visibleCols, 
       // producing mixed/garbled output before.
       didParseCell: (data) => {
         if (data.column.index === photoColIndex) return // photo column stays centered
+        // The Arabic Name column always contains real Arabic text, even in
+        // an English (LTR/Helvetica) export — force it onto the Amiri font
+        // regardless of export language, so it renders correctly instead
+        // of falling back to Helvetica's missing Arabic glyphs.
+        if (arabicFontOk && data.column.index === nameArColIndex) {
+          data.cell.styles.font = 'Amiri'
+        }
         if (!ar) return
         data.cell.styles.halign = (data.section === 'head' || arabicColIndexes.has(data.column.index)) ? 'right' : 'left'
       },
@@ -3000,7 +3031,16 @@ ${myDocs.length > 0 ? `<div class="section">
       case 'sport': {
         const rows = athleteSportsByAthlete[a.id]
         if (rows?.length) {
-          const names = [...new Set(rows.map(r => r.sportName).filter(Boolean))]
+          // Junction-sourced names are catalog form ("Para Athletics"/"SO
+          // Athletics"/"Unified Athletics") — strip that prefix to match
+          // SPORT_NAMES_AR's short-form keys, same convention used by the
+          // page's filters/search and the PDF/Excel exports. Falls back to
+          // the original catalog name if no Arabic translation is found.
+          const stripSportPrefix = (name) => name ? name.replace(/^(Para |SO |Unified )/, '') : name
+          const names = [...new Set(rows.map(r => {
+            const short = stripSportPrefix(r.sportName)
+            return lang === 'ar' ? (SPORT_NAMES_AR[short] || r.sportName) : r.sportName
+          }).filter(Boolean))]
           if (names.length === 0) return <span style={{ color:'var(--text3)' }}>—</span>
           return <div style={{ display:'flex', flexWrap:'wrap', gap:4 }}>{names.map(n => <span key={n} className="badge badge-blue" style={{ fontSize:11 }}>{n}</span>)}</div>
         }
