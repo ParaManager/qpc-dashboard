@@ -118,8 +118,8 @@ export default function SpecialOlympics({ athletes = [], coaches = [], onNav, pr
         background:'linear-gradient(135deg,#c0392b,#e74c3c)', borderRadius:16,
         padding:'20px 26px', marginBottom:20, color:'#fff',
       }}>
-        <div style={{ width:92, height:92, borderRadius:14, background:'#fff', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, padding:8 }}>
-          <img src="/logo-so.png" alt="Special Olympics" style={{ maxWidth:'100%', maxHeight:'100%', objectFit:'contain' }} />
+        <div style={{ width:92, height:92, borderRadius:14, background:'#fff', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, padding:7 }}>
+          <img src="/logo-so.png" alt="Special Olympics" style={{ width:'100%', height:'100%', objectFit:'contain' }} />
         </div>
         <div style={{ flex:1, minWidth:180 }}>
           <div style={{ fontSize:22, fontWeight:700 }}>{ar ? 'الأولمبياد الخاص' : 'Special Olympics'}</div>
