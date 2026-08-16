@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import NationalitySelect from './NationalitySelect.jsx'
 import DesignationField from './DesignationField.jsx'
 import {
-  SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, SPORT_CATEGORY_NAMES_AR, sportLabel, TARGET_CATEGORY_OPTIONS,
+  SPORTS, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, SPORT_CATEGORY_NAMES_AR, sportLabel, TARGET_CATEGORY_OPTIONS, targetCategoryLabel,
 } from '../lib/helpers'
 import { useLang } from '../lib/LangContext.jsx'
 
@@ -153,9 +153,11 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
     label: ar && s ? ({'Qatari Male':'قطري','Qatari Female':'قطرية','Resident Male':'مقيم','Resident Female':'مقيمة','Professional Male':'محترف','Professional Female':'محترفة','Born in Qatar':'مواليد قطر','Qatari Mother':'أم قطرية'}[s]||s) : s
   }))
 
-  // الفئات المستهدفة — same Arabic label/values used in both languages
-  // (no English translation provided yet), values match athletes.target_category exactly.
-  const targetCategoryOpts = ['', ...TARGET_CATEGORY_OPTIONS].map(s => ({ value: s, label: s || '' }))
+  // الفئات المستهدفة — canonical stored values are the Arabic strings for
+  // every option; English UI shows an English label where one exists
+  // (currently just the two newest options), and falls back to the
+  // Arabic text otherwise, unchanged from before.
+  const targetCategoryOpts = ['', ...TARGET_CATEGORY_OPTIONS].map(s => ({ value: s, label: s ? targetCategoryLabel(s, ar ? 'ar' : 'en') : '' }))
 
   useEffect(() => {
     if (record) { setForm({ ...record }) }
