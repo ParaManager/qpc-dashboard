@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
 import { qpcLogo as QPC_LOGO } from '../lib/logos'
-import { statusDot, statusClass, DashRow, SPORT_META, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, sportLabel, BackButton } from '../lib/helpers'
+import { statusDot, statusClass, DashRow, SPORT_META, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, sportLabel, BackButton, SUPPORTED_DOC_FILE_TYPES } from '../lib/helpers'
 import { computeEventStatus } from './Events'
 import Calendar from './Calendar'
 import Events from './Events'
@@ -392,7 +392,8 @@ function GuestRequests() {
   // submit_guest_request returns the actual submission_id.
   async function handleFieldFileUpload(field, file) {
     if (!file) return
-    if (file.size > 20 * 1024 * 1024) return alert(ar?'الملف كبير جدًا (الحد الأقصى 20 ميجابايت)':'File is too large (max 20MB)')
+    if (file.size > 25 * 1024 * 1024) return alert(ar?'حجم الملف يتجاوز الحد المسموح 25 ميجابايت':'File exceeds the 25 MB limit')
+    if (!SUPPORTED_DOC_FILE_TYPES.includes(file.type)) return alert(ar?'نوع الملف غير مدعوم. الرجاء رفع PDF أو JPG أو PNG.':'Unsupported file type. Please upload a PDF, JPG, or PNG.')
     setFileUploading(p => ({ ...p, [field.id]: true }))
     try {
       const ext = file.name.split('.').pop()
@@ -402,7 +403,11 @@ function GuestRequests() {
       setPendingFiles(p => ({ ...p, [field.id]: { name: file.name, path, type: file.type, size: file.size } }))
       setAnswers(p => ({ ...p, [field.id]: file.name }))
     } catch (err) {
-      alert(err.message || (ar?'فشل رفع الملف':'File upload failed'))
+      // Full detail stays in the console for debugging — the guest only
+      // ever sees a plain, non-technical message, never a raw DB/storage
+      // error string.
+      console.error('Attachment upload failed', err)
+      alert(ar?'فشل الرفع. يرجى المحاولة مرة أخرى.':'Upload failed. Please try again.')
     } finally {
       setFileUploading(p => ({ ...p, [field.id]: false }))
     }

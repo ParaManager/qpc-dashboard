@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
 import { toast, ConfirmModal } from '../components/Toast'
-import { initials, BackButton, DocPreviewButton, MAX_DOC_FILE_SIZE_BYTES } from '../lib/helpers'
+import { initials, BackButton, DocPreviewButton, SUPPORTED_DOC_FILE_TYPES } from '../lib/helpers'
 import { isTrustedAdmin } from '../lib/permissions'
 import { logAdminActivity } from '../lib/adminActivity'
 import { printSubmission, downloadSubmissionPdf } from '../lib/printTemplates'
@@ -55,6 +55,11 @@ function formatFileSize(bytes) {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
+
+// Request-attachment specific limit (separate from the athlete-document
+// upload limit elsewhere in the app, which uses a different value for a
+// different feature).
+const MAX_ATTACHMENT_SIZE_BYTES = 25 * 1024 * 1024
 
 const STATUS_META = {
   submitted:        { color:'#f59e0b', bg:'#fffbeb', label:'Submitted',        label_ar:'تم الإرسال' },
@@ -426,8 +431,11 @@ export default function Requests({ profile, navState }) {
   // linking step has something to attach.
   async function handleFieldFileUpload(field, file) {
     if (!file) return
-    if (file.size > MAX_DOC_FILE_SIZE_BYTES) {
-      return toast(ar?'الملف كبير جدًا (الحد الأقصى 20 ميجابايت)':'File is too large (max 20MB)','error')
+    if (file.size > MAX_ATTACHMENT_SIZE_BYTES) {
+      return toast(ar?'حجم الملف يتجاوز الحد المسموح 25 ميجابايت':'File exceeds the 25 MB limit','error')
+    }
+    if (!SUPPORTED_DOC_FILE_TYPES.includes(file.type)) {
+      return toast(ar?'نوع الملف غير مدعوم. الرجاء رفع PDF أو JPG أو PNG.':'Unsupported file type. Please upload a PDF, JPG, or PNG.','error')
     }
     setFileUploading(p => ({ ...p, [field.id]: true }))
     try {
@@ -438,7 +446,11 @@ export default function Requests({ profile, navState }) {
       setPendingFiles(p => ({ ...p, [field.id]: { name: file.name, path, type: file.type, size: file.size } }))
       setAnswers(p => ({ ...p, [field.id]: file.name }))
     } catch (err) {
-      toast(err.message || (ar?'فشل رفع الملف':'File upload failed'),'error')
+      // Full detail stays in the console for debugging — the person only
+      // ever sees a plain, non-technical message, never a raw DB/storage
+      // error string.
+      console.error('Attachment upload failed', err)
+      toast(ar?'فشل الرفع. يرجى المحاولة مرة أخرى.':'Upload failed. Please try again.','error')
     } finally {
       setFileUploading(p => ({ ...p, [field.id]: false }))
     }
