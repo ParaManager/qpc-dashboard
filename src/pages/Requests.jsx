@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
 import { toast, ConfirmModal } from '../components/Toast'
-import { initials, BackButton } from '../lib/helpers'
+import { initials, BackButton, DocPreviewButton, MAX_DOC_FILE_SIZE_BYTES } from '../lib/helpers'
 import { isTrustedAdmin } from '../lib/permissions'
 import { logAdminActivity } from '../lib/adminActivity'
 import { printSubmission, downloadSubmissionPdf } from '../lib/printTemplates'
@@ -36,6 +36,25 @@ const COLOR_OPTIONS = [
   '#d97706','#64748b','#dc2626','#7c3aed','#059669',
   '#1d4ed8','#be123c','#0d9488','#92400e','#1e293b',
 ]
+
+// Signed URL for a file stored in the private request-attachments bucket —
+// the bucket has no public access, so every read goes through a
+// short-lived signed URL that Supabase only issues if the requester
+// actually has SELECT permission on that object (enforced by storage RLS:
+// Admin/Read-Only Admin, or the submission's own submitter).
+async function getFileSignedUrl(path) {
+  if (!path) return null
+  const { data, error } = await supabase.storage.from('request-attachments').createSignedUrl(path, 3600)
+  if (error) { console.error('Failed to sign attachment URL', error); return null }
+  return data?.signedUrl || null
+}
+
+function formatFileSize(bytes) {
+  if (!bytes && bytes !== 0) return ''
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
 
 const STATUS_META = {
   submitted:        { color:'#f59e0b', bg:'#fffbeb', label:'Submitted',        label_ar:'تم الإرسال' },
@@ -102,9 +121,13 @@ export default function Requests({ profile, navState }) {
   const [staffProfiles, setStaffProfiles] = useState([])
   const [actionNote, setActionNote]     = useState('')
   const [subActions, setSubActions]     = useState([])
+  const [subFiles, setSubFiles]         = useState([])
   const [acting, setActing]             = useState(false)
   const [saving, setSaving]             = useState(false)
   const [answers, setAnswers]           = useState({})
+  const [draftId, setDraftId]           = useState(null) // storage folder for this fill-form session's file uploads, until the real submission_id exists
+  const [pendingFiles, setPendingFiles] = useState({}) // { [fieldId]: { name, path, type, size } }
+  const [fileUploading, setFileUploading] = useState({}) // { [fieldId]: true } while an upload is in flight
   const [submitting, setSubmitting]     = useState(false)
   const [confirmDel, setConfirmDel]     = useState(null)
   const [reviewSub, setReviewSub]       = useState(null)
@@ -161,6 +184,24 @@ export default function Requests({ profile, navState }) {
       .eq('submission_id', subId)
       .order('acted_at', { ascending: true })
     if (data) setSubActions(data)
+  }, [])
+
+  // Files uploaded through this specific submission's 'file' fields — kept
+  // strictly scoped by submission_id (request_submission_files.submission_id),
+  // so attachments never mix between different submissions, and remain
+  // available regardless of the submission's current status (approved/
+  // rejected/completed all still fetch the same way).
+  const fetchSubFiles = useCallback(async (subId) => {
+    const { data } = await supabase.from('request_submission_files')
+      .select('*')
+      .eq('submission_id', subId)
+      .order('uploaded_at', { ascending: true })
+    if (!data) { setSubFiles([]); return }
+    // Sign each file's URL up front (batched) — createSignedUrl is itself
+    // gated by storage RLS, so this silently yields no URL for a file the
+    // current user isn't authorized to read rather than exposing anything.
+    const withUrls = await Promise.all(data.map(async f => ({ ...f, signedUrl: await getFileSignedUrl(f.file_path) })))
+    setSubFiles(withUrls)
   }, [])
 
   useEffect(() => { fetchForms(); fetchMySubs() }, [fetchForms, fetchMySubs])
@@ -251,6 +292,7 @@ export default function Requests({ profile, navState }) {
   async function submitForm() {
     const missing = (selectedForm.request_form_fields||[]).filter(f=>f.is_required && !answers[f.id]?.toString().trim())
     if (missing.length) return toast((ar?'الحقول المطلوبة: ':'Required: ')+missing.map(f=>ar?(f.label_ar||f.label):f.label).join(', '),'error')
+    if (Object.values(fileUploading).some(Boolean)) return toast(ar?'يرجى الانتظار حتى انتهاء رفع الملف':'Please wait for the file upload to finish','error')
     setSubmitting(true)
     try {
       // Insert result must be checked explicitly — the Supabase client
@@ -262,6 +304,20 @@ export default function Requests({ profile, navState }) {
         .select('id')
         .single()
       if (error || !insertedSub) throw new Error(error?.message || (ar?'فشل إرسال الطلب. لم يتم حفظ أي بيانات.':'Submission failed. Nothing was saved.'))
+
+      // Link any files already uploaded (to the draftId storage folder)
+      // during this fill session to the real submission row that now
+      // exists — each row explicitly carries the real submission_id, so
+      // files are never ambiguous about which submission they belong to.
+      const pendingEntries = Object.entries(pendingFiles)
+      if (pendingEntries.length) {
+        const fileRows = pendingEntries.map(([fieldId, f]) => ({
+          submission_id: insertedSub.id, field_id: fieldId,
+          file_name: f.name, file_path: f.path, file_type: f.type, file_size: f.size,
+        }))
+        const { error: fileErr } = await supabase.from('request_submission_files').insert(fileRows)
+        if (fileErr) console.error('Failed to link uploaded files to submission', fileErr)
+      }
 
       const { data: admins } = await supabase.from('profiles').select('id').eq('role','admin')
       if (admins?.length) {
@@ -276,6 +332,7 @@ export default function Requests({ profile, navState }) {
       }
       toast(ar?'تم الإرسال!':'Submitted!','success')
       setAnswers({})
+      setPendingFiles({})
       // Refetch immediately so "My Submissions" (and the admin Submissions
       // view, next time it's opened) reflect the new row without a manual
       // page refresh.
@@ -333,6 +390,33 @@ export default function Requests({ profile, navState }) {
     return <span style={{ fontSize:11, fontWeight:600, color:m.color, background:m.bg, padding:'3px 10px', borderRadius:20 }}>{ar?m.label_ar:m.label}</span>
   }
 
+  // Uploads immediately (while the person is still filling the form) into
+  // request-attachments/{draftId}/{fieldId}/{filename} — draftId is a
+  // fresh UUID generated when the form was opened, so different fill
+  // sessions never collide. The real link to the eventual submission row
+  // is created afterward in submitForm(), once the submission actually
+  // exists and has a real id: this only tracks the upload result so that
+  // linking step has something to attach.
+  async function handleFieldFileUpload(field, file) {
+    if (!file) return
+    if (file.size > MAX_DOC_FILE_SIZE_BYTES) {
+      return toast(ar?'الملف كبير جدًا (الحد الأقصى 20 ميجابايت)':'File is too large (max 20MB)','error')
+    }
+    setFileUploading(p => ({ ...p, [field.id]: true }))
+    try {
+      const ext = file.name.split('.').pop()
+      const path = `${draftId}/${field.id}/${Date.now()}.${ext}`
+      const { error } = await supabase.storage.from('request-attachments').upload(path, file, { upsert: false })
+      if (error) throw error
+      setPendingFiles(p => ({ ...p, [field.id]: { name: file.name, path, type: file.type, size: file.size } }))
+      setAnswers(p => ({ ...p, [field.id]: file.name }))
+    } catch (err) {
+      toast(err.message || (ar?'فشل رفع الملف':'File upload failed'),'error')
+    } finally {
+      setFileUploading(p => ({ ...p, [field.id]: false }))
+    }
+  }
+
   function renderFieldInput(field) {
     const val = answers[field.id]??'', set = v => setAnswers(p=>({...p,[field.id]:v}))
     switch(field.field_type) {
@@ -348,7 +432,20 @@ export default function Requests({ profile, navState }) {
         const sel=Array.isArray(val)?val:[], tog=v=>set(sel.includes(v)?sel.filter(x=>x!==v):[...sel,v])
         return <div style={{display:'flex',flexDirection:'column',gap:8}}>{(field.options||[]).map((o,i)=><label key={i} style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:14}}><input type="checkbox" checked={sel.includes(o.label)} onChange={()=>tog(o.label)}/>{ar?(o.label_ar||o.label):o.label}</label>)}</div>
       }
-      case 'file':     return <input type="file" className="form-input" onChange={e=>set(e.target.files[0]?.name||'')} />
+      case 'file': {
+        const uploading = !!fileUploading[field.id]
+        const pending = pendingFiles[field.id]
+        return (
+          <div>
+            <input type="file" className="form-input" disabled={uploading}
+              onChange={e=>handleFieldFileUpload(field, e.target.files[0])} />
+            {uploading && <div style={{fontSize:12,color:'var(--text3)',marginTop:6}}><i className="ti ti-loader ti-spin"/> {ar?'جارٍ الرفع…':'Uploading…'}</div>}
+            {!uploading && pending && (
+              <div style={{fontSize:12,color:'#009F6B',marginTop:6}}><i className="ti ti-circle-check"/> {pending.name} · {formatFileSize(pending.size)}</div>
+            )}
+          </div>
+        )
+      }
       default:         return <input type="text" className="form-input" value={val} onChange={e=>set(e.target.value)} />
     }
   }
@@ -795,7 +892,7 @@ export default function Requests({ profile, navState }) {
                     style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:12,padding:'14px 18px',display:'flex',alignItems:'center',gap:14,cursor:'pointer',transition:'all .15s',boxShadow:'var(--shadow)'}}
                     onMouseEnter={e=>e.currentTarget.style.borderColor='var(--border2)'}
                     onMouseLeave={e=>e.currentTarget.style.borderColor='var(--border)'}
-                    onClick={()=>{setSelectedSub(s);fetchSubActions(s.id);setActionNote('');setView('submission-view')}}>
+                    onClick={()=>{setSelectedSub(s);fetchSubActions(s.id);fetchSubFiles(s.id);setActionNote('');setView('submission-view')}}>
                     <div style={{width:36,height:36,borderRadius:'50%',background:roleClr,display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700,color:'white',flexShrink:0}}>
                       {initials(initName)}
                     </div>
@@ -964,6 +1061,51 @@ export default function Requests({ profile, navState }) {
           )}
         </div>
 
+        {/* Attachments — files uploaded through this submission's 'file'
+            fields, strictly linked via request_submission_files.submission_id.
+            Stay visible regardless of status (approved/rejected/completed). */}
+        {subFiles.length > 0 && (
+          <div className="card" style={{maxWidth:640,marginTop:16}}>
+            <div style={{fontWeight:700,fontSize:13,marginBottom:12}}>
+              <i className="ti ti-paperclip" style={{marginRight:6}}/> {ar?'المرفقات':'Attachments'} ({subFiles.length})
+            </div>
+            <div style={{display:'flex',flexDirection:'column',gap:8}}>
+              {subFiles.map(f=>{
+                const field = (form?.request_form_fields||[]).find(fl=>fl.id===f.field_id)
+                return (
+                  <div key={f.id} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 10px',border:'1px solid var(--border)',borderRadius:8}}>
+                    <div style={{width:32,height:32,borderRadius:7,background:'var(--surface2)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                      <i className="ti ti-file" style={{fontSize:15,color:'var(--text2)'}}/>
+                    </div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:13,fontWeight:500,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{f.file_name}</div>
+                      <div style={{fontSize:11,color:'var(--text3)'}}>
+                        {field ? (ar?(field.label_ar||field.label):field.label)+' · ' : ''}
+                        {formatFileSize(f.file_size)}
+                        {f.uploaded_at && <> · {new Date(f.uploaded_at).toLocaleDateString()}</>}
+                      </div>
+                    </div>
+                    <div style={{display:'flex',gap:6,flexShrink:0}}>
+                      {f.signedUrl ? (
+                        <>
+                          <a href={f.signedUrl} target="_blank" rel="noreferrer" download={f.file_name}
+                            style={{display:'flex',alignItems:'center',justifyContent:'center',width:28,height:28,borderRadius:7,border:'1px solid var(--border)',color:'var(--text2)'}}
+                            title={ar?'تنزيل':'Download'}>
+                            <i className="ti ti-download" style={{fontSize:14}}/>
+                          </a>
+                          <DocPreviewButton url={f.signedUrl} name={f.file_name} />
+                        </>
+                      ) : (
+                        <span style={{fontSize:11,color:'var(--text3)'}}>{ar?'غير مصرح':'Not authorized'}</span>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Review modal (no-workflow forms only) */}
         {reviewSub && (
           <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.45)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center'}}
@@ -992,7 +1134,7 @@ export default function Requests({ profile, navState }) {
     )
   }
 
-  function openForm(f) { setSelectedForm(f); setAnswers({}); setView('fill-form') }
+  function openForm(f) { setSelectedForm(f); setAnswers({}); setPendingFiles({}); setDraftId(crypto.randomUUID()); setView('fill-form') }
   function openFormDetail(f, initialFilter = 'all') { setSelectedForm(f); fetchFormSubs(f.id); setSubFilter(initialFilter); setView('form-detail') }
 
   // ─────────────────────────────────────────────────────────────────────────

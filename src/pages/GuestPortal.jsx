@@ -306,7 +306,7 @@ function AboutQPC() {
   )
 }
 
-function GuestRequestField({ field, value, onChange, ar }) {
+function GuestRequestField({ field, value, onChange, ar, onFileChange, uploading, pendingFile }) {
   const set = v => onChange(field.id, v)
   switch (field.field_type) {
     case 'textarea': return <textarea className="form-input" rows={3} value={value||''} onChange={e=>set(e.target.value)} style={{resize:'vertical'}} />
@@ -321,6 +321,16 @@ function GuestRequestField({ field, value, onChange, ar }) {
       const sel = Array.isArray(value)?value:[], tog=v=>set(sel.includes(v)?sel.filter(x=>x!==v):[...sel,v])
       return <div style={{display:'flex',flexDirection:'column',gap:8}}>{(field.options||[]).map((o,i)=><label key={i} style={{display:'flex',alignItems:'center',gap:8,cursor:'pointer',fontSize:14}}><input type="checkbox" checked={sel.includes(o.label)} onChange={()=>tog(o.label)}/>{ar?(o.label_ar||o.label):o.label}</label>)}</div>
     }
+    case 'file':
+      return (
+        <div>
+          <input type="file" className="form-input" disabled={uploading} onChange={e=>onFileChange?.(field, e.target.files[0])} />
+          {uploading && <div style={{fontSize:12,color:'var(--text3)',marginTop:6}}><i className="ti ti-loader ti-spin"/> {ar?'جارٍ الرفع…':'Uploading…'}</div>}
+          {!uploading && pendingFile && (
+            <div style={{fontSize:12,color:'#009F6B',marginTop:6}}><i className="ti ti-circle-check"/> {pendingFile.name}</div>
+          )}
+        </div>
+      )
     default: return <input type="text" className="form-input" value={value||''} onChange={e=>set(e.target.value)} />
   }
 }
@@ -337,6 +347,9 @@ function GuestRequests() {
   const [guestContact, setGuestContact] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [refNumber, setRefNumber] = useState(null)
+  const [draftId, setDraftId] = useState(null) // storage folder for this fill session's uploads, until a real submission_id exists
+  const [pendingFiles, setPendingFiles] = useState({}) // { [fieldId]: { name, path, type, size } }
+  const [fileUploading, setFileUploading] = useState({}) // { [fieldId]: true } while an upload is in flight
 
   useEffect(() => {
     let cancelled = false
@@ -350,16 +363,54 @@ function GuestRequests() {
     return () => { cancelled = true }
   }, [])
 
+  // Uploads immediately (while the guest is still filling the form) into
+  // request-attachments/{draftId}/{fieldId}/{filename} — draftId is a
+  // fresh UUID generated when a form is opened, isolating this guest's
+  // fill session's files from anyone else's. The real link to the
+  // eventual submission row is created in submit(), once
+  // submit_guest_request returns the actual submission_id.
+  async function handleFieldFileUpload(field, file) {
+    if (!file) return
+    if (file.size > 20 * 1024 * 1024) return alert(ar?'الملف كبير جدًا (الحد الأقصى 20 ميجابايت)':'File is too large (max 20MB)')
+    setFileUploading(p => ({ ...p, [field.id]: true }))
+    try {
+      const ext = file.name.split('.').pop()
+      const path = `${draftId}/${field.id}/${Date.now()}.${ext}`
+      const { error } = await supabase.storage.from('request-attachments').upload(path, file, { upsert: false })
+      if (error) throw error
+      setPendingFiles(p => ({ ...p, [field.id]: { name: file.name, path, type: file.type, size: file.size } }))
+      setAnswers(p => ({ ...p, [field.id]: file.name }))
+    } catch (err) {
+      alert(err.message || (ar?'فشل رفع الملف':'File upload failed'))
+    } finally {
+      setFileUploading(p => ({ ...p, [field.id]: false }))
+    }
+  }
+
   async function submit() {
     const missing = (selectedForm.request_form_fields||[]).filter(f=>f.is_required && !answers[f.id]?.toString().trim())
     if (!guestName.trim()) return alert(ar?'الاسم مطلوب':'Name is required')
     if (missing.length) return alert((ar?'الحقول المطلوبة: ':'Required: ')+missing.map(f=>ar?(f.label_ar||f.label):f.label).join(', '))
+    if (Object.values(fileUploading).some(Boolean)) return alert(ar?'يرجى الانتظار حتى انتهاء رفع الملف':'Please wait for the file upload to finish')
     setSubmitting(true)
     const { data, error } = await supabase.rpc('submit_guest_request', {
       p_form_id: selectedForm.id, p_answers: answers, p_guest_name: guestName.trim(), p_guest_contact: guestContact.trim()||null,
     })
+    if (error || data?.status !== 'created') { setSubmitting(false); return alert(ar?'تعذر الإرسال':'Submission failed') }
+
+    // Link any files uploaded during this fill session to the real
+    // submission row that now exists.
+    const pendingEntries = Object.entries(pendingFiles)
+    if (pendingEntries.length && data.submission_id) {
+      const fileRows = pendingEntries.map(([fieldId, f]) => ({
+        submission_id: data.submission_id, field_id: fieldId,
+        file_name: f.name, file_path: f.path, file_type: f.type, file_size: f.size,
+      }))
+      const { error: fileErr } = await supabase.from('request_submission_files').insert(fileRows)
+      if (fileErr) console.error('Failed to link uploaded files to submission', fileErr)
+    }
+
     setSubmitting(false)
-    if (error || data?.status !== 'created') return alert(ar?'تعذر الإرسال':'Submission failed')
     setRefNumber(data.reference_number)
   }
 
@@ -371,7 +422,7 @@ function GuestRequests() {
       <div style={{fontWeight:700,fontSize:16,margin:'12px 0 6px'}}>{L('Request Submitted','تم إرسال الطلب')}</div>
       <div style={{color:'var(--text2)',fontSize:13,marginBottom:14}}>{L('Please keep your reference number for tracking.','يرجى الاحتفاظ برقم المرجع للمتابعة.')}</div>
       <div style={{fontWeight:700,fontSize:18,letterSpacing:'.03em',color:'#0085C7'}}>{refNumber}</div>
-      <button className="btn btn-blue" style={{marginTop:20}} onClick={()=>{setRefNumber(null);setSelectedForm(null);setAnswers({});setGuestName('');setGuestContact('')}}>
+      <button className="btn btn-blue" style={{marginTop:20}} onClick={()=>{setRefNumber(null);setSelectedForm(null);setAnswers({});setGuestName('');setGuestContact('');setPendingFiles({})}}>
         {L('Submit another request','إرسال طلب آخر')}
       </button>
     </div>
@@ -400,7 +451,8 @@ function GuestRequests() {
           {(selectedForm.request_form_fields||[]).map(field=>(
             <div key={field.id} className="form-group" style={{marginBottom:18}}>
               <label className="form-label">{ar?(field.label_ar||field.label):field.label}{field.is_required && <span style={{color:'#EE334E',marginLeft:4}}>*</span>}</label>
-              <GuestRequestField field={field} value={answers[field.id]} onChange={(id,v)=>setAnswers(p=>({...p,[id]:v}))} ar={ar} />
+              <GuestRequestField field={field} value={answers[field.id]} onChange={(id,v)=>setAnswers(p=>({...p,[id]:v}))} ar={ar}
+                onFileChange={handleFieldFileUpload} uploading={!!fileUploading[field.id]} pendingFile={pendingFiles[field.id]} />
             </div>
           ))}
           <button className="btn btn-blue" disabled={submitting} onClick={submit}>
@@ -426,7 +478,7 @@ function GuestRequests() {
               const clr = f.color||'#0085C7'
               return (
                 <div key={f.id} style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:14,padding:18,cursor:'pointer',boxShadow:'var(--shadow)'}}
-                  onClick={()=>setSelectedForm(f)}>
+                  onClick={()=>{setSelectedForm(f);setDraftId(crypto.randomUUID());setPendingFiles({})}}>
                   <div style={{width:42,height:42,borderRadius:11,background:clr+'15',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:12}}>
                     <i className={`ti ${f.icon||'ti-clipboard-text'}`} style={{fontSize:20,color:clr}}/>
                   </div>
