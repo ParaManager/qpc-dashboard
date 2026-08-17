@@ -2422,8 +2422,8 @@ ${myDocs.length > 0 ? `<div class="section">
             <button className="action-btn action-btn-delete" onClick={() => setConfirm(true)}><i className="ti ti-trash" /> {tx('actions.delete','Delete')}</button>
           </>}
           <button className="action-btn action-btn-edit" onClick={() => exportAthleteProfilePDF(a, coach, myResults, myDocs, myEvents)}
-            style={{ borderColor:'#009F6B', color:'#009F6B' }}
-            onMouseEnter={e => { e.currentTarget.style.background='#e6f4ee' }}
+            style={{ borderColor:'#c0392b', color:'#c0392b' }}
+            onMouseEnter={e => { e.currentTarget.style.background='#fdecea' }}
             onMouseLeave={e => { e.currentTarget.style.background='' }}>
             <i className="ti ti-printer" /> {tx('actions.exportPDF','Export PDF')}
           </button>
