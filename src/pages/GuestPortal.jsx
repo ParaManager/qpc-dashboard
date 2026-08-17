@@ -352,24 +352,22 @@ function GuestRequests() {
   const [fileUploading, setFileUploading] = useState({}) // { [fieldId]: true } while an upload is in flight
   const [tracking, setTracking] = useState(false)
   const [trackRef, setTrackRef] = useState('')
-  const [trackContact, setTrackContact] = useState('')
-  const [trackResult, setTrackResult] = useState(null) // 'not_found' | { ...found fields }
+  const [trackResult, setTrackResult] = useState(null) // 'not_found' | 'rate_limited' | { ...found fields }
   const [trackLoading, setTrackLoading] = useState(false)
 
   async function handleTrackSubmission() {
-    if (!trackRef.trim() || !trackContact.trim()) return
+    if (!trackRef.trim()) return
     setTrackLoading(true)
     setTrackResult(null)
-    // Secure server-side lookup only — the RPC returns nothing (not even
-    // whether a submission exists) unless BOTH the reference number and
-    // the original contact match the same row, and only ever exposes
-    // status/dates/title, never admin notes, answers, or other submissions.
+    // Secure server-side lookup by reference number only — the RPC only
+    // ever exposes status/dates/title, never admin notes, answers,
+    // attachments, or approver identities.
     const { data, error } = await supabase.rpc('track_guest_submission', {
-      p_reference_number: trackRef.trim(), p_contact: trackContact.trim(),
+      p_reference_number: trackRef.trim(),
     })
     setTrackLoading(false)
-    if (error || data?.status !== 'found') { setTrackResult('not_found'); return }
-    setTrackResult(data)
+    if (error) { setTrackResult('not_found'); return }
+    setTrackResult(data?.status === 'found' ? data : (data?.status || 'not_found'))
   }
 
   useEffect(() => {
@@ -444,27 +442,28 @@ function GuestRequests() {
 
   if (tracking) return (
     <div className="card" style={{maxWidth:480,margin:'40px auto',padding:32}}>
-      <BackButton onClick={()=>{setTracking(false);setTrackResult(null);setTrackRef('');setTrackContact('')}} label={L('Back','رجوع')} style={{marginBottom:14}} />
+      <BackButton onClick={()=>{setTracking(false);setTrackResult(null);setTrackRef('')}} label={L('Back','رجوع')} style={{marginBottom:14}} />
       <div style={{fontWeight:700,fontSize:16,marginBottom:4}}>{L('Track Submission','متابعة الطلب')}</div>
-      <div style={{color:'var(--text2)',fontSize:13,marginBottom:18}}>{L('Enter your reference number and the contact you submitted with.','أدخل رقم المرجع وبيانات التواصل التي استخدمتها عند الإرسال.')}</div>
-      <div className="form-group" style={{marginBottom:14}}>
-        <label className="form-label">{L('Reference Number','رقم المرجع')}</label>
-        <input className="form-input" value={trackRef} onChange={e=>setTrackRef(e.target.value)} placeholder="QPC-20260101-0001" />
-      </div>
+      <div style={{color:'var(--text2)',fontSize:13,marginBottom:18}}>{L('Enter your reference number.','أدخل رقم المرجع الخاص بك.')}</div>
       <div className="form-group" style={{marginBottom:18}}>
-        <label className="form-label">{L('Email or Phone (QID)','البريد الإلكتروني أو الهاتف (الرقم الشخصي)')}</label>
-        <input className="form-input" value={trackContact} onChange={e=>setTrackContact(e.target.value)} />
+        <label className="form-label">{L('Reference Number','رقم المرجع')}</label>
+        <input className="form-input" value={trackRef} onChange={e=>setTrackRef(e.target.value)} placeholder="QPC-20260817-K7M4X9P2" />
       </div>
-      <button className="btn btn-blue" disabled={trackLoading || !trackRef.trim() || !trackContact.trim()} onClick={handleTrackSubmission}>
+      <button className="btn btn-blue" disabled={trackLoading || !trackRef.trim()} onClick={handleTrackSubmission}>
         <i className="ti ti-search"/> {trackLoading?L('Checking…','جارٍ التحقق…'):L('Check Status','التحقق من الحالة')}
       </button>
 
       {trackResult === 'not_found' && (
         <div style={{marginTop:18,padding:'12px 14px',background:'#fef2f4',borderRadius:8,color:'#EE334E',fontSize:13}}>
-          {L('No submission found matching that reference number and contact.','لم يتم العثور على طلب مطابق لرقم المرجع وبيانات التواصل.')}
+          {L('No submission found with that reference number.','لم يتم العثور على طلب بهذا الرقم المرجعي.')}
         </div>
       )}
-      {trackResult && trackResult !== 'not_found' && (
+      {trackResult === 'rate_limited' && (
+        <div style={{marginTop:18,padding:'12px 14px',background:'#fff7ed',borderRadius:8,color:'#d97706',fontSize:13}}>
+          {L('Too many attempts. Please try again later.','عدد محاولات كبير جدًا. يرجى المحاولة لاحقًا.')}
+        </div>
+      )}
+      {trackResult && trackResult !== 'not_found' && trackResult !== 'rate_limited' && (
         <div style={{marginTop:18,padding:'14px 16px',background:'var(--surface2)',borderRadius:10}}>
           <div style={{fontSize:12,color:'var(--text3)',marginBottom:4}}>{L('Form','النموذج')}</div>
           <div style={{fontWeight:600,fontSize:14,marginBottom:12}}>{ar?(trackResult.form_title_ar||trackResult.form_title):trackResult.form_title}</div>
