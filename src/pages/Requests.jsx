@@ -64,8 +64,12 @@ const STATUS_META = {
   rejected:         { color:'#EE334E', bg:'#fef2f4', label:'Rejected',        label_ar:'مرفوض' },
   approved:         { color:'#009F6B', bg:'#e8f7f2', label:'Approved',        label_ar:'مقبول' },
   completed:        { color:'#0d9488', bg:'#e6fbf8', label:'Completed',       label_ar:'مكتمل' },
+  cancelled:        { color:'#64748b', bg:'#f1f5f9', label:'Cancelled',       label_ar:'ملغى' },
 }
 const ACTIVE_STATUSES = ['submitted','under_review','pending_approval']
+// Statuses a submitter can still cancel from — anything still in motion,
+// not yet approved/rejected/completed, and not already cancelled.
+const CANCELLABLE_STATUSES = ['submitted','under_review','pending_approval','returned']
 
 const ROLES = ['admin','coach','athlete','employee','guest']
 const ROLE_LABELS_AR = { admin: 'مدير', coach: 'مدرب', athlete: 'رياضي', employee: 'الكادر', referee: 'حكم', guest: 'ضيف' }
@@ -133,6 +137,8 @@ export default function Requests({ profile, navState }) {
   const [reviewSub, setReviewSub]       = useState(null)
   const [reviewNote, setReviewNote]     = useState('')
   const [reviewStatus, setReviewStatus] = useState('approved')
+  const [cancelConfirm, setCancelConfirm] = useState(null) // submission pending cancel-confirmation
+  const [cancelling, setCancelling]     = useState(false)
 
   // ── fetch ─────────────────────────────────────────────────────────────────
   const fetchForms = useCallback(async () => {
@@ -388,6 +394,27 @@ export default function Requests({ profile, navState }) {
   const statusBadge = s => {
     const m = STATUS_META[s]||STATUS_META.submitted
     return <span style={{ fontSize:11, fontWeight:600, color:m.color, background:m.bg, padding:'3px 10px', borderRadius:20 }}>{ar?m.label_ar:m.label}</span>
+  }
+
+  // Submitter-side cancellation. Ownership and status are re-verified
+  // server-side by the RPC (SECURITY DEFINER) — the button being hidden
+  // for the wrong status/owner is a UX nicety, not the actual security
+  // boundary.
+  async function doCancel(sub) {
+    setCancelling(true)
+    const { data, error } = await supabase.rpc('cancel_request_submission', { p_submission_id: sub.id })
+    setCancelling(false)
+    setCancelConfirm(null)
+    if (error || data?.status !== 'ok') {
+      const msg = data?.status === 'not_cancellable' ? (ar?'لا يمكن إلغاء هذا الطلب بعد الآن':'This request can no longer be cancelled')
+        : data?.status === 'not_permitted' ? (ar?'غير مسموح':'Not permitted')
+        : (error?.message || (ar?'فشل الإلغاء':'Cancellation failed'))
+      return toast(msg,'error')
+    }
+    toast(ar?'تم إلغاء الطلب':'Submission cancelled','success')
+    setFormSubs(p => p.map(s => s.id===sub.id ? {...s, status:'cancelled'} : s))
+    setSelectedSub(p => p && p.id===sub.id ? {...p, status:'cancelled'} : p)
+    await fetchMySubs()
   }
 
   // Uploads immediately (while the person is still filling the form) into
@@ -716,11 +743,23 @@ export default function Requests({ profile, navState }) {
                   <button className="action-btn action-btn-edit" title={ar?'تنزيل PDF':'Download PDF'} onClick={e=>{e.stopPropagation();downloadSubmissionPdf(s.request_forms, s)}}>
                     <i className="ti ti-download"/>
                   </button>
+                  {CANCELLABLE_STATUSES.includes(s.status) && !s.is_guest && (
+                    <button className="action-btn action-btn-delete" title={ar?'إلغاء الطلب':'Cancel Submission'} onClick={e=>{e.stopPropagation();setCancelConfirm(s)}}>
+                      <i className="ti ti-x"/>
+                    </button>
+                  )}
                 </div>
               )
             })}
           </div>
       }
+      {cancelConfirm && (
+        <ConfirmModal
+          title={ar?'إلغاء الطلب':'Cancel Submission'}
+          message={ar?'هل أنت متأكد من إلغاء هذا الطلب؟ لا يمكن التراجع عن هذا الإجراء.':'Are you sure you want to cancel this submission? This cannot be undone.'}
+          onConfirm={()=>doCancel(cancelConfirm)}
+          onCancel={()=>setCancelConfirm(null)} />
+      )}
       {formModalJsx}
     </div>
   )
@@ -750,6 +789,11 @@ export default function Requests({ profile, navState }) {
             <button className="action-btn action-btn-edit" onClick={()=>downloadSubmissionPdf(f, selectedSub)}>
               <i className="ti ti-download"/> {ar?'تنزيل PDF':'Download PDF'}
             </button>
+            {CANCELLABLE_STATUSES.includes(selectedSub.status) && !selectedSub.is_guest && (
+              <button className="action-btn action-btn-delete" onClick={()=>setCancelConfirm(selectedSub)}>
+                <i className="ti ti-x"/> {ar?'إلغاء الطلب':'Cancel Submission'}
+              </button>
+            )}
           </div>
         </div>
 
@@ -790,6 +834,13 @@ export default function Requests({ profile, navState }) {
             </div>
           )}
         </div>
+        {cancelConfirm && (
+          <ConfirmModal
+            title={ar?'إلغاء الطلب':'Cancel Submission'}
+            message={ar?'هل أنت متأكد من إلغاء هذا الطلب؟ لا يمكن التراجع عن هذا الإجراء.':'Are you sure you want to cancel this submission? This cannot be undone.'}
+            onConfirm={()=>doCancel(cancelConfirm)}
+            onCancel={()=>setCancelConfirm(null)} />
+        )}
       </div>
     )
   }
