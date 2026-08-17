@@ -21,8 +21,8 @@ function ExportPDFButton({ athlete }) {
   }
   return (
     <button onClick={handlePDF} className="action-btn"
-      style={{ borderColor:'#009F6B', color:'#009F6B', padding:'5px 12px', display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}
-      onMouseEnter={e => { e.currentTarget.style.background='#e6f4ee' }}
+      style={{ borderColor:'#c0392b', color:'#c0392b', padding:'5px 12px', display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}
+      onMouseEnter={e => { e.currentTarget.style.background='#fdecea' }}
       onMouseLeave={e => { e.currentTarget.style.background='' }}>
       <i className="ti ti-printer" style={{ fontSize:14 }} />
       <span>{ar ? 'تصدير PDF' : 'Export PDF'}</span>
@@ -287,8 +287,8 @@ ${myResults.length>0?`<div class="section"><div class="section-title">${L2('Comp
               <div style={{ marginTop:14, display:'flex', gap:8, flexDirection:'column' }}>
                 <AthleteCardButton athlete={personData} />
                 <button className="action-btn"
-                  style={{ borderColor:'#009F6B', color:'#009F6B', justifyContent:'center' }}
-                  onMouseEnter={e => { e.currentTarget.style.background='#e6f4ee' }}
+                  style={{ borderColor:'#c0392b', color:'#c0392b', justifyContent:'center' }}
+                  onMouseEnter={e => { e.currentTarget.style.background='#fdecea' }}
                   onMouseLeave={e => { e.currentTarget.style.background='' }}
                   onClick={() => exportAthleteProfile(personData, myResults, myEvents)}>
                   <i className="ti ti-printer" style={{ fontSize:14 }} /> {L('Export PDF','تصدير PDF')}
@@ -299,8 +299,8 @@ ${myResults.length>0?`<div class="section"><div class="section-title">${L2('Comp
               <div style={{ marginTop:14, display:'flex', gap:8, flexDirection:'column' }}>
                 <EmployeeCardButton emp={personData} />
                 <button className="action-btn"
-                  style={{ borderColor:'#009F6B', color:'#009F6B', justifyContent:'center' }}
-                  onMouseEnter={e => { e.currentTarget.style.background='#e6f4ee' }}
+                  style={{ borderColor:'#c0392b', color:'#c0392b', justifyContent:'center' }}
+                  onMouseEnter={e => { e.currentTarget.style.background='#fdecea' }}
                   onMouseLeave={e => { e.currentTarget.style.background='' }}
                   onClick={() => { const html = generateEmployeeCard(personData); const win = window.open('','_blank'); win.document.write(html); win.document.close(); setTimeout(()=>win.print(),600) }}>
                   <i className="ti ti-printer" style={{ fontSize:14 }} /> {L('Export PDF','تصدير PDF')}

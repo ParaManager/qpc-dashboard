@@ -607,8 +607,8 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
             <i className="ti ti-calendar" /> {tx('actions.viewSchedule', lang==='ar' ? 'عرض الجدول' : 'View Schedule')}
           </button>
           <button className="action-btn action-btn-edit"
-            style={{ borderColor:'#009F6B', color:'#009F6B' }}
-            onMouseEnter={e => e.currentTarget.style.background='#e6f4ee'}
+            style={{ borderColor:'#c0392b', color:'#c0392b' }}
+            onMouseEnter={e => e.currentTarget.style.background='#fdecea'}
             onMouseLeave={e => e.currentTarget.style.background=''}
             onClick={() => exportCoachPDF(c, myAthletes, lang)}>
             <i className="ti ti-printer" /> {tx('actions.exportPDF','Export PDF')}

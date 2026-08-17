@@ -1701,8 +1701,8 @@ export default function Employees({ employees, coaches, personDocs, onRefresh, o
             <button className="action-btn action-btn-delete" onClick={() => setConfirm(true)}><i className="ti ti-trash" /> {tx('actions.delete','Delete')}</button>
           )}
           <button className="action-btn action-btn-edit"
-            style={{ borderColor:'#009F6B', color:'#009F6B' }}
-            onMouseEnter={e => e.currentTarget.style.background='#e6f4ee'}
+            style={{ borderColor:'#c0392b', color:'#c0392b' }}
+            onMouseEnter={e => e.currentTarget.style.background='#fdecea'}
             onMouseLeave={e => e.currentTarget.style.background=''}
             onClick={() => exportEmployeesPDF(emp, lang, coaches)}>
             <i className="ti ti-printer" /> {tx('actions.exportPDF','Export PDF')}
