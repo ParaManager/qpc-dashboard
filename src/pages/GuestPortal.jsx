@@ -347,6 +347,9 @@ function GuestRequests() {
   const [guestContact, setGuestContact] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [refNumber, setRefNumber] = useState(null)
+  const [emailGateForm, setEmailGateForm] = useState(null) // form pending the "enter your email" step, before it actually opens
+  const [emailGateValue, setEmailGateValue] = useState('')
+  const [emailGateError, setEmailGateError] = useState('')
   const [draftId, setDraftId] = useState(null) // storage folder for this fill session's uploads, until a real submission_id exists
   const [pendingFiles, setPendingFiles] = useState({}) // { [fieldId]: { name, path, type, size } }
   const [fileUploading, setFileUploading] = useState({}) // { [fieldId]: true } while an upload is in flight
@@ -411,6 +414,27 @@ function GuestRequests() {
     }
   }
 
+  const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
+
+  // Opens the actual form only after a valid email is captured — this is
+  // the guest notification address saved as guest_contact, and prefilled
+  // into the form's own email-type field (if it has one) so the guest
+  // doesn't have to type it twice.
+  function confirmEmailGate() {
+    const email = emailGateValue.trim()
+    if (!EMAIL_RE.test(email)) { setEmailGateError(ar?'يرجى إدخال بريد إلكتروني صحيح':'Please enter a valid email address'); return }
+    const f = emailGateForm
+    setGuestContact(email)
+    setAnswers(() => {
+      const emailField = (f.request_form_fields||[]).find(fl => fl.field_type === 'email')
+      return emailField ? { [emailField.id]: email } : {}
+    })
+    setSelectedForm(f)
+    setDraftId(crypto.randomUUID())
+    setPendingFiles({})
+    setEmailGateForm(null)
+  }
+
   async function submit() {
     const missing = (selectedForm.request_form_fields||[]).filter(f=>f.is_required && !answers[f.id]?.toString().trim())
     if (!guestName.trim()) return alert(ar?'الاسم مطلوب':'Name is required')
@@ -418,7 +442,7 @@ function GuestRequests() {
     if (Object.values(fileUploading).some(Boolean)) return alert(ar?'يرجى الانتظار حتى انتهاء رفع الملف':'Please wait for the file upload to finish')
     setSubmitting(true)
     const { data, error } = await supabase.rpc('submit_guest_request', {
-      p_form_id: selectedForm.id, p_answers: answers, p_guest_name: guestName.trim(), p_guest_contact: guestContact.trim()||null,
+      p_form_id: selectedForm.id, p_answers: answers, p_guest_name: guestName.trim(), p_guest_contact: guestContact.trim()||null, p_lang: lang,
     })
     if (error || data?.status !== 'created') { setSubmitting(false); return alert(ar?'تعذر الإرسال':'Submission failed') }
 
@@ -481,8 +505,9 @@ function GuestRequests() {
     <div className="card" style={{maxWidth:480,margin:'40px auto',textAlign:'center',padding:32}}>
       <i className="ti ti-circle-check" style={{fontSize:40,color:'#009F6B'}}/>
       <div style={{fontWeight:700,fontSize:16,margin:'12px 0 6px'}}>{L('Request Submitted','تم إرسال الطلب')}</div>
-      <div style={{color:'var(--text2)',fontSize:13,marginBottom:14}}>{L('Please keep your reference number for tracking.','يرجى الاحتفاظ برقم المرجع للمتابعة.')}</div>
+      <div style={{color:'var(--text2)',fontSize:13,marginBottom:14}}>{L('Please save this reference number — you\'ll need it to track your request.','يرجى حفظ رقم المرجع هذا — ستحتاجه لمتابعة طلبك.')}</div>
       <div style={{fontWeight:700,fontSize:18,letterSpacing:'.03em',color:'#0085C7'}}>{refNumber}</div>
+      <div style={{color:'var(--text3)',fontSize:12,marginTop:14}}>{L('A confirmation email has also been sent to you.','تم أيضًا إرسال بريد إلكتروني للتأكيد.')}</div>
       <button className="btn btn-blue" style={{marginTop:20}} onClick={()=>{setRefNumber(null);setSelectedForm(null);setAnswers({});setGuestName('');setGuestContact('');setPendingFiles({})}}>
         {L('Submit another request','إرسال طلب آخر')}
       </button>
@@ -542,7 +567,7 @@ function GuestRequests() {
               const clr = f.color||'#0085C7'
               return (
                 <div key={f.id} style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:14,padding:18,cursor:'pointer',boxShadow:'var(--shadow)'}}
-                  onClick={()=>{setSelectedForm(f);setDraftId(crypto.randomUUID());setPendingFiles({})}}>
+                  onClick={()=>{setEmailGateForm(f);setEmailGateValue(guestContact||'');setEmailGateError('')}}>
                   <div style={{width:42,height:42,borderRadius:11,background:clr+'15',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:12}}>
                     <i className={`ti ${f.icon||'ti-clipboard-text'}`} style={{fontSize:20,color:clr}}/>
                   </div>
@@ -553,6 +578,28 @@ function GuestRequests() {
             })}
           </div>
       }
+      {emailGateForm && (
+        <div onMouseDown={e=>{if(e.target===e.currentTarget) setEmailGateForm(null)}}
+          style={{position:'fixed',inset:0,zIndex:2000,background:'rgba(10,10,14,.5)',backdropFilter:'blur(3px)',display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
+          <div onMouseDown={e=>e.stopPropagation()} style={{width:'100%',maxWidth:400,background:'var(--surface)',borderRadius:14,boxShadow:'0 20px 60px rgba(0,0,0,.35)',padding:24}}>
+            <div style={{fontWeight:700,fontSize:15,marginBottom:6}}>{L('Enter your email to continue','أدخل بريدك الإلكتروني للمتابعة')}</div>
+            <div style={{color:'var(--text2)',fontSize:13,marginBottom:16}}>{L("We'll send your request confirmation and status updates to this address.",'سنرسل تأكيد طلبك وتحديثات الحالة إلى هذا البريد.')}</div>
+            <input className="form-input" type="email" autoFocus value={emailGateValue}
+              onChange={e=>{setEmailGateValue(e.target.value);setEmailGateError('')}}
+              onKeyDown={e=>{if(e.key==='Enter') confirmEmailGate()}}
+              placeholder="you@example.com" />
+            {emailGateError && <div style={{color:'#EE334E',fontSize:12,marginTop:8}}>{emailGateError}</div>}
+            <div style={{display:'flex',gap:10,marginTop:18}}>
+              <button className="action-btn action-btn-edit" style={{flex:1,justifyContent:'center'}} onClick={()=>setEmailGateForm(null)}>
+                {L('Cancel','إلغاء')}
+              </button>
+              <button className="btn btn-blue" style={{flex:1}} onClick={confirmEmailGate}>
+                {L('Continue','متابعة')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
