@@ -350,6 +350,27 @@ function GuestRequests() {
   const [draftId, setDraftId] = useState(null) // storage folder for this fill session's uploads, until a real submission_id exists
   const [pendingFiles, setPendingFiles] = useState({}) // { [fieldId]: { name, path, type, size } }
   const [fileUploading, setFileUploading] = useState({}) // { [fieldId]: true } while an upload is in flight
+  const [tracking, setTracking] = useState(false)
+  const [trackRef, setTrackRef] = useState('')
+  const [trackContact, setTrackContact] = useState('')
+  const [trackResult, setTrackResult] = useState(null) // 'not_found' | { ...found fields }
+  const [trackLoading, setTrackLoading] = useState(false)
+
+  async function handleTrackSubmission() {
+    if (!trackRef.trim() || !trackContact.trim()) return
+    setTrackLoading(true)
+    setTrackResult(null)
+    // Secure server-side lookup only — the RPC returns nothing (not even
+    // whether a submission exists) unless BOTH the reference number and
+    // the original contact match the same row, and only ever exposes
+    // status/dates/title, never admin notes, answers, or other submissions.
+    const { data, error } = await supabase.rpc('track_guest_submission', {
+      p_reference_number: trackRef.trim(), p_contact: trackContact.trim(),
+    })
+    setTrackLoading(false)
+    if (error || data?.status !== 'found') { setTrackResult('not_found'); return }
+    setTrackResult(data)
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -416,6 +437,42 @@ function GuestRequests() {
 
   if (loading) return <div className="empty" style={{ padding: 60 }}>{ar?'جارٍ التحميل…':'Loading…'}</div>
 
+  if (tracking) return (
+    <div className="card" style={{maxWidth:480,margin:'40px auto',padding:32}}>
+      <BackButton onClick={()=>{setTracking(false);setTrackResult(null);setTrackRef('');setTrackContact('')}} label={L('Back','رجوع')} style={{marginBottom:14}} />
+      <div style={{fontWeight:700,fontSize:16,marginBottom:4}}>{L('Track Submission','متابعة الطلب')}</div>
+      <div style={{color:'var(--text2)',fontSize:13,marginBottom:18}}>{L('Enter your reference number and the contact you submitted with.','أدخل رقم المرجع وبيانات التواصل التي استخدمتها عند الإرسال.')}</div>
+      <div className="form-group" style={{marginBottom:14}}>
+        <label className="form-label">{L('Reference Number','رقم المرجع')}</label>
+        <input className="form-input" value={trackRef} onChange={e=>setTrackRef(e.target.value)} placeholder="QPC-20260101-0001" />
+      </div>
+      <div className="form-group" style={{marginBottom:18}}>
+        <label className="form-label">{L('Email or Phone (QID)','البريد الإلكتروني أو الهاتف (الرقم الشخصي)')}</label>
+        <input className="form-input" value={trackContact} onChange={e=>setTrackContact(e.target.value)} />
+      </div>
+      <button className="btn btn-blue" disabled={trackLoading || !trackRef.trim() || !trackContact.trim()} onClick={handleTrackSubmission}>
+        <i className="ti ti-search"/> {trackLoading?L('Checking…','جارٍ التحقق…'):L('Check Status','التحقق من الحالة')}
+      </button>
+
+      {trackResult === 'not_found' && (
+        <div style={{marginTop:18,padding:'12px 14px',background:'#fef2f4',borderRadius:8,color:'#EE334E',fontSize:13}}>
+          {L('No submission found matching that reference number and contact.','لم يتم العثور على طلب مطابق لرقم المرجع وبيانات التواصل.')}
+        </div>
+      )}
+      {trackResult && trackResult !== 'not_found' && (
+        <div style={{marginTop:18,padding:'14px 16px',background:'var(--surface2)',borderRadius:10}}>
+          <div style={{fontSize:12,color:'var(--text3)',marginBottom:4}}>{L('Form','النموذج')}</div>
+          <div style={{fontWeight:600,fontSize:14,marginBottom:12}}>{ar?(trackResult.form_title_ar||trackResult.form_title):trackResult.form_title}</div>
+          <div style={{fontSize:12,color:'var(--text3)',marginBottom:4}}>{L('Status','الحالة')}</div>
+          <div style={{fontWeight:700,fontSize:15,color:'#0085C7',marginBottom:12}}>{trackResult.submission_status}</div>
+          <div style={{fontSize:12,color:'var(--text3)'}}>
+            {L('Submitted','تاريخ الإرسال')}: {new Date(trackResult.submitted_at).toLocaleDateString()}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+
   if (refNumber) return (
     <div className="card" style={{maxWidth:480,margin:'40px auto',textAlign:'center',padding:32}}>
       <i className="ti ti-circle-check" style={{fontSize:40,color:'#009F6B'}}/>
@@ -470,6 +527,9 @@ function GuestRequests() {
           <div className="page-title">{L('Requests','الطلبات')}</div>
           <div className="page-sub">{L('Public request forms','نماذج الطلبات العامة')}</div>
         </div>
+        <button className="action-btn action-btn-edit" onClick={()=>setTracking(true)}>
+          <i className="ti ti-search"/> {L('Track Submission','متابعة الطلب')}
+        </button>
       </div>
       {forms.length===0
         ? <div className="empty">{L('No request forms available','لا توجد نماذج متاحة')}</div>
