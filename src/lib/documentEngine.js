@@ -109,11 +109,26 @@ export function mergeDocuments(sharedDocs, roleDocs, applicableTypes) {
   // normalized type against an un-normalized one would treat two
   // documents of the same real type as different types (or vice versa).
   const sharedDocsNormalized = (sharedDocs || []).map(d => ({ ...d, type: normalizeType(d.type) }))
-  const sharedTypesPresent = new Set(sharedDocsNormalized.map(d => d.type))
+
+  // Cross-table dedup: some legacy rows of a shared type (Photo/Original
+  // Passport/Qatar ID) live in the role-specific table instead of
+  // person_shared_documents (from before uploads were routed there). A
+  // role-specific row is only a duplicate REPRESENTATION of one specific
+  // shared document — never "any shared document of this type" — so this
+  // must match by the underlying file's identity (file_path, falling back
+  // to name when file_path isn't available), not merely by type. Matching
+  // by type alone was the bug: uploading a second shared-type document
+  // (a genuinely separate file) made this filter remove an unrelated
+  // pre-existing role-specific document of the same type, because it only
+  // checked "does a shared doc of this type exist at all" rather than
+  // "is this specific role-doc the same physical file as that shared doc".
+  const sharedIdentityKeys = new Set(
+    sharedDocsNormalized.map(d => `${d.type}::${d.file_path || d.name}`)
+  )
   const roleDocsFiltered = (roleDocs || [])
     .map(d => ({ ...d, type: normalizeType(d.type) }))
     .filter(d => applicableTypes.includes(d.type))
-    .filter(d => !(SHARED_TYPES.includes(d.type) && sharedTypesPresent.has(d.type)))
+    .filter(d => !(SHARED_TYPES.includes(d.type) && sharedIdentityKeys.has(`${d.type}::${d.file_path || d.name}`)))
   const sharedDocsFiltered = sharedDocsNormalized.filter(d => applicableTypes.includes(d.type))
   return [...sharedDocsFiltered.map(d => ({ ...d, _source: 'shared' })), ...roleDocsFiltered.map(d => ({ ...d, _source: 'role' }))]
 }
