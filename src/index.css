@@ -591,3 +591,63 @@ body { overscroll-behavior: none; }
 }
 .info-card { overflow: visible; }
 .detail-grid { overflow: visible; }
+
+/* ── Guest Portal responsive pass ──────────────────────────────────────
+   GuestPortal.jsx reuses the authenticated app's .sidebar/.menu-btn/
+   .sb-overlay drawer mechanics (see the main 768px block above) rather
+   than a second implementation — these rules only cover the pieces that
+   are specific to the guest layout (its own mobile header, hero banner,
+   event rows, and the auth-style cards used for email/tracking/
+   confirmation). Desktop (min-width:769px) is completely untouched. */
+.guest-mobile-topbar { display: none; }
+
+@media (max-width: 768px) {
+  /* Guest sidebar drawer: the desktop width/background are inline styles
+     (kept exactly as-is so desktop is unaffected — inline always beats a
+     plain class rule), so !important is required here to still apply the
+     app's normal mobile drawer width once it's a slide-in panel. */
+  .guest-sidebar { width: 260px !important; }
+
+  /* Compact mobile-only header (hamburger + logo) shown in place of the
+     always-visible desktop sidebar header. */
+  .guest-mobile-topbar {
+    display: flex; align-items: center; gap: 8px;
+    background: #0d0d14; padding: 8px 12px;
+    padding-inline-start: calc(12px + env(safe-area-inset-left));
+  }
+  .guest-mobile-topbar .menu-btn { color: #fff; }
+
+  .guest-banner { padding: 8px 12px; font-size: 11.5px; line-height: 1.4; }
+
+  /* Hero banner: shorter + smaller type so it never forces a wide layout
+     or unreadably large text on a narrow screen. */
+  .guest-hero { min-height: 108px !important; }
+  .guest-hero-inner { padding: 16px 18px !important; }
+  .guest-hero-title { font-size: 17px !important; }
+  .guest-hero-sub { font-size: 11.5px !important; }
+
+  /* Upcoming Events row: title gets its own full-width line, count/date/
+     status badge wrap onto a second line instead of being squeezed off
+     the right edge. */
+  .guest-event-row {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px;
+    padding: 9px 8px; border-bottom: 1px solid #eef0f3;
+  }
+  .guest-event-title {
+    flex: 1 1 100%; font-size: 13px; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .guest-event-meta { font-size: 11px; display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+
+  /* Auth-style guest cards (email gate before a form, submission
+     confirmation, track-submission form) — full-width with sensible
+     margins instead of a fixed desktop padding/width that can crowd a
+     320–430px screen. */
+  .guest-auth-card { width: 100% !important; max-width: 100% !important; margin: 16px auto !important; padding: 20px !important; }
+  .guest-modal-card { max-width: 92vw !important; }
+}
+
+@media (max-width: 400px) {
+  .guest-hero-title { font-size: 15.5px !important; }
+}
+
