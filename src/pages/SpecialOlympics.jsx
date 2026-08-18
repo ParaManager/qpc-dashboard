@@ -435,26 +435,38 @@ async function exportSpecialOlympicsPDF(soAthletes, soCoaches, allCoaches, expor
 
   drawHeader()
 
+  // ── Single source of truth for column order ──────────────────────────
+  // One final ordered array of column definitions (photo included as a
+  // pseudo-column) is built ONCE per table. Every derived piece — header
+  // labels, dataKeys, body-row cells, the photo column index — maps from
+  // this SAME array, so they can never independently disagree about
+  // where a column landed. This is what the previous version got wrong:
+  // headLabels/colKeys put the photo column at the END for Arabic, but
+  // the body-row builders unconditionally prepended '' for photo
+  // regardless of language — shifting every other cell one position out
+  // of alignment with its header whenever Arabic reordering moved photo
+  // to the far end.
+  const PHOTO_COL_DEF = { key: '__photo__', labelEn: 'Photo', labelAr: 'الصورة', isPhoto: true }
+
   // ── Coaches — always included, fixed field set, independent of the
   // athlete column selection. ──
-  const coachColumns = ['name', 'designation', 'status']
-  const coachLabels = { name: L('Name','الاسم'), designation: L('Designation','المسمى الوظيفي'), status: L('Status','الحالة') }
+  const COACH_COL_DEFS = [
+    { key: 'name', labelEn: 'Name', labelAr: 'الاسم' },
+    { key: 'designation', labelEn: 'Designation', labelAr: 'المسمى الوظيفي' },
+    { key: 'status', labelEn: 'Status', labelAr: 'الحالة' },
+  ]
   const coachGetters = {
     name: c => ar && c.name_ar ? c.name_ar : c.name,
     designation: c => (ar && c.designation_ar ? c.designation_ar : c.designation) || '',
     status: c => statusLabel(effectiveStatus(c)),
   }
-  const coachHeadLabels = ar
-    ? [...coachColumns.map(k => coachLabels[k]).reverse(), L('Photo','الصورة')]
-    : [L('Photo','الصورة'), ...coachColumns.map(k => coachLabels[k])]
-  const coachPhotoColIndex = ar ? coachColumns.length : 0
-  const coachColKeys = ar
-    ? [...[...coachColumns].reverse(), '__photo__']
-    : ['__photo__', ...coachColumns]
-  const coachBody = soCoaches.map(c => {
-    const cells = coachColumns.map(k => safeStr(coachGetters[k](c)))
-    return ar ? ['', ...cells.reverse()] : ['', ...cells]
-  })
+  const finalCoachCols = ar
+    ? [...[...COACH_COL_DEFS].reverse(), PHOTO_COL_DEF]
+    : [PHOTO_COL_DEF, ...COACH_COL_DEFS]
+  const coachPhotoColIndex = finalCoachCols.findIndex(c => c.isPhoto)
+  const coachHeadLabels = finalCoachCols.map(c => safeStr(ar ? c.labelAr : c.labelEn))
+  const coachColKeys = finalCoachCols.map(c => c.key)
+  const coachBody = soCoaches.map(c => finalCoachCols.map(col => col.isPhoto ? '' : safeStr(coachGetters[col.key](c))))
 
   let y = HEADER_H + 22
   y = drawTable(y, 'Coaches', 'المدربون', coachPhotoColIndex, coachHeadLabels, coachColKeys, coachBody, coachPhotos, [252, 235, 235])
@@ -464,10 +476,11 @@ async function exportSpecialOlympicsPDF(soAthletes, soCoaches, allCoaches, expor
     y = HEADER_H + 22
   }
 
-  // ── Athletes — only the columns selected in the export modal. Photo is
-  // paired immediately beside the name columns (Arabic Name before
-  // English Name, reading right-to-left) exactly like the Athletes list
-  // PDF's own pairing rule — nothing about the selected set is hardcoded.
+  // ── Athletes — only the columns selected in the export modal, in any
+  // combination/order the person chose. Photo is paired immediately
+  // beside the name columns (Arabic Name before English Name, reading
+  // right-to-left) exactly like the Athletes list PDF's own pairing rule
+  // — nothing about the selected set is hardcoded. ──
   const ATHLETE_GETTERS = {
     name: a => a.name || '',
     name_ar: a => a.name_ar || '',
@@ -493,7 +506,12 @@ async function exportSpecialOlympicsPDF(soAthletes, soCoaches, allCoaches, expor
   const selectedDataCols = SO_ATHLETE_COLS.filter(c => !c.isPhoto && selectedColKeys.includes(c.key))
   const includePhoto = selectedColKeys.includes('photo')
 
-  let orderedDataCols
+  // Reorder the SELECTED (non-photo) columns for Arabic — first-selected
+  // ends up rightmost, name/name_ar pinned together at the very end — then
+  // splice the photo pseudo-column into that SAME array, once, as the
+  // very last step. Every downstream array (labels, keys, body cells,
+  // photo index) reads from this one final list.
+  let finalAthleteCols
   if (ar) {
     const others = selectedDataCols.filter(c => c.key !== 'name' && c.key !== 'name_ar')
     const reversedOthers = [...others].reverse()
@@ -501,25 +519,18 @@ async function exportSpecialOlympicsPDF(soAthletes, soCoaches, allCoaches, expor
       selectedDataCols.find(c => c.key === 'name'),
       selectedDataCols.find(c => c.key === 'name_ar'),
     ].filter(Boolean)
-    orderedDataCols = [...reversedOthers, ...nameGroup]
+    const orderedDataCols = [...reversedOthers, ...nameGroup]
+    finalAthleteCols = includePhoto ? [...orderedDataCols, PHOTO_COL_DEF] : orderedDataCols
   } else {
-    orderedDataCols = selectedDataCols
+    finalAthleteCols = includePhoto ? [PHOTO_COL_DEF, ...selectedDataCols] : selectedDataCols
   }
 
-  const athleteHeadLabels = includePhoto
-    ? (ar ? [...orderedDataCols.map(c => c.labelAr), L('Photo','الصورة')] : [L('Photo','الصورة'), ...orderedDataCols.map(c => c.labelEn)])
-    : orderedDataCols.map(c => ar ? c.labelAr : c.labelEn)
-  const athletePhotoColIndex = includePhoto ? (ar ? orderedDataCols.length : 0) : -1
-  const athleteColKeys = includePhoto
-    ? (ar ? [...orderedDataCols.map(c => c.key), '__photo__'] : ['__photo__', ...orderedDataCols.map(c => c.key)])
-    : orderedDataCols.map(c => c.key)
-  const athleteBody = soAthletes.map(a => {
-    const cells = orderedDataCols.map(c => safeStr(ATHLETE_GETTERS[c.key]?.(a)))
-    if (!includePhoto) return cells
-    return ar ? ['', ...cells] : ['', ...cells]
-  })
+  const athletePhotoColIndex = finalAthleteCols.findIndex(c => c.isPhoto)
+  const athleteHeadLabels = finalAthleteCols.map(c => safeStr(ar ? c.labelAr : c.labelEn))
+  const athleteColKeys = finalAthleteCols.map(c => c.key)
+  const athleteBody = soAthletes.map(a => finalAthleteCols.map(c => c.isPhoto ? '' : safeStr(ATHLETE_GETTERS[c.key]?.(a))))
 
-  if (orderedDataCols.length > 0 || includePhoto) {
+  if (finalAthleteCols.length > 0) {
     drawTable(y, 'Athletes', 'الرياضيون', athletePhotoColIndex, athleteHeadLabels, athleteColKeys, athleteBody, athletePhotos, [253, 245, 245])
   }
 
