@@ -673,3 +673,19 @@ body { overscroll-behavior: none; }
   .guest-hero-title { font-size: 15.5px !important; }
 }
 
+@media (min-width: 769px) {
+  /* The shared .sidebar class sets height:100vh, meant for the
+     authenticated app's layout where the sidebar is the only thing
+     alongside the topbar. Guest Portal has extra chrome above the sidebar
+     row (the Guest Mode banner + mobile topbar), so a 100vh sidebar is
+     taller than the space actually available in its flex row — on
+     desktop (where .sidebar becomes position:relative, i.e. in normal
+     flow) that overflow got clipped by the page's outer overflow:hidden,
+     cutting off the language/Sign In footer at the bottom. Sizing to the
+     flex row's own height instead fixes this without touching the
+     .sidebar class itself (mobile's fixed-position 100vh drawer, shared
+     with the authenticated app, is untouched — this only applies at
+     desktop widths). */
+  .guest-sidebar { height: 100%; }
+}
+
