@@ -598,8 +598,20 @@ body { overscroll-behavior: none; }
    than a second implementation — these rules only cover the pieces that
    are specific to the guest layout (its own mobile header, hero banner,
    event rows, and the auth-style cards used for email/tracking/
-   confirmation). Desktop (min-width:769px) is completely untouched. */
+   confirmation). Desktop (min-width:769px) is completely untouched.
+
+   Base (unscoped) rules below restore the exact original desktop-only
+   inline styles these elements used to have before they were switched
+   from inline style objects to classNames — without a base rule here,
+   an element with only a className and no matching CSS has NO layout at
+   all outside the 768px block, which is what broke the desktop Upcoming
+   Events row. Every mobile-specific tweak stays inside the media query
+   below and only changes properties that need to differ on a phone. */
 .guest-mobile-topbar { display: none; }
+
+.guest-event-row { display:flex; align-items:center; gap:10px; padding:9px 8px; border-bottom:1px solid #eef0f3; }
+.guest-event-title { flex:1; font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.guest-event-meta { font-size:11px; display:flex; align-items:center; gap:4px; flex-shrink:0; }
 
 @media (max-width: 768px) {
   /* Guest sidebar drawer: the desktop width/background are inline styles
@@ -626,18 +638,11 @@ body { overscroll-behavior: none; }
   .guest-hero-title { font-size: 17px !important; }
   .guest-hero-sub { font-size: 11.5px !important; }
 
-  /* Upcoming Events row: title gets its own full-width line, count/date/
-     status badge wrap onto a second line instead of being squeezed off
-     the right edge. */
-  .guest-event-row {
-    display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px;
-    padding: 9px 8px; border-bottom: 1px solid #eef0f3;
-  }
-  .guest-event-title {
-    flex: 1 1 100%; font-size: 13px; min-width: 0;
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  }
-  .guest-event-meta { font-size: 11px; display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+  /* Upcoming Events row: only on mobile does the title move to its own
+     full-width line, with count/date/status badge wrapping onto a second
+     line together — desktop keeps the single-line row defined above. */
+  .guest-event-row { flex-wrap: wrap; gap: 6px 10px; }
+  .guest-event-title { flex: 1 1 100%; min-width: 0; }
 
   /* Auth-style guest cards (email gate before a form, submission
      confirmation, track-submission form) — full-width with sensible
@@ -645,6 +650,14 @@ body { overscroll-behavior: none; }
      320–430px screen. */
   .guest-auth-card { width: 100% !important; max-width: 100% !important; margin: 16px auto !important; padding: 20px !important; }
   .guest-modal-card { max-width: 92vw !important; }
+
+  /* Guest Sports detail page: Athletes + Events are laid out as a 2-col
+     grid inline in Sports.jsx (kept as-is for desktop, unaffected here).
+     On phones that squeezes Events into a half-width column and pushes
+     its content off-screen — stack them to one full-width column instead,
+     matching how every other two-column section already collapses on
+     mobile elsewhere in the app (see .two-col, .coach-grid, etc. above). */
+  .sports-detail-cols { grid-template-columns: 1fr !important; }
 }
 
 @media (max-width: 400px) {
