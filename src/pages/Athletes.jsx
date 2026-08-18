@@ -1977,7 +1977,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
       id_number: formData.idNumber || null,
       id_expiry: formData.idExpiry || null,
     }
-    if (!payload.name) { toast(ar ? 'الاسم مطلوب' : 'Name is required', 'error'); return }
+    if (!payload.name) { toast(lang==='ar' ? 'الاسم مطلوب' : 'Name is required', 'error'); return }
     const priorRecord = isEdit ? athletes.find(a => a.id === formData.id) : null
     let athleteId = formData.id
     const { data: savedRow, error } = isEdit
@@ -2050,8 +2050,8 @@ export default function Athletes({ athletes, coaches, employees, results, docume
 
   async function handlePhotoUpload(athleteId, file) {
     if (!file) return
-    if (!file.type.startsWith('image/')) { toast(ar ? 'يرجى اختيار ملف صورة' : 'Please select an image file', 'error'); return }
-    if (file.size > 5 * 1024 * 1024) { toast(ar ? 'يجب أن يكون حجم الصورة أقل من 5 ميجابايت' : 'Image must be under 5MB', 'error'); return }
+    if (!file.type.startsWith('image/')) { toast(lang==='ar' ? 'يرجى اختيار ملف صورة' : 'Please select an image file', 'error'); return }
+    if (file.size > 5 * 1024 * 1024) { toast(lang==='ar' ? 'يجب أن يكون حجم الصورة أقل من 5 ميجابايت' : 'Image must be under 5MB', 'error'); return }
     setUploading(true)
     try {
       const ext  = file.name.split('.').pop().toLowerCase()
@@ -2066,7 +2066,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
       const photoUrl = data.publicUrl + '?t=' + Date.now()
       const { error: dbErr } = await supabase.from('athletes').update({ photo_url: photoUrl }).eq('id', athleteId)
       if (dbErr) throw dbErr
-      toast(ar ? 'تم تحديث الصورة!' : 'Photo updated!'); await onRefresh()
+      toast(lang==='ar' ? 'تم تحديث الصورة!' : 'Photo updated!'); await onRefresh()
     } catch (err) { toast(err.message || 'Upload failed', 'error') }
     finally { setUploading(false) }
   }
@@ -2074,17 +2074,17 @@ export default function Athletes({ athletes, coaches, employees, results, docume
   async function handlePhotoRemove(athleteId) {
     const { error } = await supabase.from('athletes').update({ photo_url: null }).eq('id', athleteId)
     if (error) { toast(error.message, 'error'); return }
-    toast(ar ? 'تمت إزالة الصورة' : 'Photo removed'); await onRefresh()
+    toast(lang==='ar' ? 'تمت إزالة الصورة' : 'Photo removed'); await onRefresh()
   }
 
   async function handleDocUpload(athleteId, file) {
     if (!file) return
-    if (!docType) { toast(ar ? 'يرجى اختيار نوع المستند أولاً' : 'Select a document type first', 'error'); return }
-    if (file.size > 20 * 1024 * 1024) { toast(ar ? 'يجب أن يكون حجم الملف أقل من 20 ميجابايت' : 'File must be under 20MB', 'error'); return }
+    if (!docType) { toast(lang==='ar' ? 'يرجى اختيار نوع المستند أولاً' : 'Select a document type first', 'error'); return }
+    if (file.size > 20 * 1024 * 1024) { toast(lang==='ar' ? 'يجب أن يكون حجم الملف أقل من 20 ميجابايت' : 'File must be under 20MB', 'error'); return }
     const athlete = athletes.find(a => a.id === athleteId)
     const isSharedType = SHARED_TYPES.includes(docType)
     if (isSharedType && !athlete?.person_id) {
-      toast(ar ? 'لا يوجد سجل شخصي مرتبط بهذا الرياضي بعد' : 'This athlete has no linked person record yet', 'error'); return
+      toast(lang==='ar' ? 'لا يوجد سجل شخصي مرتبط بهذا الرياضي بعد' : 'This athlete has no linked person record yet', 'error'); return
     }
     setDocUploading(true)
     try {
@@ -2124,7 +2124,12 @@ export default function Athletes({ athletes, coaches, employees, results, docume
   }
 
   async function handleDocDelete(doc) {
-    await supabase.storage.from('athlete-documents').remove([doc.file_path])
+    // DB row is the source of truth for "does this document exist" — delete
+    // it first and bail out on failure before touching Storage at all, so a
+    // failed DB delete never leaves an orphaned/broken state. If the DB
+    // delete succeeds, the Storage object removal is best-effort: worst
+    // case is an unreferenced file left in Storage (harmless, cleanable
+    // later), never a DB row pointing at a file that's already gone.
     if (doc._source === 'shared') {
       const { error } = await supabase.from('person_shared_documents').delete().eq('person_id', doc.person_id).eq('type', doc.type).eq('name', doc.name)
       if (error) { toast(error.message, 'error'); return }
@@ -2133,7 +2138,11 @@ export default function Athletes({ athletes, coaches, employees, results, docume
       const { error } = await supabase.from('athlete_documents').delete().eq('id', doc.id)
       if (error) { toast(error.message, 'error'); return }
     }
-    toast(ar ? 'تم حذف المستند' : 'Document deleted')
+    if (doc.file_path) {
+      const { error: storageErr } = await supabase.storage.from('athlete-documents').remove([doc.file_path])
+      if (storageErr) console.error('Document row deleted, but removing the Storage file failed:', storageErr)
+    }
+    toast(lang==='ar' ? 'تم حذف المستند' : 'Document deleted')
     if (isTrustedAdmin(profile)) {
       const athleteId = doc.athlete_id || selected
       const athleteName = athletes.find(a => a.id === athleteId)?.name || String(athleteId)
@@ -2146,7 +2155,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
     setSavingNotes(true)
     const { error } = await supabase.from('athletes').update({ notes }).eq('id', athleteId)
     if (error) { toast(error.message, 'error') }
-    else { toast(ar ? 'تم حفظ الملاحظات' : 'Notes saved'); setNotesChanged(false); setNotesSavedAt(Date.now()); await onRefresh() }
+    else { toast(lang==='ar' ? 'تم حفظ الملاحظات' : 'Notes saved'); setNotesChanged(false); setNotesSavedAt(Date.now()); await onRefresh() }
     setSavingNotes(false)
   }
 

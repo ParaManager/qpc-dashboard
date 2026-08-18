@@ -155,13 +155,22 @@ function RefereeDetail({ r: initialR, ar, L, tcNat, profile, onBack, onEdit, onD
   }
 
   async function handleDocDelete(doc) {
-    await supabase.storage.from('athlete-documents').remove([doc.file_path])
+    // DB row first (source of truth) — abort on failure before touching
+    // Storage, so a failed delete never leaves a partially-removed record
+    // and always surfaces a real error toast instead of silently
+    // reporting success.
     if (doc._source === 'shared') {
-      await supabase.from('person_shared_documents').delete().eq('person_id', doc.person_id).eq('type', doc.type).eq('name', doc.name)
+      const { error } = await supabase.from('person_shared_documents').delete().eq('person_id', doc.person_id).eq('type', doc.type).eq('name', doc.name)
+      if (error) { toast(error.message, 'error'); return }
       setSharedDocs(prev => prev.filter(d => !(d.type === doc.type && d.name === doc.name && d.person_id === doc.person_id)))
     } else {
-      await supabase.from('referee_documents').delete().eq('id', doc.id)
+      const { error } = await supabase.from('referee_documents').delete().eq('id', doc.id)
+      if (error) { toast(error.message, 'error'); return }
       loadDocs()
+    }
+    if (doc.file_path) {
+      const { error: storageErr } = await supabase.storage.from('athlete-documents').remove([doc.file_path])
+      if (storageErr) console.error('Document row deleted, but removing the Storage file failed:', storageErr)
     }
     toast(L('Document deleted','تم حذف الوثيقة')); setDocConfirm(null)
   }
