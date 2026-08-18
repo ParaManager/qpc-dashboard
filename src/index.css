@@ -629,7 +629,16 @@ body { overscroll-behavior: none; }
   }
   .guest-mobile-topbar .menu-btn { color: #fff; }
 
-  .guest-banner { padding: 8px 12px; font-size: 11.5px; line-height: 1.4; }
+  /* Guest Mode banner sits above the mobile black header, at the very top
+     of the screen — on iPhone it needs its own top safe-area padding so
+     its text isn't obscured under the status bar / Dynamic Island. Scoped
+     to mobile only; desktop keeps its original fixed padding untouched. */
+  .guest-banner {
+    padding: 8px 12px;
+    padding-top: calc(8px + env(safe-area-inset-top));
+    font-size: 11.5px;
+    line-height: 1.4;
+  }
 
   /* Hero banner: shorter + smaller type so it never forces a wide layout
      or unreadably large text on a narrow screen. */
