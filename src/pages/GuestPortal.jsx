@@ -633,12 +633,12 @@ function GuestPortalInner({ onExit }) {
       </div>
       <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
         <div className={`sb-overlay${mobileMenuOpen ? ' open' : ''}`} onClick={() => setMobileMenuOpen(false)} />
-        <div className={`sidebar guest-sidebar${mobileMenuOpen ? ' open' : ''}`} style={{ width: 220, flexShrink: 0, background: '#0d0d14', padding: '18px 12px', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 8px 18px' }}>
+        <div className={`sidebar guest-sidebar${mobileMenuOpen ? ' open' : ''}`} style={{ width: 220, flexShrink: 0, background: '#0d0d14', padding: '18px 12px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 8px 18px', flexShrink: 0 }}>
             <img src={QPC_LOGO} alt="QPC" style={{ height: 28 }} />
             <span style={{ color: '#fff', fontSize: 13, fontWeight: 700 }}>{ar ? 'اللجنة البارالمبية' : 'Qatar Paralympic'}</span>
           </div>
-          <div style={{ flex: 1 }}>
+          <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
             {GUEST_NAV.map(item => (
               <div key={item.id} onClick={() => goToPage(item.id)}
                 style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px', borderRadius: 9, cursor: 'pointer', marginBottom: 2,
@@ -648,7 +648,7 @@ function GuestPortalInner({ onExit }) {
               </div>
             ))}
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0, paddingTop: 8 }}>
             <button onClick={() => setLang(ar ? 'en' : 'ar')} style={{ background: 'rgba(255,255,255,.06)', border: 'none', borderRadius: 8, padding: '8px', color: 'rgba(255,255,255,.7)', fontSize: 12, cursor: 'pointer' }}>
               {ar ? 'EN' : 'عربي'}
             </button>
