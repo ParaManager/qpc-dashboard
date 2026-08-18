@@ -7,7 +7,7 @@ import { canEdit } from '../lib/useAuth'
 import { usePersonRoles, RoleBadges } from '../components/RoleBadges.jsx'
 import NationalitySelect from '../components/NationalitySelect.jsx'
 import MultiSelectFilter from '../components/MultiSelectFilter.jsx'
-import { SHARED_TYPES, mergeDocuments } from '../lib/documentEngine'
+import { SHARED_TYPES, mergeDocuments, normalizeType } from '../lib/documentEngine'
 import { isTrustedAdmin, isAdminRole } from '../lib/permissions'
 import { logAdminActivity } from '../lib/adminActivity'
 import PhotoCropModal from '../components/PhotoCropModal'
@@ -164,10 +164,11 @@ function RefereeDetail({ r: initialR, ar, L, tcNat, profile, onBack, onEdit, onD
   // referee + type, used to decide whether the Replace/Add Another prompt
   // needs to appear at all.
   function existingDocsForType(type) {
-    if (SHARED_TYPES.includes(type)) {
-      return sharedDocs.filter(d => d.type === type).map(d => ({ ...d, _source: 'shared' }))
+    const normType = normalizeType(type)
+    if (SHARED_TYPES.includes(normType)) {
+      return sharedDocs.filter(d => normalizeType(d.type) === normType).map(d => ({ ...d, _source: 'shared' }))
     }
-    return docs.filter(d => d.type === type).map(d => ({ ...d, _source: 'role' }))
+    return docs.filter(d => normalizeType(d.type) === normType).map(d => ({ ...d, _source: 'role' }))
   }
 
   // Gate in front of handleDocUpload — if this type already has one or

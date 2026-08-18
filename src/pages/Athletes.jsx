@@ -17,7 +17,7 @@ import { isTrustedAdmin, canViewAthleteDetails } from '../lib/permissions'
 import { usePersonRoles, RoleBadges } from '../components/RoleBadges.jsx'
 import MultiSelectFilter from '../components/MultiSelectFilter.jsx'
 import StatusScopeModal from '../components/StatusScopeModal.jsx'
-import { classifyAthleteType, getAthleteDocumentRules, mergeDocuments, computeCompletion, SHARED_TYPES } from '../lib/documentEngine'
+import { classifyAthleteType, getAthleteDocumentRules, mergeDocuments, computeCompletion, SHARED_TYPES, normalizeType } from '../lib/documentEngine'
 import { logAdminActivity } from '../lib/adminActivity'
 import CareerHistory from '../components/CareerHistory.jsx'
 import { useLang, translateCountry } from '../lib/LangContext.jsx'
@@ -2133,10 +2133,11 @@ export default function Athletes({ athletes, coaches, employees, results, docume
   // Replace/Add Another prompt needs to appear at all.
   function existingDocsForType(athleteId, type) {
     const athlete = athletes.find(a => a.id === athleteId)
-    if (SHARED_TYPES.includes(type)) {
-      return sharedDocs.filter(d => d.person_id === athlete?.person_id && d.type === type).map(d => ({ ...d, _source: 'shared' }))
+    const normType = normalizeType(type)
+    if (SHARED_TYPES.includes(normType)) {
+      return sharedDocs.filter(d => d.person_id === athlete?.person_id && normalizeType(d.type) === normType).map(d => ({ ...d, _source: 'shared' }))
     }
-    return (documents || []).filter(d => d.athlete_id === athleteId && d.type === type).map(d => ({ ...d, _source: 'role' }))
+    return (documents || []).filter(d => d.athlete_id === athleteId && normalizeType(d.type) === normType).map(d => ({ ...d, _source: 'role' }))
   }
 
   // Gate in front of handleDocUpload — if this type already has one or
