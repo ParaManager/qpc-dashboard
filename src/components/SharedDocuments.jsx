@@ -61,9 +61,15 @@ export default function SharedDocuments({ personId, profile }) {
   }
 
   async function handleDelete(doc) {
-    await supabase.storage.from('athlete-documents').remove([doc.file_path])
+    // DB row first (source of truth) — abort before touching Storage if
+    // the delete fails, so a failure never leaves a partial state and
+    // always surfaces a real error toast.
     const { error } = await supabase.from('person_shared_documents').delete().eq('id', doc.id)
     if (error) { toast(error.message, 'error'); return }
+    if (doc.file_path) {
+      const { error: storageErr } = await supabase.storage.from('athlete-documents').remove([doc.file_path])
+      if (storageErr) console.error('Document row deleted, but removing the Storage file failed:', storageErr)
+    }
     toast(ar ? 'تم الحذف' : 'Deleted')
     await load()
   }
