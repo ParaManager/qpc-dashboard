@@ -89,6 +89,7 @@ function RefereeDetail({ r: initialR, ar, L, tcNat, profile, onBack, onEdit, onD
     return () => { cancelled = true }
   }, [r.person_id])
   const mergedDocs = mergeDocuments(sharedDocs, docs, DOC_TYPES)
+  const docsByType = DOC_TYPES.reduce((acc, t) => { acc[t] = mergedDocs.filter(d => d.type === t); return acc }, {})
 
   async function refreshReferee() {
     const { data } = await supabase.from('referees').select('*').eq('id', initialR.id).maybeSingle()
@@ -163,20 +164,16 @@ function RefereeDetail({ r: initialR, ar, L, tcNat, profile, onBack, onEdit, onD
   // Every currently-existing document (shared or role-specific) for this
   // referee + type, used to decide whether the Replace/Add Another prompt
   // needs to appear at all.
-  function existingDocsForType(type) {
-    const normType = normalizeType(type)
-    if (SHARED_TYPES.includes(normType)) {
-      return sharedDocs.filter(d => normalizeType(d.type) === normType).map(d => ({ ...d, _source: 'shared' }))
-    }
-    return docs.filter(d => normalizeType(d.type) === normType).map(d => ({ ...d, _source: 'role' }))
-  }
-
   // Gate in front of handleDocUpload — if this type already has one or
   // more documents, ask Replace existing / Add another / Cancel instead of
-  // uploading immediately.
+  // uploading immediately. Reads straight from `docsByType`, built from
+  // the exact same `mergedDocs` the Documents list itself renders from, so
+  // the duplicate check can never drift out of sync with what's shown —
+  // applies uniformly to every type, shared or role-specific.
   function requestDocUpload(file) {
     if (!file) return
-    const existing = existingDocsForType(docType)
+    const normType = normalizeType(docType)
+    const existing = docsByType?.[normType] || []
     if (existing.length > 0) {
       setUploadChoice({ file, type: docType, existing })
     } else {

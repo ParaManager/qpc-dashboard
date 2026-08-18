@@ -2128,25 +2128,19 @@ export default function Athletes({ athletes, coaches, employees, results, docume
     finally { setDocUploading(false); setDocType(''); if (docInput.current) docInput.current.value = '' }
   }
 
-  // Every currently-existing document (of either storage — shared or
-  // role-specific) for this athlete + type, used to decide whether the
-  // Replace/Add Another prompt needs to appear at all.
-  function existingDocsForType(athleteId, type) {
-    const athlete = athletes.find(a => a.id === athleteId)
-    const normType = normalizeType(type)
-    if (SHARED_TYPES.includes(normType)) {
-      return sharedDocs.filter(d => d.person_id === athlete?.person_id && normalizeType(d.type) === normType).map(d => ({ ...d, _source: 'shared' }))
-    }
-    return (documents || []).filter(d => d.athlete_id === athleteId && normalizeType(d.type) === normType).map(d => ({ ...d, _source: 'role' }))
-  }
-
   // Gate in front of handleDocUpload — if this type already has one or
   // more documents, ask Replace existing / Add another / Cancel instead of
-  // uploading immediately.
-  function requestDocUpload(athleteId, file) {
+  // uploading immediately. `docsByType` is passed in from the render site
+  // (the same grouped-by-type structure the Documents list itself renders
+  // from, built via mergeDocuments) rather than recomputed separately
+  // here, so the duplicate check can never drift out of sync with what's
+  // actually shown on screen — this applies uniformly to every document
+  // type, shared or role-specific, with no special-casing.
+  function requestDocUpload(athleteId, file, docsByType) {
     if (!file) return
     if (!docType) { toast(lang==='ar' ? 'يرجى اختيار نوع المستند أولاً' : 'Select a document type first', 'error'); return }
-    const existing = existingDocsForType(athleteId, docType)
+    const normType = normalizeType(docType)
+    const existing = docsByType?.[normType] || []
     if (existing.length > 0) {
       setUploadChoice({ athleteId, file, type: docType, existing })
     } else {
@@ -2455,21 +2449,21 @@ ${myDocs.length > 0 ? `<div class="section">
         {docConfirm && <ConfirmModal title="Delete document" message={`Delete "${docConfirm.name}"?`} onConfirm={() => handleDocDelete(docConfirm)} onCancel={() => setDocConfirm(null)} />}
         {uploadChoice && (
           <div className="modal-overlay" onClick={() => resolveUploadChoice('cancel')}>
-            <div className="modal" style={{ maxWidth:400 }} onClick={e => e.stopPropagation()}>
-              <div className="modal-title">{lang==='ar' ? 'المستند موجود بالفعل' : 'Document already uploaded'}</div>
-              <div style={{ padding:'0 20px 4px', fontSize:13.5, color:'var(--text2)', lineHeight:1.5 }}>
+            <div className="confirm-box" onClick={e => e.stopPropagation()}>
+              <div className="confirm-title">{lang==='ar' ? 'المستند موجود بالفعل' : 'Document already uploaded'}</div>
+              <div className="confirm-msg">
                 {lang==='ar'
-                  ? `${lang==='ar' ? (DOC_TYPES_AR[uploadChoice.type]||uploadChoice.type) : uploadChoice.type} مرفوع بالفعل. ماذا تريد أن تفعل؟`
+                  ? `${DOC_TYPES_AR[uploadChoice.type]||uploadChoice.type} مرفوع بالفعل. ماذا تريد أن تفعل؟`
                   : `${uploadChoice.type} is already uploaded. What would you like to do?`}
               </div>
-              <div style={{ display:'flex', flexDirection:'column', gap:8, padding:'16px 20px 20px' }}>
-                <button className="btn btn-blue" onClick={() => resolveUploadChoice('replace')}>
+              <div className="confirm-btns" style={{ flexDirection:'column' }}>
+                <button className="btn btn-blue" style={{ width:'100%' }} onClick={() => resolveUploadChoice('replace')}>
                   {lang==='ar' ? 'استبدال الموجود' : 'Replace existing'}
                 </button>
-                <button className="btn" style={{ background:'var(--surface2)', color:'var(--text)' }} onClick={() => resolveUploadChoice('add')}>
+                <button className="btn" style={{ width:'100%', background:'var(--surface2)', color:'var(--text)' }} onClick={() => resolveUploadChoice('add')}>
                   {lang==='ar' ? 'إضافة آخر' : 'Add another'}
                 </button>
-                <button className="btn-cancel" onClick={() => resolveUploadChoice('cancel')}>
+                <button className="btn-cancel" style={{ width:'100%' }} onClick={() => resolveUploadChoice('cancel')}>
                   {lang==='ar' ? 'إلغاء' : 'Cancel'}
                 </button>
               </div>
@@ -2937,7 +2931,7 @@ ${myDocs.length > 0 ? `<div class="section">
                     style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', background: !docType ? 'var(--text3)' : '#0085C7', color:'#fff', border:'none', borderRadius:8, fontSize:12, fontWeight:500, cursor: (docUploading || !docType) ? 'default' : 'pointer', flexShrink:0, fontFamily:'DM Sans, sans-serif', opacity: !docType ? .6 : 1 }}>
                     {docUploading ? <><div style={{ width:12, height:12, border:'2px solid rgba(255,255,255,.4)', borderTopColor:'#fff', borderRadius:'50%', animation:'spin .7s linear infinite' }} />{lang==='ar'?'جارٍ الرفع…':'Uploading…'}</> : <><i className="ti ti-upload" style={{ fontSize:14 }} />{lang==='ar'?'رفع':'Upload'}</>}
                   </button>
-                  <input ref={docInput} type="file" style={{ display:'none' }} accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={e => { if(e.target.files[0]) requestDocUpload(a.id, e.target.files[0]) }} />
+                  <input ref={docInput} type="file" style={{ display:'none' }} accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={e => { if(e.target.files[0]) requestDocUpload(a.id, e.target.files[0], docsByType) }} />
                 </div>
               )}
               {!documentsExpanded ? null : myDocs.length === 0
