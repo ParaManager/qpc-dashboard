@@ -67,7 +67,7 @@ function GuestBanner() {
   const { lang } = useLang()
   const ar = lang === 'ar'
   return (
-    <div style={{ background: '#fef3c7', borderBottom: '1px solid #fcd34d', padding: '8px 16px', textAlign: 'center', fontSize: 12.5, color: '#92400e', fontWeight: 500 }}>
+    <div className="guest-banner" style={{ background: '#fef3c7', borderBottom: '1px solid #fcd34d', padding: '8px 16px', textAlign: 'center', fontSize: 12.5, color: '#92400e', fontWeight: 500 }}>
       <i className="ti ti-eye" style={{ marginInlineEnd: 6 }} />
       {ar
         ? 'وضع الضيف — أنت تستخدم النسخة العامة للقراءة فقط من نظام إدارة اللجنة البارالمبية القطرية.'
@@ -108,22 +108,22 @@ function GuestDashboard({ athletes, coaches, events, registrations }) {
 
   return (
     <div>
-      <div style={{ position: 'relative', borderRadius: 18, overflow: 'hidden', marginBottom: 14, minHeight: 140, display: 'flex', alignItems: 'center', background: '#1a0a14' }}>
+      <div className="guest-hero" style={{ position: 'relative', borderRadius: 18, overflow: 'hidden', marginBottom: 14, minHeight: 140, display: 'flex', alignItems: 'center', background: '#1a0a14' }}>
         <div style={{ position: 'absolute', inset: 0, backgroundImage: 'url(/dashboard-banner.jpg)', backgroundSize: 'cover', backgroundPosition: 'center center' }} />
         <div style={{ position: 'absolute', inset: 0, background: ar
           ? 'linear-gradient(to left, rgba(10,5,15,0.85) 0%, rgba(10,5,15,0.55) 40%, rgba(10,5,15,0.05) 65%)'
           : 'linear-gradient(to right, rgba(10,5,15,0.80) 0%, rgba(10,5,15,0.55) 40%, rgba(10,5,15,0.05) 65%)' }} />
-        <div style={{ position: 'relative', zIndex: 1, padding: '22px 28px' }}>
-          <div style={{ fontSize: 22, fontWeight: 700, color: '#fff', letterSpacing: '-.02em', marginBottom: 4 }}>
+        <div className="guest-hero-inner" style={{ position: 'relative', zIndex: 1, padding: '22px 28px' }}>
+          <div className="guest-hero-title" style={{ fontSize: 22, fontWeight: 700, color: '#fff', letterSpacing: '-.02em', marginBottom: 4 }}>
             {L('Qatar Paralympic Committee','اللجنة البارالمبية القطرية')}
           </div>
-          <div style={{ fontSize: 13, color: 'rgba(255,255,255,.65)' }}>
+          <div className="guest-hero-sub" style={{ fontSize: 13, color: 'rgba(255,255,255,.65)' }}>
             {L('Public overview — athletes, sports & events','نظرة عامة عامة — الرياضيون والرياضات والفعاليات')}
           </div>
         </div>
       </div>
 
-      <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(4,1fr)' }}>
+      <div className="kpi-grid">
         {kpiCards.map(({ label, val, color, icon }) => (
           <div key={label} className="kpi-card" style={{ cursor: 'default' }}>
             <div className="kpi-icon" style={{ background: color + '18' }}><i className={`ti ${icon}`} style={{ color, fontSize: 16 }} /></div>
@@ -142,13 +142,13 @@ function GuestDashboard({ athletes, coaches, events, registrations }) {
           const statusLabel = STATUS_TX[evStatus] ? tx(`events.${STATUS_TX[evStatus]}`, evStatus) : evStatus
           const regCount = registrations.filter(r => r.event_id === ev.id).length
           return (
-            <div key={ev.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 8px', borderBottom:'1px solid #eef0f3' }}>
+            <div key={ev.id} className="guest-event-row">
               <div style={{ width:8, height:8, borderRadius:'50%', background:statusDot(evStatus), flexShrink:0 }} />
-              <span style={{ flex:1, fontSize:13, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{ar && ev.name_ar ? ev.name_ar : ev.name}</span>
-              <span style={{ fontSize:11, color:'#9aa3b2', display:'flex', alignItems:'center', gap:4, flexShrink:0 }}>
+              <span className="guest-event-title">{ar && ev.name_ar ? ev.name_ar : ev.name}</span>
+              <span className="guest-event-meta" style={{ color:'#9aa3b2' }}>
                 <i className="ti ti-users" style={{ fontSize:12 }} /> {regCount}
               </span>
-              <span style={{ fontSize:11, color:'#9aa3b2', flexShrink:0 }}>{ev.start_date}</span>
+              <span className="guest-event-meta" style={{ color:'#9aa3b2' }}>{ev.start_date}</span>
               <span className={`badge ${statusClass(evStatus)}`} style={{ flexShrink:0 }}>{statusLabel}</span>
             </div>
           )
@@ -469,7 +469,7 @@ function GuestRequests() {
   if (loading) return <div className="empty" style={{ padding: 60 }}>{ar?'جارٍ التحميل…':'Loading…'}</div>
 
   if (tracking) return (
-    <div className="card" style={{maxWidth:480,margin:'40px auto',padding:32}}>
+    <div className="card guest-auth-card" style={{maxWidth:480,margin:'40px auto',padding:32}}>
       <BackButton onClick={()=>{setTracking(false);setTrackResult(null);setTrackRef('')}} label={L('Back','رجوع')} style={{marginBottom:14}} />
       <div style={{fontWeight:700,fontSize:16,marginBottom:4}}>{L('Track Submission','متابعة الطلب')}</div>
       <div style={{color:'var(--text2)',fontSize:13,marginBottom:18}}>{L('Enter your reference number.','أدخل رقم المرجع الخاص بك.')}</div>
@@ -506,7 +506,7 @@ function GuestRequests() {
   )
 
   if (refNumber) return (
-    <div className="card" style={{maxWidth:480,margin:'40px auto',textAlign:'center',padding:32}}>
+    <div className="card guest-auth-card" style={{maxWidth:480,margin:'40px auto',textAlign:'center',padding:32}}>
       <i className="ti ti-circle-check" style={{fontSize:40,color:'#009F6B'}}/>
       <div style={{fontWeight:700,fontSize:16,margin:'12px 0 6px'}}>{L('Request Submitted','تم إرسال الطلب')}</div>
       <div style={{color:'var(--text2)',fontSize:13,marginBottom:14}}>{L('Please save this reference number — you\'ll need it to track your request.','يرجى حفظ رقم المرجع هذا — ستحتاجه لمتابعة طلبك.')}</div>
@@ -585,7 +585,7 @@ function GuestRequests() {
       {emailGateForm && (
         <div onMouseDown={e=>{if(e.target===e.currentTarget) setEmailGateForm(null)}}
           style={{position:'fixed',inset:0,zIndex:2000,background:'rgba(10,10,14,.5)',backdropFilter:'blur(3px)',display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
-          <div onMouseDown={e=>e.stopPropagation()} style={{width:'100%',maxWidth:400,background:'var(--surface)',borderRadius:14,boxShadow:'0 20px 60px rgba(0,0,0,.35)',padding:24}}>
+          <div className="guest-modal-card" onMouseDown={e=>e.stopPropagation()} style={{width:'100%',maxWidth:400,background:'var(--surface)',borderRadius:14,boxShadow:'0 20px 60px rgba(0,0,0,.35)',padding:24}}>
             <div style={{fontWeight:700,fontSize:15,marginBottom:6}}>{L('Enter your email to continue','أدخل بريدك الإلكتروني للمتابعة')}</div>
             <div style={{color:'var(--text2)',fontSize:13,marginBottom:16}}>{L("We'll send your request confirmation and status updates to this address.",'سنرسل تأكيد طلبك وتحديثات الحالة إلى هذا البريد.')}</div>
             <input className="form-input" type="email" autoFocus value={emailGateValue}
@@ -612,20 +612,35 @@ function GuestPortalInner({ onExit }) {
   const { lang, setLang } = useLang()
   const ar = lang === 'ar'
   const [page, setPage] = useState('dashboard')
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const { athletes, coaches, events, results, registrations, loading } = useGuestData()
+
+  function goToPage(id) { setPage(id); setMobileMenuOpen(false) }
 
   return (
     <div style={{ height: '100vh', background: 'var(--bg)', direction: ar ? 'rtl' : 'ltr', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <GuestBanner />
+      {/* Mobile-only compact header: hamburger + logo. Hidden on desktop via
+          the shared .hide-desktop-only rule (mirrors the authenticated
+          app's .topbar/.menu-btn pattern) so desktop layout/behavior is
+          completely unchanged. */}
+      <div className="guest-mobile-topbar">
+        <button className="menu-btn" onClick={() => setMobileMenuOpen(true)} aria-label="Menu">
+          <i className="ti ti-menu-2" />
+        </button>
+        <img src={QPC_LOGO} alt="QPC" style={{ height: 22 }} />
+        <span style={{ color: '#fff', fontSize: 12.5, fontWeight: 700 }}>{ar ? 'اللجنة البارالمبية' : 'Qatar Paralympic'}</span>
+      </div>
       <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
-        <div style={{ width: 220, flexShrink: 0, background: '#0d0d14', padding: '18px 12px', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+        <div className={`sb-overlay${mobileMenuOpen ? ' open' : ''}`} onClick={() => setMobileMenuOpen(false)} />
+        <div className={`sidebar guest-sidebar${mobileMenuOpen ? ' open' : ''}`} style={{ width: 220, flexShrink: 0, background: '#0d0d14', padding: '18px 12px', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 8px 18px' }}>
             <img src={QPC_LOGO} alt="QPC" style={{ height: 28 }} />
             <span style={{ color: '#fff', fontSize: 13, fontWeight: 700 }}>{ar ? 'اللجنة البارالمبية' : 'Qatar Paralympic'}</span>
           </div>
           <div style={{ flex: 1 }}>
             {GUEST_NAV.map(item => (
-              <div key={item.id} onClick={() => setPage(item.id)}
+              <div key={item.id} onClick={() => goToPage(item.id)}
                 style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px', borderRadius: 9, cursor: 'pointer', marginBottom: 2,
                   background: page === item.id ? 'rgba(255,255,255,.08)' : 'transparent', color: page === item.id ? '#fff' : 'rgba(255,255,255,.6)' }}>
                 <i className={`ti ${item.icon}`} style={{ fontSize: 16 }} />
