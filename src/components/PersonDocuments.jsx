@@ -166,10 +166,11 @@ export default function PersonDocuments({ personId, personType, personName, docs
   // person + type, used to decide whether the Replace/Add Another prompt
   // needs to appear at all.
   function existingDocsForType(type) {
-    if (SHARED_TYPES.includes(type)) {
-      return sharedDocs.filter(d => d.type === type).map(d => ({ ...d, _source: 'shared' }))
+    const normType = normalizeType(type)
+    if (SHARED_TYPES.includes(normType)) {
+      return sharedDocs.filter(d => normalizeType(d.type) === normType).map(d => ({ ...d, _source: 'shared' }))
     }
-    return myOwnDocs.filter(d => d.type === type).map(d => ({ ...d, _source: 'role' }))
+    return myOwnDocs.filter(d => normalizeType(d.type) === normType).map(d => ({ ...d, _source: 'role' }))
   }
 
   // Gate in front of handleUpload — if this type already has one or more
