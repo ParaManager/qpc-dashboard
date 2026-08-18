@@ -39,8 +39,12 @@ function useGuestData() {
     let cancelled = false
     ;(async () => {
       const [a, c, e, r, reg] = await Promise.all([
-        supabase.from('athletes').select('id, name, name_ar, sport, sport_category, classification, status'),
-        supabase.from('coaches').select('id, name, name_ar, sport, sport_category, status'),
+        // Same is_test_record filter as the canonical fetch in App.jsx
+        // (fetchAll) — without it, the guest dashboard's counts include
+        // internal test records the real Athletes/Coaches pages exclude,
+        // so the two never agree.
+        supabase.from('athletes').select('id, name, name_ar, sport, sport_category, classification, status').eq('is_test_record', false),
+        supabase.from('coaches').select('id, name, name_ar, sport, sport_category, status').eq('is_test_record', false),
         supabase.from('events').select('*'),
         supabase.from('results').select('id, athlete_id, medal, discipline, event_name, date'),
         supabase.from('event_registrations').select('event_id, athlete_id'),
