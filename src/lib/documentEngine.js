@@ -103,12 +103,18 @@ export const ALL_ATHLETE_TYPES = [
 export const ALL_NON_ATHLETE_TYPES = [...SHARED_TYPES, CANONICAL_TYPES.ADEL_CERT, CANONICAL_TYPES.OTHER]
 
 export function mergeDocuments(sharedDocs, roleDocs, applicableTypes) {
-  const sharedTypesPresent = new Set((sharedDocs || []).map(d => d.type))
+  // Normalize BOTH collections — legacy rows can carry an un-normalized
+  // type (e.g. 'Passport' instead of 'Original Passport') in either
+  // person_shared_documents or the role-specific table, and comparing a
+  // normalized type against an un-normalized one would treat two
+  // documents of the same real type as different types (or vice versa).
+  const sharedDocsNormalized = (sharedDocs || []).map(d => ({ ...d, type: normalizeType(d.type) }))
+  const sharedTypesPresent = new Set(sharedDocsNormalized.map(d => d.type))
   const roleDocsFiltered = (roleDocs || [])
     .map(d => ({ ...d, type: normalizeType(d.type) }))
     .filter(d => applicableTypes.includes(d.type))
     .filter(d => !(SHARED_TYPES.includes(d.type) && sharedTypesPresent.has(d.type)))
-  const sharedDocsFiltered = (sharedDocs || []).filter(d => applicableTypes.includes(d.type))
+  const sharedDocsFiltered = sharedDocsNormalized.filter(d => applicableTypes.includes(d.type))
   return [...sharedDocsFiltered.map(d => ({ ...d, _source: 'shared' })), ...roleDocsFiltered.map(d => ({ ...d, _source: 'role' }))]
 }
 
