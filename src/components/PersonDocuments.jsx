@@ -162,24 +162,17 @@ export default function PersonDocuments({ personId, personType, personName, docs
     finally { setUploading(false); setDocType(''); if (docInput.current) docInput.current.value = '' }
   }
 
-  // Every currently-existing document (shared or role-specific) for this
-  // person + type, used to decide whether the Replace/Add Another prompt
-  // needs to appear at all.
-  function existingDocsForType(type) {
-    const normType = normalizeType(type)
-    if (SHARED_TYPES.includes(normType)) {
-      return sharedDocs.filter(d => normalizeType(d.type) === normType).map(d => ({ ...d, _source: 'shared' }))
-    }
-    return myOwnDocs.filter(d => normalizeType(d.type) === normType).map(d => ({ ...d, _source: 'role' }))
-  }
-
   // Gate in front of handleUpload — if this type already has one or more
   // documents, ask Replace existing / Add another / Cancel instead of
-  // uploading immediately.
+  // uploading immediately. Reads straight from `docsByType`, the exact
+  // grouped-by-type structure the Documents list itself renders from, so
+  // the duplicate check can never drift out of sync with what's shown —
+  // applies uniformly to every type, shared or role-specific.
   function requestUpload(file) {
     if (!file) return
     if (!docType) { toast(ar ? 'يرجى اختيار نوع المستند أولاً' : 'Select a document type first', 'error'); return }
-    const existing = existingDocsForType(docType)
+    const normType = normalizeType(docType)
+    const existing = docsByType?.[normType] || []
     if (existing.length > 0) {
       setUploadChoice({ file, type: docType, existing })
     } else {
