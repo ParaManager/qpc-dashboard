@@ -73,6 +73,7 @@ function RefereeDetail({ r: initialR, ar, L, tcNat, profile, onBack, onEdit, onD
   const [docs, setDocs]               = useState([])
   const [sharedDocs, setSharedDocs]   = useState([])
   const [docConfirm, setDocConfirm]   = useState(null)
+  const [uploadChoice, setUploadChoice] = useState(null) // { file, type, existing: [...] } — pending Replace/Add/Cancel decision
 
   const DOC_TYPES = ['Photo', 'Qatar ID']
   const DOC_TYPES_AR = { 'Photo':'صورة', 'Qatar ID':'الرقم الشخصي' }
@@ -135,13 +136,18 @@ function RefereeDetail({ r: initialR, ar, L, tcNat, profile, onBack, onEdit, onD
       if (upErr) throw upErr
       const { data } = supabase.storage.from('athlete-documents').getPublicUrl(path)
       if (isSharedType) {
-        const dup = sharedDocs.find(d => d.type === docType && d.name === file.name)
-        if (dup) { toast(L('This document already exists','هذا الملف موجود بالفعل'), 'error'); await supabase.storage.from('athlete-documents').remove([path]); setDocUploading(false); return }
-        await supabase.from('person_shared_documents').insert({
+        // Multiple documents of the same type are allowed — the Replace/Add
+        // Another prompt in requestDocUpload() decides whether an existing
+        // one gets removed first, so this insert always adds a new row.
+        // .select().single() gets the real DB-assigned id back so the
+        // local optimistic append has a genuine id immediately — without
+        // it, this row's own Preview/Download/Delete actions and its React
+        // key would be broken until the next full refetch.
+        const { data: inserted } = await supabase.from('person_shared_documents').insert({
           person_id: r.person_id, name: file.name, type: docType,
           file_url: data.publicUrl, file_path: path, file_size: file.size,
-        })
-        setSharedDocs(prev => [...prev, { person_id: r.person_id, name: file.name, type: docType, file_url: data.publicUrl, file_path: path, file_size: file.size, uploaded_at: new Date().toISOString() }])
+        }).select().single()
+        setSharedDocs(prev => [...prev, inserted])
       } else {
         await supabase.from('referee_documents').insert({
           referee_id: r.id, name: file.name, type: docType,
@@ -152,6 +158,53 @@ function RefereeDetail({ r: initialR, ar, L, tcNat, profile, onBack, onEdit, onD
       toast(L(`${docType} uploaded!`,`تم رفع ${DOC_TYPES_AR[docType]}!`))
     } catch(err) { toast(err.message, 'error') }
     finally { setDocUploading(false); if (docInput.current) docInput.current.value = '' }
+  }
+
+  // Every currently-existing document (shared or role-specific) for this
+  // referee + type, used to decide whether the Replace/Add Another prompt
+  // needs to appear at all.
+  function existingDocsForType(type) {
+    if (SHARED_TYPES.includes(type)) {
+      return sharedDocs.filter(d => d.type === type).map(d => ({ ...d, _source: 'shared' }))
+    }
+    return docs.filter(d => d.type === type).map(d => ({ ...d, _source: 'role' }))
+  }
+
+  // Gate in front of handleDocUpload — if this type already has one or
+  // more documents, ask Replace existing / Add another / Cancel instead of
+  // uploading immediately.
+  function requestDocUpload(file) {
+    if (!file) return
+    const existing = existingDocsForType(docType)
+    if (existing.length > 0) {
+      setUploadChoice({ file, type: docType, existing })
+    } else {
+      handleDocUpload(file)
+    }
+  }
+
+  async function resolveUploadChoice(action) {
+    const choice = uploadChoice
+    setUploadChoice(null)
+    if (!choice) return
+    if (action === 'cancel') { if (docInput.current) docInput.current.value = ''; return }
+    if (action === 'replace') {
+      for (const doc of choice.existing) {
+        if (doc._source === 'shared') {
+          await supabase.from('person_shared_documents').delete().eq('id', doc.id)
+        } else {
+          await supabase.from('referee_documents').delete().eq('id', doc.id)
+        }
+        if (doc.file_path) {
+          const { error: storageErr } = await supabase.storage.from('athlete-documents').remove([doc.file_path])
+          if (storageErr) console.error('Document row deleted, but removing the Storage file failed:', storageErr)
+        }
+      }
+      const replacedIds = new Set(choice.existing.filter(d => d._source === 'shared').map(d => d.id))
+      if (replacedIds.size) setSharedDocs(prev => prev.filter(d => !replacedIds.has(d.id)))
+      if (choice.existing.some(d => d._source === 'role')) loadDocs()
+    }
+    await handleDocUpload(choice.file)
   }
 
   async function handleDocDelete(doc) {
@@ -185,6 +238,28 @@ function RefereeDetail({ r: initialR, ar, L, tcNat, profile, onBack, onEdit, onD
   return (
     <div>
       {docConfirm && <ConfirmModal title={L('Delete document','حذف وثيقة')} message={`${L('Delete','حذف')} "${docConfirm.name}"?`} onConfirm={() => handleDocDelete(docConfirm)} onCancel={() => setDocConfirm(null)} />}
+      {uploadChoice && (
+        <div className="modal-overlay" onClick={() => resolveUploadChoice('cancel')}>
+          <div className="confirm-box" onClick={e => e.stopPropagation()}>
+            <div className="confirm-title">{L('Document already uploaded','المستند موجود بالفعل')}</div>
+            <div className="confirm-msg">
+              {L(`${uploadChoice.type} is already uploaded. What would you like to do?`,
+                 `${DOC_TYPES_AR[uploadChoice.type]||uploadChoice.type} مرفوع بالفعل. ماذا تريد أن تفعل؟`)}
+            </div>
+            <div className="confirm-btns" style={{ flexDirection:'column' }}>
+              <button className="btn btn-blue" style={{ width:'100%' }} onClick={() => resolveUploadChoice('replace')}>
+                {L('Replace existing','استبدال الموجود')}
+              </button>
+              <button className="btn" style={{ width:'100%', background:'var(--surface2)', color:'var(--text)' }} onClick={() => resolveUploadChoice('add')}>
+                {L('Add another','إضافة آخر')}
+              </button>
+              <button className="btn-cancel" style={{ width:'100%' }} onClick={() => resolveUploadChoice('cancel')}>
+                {L('Cancel','إلغاء')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <BackButton onClick={onBack} label={L('Back to referees','رجوع إلى الحكام')} />
       {canEdit(profile) && (
         <div style={{ display:'flex', gap:8, marginBottom:16 }}>
@@ -269,7 +344,7 @@ function RefereeDetail({ r: initialR, ar, L, tcNat, profile, onBack, onEdit, onD
                   style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', background:'#0085C7', color:'#fff', border:'none', borderRadius:8, fontSize:12, fontWeight:500, cursor:'pointer', flexShrink:0, fontFamily:'DM Sans, sans-serif' }}>
                   {docUploading ? <><div style={{ width:12, height:12, border:'2px solid rgba(255,255,255,.4)', borderTopColor:'#fff', borderRadius:'50%', animation:'spin .7s linear infinite' }} />{L('Uploading…','جارٍ الرفع…')}</> : <><i className="ti ti-upload" style={{ fontSize:14 }} />{L('Upload','رفع')}</>}
                 </button>
-                <input ref={docInput} type="file" style={{ display:'none' }} accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={e => { if(e.target.files[0]) handleDocUpload(e.target.files[0]) }} />
+                <input ref={docInput} type="file" style={{ display:'none' }} accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={e => { if(e.target.files[0]) requestDocUpload(e.target.files[0]) }} />
               </div>
             )}
 

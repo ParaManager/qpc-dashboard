@@ -1475,6 +1475,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
   const [downloadingAll, setDownloadingAll] = useState(false)
   const [docDropOpen, setDocDropOpen] = useState(false)
   const [docConfirm, setDocConfirm] = useState(null)
+  const [uploadChoice, setUploadChoice] = useState(null) // { file, type, existing: [...] } — pending Replace/Add/Cancel decision
   const [notes, setNotes]           = useState('')
   const [savingNotes, setSavingNotes] = useState(false)
   const [notesSavedAt, setNotesSavedAt] = useState(null)
@@ -2095,17 +2096,21 @@ export default function Athletes({ athletes, coaches, employees, results, docume
       const { data } = supabase.storage.from('athlete-documents').getPublicUrl(path)
 
       if (isSharedType) {
-        // Photo / Original Passport / Qatar ID go to person_shared_documents,
-        // once per person — the unique index on (person_id, type, name)
-        // prevents a duplicate row for the same file+type.
-        const dup = sharedDocs.find(d => d.type === docType && d.name === file.name)
-        if (dup) { toast(lang==='ar' ? 'هذا الملف موجود بالفعل' : 'This document already exists', 'error'); await supabase.storage.from('athlete-documents').remove([path]); setDocUploading(false); return }
-        const { error: dbErr } = await supabase.from('person_shared_documents').insert({
+        // Photo / Original Passport / Qatar ID go to person_shared_documents.
+        // Multiple documents of the same type are allowed (the Replace/Add
+        // Another prompt in requestDocUpload() is what decides whether an
+        // existing one gets removed first) — this insert always adds a new
+        // row. .select().single() gets the real DB-assigned id back so the
+        // local optimistic append has a genuine id immediately (not
+        // undefined) — without it, this row's own Preview/Download/Delete
+        // buttons and its React key would be broken until the next full
+        // refetch.
+        const { data: inserted, error: dbErr } = await supabase.from('person_shared_documents').insert({
           person_id: athlete.person_id, name: file.name, type: docType,
           file_url: data.publicUrl, file_path: path, file_size: file.size,
-        })
+        }).select().single()
         if (dbErr) throw dbErr
-        setSharedDocs(prev => [...prev, { person_id: athlete.person_id, name: file.name, type: docType, file_url: data.publicUrl, file_path: path, file_size: file.size, uploaded_at: new Date().toISOString() }])
+        setSharedDocs(prev => [...prev, inserted])
       } else {
         const { error: dbErr } = await supabase.from('athlete_documents').insert({
           athlete_id: athleteId, name: file.name, type: docType,
@@ -2123,6 +2128,57 @@ export default function Athletes({ athletes, coaches, employees, results, docume
     finally { setDocUploading(false); setDocType(''); if (docInput.current) docInput.current.value = '' }
   }
 
+  // Every currently-existing document (of either storage — shared or
+  // role-specific) for this athlete + type, used to decide whether the
+  // Replace/Add Another prompt needs to appear at all.
+  function existingDocsForType(athleteId, type) {
+    const athlete = athletes.find(a => a.id === athleteId)
+    if (SHARED_TYPES.includes(type)) {
+      return sharedDocs.filter(d => d.person_id === athlete?.person_id && d.type === type).map(d => ({ ...d, _source: 'shared' }))
+    }
+    return (documents || []).filter(d => d.athlete_id === athleteId && d.type === type).map(d => ({ ...d, _source: 'role' }))
+  }
+
+  // Gate in front of handleDocUpload — if this type already has one or
+  // more documents, ask Replace existing / Add another / Cancel instead of
+  // uploading immediately.
+  function requestDocUpload(athleteId, file) {
+    if (!file) return
+    if (!docType) { toast(lang==='ar' ? 'يرجى اختيار نوع المستند أولاً' : 'Select a document type first', 'error'); return }
+    const existing = existingDocsForType(athleteId, docType)
+    if (existing.length > 0) {
+      setUploadChoice({ athleteId, file, type: docType, existing })
+    } else {
+      handleDocUpload(athleteId, file)
+    }
+  }
+
+  async function resolveUploadChoice(action) {
+    const choice = uploadChoice
+    setUploadChoice(null)
+    if (!choice) return
+    if (action === 'cancel') { if (docInput.current) docInput.current.value = ''; return }
+    if (action === 'replace') {
+      // Remove every existing document of this type (DB row first, then
+      // its Storage object, same safe order as a normal delete) before the
+      // new one is uploaded, rather than leaving old + new side by side.
+      for (const doc of choice.existing) {
+        if (doc._source === 'shared') {
+          await supabase.from('person_shared_documents').delete().eq('id', doc.id)
+        } else {
+          await supabase.from('athlete_documents').delete().eq('id', doc.id)
+        }
+        if (doc.file_path) {
+          const { error: storageErr } = await supabase.storage.from('athlete-documents').remove([doc.file_path])
+          if (storageErr) console.error('Document row deleted, but removing the Storage file failed:', storageErr)
+        }
+      }
+      const replacedIds = new Set(choice.existing.filter(d => d._source === 'shared').map(d => d.id))
+      if (replacedIds.size) setSharedDocs(prev => prev.filter(d => !replacedIds.has(d.id)))
+    }
+    await handleDocUpload(choice.athleteId, choice.file)
+  }
+
   async function handleDocDelete(doc) {
     // DB row is the source of truth for "does this document exist" — delete
     // it first and bail out on failure before touching Storage at all, so a
@@ -2131,9 +2187,13 @@ export default function Athletes({ athletes, coaches, employees, results, docume
     // case is an unreferenced file left in Storage (harmless, cleanable
     // later), never a DB row pointing at a file that's already gone.
     if (doc._source === 'shared') {
-      const { error } = await supabase.from('person_shared_documents').delete().eq('person_id', doc.person_id).eq('type', doc.type).eq('name', doc.name)
+      // Deletes by primary key id — never by (person_id, type, name), which
+      // would match every document of that type sharing the same filename
+      // (a very common case: repeated scans named e.g. "passport.pdf") and
+      // silently remove more than the one the person clicked delete on.
+      const { error } = await supabase.from('person_shared_documents').delete().eq('id', doc.id)
       if (error) { toast(error.message, 'error'); return }
-      setSharedDocs(prev => prev.filter(d => !(d.type === doc.type && d.name === doc.name && d.person_id === doc.person_id)))
+      setSharedDocs(prev => prev.filter(d => d.id !== doc.id))
     } else {
       const { error } = await supabase.from('athlete_documents').delete().eq('id', doc.id)
       if (error) { toast(error.message, 'error'); return }
@@ -2392,6 +2452,29 @@ ${myDocs.length > 0 ? `<div class="section">
           />
         )}
         {docConfirm && <ConfirmModal title="Delete document" message={`Delete "${docConfirm.name}"?`} onConfirm={() => handleDocDelete(docConfirm)} onCancel={() => setDocConfirm(null)} />}
+        {uploadChoice && (
+          <div className="modal-overlay" onClick={() => resolveUploadChoice('cancel')}>
+            <div className="modal" style={{ maxWidth:400 }} onClick={e => e.stopPropagation()}>
+              <div className="modal-title">{lang==='ar' ? 'المستند موجود بالفعل' : 'Document already uploaded'}</div>
+              <div style={{ padding:'0 20px 4px', fontSize:13.5, color:'var(--text2)', lineHeight:1.5 }}>
+                {lang==='ar'
+                  ? `${lang==='ar' ? (DOC_TYPES_AR[uploadChoice.type]||uploadChoice.type) : uploadChoice.type} مرفوع بالفعل. ماذا تريد أن تفعل؟`
+                  : `${uploadChoice.type} is already uploaded. What would you like to do?`}
+              </div>
+              <div style={{ display:'flex', flexDirection:'column', gap:8, padding:'16px 20px 20px' }}>
+                <button className="btn btn-blue" onClick={() => resolveUploadChoice('replace')}>
+                  {lang==='ar' ? 'استبدال الموجود' : 'Replace existing'}
+                </button>
+                <button className="btn" style={{ background:'var(--surface2)', color:'var(--text)' }} onClick={() => resolveUploadChoice('add')}>
+                  {lang==='ar' ? 'إضافة آخر' : 'Add another'}
+                </button>
+                <button className="btn-cancel" onClick={() => resolveUploadChoice('cancel')}>
+                  {lang==='ar' ? 'إلغاء' : 'Cancel'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         {medalModal && (
           <div className="modal-overlay" onClick={() => setMedalModal(null)}>
             <div className="modal-box modal-sm" onClick={e => e.stopPropagation()}>
@@ -2853,7 +2936,7 @@ ${myDocs.length > 0 ? `<div class="section">
                     style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', background: !docType ? 'var(--text3)' : '#0085C7', color:'#fff', border:'none', borderRadius:8, fontSize:12, fontWeight:500, cursor: (docUploading || !docType) ? 'default' : 'pointer', flexShrink:0, fontFamily:'DM Sans, sans-serif', opacity: !docType ? .6 : 1 }}>
                     {docUploading ? <><div style={{ width:12, height:12, border:'2px solid rgba(255,255,255,.4)', borderTopColor:'#fff', borderRadius:'50%', animation:'spin .7s linear infinite' }} />{lang==='ar'?'جارٍ الرفع…':'Uploading…'}</> : <><i className="ti ti-upload" style={{ fontSize:14 }} />{lang==='ar'?'رفع':'Upload'}</>}
                   </button>
-                  <input ref={docInput} type="file" style={{ display:'none' }} accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={e => { if(e.target.files[0]) handleDocUpload(a.id, e.target.files[0]) }} />
+                  <input ref={docInput} type="file" style={{ display:'none' }} accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={e => { if(e.target.files[0]) requestDocUpload(a.id, e.target.files[0]) }} />
                 </div>
               )}
               {!documentsExpanded ? null : myDocs.length === 0
