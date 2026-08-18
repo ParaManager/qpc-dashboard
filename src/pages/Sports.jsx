@@ -184,7 +184,7 @@ export default function Sports({ athletes, coaches, events, results, onNav, init
             ))}
           </div>
         )}
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+        <div className="sports-detail-cols" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
           <div className="info-card">
             <div className="info-title">{tx('sports.athletes','Athletes')} ({myAths.length}) <span style={{ fontSize:10, fontWeight:400, textTransform:'none', letterSpacing:0 }}>— {tx('athletes.clickToView','click to view')}</span></div>
             {myAths.length === 0 ? <div className="empty">{tx('sports.noAthletes','No athletes')}</div> :
