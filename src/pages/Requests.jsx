@@ -56,6 +56,22 @@ function formatFileSize(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
+// A single small-muted-label + value row for the submission-detail header's
+// metadata block (Date/Time, Email, Reference, Status). Renders nothing at
+// all when there's no value — e.g. no email on file for a non-guest
+// submitter — rather than showing an empty/dash row. `ltr` keeps a value
+// (reference numbers, emails, dates) readable left-to-right even inside
+// the Arabic column, without affecting the Arabic label next to it.
+function MetaField({ label, value, ltr = false, align }) {
+  if (value === null || value === undefined || value === '') return null
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, flexWrap: 'wrap', justifyContent: align === 'right' ? 'flex-end' : 'flex-start' }}>
+      <span style={{ color: 'var(--text3)', fontWeight: 600 }}>{label}:</span>
+      <span style={{ color: 'var(--text)', fontWeight: 500 }} dir={ltr ? 'ltr' : undefined}>{value}</span>
+    </div>
+  )
+}
+
 // Request-attachment specific limit (separate from the athlete-document
 // upload limit elsewhere in the app, which uses a different value for a
 // different feature).
@@ -1047,6 +1063,12 @@ export default function Requests({ profile, navState }) {
 
     return (
       <div className={ar ? 'submission-detail-rtl' : undefined} dir={ar ? 'rtl' : 'ltr'}>
+        {/* Small muted-label + value rows replace the old one-line
+            "date · reference · email" string (see <MetaField> below).
+            `ltr` keeps reference numbers/emails/dates readable
+            left-to-right even inside the Arabic column; a field with no
+            value (e.g. no email on file for a non-guest submitter)
+            simply renders nothing. */}
         {ar ? (
           <>
             <div style={{display:'flex', justifyContent:'left', marginBottom:10}}>
@@ -1070,16 +1092,17 @@ export default function Requests({ profile, navState }) {
                 <button className="btn btn-blue" onClick={doComplete}><i className="ti ti-check"/> وضع علامة مكتمل</button>
               )}
             </div>
-            <div style={{maxWidth:640, marginLeft:'auto', marginRight:0, marginBottom:20, display:'flex', alignItems:'center', gap:12, justifyContent:'right', flexWrap:'wrap'}}>
+            <div style={{maxWidth:640, marginLeft:'auto', marginRight:0, marginBottom:20, display:'flex', alignItems:'flex-start', gap:12, justifyContent:'right', flexWrap:'wrap'}}>
               <div style={{textAlign:'right'}}>
                 <div className="page-title" style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap', justifyContent:'right'}}>
                   {subName}
                   {selectedSub.is_guest && <span style={{fontSize:10,fontWeight:700,color:'#64748b',background:'#f1f5f9',padding:'2px 7px',borderRadius:10}}>ضيف</span>}
                 </div>
-                <div className="page-sub">
-                  {new Date(selectedSub.submitted_at).toLocaleString()}
-                  {selectedSub.reference_number && <> · {selectedSub.reference_number}</>}
-                  {selectedSub.is_guest && selectedSub.guest_contact && <> · {selectedSub.guest_contact}</>}
+                <div style={{display:'flex', flexDirection:'column', gap:4, marginTop:8, alignItems:'flex-end'}}>
+                  <MetaField label="تاريخ ووقت الإرسال" value={new Date(selectedSub.submitted_at).toLocaleString()} ltr align="right" />
+                  <MetaField label="البريد الإلكتروني لمقدم الطلب" value={selectedSub.is_guest ? selectedSub.guest_contact : null} ltr align="right" />
+                  <MetaField label="مرجع الطلب" value={selectedSub.reference_number} ltr align="right" />
+                  <MetaField label="الحالة" value={statusBadge(selectedSub.status)} align="right" />
                 </div>
               </div>
               <div style={{width:36,height:36,borderRadius:'50%',background:subRoleClr,display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:700,color:'white',flexShrink:0}}>
@@ -1091,7 +1114,7 @@ export default function Requests({ profile, navState }) {
         <div className="page-header" style={{marginBottom:20, flexWrap:'wrap', gap:12}}>
           <div>
             <BackButton onClick={()=>setView('form-detail')} label="Back" />
-            <div style={{display:'flex',alignItems:'center',gap:12}}>
+            <div style={{display:'flex',alignItems:'flex-start',gap:12}}>
               <div style={{width:36,height:36,borderRadius:'50%',background:subRoleClr,display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:700,color:'white',flexShrink:0}}>
                 {initials(subName)}
               </div>
@@ -1100,10 +1123,11 @@ export default function Requests({ profile, navState }) {
                   {subName}
                   {selectedSub.is_guest && <span style={{fontSize:10,fontWeight:700,color:'#64748b',background:'#f1f5f9',padding:'2px 7px',borderRadius:10}}>GUEST</span>}
                 </div>
-                <div className="page-sub">
-                  {new Date(selectedSub.submitted_at).toLocaleString()}
-                  {selectedSub.reference_number && <> · {selectedSub.reference_number}</>}
-                  {selectedSub.is_guest && selectedSub.guest_contact && <> · {selectedSub.guest_contact}</>}
+                <div style={{display:'flex', flexDirection:'column', gap:4, marginTop:8}}>
+                  <MetaField label="Submission Date &amp; Time" value={new Date(selectedSub.submitted_at).toLocaleString()} ltr />
+                  <MetaField label="Submitter Email" value={selectedSub.is_guest ? selectedSub.guest_contact : null} ltr />
+                  <MetaField label="Submission Reference" value={selectedSub.reference_number} ltr />
+                  <MetaField label="Status" value={statusBadge(selectedSub.status)} />
                 </div>
               </div>
             </div>
