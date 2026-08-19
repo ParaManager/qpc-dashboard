@@ -1093,7 +1093,7 @@ export default function Requests({ profile, navState }) {
               )}
             </div>
             <div style={{width:'100%', maxWidth:640, marginLeft:'auto', marginRight:0, marginBottom:20, display:'flex', alignItems:'flex-start', gap:12, justifyContent:'right', flexWrap:'wrap'}}>
-              <div style={{textAlign:'right', flex:1, minWidth:180}}>
+              <div style={{textAlign:'right'}}>
                 <div className="page-title" style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap', justifyContent:'right'}}>
                   {subName}
                   {selectedSub.is_guest && <span style={{fontSize:10,fontWeight:700,color:'#64748b',background:'#f1f5f9',padding:'2px 7px',borderRadius:10}}>ضيف</span>}
