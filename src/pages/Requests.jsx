@@ -65,7 +65,7 @@ function formatFileSize(bytes) {
 function MetaField({ label, value, ltr = false, align }) {
   if (value === null || value === undefined || value === '') return null
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, flexWrap: 'wrap', justifyContent: align === 'right' ? 'flex-end' : 'flex-start' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, flexWrap: 'wrap', width: '100%', justifyContent: align === 'right' ? 'right' : 'left' }}>
       <span style={{ color: 'var(--text3)', fontWeight: 600 }}>{label}:</span>
       <span style={{ color: 'var(--text)', fontWeight: 500 }} dir={ltr ? 'ltr' : undefined}>{value}</span>
     </div>
@@ -1093,19 +1093,19 @@ export default function Requests({ profile, navState }) {
               )}
             </div>
             <div style={{width:'100%', maxWidth:640, marginLeft:'auto', marginRight:0, marginBottom:20, display:'flex', alignItems:'flex-start', gap:12, justifyContent:'right', flexWrap:'wrap'}}>
-              <div style={{textAlign:'right'}}>
+              <div style={{textAlign:'right', flex:1, minWidth:180}}>
                 <div className="page-title" style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap', justifyContent:'right'}}>
                   {subName}
                   {selectedSub.is_guest && <span style={{fontSize:10,fontWeight:700,color:'#64748b',background:'#f1f5f9',padding:'2px 7px',borderRadius:10}}>ضيف</span>}
                 </div>
-                <div style={{display:'flex', flexDirection:'column', gap:4, marginTop:8, alignItems:'flex-end'}}>
+                <div style={{display:'flex', flexDirection:'column', gap:4, marginTop:8, width:'100%'}}>
                   <MetaField label="تاريخ ووقت الإرسال" value={new Date(selectedSub.submitted_at).toLocaleString()} ltr align="right" />
                   <MetaField label="البريد الإلكتروني لمقدم الطلب" value={selectedSub.is_guest ? selectedSub.guest_contact : null} ltr align="right" />
                   <MetaField label="مرجع الطلب" value={selectedSub.reference_number} ltr align="right" />
                   <MetaField label="الحالة" value={statusBadge(selectedSub.status)} align="right" />
                 </div>
               </div>
-              <div style={{width:36,height:36,borderRadius:'50%',background:subRoleClr,display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:700,color:'white',flexShrink:0}}>
+              <div style={{width:36,height:36,borderRadius:'50%',background:subRoleClr,display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:700,color:'white',flexShrink:0,order:1}}>
                 {initials(subName)}
               </div>
             </div>
