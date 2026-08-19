@@ -360,7 +360,113 @@ function GuestRequests() {
   const [tracking, setTracking] = useState(false)
   const [trackRef, setTrackRef] = useState('')
   const [trackResult, setTrackResult] = useState(null) // 'not_found' | 'rate_limited' | { ...found fields }
+  // Secure guest edit link (from a "Returned" status email):
+  // /?guest_edit=<submission_id>&token=<edit_token> — loaded via a
+  // SECURITY DEFINER RPC that validates the token server-side (matches
+  // this exact submission, status is still 'returned', not expired).
+  // Never trusts the submission id alone.
+  const [editLoadState, setEditLoadState] = useState(null) // null | 'loading' | 'invalid' | 'ready' | 'done'
+  const [editData, setEditData] = useState(null) // { submissionId, token, form, answers, files }
+  const [editSubmitting, setEditSubmitting] = useState(false)
+  const [editPendingFiles, setEditPendingFiles] = useState({}) // { [fieldId]: { name, path, type, size } } — newly-uploaded replacement/added files, not yet linked
+  const [editFileUploading, setEditFileUploading] = useState({})
   const [trackLoading, setTrackLoading] = useState(false)
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const submissionId = params.get('guest_edit')
+    const token = params.get('token')
+    if (!submissionId || !token) return
+    setEditLoadState('loading')
+    ;(async () => {
+      const { data, error } = await supabase.rpc('get_returned_submission_for_edit', {
+        p_submission_id: submissionId, p_token: token,
+      })
+      if (error || data?.status !== 'ok') { setEditLoadState('invalid'); return }
+      setEditData({
+        submissionId, token,
+        form: { id: data.form.id, title: data.form.title, title_ar: data.form.title_ar, request_form_fields: data.form.fields || [] },
+        answers: data.submission.answers || {},
+        referenceNumber: data.submission.reference_number,
+        files: data.files || [], // existing attachments, kept unless explicitly removed
+      })
+      setEditLoadState('ready')
+    })()
+  }, [])
+
+  async function handleEditFieldFileUpload(field, file) {
+    if (!file) return
+    if (file.size > 25 * 1024 * 1024) return alert(ar?'حجم الملف يتجاوز الحد المسموح 25 ميجابايت':'File exceeds the 25 MB limit')
+    if (!SUPPORTED_DOC_FILE_TYPES.includes(file.type)) return alert(ar?'نوع الملف غير مدعوم. الرجاء رفع PDF أو JPG أو PNG.':'Unsupported file type. Please upload a PDF, JPG, or PNG.')
+    setEditFileUploading(p => ({ ...p, [field.id]: true }))
+    try {
+      const ext = file.name.split('.').pop()
+      const path = `${editData.submissionId}/${field.id}/${Date.now()}.${ext}`
+      const { error } = await supabase.storage.from('request-attachments').upload(path, file, { upsert: false })
+      if (error) throw error
+      setEditPendingFiles(p => ({ ...p, [field.id]: { name: file.name, path, type: file.type, size: file.size } }))
+    } catch (err) {
+      console.error('Attachment upload failed', err)
+      alert(ar?'فشل الرفع. يرجى المحاولة مرة أخرى.':'Upload failed. Please try again.')
+    } finally {
+      setEditFileUploading(p => ({ ...p, [field.id]: false }))
+    }
+  }
+
+  // Existing attachment stays untouched unless explicitly removed here —
+  // this is the only path that deletes one, always through the
+  // token-gated RPC (never a direct client-side table/storage delete).
+  async function removeEditExistingFile(fileRow) {
+    const { data, error } = await supabase.rpc('remove_returned_submission_file', {
+      p_submission_id: editData.submissionId, p_file_id: fileRow.id, p_token: editData.token,
+    })
+    if (error || data?.status !== 'ok') { alert(ar?'تعذر إزالة الملف':'Could not remove the file'); return }
+    if (data.file_path) {
+      // Best-effort — guests don't have Storage delete permission on this
+      // bucket, so this silently no-ops for them; the DB row (the source
+      // of truth for "is this file attached") is already gone either way.
+      supabase.storage.from('request-attachments').remove([data.file_path]).catch(() => {})
+    }
+    setEditData(p => ({ ...p, files: p.files.filter(f => f.id !== fileRow.id) }))
+  }
+
+  async function submitEdit() {
+    if (!editData) return
+    if (Object.values(editFileUploading).some(Boolean)) return alert(ar?'يرجى الانتظار حتى انتهاء رفع الملف':'Please wait for the file upload to finish')
+    const missing = (editData.form.request_form_fields||[]).filter(f => {
+      if (!f.is_required) return false
+      if (f.field_type === 'file') {
+        // A required file field counts as satisfied by a kept existing
+        // attachment OR a newly-uploaded replacement — not text answers.
+        const hasExisting = editData.files.some(fl => fl.field_id === f.id)
+        const hasNew = !!editPendingFiles[f.id]
+        return !hasExisting && !hasNew
+      }
+      return !editData.answers[f.id]?.toString().trim()
+    })
+    if (missing.length) return alert((ar?'الحقول المطلوبة: ':'Required: ')+missing.map(f=>ar?(f.label_ar||f.label):f.label).join(', '))
+    setEditSubmitting(true)
+    // File metadata (already-uploaded Storage paths) is passed straight
+    // into the RPC, which links it in the SAME transaction as the
+    // status/action update — atomic: either everything commits together,
+    // or a failure rolls all of it back and nothing is left half-linked.
+    // A retry after a genuine failure safely resends the same list
+    // without creating duplicate rows, since nothing from the failed
+    // attempt was ever committed.
+    const newFiles = Object.entries(editPendingFiles).map(([fieldId, f]) => ({
+      field_id: fieldId, file_name: f.name, file_path: f.path, file_type: f.type, file_size: f.size,
+    }))
+    const { data, error } = await supabase.rpc('resubmit_guest_submission', {
+      p_submission_id: editData.submissionId, p_token: editData.token, p_answers: editData.answers, p_new_files: newFiles,
+    })
+    setEditSubmitting(false)
+    if (error || data?.status !== 'ok') {
+      alert(data?.status === 'invalid_or_expired' ? (ar?'انتهت صلاحية رابط التعديل أو أنه غير صالح':'This edit link is invalid or has expired') : (ar?'تعذر إعادة الإرسال':'Could not resubmit'))
+      return
+    }
+    setEditPendingFiles({})
+    setEditLoadState('done')
+  }
 
   async function handleTrackSubmission() {
     if (!trackRef.trim()) return
@@ -467,6 +573,85 @@ function GuestRequests() {
   }
 
   if (loading) return <div className="empty" style={{ padding: 60 }}>{ar?'جارٍ التحميل…':'Loading…'}</div>
+
+  // Secure guest edit flow (Returned submission via emailed edit link) —
+  // takes over the whole page since it's reached from an external email
+  // link, not normal in-app navigation.
+  if (editLoadState) {
+    if (editLoadState === 'loading') return (
+      <div className="card" style={{maxWidth:480,margin:'40px auto',padding:32,textAlign:'center'}}>{L('Loading…','جارٍ التحميل…')}</div>
+    )
+    if (editLoadState === 'invalid') return (
+      <div className="card" style={{maxWidth:480,margin:'40px auto',padding:32,textAlign:'center'}}>
+        <i className="ti ti-link-off" style={{fontSize:32,color:'#EE334E'}}/>
+        <div style={{fontWeight:700,fontSize:15,margin:'12px 0 6px'}}>{L('This link is invalid or has expired','هذا الرابط غير صالح أو منتهي الصلاحية')}</div>
+        <div style={{color:'var(--text2)',fontSize:13}}>{L('Please contact us for a new link, or check your latest status email.','يرجى التواصل معنا للحصول على رابط جديد، أو مراجعة أحدث بريد إلكتروني للحالة.')}</div>
+      </div>
+    )
+    if (editLoadState === 'done') return (
+      <div className="card" style={{maxWidth:480,margin:'40px auto',padding:32,textAlign:'center'}}>
+        <i className="ti ti-circle-check" style={{fontSize:40,color:'#009F6B'}}/>
+        <div style={{fontWeight:700,fontSize:16,margin:'12px 0 6px'}}>{L('Resubmitted','تم إعادة الإرسال')}</div>
+        <div style={{color:'var(--text2)',fontSize:13}}>{L('Your request has been updated and is back in the review queue.','تم تحديث طلبك وهو الآن مجددًا ضمن قائمة المراجعة.')}</div>
+      </div>
+    )
+    // 'ready'
+    return (
+      <div className="card" style={{maxWidth:640,margin:'24px auto',padding:28}}>
+        <div style={{fontWeight:700,fontSize:16,marginBottom:4}}>{ar?(editData.form.title_ar||editData.form.title):editData.form.title}</div>
+        <div style={{color:'var(--text3)',fontSize:12,marginBottom:18}}>{L('Reference','المرجع')}: {editData.referenceNumber} — {L('Edit and resubmit your returned request below.','عدّل طلبك المُعاد أدناه ثم أعد إرساله.')}</div>
+        {editData.form.request_form_fields.map(field => {
+          if (field.field_type === 'file') {
+            const existing = editData.files.filter(f => f.field_id === field.id)
+            const uploading = !!editFileUploading[field.id]
+            const pending = editPendingFiles[field.id]
+            return (
+              <div key={field.id} className="form-group" style={{marginBottom:16}}>
+                <label className="form-label">
+                  {ar?(field.label_ar||field.label):field.label}{field.is_required && <span style={{color:'#EE334E'}}> *</span>}
+                </label>
+                {existing.length > 0 && (
+                  <div style={{display:'flex',flexDirection:'column',gap:6,marginBottom:8}}>
+                    {existing.map(f => (
+                      <div key={f.id} style={{display:'flex',alignItems:'center',gap:8,padding:'7px 10px',border:'1px solid var(--border)',borderRadius:8,fontSize:12.5}}>
+                        <i className="ti ti-paperclip" style={{color:'var(--text3)'}}/>
+                        <span style={{flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{f.file_name}</span>
+                        <span style={{fontSize:10,color:'#009F6B',fontWeight:600}}>{L('Kept','محتفظ به')}</span>
+                        <button type="button" onClick={()=>removeEditExistingFile(f)}
+                          style={{background:'none',border:'none',color:'#EE334E',cursor:'pointer',fontSize:12}}>
+                          {L('Remove','إزالة')}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <input type="file" className="form-input" disabled={uploading} onChange={e=>handleEditFieldFileUpload(field, e.target.files[0])} />
+                <div style={{fontSize:11,color:'var(--text3)',marginTop:4}}>
+                  {L('Uploading a new file adds it alongside any kept file above.','رفع ملف جديد يضيفه إلى جانب الملف المحتفظ به أعلاه.')}
+                </div>
+                {uploading && <div style={{fontSize:12,color:'var(--text3)',marginTop:6}}><i className="ti ti-loader ti-spin"/> {L('Uploading…','جارٍ الرفع…')}</div>}
+                {!uploading && pending && (
+                  <div style={{fontSize:12,color:'#009F6B',marginTop:6}}><i className="ti ti-circle-check"/> {pending.name}</div>
+                )}
+              </div>
+            )
+          }
+          return (
+            <div key={field.id} className="form-group" style={{marginBottom:16}}>
+              <label className="form-label">
+                {ar?(field.label_ar||field.label):field.label}{field.is_required && <span style={{color:'#EE334E'}}> *</span>}
+              </label>
+              <GuestRequestField field={field} value={editData.answers[field.id]} ar={ar}
+                onChange={(id,v)=>setEditData(p=>({...p, answers:{...p.answers,[id]:v}}))} />
+            </div>
+          )
+        })}
+        <button className="btn btn-blue" onClick={submitEdit} disabled={editSubmitting}>
+          <i className="ti ti-send"/> {editSubmitting?L('Resubmitting…','جارٍ إعادة الإرسال…'):L('Resubmit','إعادة الإرسال')}
+        </button>
+      </div>
+    )
+  }
 
   if (tracking) return (
     <div className="card guest-auth-card" style={{maxWidth:480,margin:'40px auto',padding:32}}>
@@ -611,7 +796,7 @@ function GuestRequests() {
 function GuestPortalInner({ onExit }) {
   const { lang, setLang } = useLang()
   const ar = lang === 'ar'
-  const [page, setPage] = useState('dashboard')
+  const [page, setPage] = useState(() => new URLSearchParams(window.location.search).has('guest_edit') ? 'requests' : 'dashboard')
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const { athletes, coaches, events, results, registrations, loading } = useGuestData()
 

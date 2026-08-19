@@ -150,6 +150,8 @@ export default function Requests({ profile, navState }) {
   const [acting, setActing]             = useState(false)
   const [saving, setSaving]             = useState(false)
   const [answers, setAnswers]           = useState({})
+  const [resubmitTargetId, setResubmitTargetId] = useState(null) // submission id being edited/resubmitted (Returned status), null = normal new submission
+  const [existingFiles, setExistingFiles] = useState([]) // attachments already linked to resubmitTargetId, kept unless explicitly removed
   const [draftId, setDraftId]           = useState(null) // storage folder for this fill-form session's file uploads, until the real submission_id exists
   const [pendingFiles, setPendingFiles] = useState({}) // { [fieldId]: { name, path, type, size } }
   const [fileUploading, setFileUploading] = useState({}) // { [fieldId]: true } while an upload is in flight
@@ -344,11 +346,53 @@ export default function Requests({ profile, navState }) {
   }
 
   async function submitForm() {
-    const missing = (selectedForm.request_form_fields||[]).filter(f=>f.is_required && !answers[f.id]?.toString().trim())
+    const missing = (selectedForm.request_form_fields||[]).filter(f => {
+      if (!f.is_required) return false
+      if (f.field_type === 'file') {
+        // A required file field counts as satisfied by a kept existing
+        // attachment (when editing a Returned submission) OR a
+        // newly-uploaded file — not by a text answer.
+        const hasExisting = existingFiles.some(fl => fl.field_id === f.id)
+        const hasNew = !!pendingFiles[f.id]
+        return !hasExisting && !hasNew
+      }
+      return !answers[f.id]?.toString().trim()
+    })
     if (missing.length) return toast((ar?'الحقول المطلوبة: ':'Required: ')+missing.map(f=>ar?(f.label_ar||f.label):f.label).join(', '),'error')
     if (Object.values(fileUploading).some(Boolean)) return toast(ar?'يرجى الانتظار حتى انتهاء رفع الملف':'Please wait for the file upload to finish','error')
     setSubmitting(true)
     try {
+      // Editing/resubmitting a Returned submission updates the SAME row
+      // (and reference number) instead of creating a new independent
+      // submission — resubmit_my_request_submission re-checks ownership
+      // and status server-side before touching anything.
+      if (resubmitTargetId) {
+        // File metadata (already-uploaded Storage paths) is passed
+        // straight into the RPC, which links it in the SAME transaction
+        // as the status/action update — atomic, and safely retryable
+        // without creating duplicate rows if a prior attempt failed.
+        const newFiles = Object.entries(pendingFiles).map(([fieldId, f]) => ({
+          field_id: fieldId, file_name: f.name, file_path: f.path, file_type: f.type, file_size: f.size,
+        }))
+        const { data, error } = await supabase.rpc('resubmit_my_request_submission', {
+          p_submission_id: resubmitTargetId, p_answers: answers, p_new_files: newFiles,
+        })
+        if (error || data?.status !== 'ok') {
+          throw new Error(data?.status === 'not_editable' ? (ar?'لم يعد بالإمكان تعديل هذا الطلب':'This submission can no longer be edited')
+            : data?.status === 'not_permitted' ? (ar?'غير مسموح':'Not permitted')
+            : (error?.message || (ar?'فشل إعادة الإرسال':'Resubmission failed')))
+        }
+        toast(ar?'تم إعادة الإرسال!':'Resubmitted!','success')
+        setAnswers({})
+        setPendingFiles({})
+        setExistingFiles([])
+        setResubmitTargetId(null)
+        await fetchMySubs()
+        setView('my-submissions')
+        setSubmitting(false)
+        return
+      }
+
       // Insert result must be checked explicitly — the Supabase client
       // does NOT throw on an RLS rejection or constraint violation, it
       // just returns { error }. Reading .single() also fails loudly if
@@ -401,15 +445,21 @@ export default function Requests({ profile, navState }) {
   }
 
   async function saveReview() {
-    await supabase.from('request_submissions').update({ status:reviewStatus, admin_notes:reviewNote, updated_at:new Date().toISOString() }).eq('id',reviewSub.id)
-    const meta = STATUS_META[reviewStatus]
-    await supabase.from('notifications').insert({
-      user_id:reviewSub.submitted_by,
-      title: ar?'تحديث حالة الطلب':'Request status updated',
-      body: `${ar?'طلبك':'Your request'} "${reviewSub.request_forms?.title||''}" ${ar?'أصبح':''} ${ar?meta.label_ar:meta.label}${ar?'':'.'}`,
-      type:'request', data:{ page:'requests' },
-      category:'Requests', target_path:'requests', related_entity_type:'request_submission', related_entity_id: reviewSub.id,
+    // Reason is required server-side too (review_request_submission
+    // enforces this independently) — this client check just gives an
+    // immediate, friendly validation message instead of a round-trip
+    // error.
+    if ((reviewStatus === 'rejected' || reviewStatus === 'returned') && !reviewNote.trim()) {
+      toast(ar ? 'السبب مطلوب' : 'A reason is required', 'error')
+      return
+    }
+    const { data, error } = await supabase.rpc('review_request_submission', {
+      p_submission_id: reviewSub.id, p_new_status: reviewStatus, p_comment: reviewNote.trim() || null,
     })
+    if (error || data?.status !== 'ok') {
+      toast(data?.status === 'reason_required' ? (ar?'السبب مطلوب':'A reason is required') : (ar?'تعذر الحفظ':'Could not save'), 'error')
+      return
+    }
     toast(ar?'تم التحديث':'Updated','success')
     if (isTrustedAdmin(profile)) {
       logAdminActivity({
@@ -418,7 +468,7 @@ export default function Requests({ profile, navState }) {
       })
     }
     setReviewSub(null); fetchFormSubs(reviewSub.form_id)
-    setFormSubs(p => p.map(s => s.id===reviewSub.id ? {...s, status:reviewStatus, admin_notes:reviewNote} : s))
+    setFormSubs(p => p.map(s => s.id===reviewSub.id ? {...s, status:reviewStatus} : s))
     // Keep the Forms list's pending/total badges in sync immediately —
     // these only otherwise refresh via fetchForms(), which this function
     // never called, so the badge stayed stale until a manual page reload.
@@ -517,10 +567,27 @@ export default function Requests({ profile, navState }) {
       case 'file': {
         const uploading = !!fileUploading[field.id]
         const pending = pendingFiles[field.id]
+        const existing = resubmitTargetId ? existingFiles.filter(f => f.field_id === field.id) : []
         return (
           <div>
+            {existing.length > 0 && (
+              <div style={{display:'flex',flexDirection:'column',gap:6,marginBottom:8}}>
+                {existing.map(f => (
+                  <div key={f.id} style={{display:'flex',alignItems:'center',gap:8,padding:'7px 10px',border:'1px solid var(--border)',borderRadius:8,fontSize:12.5}}>
+                    <i className="ti ti-paperclip" style={{color:'var(--text3)'}}/>
+                    <span style={{flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{f.file_name}</span>
+                    <span style={{fontSize:10,color:'#009F6B',fontWeight:600}}>{ar?'محتفظ به':'Kept'}</span>
+                    <button type="button" onClick={()=>removeExistingResubmitFile(f)}
+                      style={{background:'none',border:'none',color:'#EE334E',cursor:'pointer',fontSize:12}}>
+                      {ar?'إزالة':'Remove'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
             <input type="file" className="form-input" disabled={uploading}
               onChange={e=>handleFieldFileUpload(field, e.target.files[0])} />
+            {resubmitTargetId && <div style={{fontSize:11,color:'var(--text3)',marginTop:4}}>{ar?'رفع ملف جديد يضيفه إلى جانب الملف المحتفظ به أعلاه':'Uploading a new file adds it alongside any kept file above'}</div>}
             {uploading && <div style={{fontSize:12,color:'var(--text3)',marginTop:6}}><i className="ti ti-loader ti-spin"/> {ar?'جارٍ الرفع…':'Uploading…'}</div>}
             {!uploading && pending && (
               <div style={{fontSize:12,color:'#009F6B',marginTop:6}}><i className="ti ti-circle-check"/> {pending.name} · {formatFileSize(pending.size)}</div>
@@ -798,6 +865,11 @@ export default function Requests({ profile, navState }) {
                   <button className="action-btn action-btn-edit" title={ar?'تنزيل PDF':'Download PDF'} onClick={e=>{e.stopPropagation();downloadSubmissionPdf(s.request_forms, s)}}>
                     <i className="ti ti-download"/>
                   </button>
+                  {s.status === 'returned' && (
+                    <button className="action-btn action-btn-edit" title={ar?'تعديل وإعادة الإرسال':'Edit & Resubmit'} onClick={e=>{e.stopPropagation();openEditReturnedSubmission(s)}}>
+                      <i className="ti ti-edit"/>
+                    </button>
+                  )}
                   {CANCELLABLE_STATUSES.includes(s.status) && !s.is_guest && (
                     <button className="action-btn action-btn-delete" title={ar?'إلغاء الطلب':'Cancel Submission'} onClick={e=>{e.stopPropagation();setCancelConfirm(s)}}>
                       <i className="ti ti-x"/>
@@ -844,6 +916,11 @@ export default function Requests({ profile, navState }) {
             <button className="action-btn action-btn-edit" onClick={()=>downloadSubmissionPdf(f, selectedSub)}>
               <i className="ti ti-download"/> {ar?'تنزيل PDF':'Download PDF'}
             </button>
+            {selectedSub.status === 'returned' && (
+              <button className="btn btn-blue" onClick={()=>openEditReturnedSubmission(selectedSub)}>
+                <i className="ti ti-edit"/> {ar?'تعديل وإعادة الإرسال':'Edit & Resubmit'}
+              </button>
+            )}
             {CANCELLABLE_STATUSES.includes(selectedSub.status) && !selectedSub.is_guest && (
               <button className="action-btn action-btn-delete" onClick={()=>setCancelConfirm(selectedSub)}>
                 <i className="ti ti-x"/> {ar?'إلغاء الطلب':'Cancel Submission'}
@@ -933,9 +1010,9 @@ export default function Requests({ profile, navState }) {
           ))}
           <div style={{display:'flex',gap:10,marginTop:8}}>
             <button className="btn btn-blue" onClick={submitForm} disabled={submitting}>
-              <i className="ti ti-send"/> {submitting?(ar?'جارٍ الإرسال…':'Submitting…'):(ar?'إرسال':'Submit')}
+              <i className="ti ti-send"/> {submitting?(ar?'جارٍ الإرسال…':'Submitting…'):(resubmitTargetId?(ar?'إعادة الإرسال':'Resubmit'):(ar?'إرسال':'Submit'))}
             </button>
-            <button className="btn-cancel" onClick={()=>setView('list')}>{ar?'إلغاء':'Cancel'}</button>
+            <button className="btn-cancel" onClick={()=>{setResubmitTargetId(null);setView(resubmitTargetId?'my-submissions':'list')}}>{ar?'إلغاء':'Cancel'}</button>
           </div>
         </div>
         {formModalJsx}
@@ -1040,10 +1117,21 @@ export default function Requests({ profile, navState }) {
     const currentStepDef = hasWorkflow ? form.request_form_workflow_steps.find(s=>s.step_order===selectedSub.current_step_order) : null
 
     async function doAction(action) {
+      // Server-side (act_on_request_submission) independently enforces
+      // this too — this is just the immediate friendly message.
+      if ((action === 'reject' || action === 'return') && !actionNote.trim()) {
+        toast(ar ? 'السبب مطلوب' : 'A reason is required', 'error')
+        return
+      }
       setActing(true)
       const { data, error } = await supabase.rpc('act_on_request_submission', { p_submission_id: selectedSub.id, p_action: action, p_comment: actionNote||null })
       setActing(false)
-      if (error || data?.status!=='ok') return toast(data?.status==='not_permitted'?(ar?'غير مسموح':'Not permitted'):(error?.message||(ar?'فشل':'Failed')),'error')
+      if (error || data?.status!=='ok') {
+        const msg = data?.status==='reason_required' ? (ar?'السبب مطلوب':'A reason is required')
+          : data?.status==='not_permitted' ? (ar?'غير مسموح':'Not permitted')
+          : (error?.message||(ar?'فشل':'Failed'))
+        return toast(msg,'error')
+      }
       toast(ar?'تم التحديث':'Updated','success')
       if (isTrustedAdmin(profile)) {
         logAdminActivity({ actor: profile, action: action==='approve'?'approved':action==='reject'?'rejected':action, entityType:'request', entityId:selectedSub.id, entityLabel: form?.title||'request', module:'requests' })
@@ -1173,13 +1261,14 @@ export default function Requests({ profile, navState }) {
             </div>
             {canAct && (
               <div style={{marginTop:16,paddingTop:16,borderTop:'1px solid var(--border)'}}>
-                <textarea className="form-input" rows={2} placeholder={ar?'تعليق (اختياري)':'Comment (optional)'} value={actionNote} onChange={e=>setActionNote(e.target.value)} style={{resize:'vertical',marginBottom:10}}/>
+                <textarea className="form-input" rows={2} placeholder={ar?'السبب/تعليق — مطلوب عند الرفض أو الإعادة':'Reason / comment — required for Reject or Return'} value={actionNote} onChange={e=>setActionNote(e.target.value)} style={{resize:'vertical',marginBottom:10}}/>
                 <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
                   <button className="btn btn-blue" disabled={acting} onClick={()=>doAction('approve')}><i className="ti ti-check"/> {ar?'موافقة':'Approve'}</button>
-                  <button className="btn btn-red" disabled={acting} onClick={()=>doAction('reject')}><i className="ti ti-x"/> {ar?'رفض':'Reject'}</button>
-                  <button className="action-btn action-btn-edit" disabled={acting} onClick={()=>doAction('return')}><i className="ti ti-corner-up-left"/> {ar?'إعادة للتصحيح':'Return for Correction'}</button>
+                  <button className="btn btn-red" disabled={acting || !actionNote.trim()} onClick={()=>doAction('reject')}><i className="ti ti-x"/> {ar?'رفض':'Reject'}</button>
+                  <button className="action-btn action-btn-edit" disabled={acting || !actionNote.trim()} onClick={()=>doAction('return')}><i className="ti ti-corner-up-left"/> {ar?'إعادة للتصحيح':'Return for Correction'}</button>
                   <button className="btn-cancel" disabled={acting || !actionNote.trim()} onClick={()=>doAction('comment')}><i className="ti ti-message"/> {ar?'تعليق فقط':'Comment Only'}</button>
                 </div>
+                {!actionNote.trim() && <div style={{fontSize:11,color:'var(--text3)',marginTop:6}}>{ar?'أدخل سببًا لتفعيل الرفض أو الإعادة':'Enter a reason to enable Reject or Return'}</div>}
               </div>
             )}
             {!selectedSub.is_guest && subActions.length>0 && (
@@ -1277,11 +1366,18 @@ export default function Requests({ profile, navState }) {
                 </select>
               </div>
               <div className="form-group">
-                <label className="form-label">{ar?'ملاحظة (اختياري)':'Note (optional)'}</label>
+                <label className="form-label">
+                  {(reviewStatus === 'rejected' || reviewStatus === 'returned')
+                    ? (ar ? 'السبب (مطلوب)' : 'Reason (required)')
+                    : (ar ? 'ملاحظة (اختياري)' : 'Note (optional)')}
+                </label>
                 <textarea className="form-input" rows={3} value={reviewNote} onChange={e=>setReviewNote(e.target.value)} style={{resize:'vertical'}}/>
+                {(reviewStatus === 'rejected' || reviewStatus === 'returned') && !reviewNote.trim() && (
+                  <div style={{fontSize:11,color:'#EE334E',marginTop:4}}>{ar?'السبب مطلوب لهذه الحالة':'A reason is required for this status'}</div>
+                )}
               </div>
               <div style={{display:'flex',gap:10,marginTop:8}}>
-                <button className="btn btn-blue" onClick={saveReview}>{ar?'حفظ':'Save'}</button>
+                <button className="btn btn-blue" disabled={(reviewStatus === 'rejected' || reviewStatus === 'returned') && !reviewNote.trim()} onClick={saveReview}>{ar?'حفظ':'Save'}</button>
                 <button className="btn-cancel" onClick={()=>setReviewSub(null)}>{ar?'إلغاء':'Cancel'}</button>
               </div>
             </div>
@@ -1329,8 +1425,42 @@ export default function Requests({ profile, navState }) {
     )
   }
 
-  function openForm(f) { setSelectedForm(f); setAnswers({}); setPendingFiles({}); setDraftId(crypto.randomUUID()); setView('fill-form') }
+  function openForm(f) { setSelectedForm(f); setAnswers({}); setPendingFiles({}); setExistingFiles([]); setDraftId(crypto.randomUUID()); setResubmitTargetId(null); setView('fill-form') }
   function openFormDetail(f, initialFilter = 'all') { setSelectedForm(f); fetchFormSubs(f.id); setSubFilter(initialFilter); setView('form-detail') }
+
+  // Opens the fill-form view pre-filled with a Returned submission's
+  // previous answers, so the person edits rather than starting over.
+  // Existing uploaded files stay attached automatically — they're linked
+  // by submission_id, untouched unless the person adds/removes files
+  // during this edit.
+  function openEditReturnedSubmission(sub) {
+    const f = forms.find(x => x.id === sub.form_id) || sub.request_forms
+    if (!f) return
+    setSelectedForm(f)
+    setAnswers(sub.answers || {})
+    setPendingFiles({})
+    setExistingFiles([])
+    setDraftId(crypto.randomUUID())
+    setResubmitTargetId(sub.id)
+    setView('fill-form')
+    supabase.from('request_submission_files').select('*').eq('submission_id', sub.id)
+      .then(({ data }) => setExistingFiles(data || []))
+  }
+
+  // Existing attachment stays untouched unless explicitly removed here —
+  // always through the ownership-checked RPC (never a direct client-side
+  // table delete).
+  async function removeExistingResubmitFile(fileRow) {
+    const { data, error } = await supabase.rpc('remove_returned_submission_file', {
+      p_submission_id: resubmitTargetId, p_file_id: fileRow.id, p_token: null,
+    })
+    if (error || data?.status !== 'ok') { toast(ar?'تعذر إزالة الملف':'Could not remove the file', 'error'); return }
+    if (data.file_path) {
+      const { error: storageErr } = await supabase.storage.from('request-attachments').remove([data.file_path])
+      if (storageErr) console.error('File row removed, but removing the Storage object failed:', storageErr)
+    }
+    setExistingFiles(prev => prev.filter(f => f.id !== fileRow.id))
+  }
 
   // ─────────────────────────────────────────────────────────────────────────
   // MAIN LIST VIEW
