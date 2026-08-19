@@ -98,7 +98,11 @@ export default function App() {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [collapsedSections, setCollapsedSections] = useState({})  // { [sectionLabel]: true } when collapsed; sections default to expanded
   const [requestSent, setRequestSent] = useState(false)
-  const [guestMode, setGuestMode] = useState(false)
+  // A guest resubmission link (from a Returned-status email) must work
+  // without ever requiring the person to sign in or click "Continue as
+  // Guest" first — auto-enter Guest Portal so GuestPortal.jsx's own
+  // guest_edit/token handling takes over immediately.
+  const [guestMode, setGuestMode] = useState(() => new URLSearchParams(window.location.search).has('guest_edit'))
   // True for the brief window between a new sign-up creating its auth session
   // and its profiles row actually finishing its insert. Without this, a logged-in
   // user with no profile yet (purely a timing gap, not a real broken account)
