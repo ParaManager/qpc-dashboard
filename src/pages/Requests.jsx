@@ -1046,16 +1046,16 @@ export default function Requests({ profile, navState }) {
     }
 
     return (
-      <div>
-        <div className="page-header" style={{marginBottom:20}}>
+      <div className={ar ? 'submission-detail-rtl' : undefined} dir={ar ? 'rtl' : 'ltr'}>
+        <div className="page-header" style={{marginBottom:20, flexWrap:'wrap', gap:12}}>
           <div>
             <BackButton onClick={()=>setView('form-detail')} label={ar?'رجوع':'Back'} />
             <div style={{display:'flex',alignItems:'center',gap:12}}>
-              <div style={{width:36,height:36,borderRadius:'50%',background:subRoleClr,display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:700,color:'white'}}>
+              <div style={{width:36,height:36,borderRadius:'50%',background:subRoleClr,display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:700,color:'white',flexShrink:0}}>
                 {initials(subName)}
               </div>
               <div>
-                <div className="page-title" style={{display:'flex',alignItems:'center',gap:8}}>
+                <div className="page-title" style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
                   {subName}
                   {selectedSub.is_guest && <span style={{fontSize:10,fontWeight:700,color:'#64748b',background:'#f1f5f9',padding:'2px 7px',borderRadius:10}}>{ar?'ضيف':'GUEST'}</span>}
                 </div>
@@ -1067,7 +1067,7 @@ export default function Requests({ profile, navState }) {
               </div>
             </div>
           </div>
-          <div style={{display:'flex',gap:10,alignItems:'center'}}>
+          <div style={{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap'}}>
             {statusBadge(selectedSub.status)}
             <button className="action-btn action-btn-edit" onClick={()=>openSubmissionPdfPreview(form, selectedSub, 'submission-view')} disabled={pdfPreviewLoading}>
               <i className="ti ti-eye"/> {pdfPreviewLoading ? (ar?'جارٍ التحضير…':'Preparing…') : (ar?'معاينة':'Preview')}
@@ -1088,7 +1088,7 @@ export default function Requests({ profile, navState }) {
         </div>
 
         {hasWorkflow && (
-          <div className="card" style={{maxWidth:640,marginBottom:16}}>
+          <div className="card" style={{maxWidth: ar ? 820 : 640, margin: ar ? '0 auto 16px' : '0 0 16px'}}>
             <div style={{fontWeight:700,fontSize:13,marginBottom:10}}>{ar?'مسار الموافقة':'Approval Workflow'}</div>
             <div style={{display:'flex',flexDirection:'column',gap:8}}>
               {form.request_form_workflow_steps.map(step=>{
@@ -1131,13 +1131,13 @@ export default function Requests({ profile, navState }) {
           </div>
         )}
 
-        <div className="card" style={{maxWidth:640}}>
+        <div className="card" style={{maxWidth: ar ? 820 : 640, margin: ar ? '0 auto' : '0'}}>
           {(form?.request_form_fields||[]).map(field=>{
             const ans = selectedSub.answers[field.id]
             return (
-              <div key={field.id} style={{marginBottom:16,paddingBottom:16,borderBottom:'1px solid var(--border)'}}>
+              <div key={field.id} style={{marginBottom: ar ? 10 : 16, paddingBottom: ar ? 10 : 16, borderBottom:'1px solid var(--border)', textAlign: ar ? 'right' : 'left'}}>
                 <div style={{fontSize:11,color:'var(--text3)',fontWeight:600,marginBottom:4,textTransform:'uppercase',letterSpacing:'.04em'}}>{ar?(field.label_ar||field.label):field.label}</div>
-                <div style={{fontSize:14,color:'var(--text)',fontWeight:500}}>
+                <div style={{fontSize:14,color:'var(--text)',fontWeight:500,wordBreak:'break-word'}} dir="auto">
                   {Array.isArray(ans)?ans.join(', '):(ans||<span style={{color:'var(--text3)'}}>—</span>)}
                 </div>
               </div>
@@ -1155,7 +1155,7 @@ export default function Requests({ profile, navState }) {
             fields, strictly linked via request_submission_files.submission_id.
             Stay visible regardless of status (approved/rejected/completed). */}
         {subFiles.length > 0 && (
-          <div className="card" style={{maxWidth:640,marginTop:16}}>
+          <div className="card" style={{maxWidth: ar ? 820 : 640, margin: ar ? '16px auto 0' : '16px 0 0'}}>
             <div style={{fontWeight:700,fontSize:13,marginBottom:12}}>
               <i className="ti ti-paperclip" style={{marginRight:6}}/> {ar?'المرفقات':'Attachments'} ({subFiles.length})
             </div>
