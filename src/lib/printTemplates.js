@@ -182,12 +182,95 @@ function openPrintWindow(html) {
   w.onload = () => { w.focus(); w.print() }
 }
 
-// Print and "Download PDF" both render the same up-to-date HTML through the
-// browser's native print dialog (Save as PDF) — no separate PDF file is
-// generated or stored, so there's nothing to go stale across the workflow.
+// Print always goes through the browser's native print dialog — this is
+// the ONLY function that ever triggers it.
 export function printSubmission(form, submission) {
   openPrintWindow(buildPrintHtml(form, submission))
 }
-export function downloadSubmissionPdf(form, submission) {
-  openPrintWindow(buildPrintHtml(form, submission))
+
+// ── Shared PDF generation (single source for Preview + Download) ───────
+// Both the in-app preview and the direct download render this exact same
+// generated PDF file — there is no separate "preview version" and
+// "download version" of the report. The underlying HTML is the identical
+// buildPrintHtml() output the Print flow also uses, so all three actions
+// (Preview / Print / Download) always show the same content; only how
+// each one is presented differs (rasterized+paginated into a real PDF
+// file here, vs. rendered live in a print-dialog window for Print).
+async function renderHtmlToPdf(html) {
+  const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
+    import('jspdf'),
+    import('html2canvas'),
+  ])
+
+  // Render the report HTML off-screen at a fixed A4-proportioned width so
+  // html2canvas captures it exactly as it would print, then tear the
+  // container down again regardless of success or failure.
+  const container = document.createElement('div')
+  container.style.position = 'fixed'
+  container.style.top = '-10000px'
+  container.style.left = '0'
+  container.style.width = '794px' // ~210mm at 96dpi
+  container.style.background = '#fff'
+  const iframe = document.createElement('iframe')
+  iframe.style.width = '794px'
+  iframe.style.border = 'none'
+  container.appendChild(iframe)
+  document.body.appendChild(container)
+
+  try {
+    iframe.srcdoc = html
+    await new Promise((resolve) => { iframe.onload = resolve })
+    const doc = iframe.contentDocument
+    const bodyHeight = doc.body.scrollHeight
+    iframe.style.height = `${bodyHeight}px`
+    // Let images (QPC logo, embedded document thumbnails) finish loading.
+    const images = Array.from(doc.images || [])
+    await Promise.all(images.map(img => img.complete ? Promise.resolve() : new Promise(res => { img.onload = res; img.onerror = res })))
+
+    const canvas = await html2canvas(doc.body, { scale: 2, useCORS: true, backgroundColor: '#ffffff' })
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' })
+    const pageWidth = pdf.internal.pageSize.getWidth()
+    const pageHeight = pdf.internal.pageSize.getHeight()
+    const imgWidth = pageWidth
+    const imgHeight = (canvas.height * imgWidth) / canvas.width
+
+    // Paginate: slice the tall rendered canvas across as many A4 pages as
+    // needed rather than squashing/cropping a long report onto one page.
+    let heightLeft = imgHeight
+    let position = 0
+    const imgData = canvas.toDataURL('image/png')
+    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
+    heightLeft -= pageHeight
+    while (heightLeft > 0) {
+      position -= pageHeight
+      pdf.addPage()
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
+      heightLeft -= pageHeight
+    }
+    return pdf
+  } finally {
+    document.body.removeChild(container)
+  }
+}
+
+function submissionPdfFilename(submission) {
+  const ref = submission.reference_number || submission.id
+  return `Submission_${ref}.pdf`
+}
+
+// Downloads the generated PDF directly — no browser print dialog, no new
+// tab/window, no navigation away from the submission the admin is on.
+export async function downloadSubmissionPdf(form, submission) {
+  const pdf = await renderHtmlToPdf(buildPrintHtml(form, submission))
+  pdf.save(submissionPdfFilename(submission))
+}
+
+// Generates the same PDF and returns it as an object URL for an in-app
+// preview (e.g. an <iframe>/PdfPreviewModal-style viewer), plus the blob
+// itself so the preview's own Download button can save the identical file
+// without regenerating it a second time.
+export async function previewSubmissionPdf(form, submission) {
+  const pdf = await renderHtmlToPdf(buildPrintHtml(form, submission))
+  const blob = pdf.output('blob')
+  return { url: URL.createObjectURL(blob), blob, filename: submissionPdfFilename(submission) }
 }
