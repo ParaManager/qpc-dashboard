@@ -1088,7 +1088,7 @@ export default function Requests({ profile, navState }) {
         </div>
 
         {hasWorkflow && (
-          <div className="card" style={{maxWidth: ar ? 820 : 640, margin: ar ? '0 auto 16px' : '0 0 16px'}}>
+          <div className="card" style={{maxWidth:640,marginBottom:16}}>
             <div style={{fontWeight:700,fontSize:13,marginBottom:10}}>{ar?'مسار الموافقة':'Approval Workflow'}</div>
             <div style={{display:'flex',flexDirection:'column',gap:8}}>
               {form.request_form_workflow_steps.map(step=>{
@@ -1131,11 +1131,11 @@ export default function Requests({ profile, navState }) {
           </div>
         )}
 
-        <div className="card" style={{maxWidth: ar ? 820 : 640, margin: ar ? '0 auto' : '0'}}>
+        <div className="card" style={{maxWidth:640}}>
           {(form?.request_form_fields||[]).map(field=>{
             const ans = selectedSub.answers[field.id]
             return (
-              <div key={field.id} style={{marginBottom: ar ? 10 : 16, paddingBottom: ar ? 10 : 16, borderBottom:'1px solid var(--border)', textAlign: ar ? 'right' : 'left'}}>
+              <div key={field.id} style={{marginBottom:16,paddingBottom:16,borderBottom:'1px solid var(--border)', textAlign: ar ? 'right' : 'left'}}>
                 <div style={{fontSize:11,color:'var(--text3)',fontWeight:600,marginBottom:4,textTransform:'uppercase',letterSpacing:'.04em'}}>{ar?(field.label_ar||field.label):field.label}</div>
                 <div style={{fontSize:14,color:'var(--text)',fontWeight:500,wordBreak:'break-word'}} dir="auto">
                   {Array.isArray(ans)?ans.join(', '):(ans||<span style={{color:'var(--text3)'}}>—</span>)}
@@ -1155,7 +1155,7 @@ export default function Requests({ profile, navState }) {
             fields, strictly linked via request_submission_files.submission_id.
             Stay visible regardless of status (approved/rejected/completed). */}
         {subFiles.length > 0 && (
-          <div className="card" style={{maxWidth: ar ? 820 : 640, margin: ar ? '16px auto 0' : '16px 0 0'}}>
+          <div className="card" style={{maxWidth:640,marginTop:16}}>
             <div style={{fontWeight:700,fontSize:13,marginBottom:12}}>
               <i className="ti ti-paperclip" style={{marginRight:6}}/> {ar?'المرفقات':'Attachments'} ({subFiles.length})
             </div>
