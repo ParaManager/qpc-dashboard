@@ -1092,21 +1092,23 @@ export default function Requests({ profile, navState }) {
                 <button className="btn btn-blue" onClick={doComplete}><i className="ti ti-check"/> وضع علامة مكتمل</button>
               )}
             </div>
-            <div style={{width:'100%', maxWidth:640, marginLeft:'auto', marginRight:0, marginBottom:20, display:'flex', alignItems:'flex-start', gap:12, justifyContent:'right', flexWrap:'wrap'}}>
-              <div style={{textAlign:'right'}}>
-                <div className="page-title" style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap', justifyContent:'right'}}>
-                  {subName}
-                  {selectedSub.is_guest && <span style={{fontSize:10,fontWeight:700,color:'#64748b',background:'#f1f5f9',padding:'2px 7px',borderRadius:10}}>ضيف</span>}
+            <div style={{width:'100%', maxWidth:640, marginLeft:'auto', marginRight:0, marginBottom:20}}>
+              <div dir="ltr" style={{display:'flex', alignItems:'flex-start', gap:12, justifyContent:'flex-end', flexWrap:'wrap'}}>
+                <div style={{textAlign:'right'}}>
+                  <div className="page-title" style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap', justifyContent:'flex-end'}}>
+                    {subName}
+                    {selectedSub.is_guest && <span style={{fontSize:10,fontWeight:700,color:'#64748b',background:'#f1f5f9',padding:'2px 7px',borderRadius:10}}>ضيف</span>}
+                  </div>
+                  <div style={{display:'flex', flexDirection:'column', gap:4, marginTop:8, width:'100%'}}>
+                    <MetaField label="تاريخ ووقت الإرسال" value={new Date(selectedSub.submitted_at).toLocaleString()} ltr align="right" />
+                    <MetaField label="البريد الإلكتروني لمقدم الطلب" value={selectedSub.is_guest ? selectedSub.guest_contact : null} ltr align="right" />
+                    <MetaField label="مرجع الطلب" value={selectedSub.reference_number} ltr align="right" />
+                    <MetaField label="الحالة" value={statusBadge(selectedSub.status)} align="right" />
+                  </div>
                 </div>
-                <div style={{display:'flex', flexDirection:'column', gap:4, marginTop:8, width:'100%'}}>
-                  <MetaField label="تاريخ ووقت الإرسال" value={new Date(selectedSub.submitted_at).toLocaleString()} ltr align="right" />
-                  <MetaField label="البريد الإلكتروني لمقدم الطلب" value={selectedSub.is_guest ? selectedSub.guest_contact : null} ltr align="right" />
-                  <MetaField label="مرجع الطلب" value={selectedSub.reference_number} ltr align="right" />
-                  <MetaField label="الحالة" value={statusBadge(selectedSub.status)} align="right" />
+                <div style={{width:36,height:36,borderRadius:'50%',background:subRoleClr,display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:700,color:'white',flexShrink:0}}>
+                  {initials(subName)}
                 </div>
-              </div>
-              <div style={{width:36,height:36,borderRadius:'50%',background:subRoleClr,display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:700,color:'white',flexShrink:0,order:1}}>
-                {initials(subName)}
               </div>
             </div>
           </>
