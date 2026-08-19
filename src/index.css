@@ -273,6 +273,31 @@ select.filter { padding: 8px 12px; border-radius: 9px; border: 1px solid var(--b
 /* MODALS */
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 1000; display: flex; align-items: center; justify-content: center; animation: fadeIn .15s ease; }
 .modal-box { background: var(--surface); border-radius: 16px; width: 560px; max-width: 92vw; max-height: 88vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,.18); animation: slideUp .2s ease; }
+
+/* Admin submission PDF preview page — full-height app view (not a modal),
+   Back/title/Print/Download toolbar on top, the generated PDF filling the
+   rest. Kept simple/scoped to this one page rather than a generic
+   pattern, since it's the only place that needs a dedicated PDF-preview
+   view right now. */
+.pdf-preview-page { display: flex; flex-direction: column; height: calc(100vh - 60px); max-width: 100%; overflow: hidden; }
+.pdf-preview-toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding-bottom: 12px; border-bottom: 1px solid var(--border); margin-bottom: 12px; }
+.pdf-preview-title { flex: 1; min-width: 120px; font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pdf-preview-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.pdf-preview-frame-wrap { flex: 1; min-height: 0; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); background: #525659; }
+.pdf-preview-frame { width: 100%; height: 100%; border: none; display: block; }
+
+@media (max-width: 768px) {
+  /* Back stays pinned full-width on its own line so it's always visible
+     and easy to tap; Print/Download wrap onto the next line together
+     rather than competing for space with the title. */
+  .pdf-preview-toolbar { gap: 8px; }
+  .pdf-preview-back { order: -1; flex-basis: 100%; justify-content: center; }
+  .pdf-preview-title { flex-basis: 100%; order: 0; text-align: center; white-space: normal; }
+  .pdf-preview-actions { flex-basis: 100%; order: 1; }
+  .pdf-preview-actions button { flex: 1; justify-content: center; }
+  .pdf-preview-page { height: calc(100vh - 52px); }
+}
+
 .modal-sm { width: 420px; }
 .modal-header { padding: 20px 22px 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; background: var(--surface); z-index: 1; }
 .modal-title { font-size: 15px; font-weight: 600; }
