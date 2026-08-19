@@ -1092,7 +1092,7 @@ export default function Requests({ profile, navState }) {
                 <button className="btn btn-blue" onClick={doComplete}><i className="ti ti-check"/> وضع علامة مكتمل</button>
               )}
             </div>
-            <div style={{display:'flex', justifyContent:'flex-end', marginBottom:20}}>
+            <div style={{display:'flex', justifyContent:'right', marginBottom:20}}>
               <div style={{display:'flex', alignItems:'flex-start', gap:12}}>
                 <div style={{width:36,height:36,borderRadius:'50%',background:subRoleClr,display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:700,color:'white',flexShrink:0}}>
                   {initials(subName)}
