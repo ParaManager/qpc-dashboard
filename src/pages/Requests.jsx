@@ -1047,9 +1047,50 @@ export default function Requests({ profile, navState }) {
 
     return (
       <div className={ar ? 'submission-detail-rtl' : undefined} dir={ar ? 'rtl' : 'ltr'}>
+        {ar ? (
+          <>
+            <div style={{display:'flex', justifyContent:'left', marginBottom:10}}>
+              <BackButton onClick={()=>setView('form-detail')} label="رجوع" />
+            </div>
+            <div style={{display:'flex', justifyContent:'left', alignItems:'center', gap:10, flexWrap:'wrap', marginBottom:16}}>
+              {statusBadge(selectedSub.status)}
+              <button className="action-btn action-btn-edit" onClick={()=>openSubmissionPdfPreview(form, selectedSub, 'submission-view')} disabled={pdfPreviewLoading}>
+                <i className="ti ti-eye"/> {pdfPreviewLoading ? 'جارٍ التحضير…' : 'معاينة'}
+              </button>
+              <button className="action-btn action-btn-edit" onClick={()=>downloadSubmissionPdf(form, selectedSub)}>
+                <i className="ti ti-download"/> تنزيل PDF
+              </button>
+              {!hasWorkflow && canEditData && (
+                <button className="btn btn-blue"
+                  onClick={()=>{setReviewSub(selectedSub);setReviewNote(selectedSub.admin_notes||'');setReviewStatus(ACTIVE_STATUSES.includes(selectedSub.status)?'approved':selectedSub.status)}}>
+                  <i className="ti ti-edit"/> مراجعة
+                </button>
+              )}
+              {selectedSub.status==='approved' && canEditData && (
+                <button className="btn btn-blue" onClick={doComplete}><i className="ti ti-check"/> وضع علامة مكتمل</button>
+              )}
+            </div>
+            <div style={{maxWidth:640, marginLeft:'auto', marginRight:0, marginBottom:20, display:'flex', alignItems:'center', gap:12, justifyContent:'right', flexWrap:'wrap'}}>
+              <div style={{textAlign:'right'}}>
+                <div className="page-title" style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap', justifyContent:'right'}}>
+                  {subName}
+                  {selectedSub.is_guest && <span style={{fontSize:10,fontWeight:700,color:'#64748b',background:'#f1f5f9',padding:'2px 7px',borderRadius:10}}>ضيف</span>}
+                </div>
+                <div className="page-sub">
+                  {new Date(selectedSub.submitted_at).toLocaleString()}
+                  {selectedSub.reference_number && <> · {selectedSub.reference_number}</>}
+                  {selectedSub.is_guest && selectedSub.guest_contact && <> · {selectedSub.guest_contact}</>}
+                </div>
+              </div>
+              <div style={{width:36,height:36,borderRadius:'50%',background:subRoleClr,display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:700,color:'white',flexShrink:0}}>
+                {initials(subName)}
+              </div>
+            </div>
+          </>
+        ) : (
         <div className="page-header" style={{marginBottom:20, flexWrap:'wrap', gap:12}}>
           <div>
-            <BackButton onClick={()=>setView('form-detail')} label={ar?'رجوع':'Back'} />
+            <BackButton onClick={()=>setView('form-detail')} label="Back" />
             <div style={{display:'flex',alignItems:'center',gap:12}}>
               <div style={{width:36,height:36,borderRadius:'50%',background:subRoleClr,display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:700,color:'white',flexShrink:0}}>
                 {initials(subName)}
@@ -1057,7 +1098,7 @@ export default function Requests({ profile, navState }) {
               <div>
                 <div className="page-title" style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
                   {subName}
-                  {selectedSub.is_guest && <span style={{fontSize:10,fontWeight:700,color:'#64748b',background:'#f1f5f9',padding:'2px 7px',borderRadius:10}}>{ar?'ضيف':'GUEST'}</span>}
+                  {selectedSub.is_guest && <span style={{fontSize:10,fontWeight:700,color:'#64748b',background:'#f1f5f9',padding:'2px 7px',borderRadius:10}}>GUEST</span>}
                 </div>
                 <div className="page-sub">
                   {new Date(selectedSub.submitted_at).toLocaleString()}
@@ -1070,22 +1111,23 @@ export default function Requests({ profile, navState }) {
           <div style={{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap'}}>
             {statusBadge(selectedSub.status)}
             <button className="action-btn action-btn-edit" onClick={()=>openSubmissionPdfPreview(form, selectedSub, 'submission-view')} disabled={pdfPreviewLoading}>
-              <i className="ti ti-eye"/> {pdfPreviewLoading ? (ar?'جارٍ التحضير…':'Preparing…') : (ar?'معاينة':'Preview')}
+              <i className="ti ti-eye"/> {pdfPreviewLoading ? 'Preparing…' : 'Preview'}
             </button>
             <button className="action-btn action-btn-edit" onClick={()=>downloadSubmissionPdf(form, selectedSub)}>
-              <i className="ti ti-download"/> {ar?'تنزيل PDF':'Download PDF'}
+              <i className="ti ti-download"/> Download PDF
             </button>
             {!hasWorkflow && canEditData && (
               <button className="btn btn-blue"
                 onClick={()=>{setReviewSub(selectedSub);setReviewNote(selectedSub.admin_notes||'');setReviewStatus(ACTIVE_STATUSES.includes(selectedSub.status)?'approved':selectedSub.status)}}>
-                <i className="ti ti-edit"/> {ar?'مراجعة':'Review'}
+                <i className="ti ti-edit"/> Review
               </button>
             )}
             {selectedSub.status==='approved' && canEditData && (
-              <button className="btn btn-blue" onClick={doComplete}><i className="ti ti-check"/> {ar?'وضع علامة مكتمل':'Mark Completed'}</button>
+              <button className="btn btn-blue" onClick={doComplete}><i className="ti ti-check"/> Mark Completed</button>
             )}
           </div>
         </div>
+        )}
 
         {hasWorkflow && (
           <div className="card" style={{maxWidth:640,marginBottom:16}}>
