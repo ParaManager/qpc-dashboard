@@ -1092,7 +1092,7 @@ export default function Requests({ profile, navState }) {
                 <button className="btn btn-blue" onClick={doComplete}><i className="ti ti-check"/> وضع علامة مكتمل</button>
               )}
             </div>
-            <div style={{maxWidth:640, marginLeft:'auto', marginRight:0, marginBottom:20, display:'flex', alignItems:'flex-start', gap:12, justifyContent:'right', flexWrap:'wrap'}}>
+            <div style={{width:'100%', maxWidth:640, marginLeft:'auto', marginRight:0, marginBottom:20, display:'flex', alignItems:'flex-start', gap:12, justifyContent:'right', flexWrap:'wrap'}}>
               <div style={{textAlign:'right'}}>
                 <div className="page-title" style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap', justifyContent:'right'}}>
                   {subName}
