@@ -5,7 +5,7 @@ import { toast, ConfirmModal } from '../components/Toast'
 import { initials, BackButton, DocPreviewButton, SUPPORTED_DOC_FILE_TYPES } from '../lib/helpers'
 import { isTrustedAdmin } from '../lib/permissions'
 import { logAdminActivity } from '../lib/adminActivity'
-import { printSubmission, downloadSubmissionPdf } from '../lib/printTemplates'
+import { printSubmission, downloadSubmissionPdf, previewSubmissionPdf } from '../lib/printTemplates'
 
 const FIELD_TYPES = [
   { value:'text',     icon:'ti-forms',         label:'Short Text',     label_ar:'نص قصير' },
@@ -143,6 +143,33 @@ export default function Requests({ profile, navState }) {
   const [reviewNote, setReviewNote]     = useState('')
   const [reviewStatus, setReviewStatus] = useState('approved')
   const [cancelConfirm, setCancelConfirm] = useState(null) // submission pending cancel-confirmation
+  const [pdfPreview, setPdfPreview] = useState(null) // { url, blob, filename, form, submission, returnView } — admin PDF preview page
+  const [pdfPreviewLoading, setPdfPreviewLoading] = useState(false)
+
+  // Opens the dedicated in-app PDF preview view — uses the exact same
+  // shared generator (previewSubmissionPdf → buildPrintHtml under the
+  // hood) that Download PDF and Print both use, so all three actions
+  // always show identical content. The generated blob is kept so the
+  // preview's own Download button reuses it instead of regenerating.
+  async function openSubmissionPdfPreview(form, submission, returnView) {
+    setPdfPreviewLoading(true)
+    try {
+      const { url, blob, filename } = await previewSubmissionPdf(form, submission)
+      setPdfPreview({ url, blob, filename, form, submission, returnView })
+      setView('submission-pdf-preview')
+    } catch (err) {
+      toast(err.message || (ar?'تعذر إنشاء المعاينة':'Could not generate preview'), 'error')
+    } finally {
+      setPdfPreviewLoading(false)
+    }
+  }
+
+  function closeSubmissionPdfPreview() {
+    if (pdfPreview?.url) URL.revokeObjectURL(pdfPreview.url)
+    const returnView = pdfPreview?.returnView || 'my-submissions'
+    setPdfPreview(null)
+    setView(returnView)
+  }
   const [cancelling, setCancelling]     = useState(false)
 
   // ── fetch ─────────────────────────────────────────────────────────────────
@@ -1042,8 +1069,8 @@ export default function Requests({ profile, navState }) {
           </div>
           <div style={{display:'flex',gap:10,alignItems:'center'}}>
             {statusBadge(selectedSub.status)}
-            <button className="action-btn action-btn-edit" onClick={()=>printSubmission(form, selectedSub)}>
-              <i className="ti ti-printer"/> {ar?'طباعة':'Print'}
+            <button className="action-btn action-btn-edit" onClick={()=>openSubmissionPdfPreview(form, selectedSub, 'submission-view')} disabled={pdfPreviewLoading}>
+              <i className="ti ti-eye"/> {pdfPreviewLoading ? (ar?'جارٍ التحضير…':'Preparing…') : (ar?'معاينة':'Preview')}
             </button>
             <button className="action-btn action-btn-edit" onClick={()=>downloadSubmissionPdf(form, selectedSub)}>
               <i className="ti ti-download"/> {ar?'تنزيل PDF':'Download PDF'}
@@ -1193,6 +1220,43 @@ export default function Requests({ profile, navState }) {
           </div>
         )}
         {formModalJsx}
+      </div>
+    )
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // ADMIN SUBMISSION PDF PREVIEW — dedicated in-app page, not a browser
+  // print dialog. Shows the exact same generated PDF (via previewSubmissionPdf,
+  // which shares buildPrintHtml with Print and Download) with its own
+  // Back / Print / Download controls. Print here is the ONLY control that
+  // triggers the browser print dialog; Download reuses the already-
+  // generated blob instead of regenerating the PDF a second time.
+  // ─────────────────────────────────────────────────────────────────────────
+  if (view==='submission-pdf-preview' && pdfPreview && isAdmin) {
+    return (
+      <div className="pdf-preview-page">
+        <div className="pdf-preview-toolbar">
+          <button className="action-btn action-btn-edit pdf-preview-back" onClick={closeSubmissionPdfPreview}>
+            <i className="ti ti-arrow-left"/> {ar?'رجوع':'Back'}
+          </button>
+          <div className="pdf-preview-title">{ar?(pdfPreview.form?.title_ar||pdfPreview.form?.title):pdfPreview.form?.title}</div>
+          <div className="pdf-preview-actions">
+            <button className="action-btn action-btn-edit" onClick={()=>printSubmission(pdfPreview.form, pdfPreview.submission)}>
+              <i className="ti ti-printer"/> {ar?'طباعة':'Print'}
+            </button>
+            <button className="btn btn-blue" onClick={()=>{
+              const a = document.createElement('a')
+              a.href = pdfPreview.url
+              a.download = pdfPreview.filename
+              a.click()
+            }}>
+              <i className="ti ti-download"/> {ar?'تنزيل PDF':'Download PDF'}
+            </button>
+          </div>
+        </div>
+        <div className="pdf-preview-frame-wrap">
+          <iframe src={pdfPreview.url} title="Submission PDF preview" className="pdf-preview-frame" />
+        </div>
       </div>
     )
   }
