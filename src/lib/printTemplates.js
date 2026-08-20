@@ -30,18 +30,24 @@ function printShell(bodyHtml, title) {
   @page { size: A4; margin: 14mm; }
   * { box-sizing: border-box; }
   body { font-family: 'DM Sans', Arial, sans-serif; color: #1a1a1a; margin: 0; padding: 24px; }
-  .qpc-header { display:flex; align-items:center; gap:14px; border-bottom: 3px solid #0085C7; padding-bottom:12px; margin-bottom:18px; }
+  .qpc-header { display:flex; align-items:center; gap:14px; border-bottom: 3px solid #0085C7; padding-bottom:12px; margin-bottom:18px; break-inside:avoid; page-break-inside:avoid; }
   .qpc-header img { height:56px; }
   .qpc-header .titles { flex:1; }
   .qpc-header .titles .en { font-size:18px; font-weight:700; color:#0085C7; }
   .qpc-header .titles .ar { font-size:16px; font-weight:700; direction:rtl; color:#333; }
-  .meta-row { display:flex; justify-content:space-between; font-size:12px; color:#555; margin-bottom:16px; }
+  .meta-row { display:flex; justify-content:space-between; font-size:12px; color:#555; margin-bottom:16px; break-inside:avoid; page-break-inside:avoid; }
   .status-badge { display:inline-block; padding:3px 10px; border-radius:12px; font-size:11px; font-weight:700; background:#0085C715; color:#0085C7; }
   table { width:100%; border-collapse:collapse; margin-bottom:14px; }
+  thead { display: table-header-group; } /* repeat header row on each printed page where the browser supports it */
+  tr { break-inside:avoid; page-break-inside:avoid; }
   th, td { border:1px solid #ccc; padding:6px 8px; font-size:12px; text-align:left; vertical-align:top; }
   th { background:#f2f6f9; width:38%; font-weight:600; }
-  .section-title { font-size:13px; font-weight:700; color:#0085C7; text-transform:uppercase; letter-spacing:.04em; margin:18px 0 6px; border-bottom:1px solid #0085C7; padding-bottom:3px; }
-  .sig-row { display:flex; gap:40px; margin-top:36px; }
+  .section-title { font-size:13px; font-weight:700; color:#0085C7; text-transform:uppercase; letter-spacing:.04em; margin:18px 0 6px; border-bottom:1px solid #0085C7; padding-bottom:3px; break-after:avoid; page-break-after:avoid; }
+  /* Keeps a section title glued to whatever immediately follows it (its
+     first row/table), so a title never ends up alone at the bottom of a
+     page with its content pushed to the next one. */
+  .section-title + table, .section-title + .sig-row { break-before:avoid; page-break-before:avoid; }
+  .sig-row { display:flex; gap:40px; margin-top:36px; break-inside:avoid; page-break-inside:avoid; }
   .sig-box { flex:1; border-top:1px solid #333; padding-top:6px; font-size:11px; color:#555; }
   .doc-check { font-size:12px; }
   .yes { color:#009F6B; font-weight:700; }
@@ -254,29 +260,75 @@ async function renderHtmlToPdf(html) {
     const doc = iframe.contentDocument
     const bodyHeight = doc.body.scrollHeight
     iframe.style.height = `${bodyHeight}px`
-    // Let images (QPC logo, embedded document thumbnails) finish loading.
+    // Let images (QPC logo, embedded document thumbnails, signatures)
+    // finish loading before measuring anything below — an unloaded image
+    // has zero height and would throw off every block's bounding rect.
     const images = Array.from(doc.images || [])
     await Promise.all(images.map(img => img.complete ? Promise.resolve() : new Promise(res => { img.onload = res; img.onerror = res })))
 
-    const canvas = await html2canvas(doc.body, { scale: 2, useCORS: true, backgroundColor: '#ffffff' })
+    const scale = 2
+    const canvas = await html2canvas(doc.body, { scale, useCORS: true, backgroundColor: '#ffffff' })
     const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' })
     const pageWidth = pdf.internal.pageSize.getWidth()
     const pageHeight = pdf.internal.pageSize.getHeight()
-    const imgWidth = pageWidth
-    const imgHeight = (canvas.height * imgWidth) / canvas.width
 
-    // Paginate: slice the tall rendered canvas across as many A4 pages as
-    // needed rather than squashing/cropping a long report onto one page.
-    let heightLeft = imgHeight
-    let position = 0
-    const imgData = canvas.toDataURL('image/png')
-    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
-    heightLeft -= pageHeight
-    while (heightLeft > 0) {
-      position -= pageHeight
-      pdf.addPage()
-      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
-      heightLeft -= pageHeight
+    // CSS-pixel height of one PDF page, once the report is scaled to fill
+    // the page width — this is the "budget" pagination works against, in
+    // the same coordinate space as the DOM measurements below.
+    const cssPageHeight = pageHeight * (doc.body.clientWidth / pageWidth)
+
+    // Every element that must never be cut across a page boundary — table
+    // rows (each one is a full label+value pair, including signature
+    // images), signature blocks, and section headers glued to whatever
+    // follows them. Sorted top-to-bottom; overlapping/nested unbreakable
+    // elements (e.g. an <img> inside a <tr>) are naturally subsumed since
+    // we only need the outermost boundary that must not be split.
+    const unbreakable = Array.from(doc.querySelectorAll('tr, .sig-row, .qpc-header, .meta-row'))
+      .map(el => {
+        const r = el.getBoundingClientRect()
+        return { top: r.top, bottom: r.bottom }
+      })
+      .filter(b => b.bottom > b.top)
+      .sort((a, b) => a.top - b.top)
+
+    // Walk the document top to bottom, one page-height "budget" at a
+    // time. If the tentative page end would land strictly inside an
+    // unbreakable block, pull the break back to that block's top edge
+    // instead — the whole block moves to the next page rather than being
+    // sliced through the middle. A single block taller than one full
+    // page (pathological case) is left to overflow onto its own page
+    // rather than looping forever.
+    const breakpoints = [0]
+    let cursor = 0
+    while (cursor < bodyHeight - 0.5) {
+      let tentativeEnd = Math.min(cursor + cssPageHeight, bodyHeight)
+      const straddling = unbreakable.filter(b => b.top < tentativeEnd - 0.5 && b.bottom > tentativeEnd + 0.5)
+      if (straddling.length) {
+        const earliestTop = Math.min(...straddling.map(b => b.top))
+        if (earliestTop > cursor + 1) tentativeEnd = earliestTop
+        // else: this single block is taller than a page — let it overflow.
+      }
+      breakpoints.push(tentativeEnd)
+      cursor = tentativeEnd
+    }
+
+    // Slice the one full-page-width canvas into a separate cropped canvas
+    // per page (never a raw pixel-offset draw of the SAME tall image),
+    // so each PDF page only ever contains whole, unsplit content.
+    const imgWidth = pageWidth
+    for (let p = 0; p < breakpoints.length - 1; p++) {
+      const sliceTopCss = breakpoints[p]
+      const sliceBottomCss = breakpoints[p + 1]
+      const sliceHeightPx = Math.max(1, Math.round((sliceBottomCss - sliceTopCss) * scale))
+      const sliceCanvas = document.createElement('canvas')
+      sliceCanvas.width = canvas.width
+      sliceCanvas.height = sliceHeightPx
+      const ctx = sliceCanvas.getContext('2d')
+      ctx.drawImage(canvas, 0, Math.round(sliceTopCss * scale), canvas.width, sliceHeightPx, 0, 0, canvas.width, sliceHeightPx)
+      const sliceImgHeightPt = (sliceHeightPx / canvas.width) * imgWidth
+
+      if (p > 0) pdf.addPage()
+      pdf.addImage(sliceCanvas.toDataURL('image/png'), 'PNG', 0, 0, imgWidth, sliceImgHeightPt)
     }
     return pdf
   } finally {
