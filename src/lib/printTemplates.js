@@ -1,5 +1,20 @@
 import { qpcLogo } from './logos'
 import { supabase } from './supabase'
+// Static imports, not dynamic import() at call time — jsPDF is already
+// statically imported elsewhere (Athletes.jsx, SpecialOlympics.jsx), so a
+// dynamic import here just duplicated it into a second lazy chunk for no
+// benefit (Rollup already flagged this as an ineffective dynamic import).
+// html2canvas is only used here, but PDF Preview/Download is a core,
+// frequently-used feature, and a dynamic import means every click fetches
+// a separately-hashed chunk at runtime — if a new Vercel deployment has
+// since replaced that chunk's hash, an already-open tab still running the
+// previous JS bundle asks for a file that no longer exists on the server
+// and the import() rejects with "Failed to fetch dynamically imported
+// module". Bundling both statically means everything PDF generation
+// needs is already loaded with the rest of the app; there is no
+// separate lazy fetch left to go stale.
+import jsPDF from 'jspdf'
+import html2canvas from 'html2canvas'
 
 // ── Field mapping architecture ──────────────────────────────────────────
 // Templates map to submissions via each form field's stable
@@ -234,10 +249,6 @@ export async function printSubmission(form, submission) {
 // each one is presented differs (rasterized+paginated into a real PDF
 // file here, vs. rendered live in a print-dialog window for Print).
 async function renderHtmlToPdf(html) {
-  const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
-    import('jspdf'),
-    import('html2canvas'),
-  ])
 
   // Render the report HTML off-screen at a fixed A4-proportioned width so
   // html2canvas captures it exactly as it would print, then tear the
@@ -272,10 +283,22 @@ async function renderHtmlToPdf(html) {
     const pageWidth = pdf.internal.pageSize.getWidth()
     const pageHeight = pdf.internal.pageSize.getHeight()
 
-    // CSS-pixel height of one PDF page, once the report is scaled to fill
-    // the page width — this is the "budget" pagination works against, in
-    // the same coordinate space as the DOM measurements below.
-    const cssPageHeight = pageHeight * (doc.body.clientWidth / pageWidth)
+    // Consistent top/bottom margins on every page (including page 1) —
+    // content only ever renders inside this usable band, never flush
+    // against the page edge.
+    const MM_TO_PT = 2.834645669
+    const marginTopPt = 11 * MM_TO_PT
+    const marginBottomPt = 10 * MM_TO_PT
+    const usablePageHeight = pageHeight - marginTopPt - marginBottomPt
+
+    // CSS-pixel height of one page's USABLE area (after margins), once
+    // the report is scaled to fill the page width — this is the actual
+    // "budget" pagination works against, in the same coordinate space as
+    // the DOM measurements below. Using the full page height here (as
+    // before) would let a page's content run into the bottom margin;
+    // shrinking the budget to the margin-adjusted height is what keeps
+    // every page's content inside the intended band.
+    const cssPageHeight = usablePageHeight * (doc.body.clientWidth / pageWidth)
 
     // Every element that must never be cut across a page boundary — table
     // rows (each one is a full label+value pair, including signature
@@ -314,7 +337,10 @@ async function renderHtmlToPdf(html) {
 
     // Slice the one full-page-width canvas into a separate cropped canvas
     // per page (never a raw pixel-offset draw of the SAME tall image),
-    // so each PDF page only ever contains whole, unsplit content.
+    // so each PDF page only ever contains whole, unsplit content. Every
+    // page's image is placed starting at marginTopPt — page 1 included —
+    // so there's always the same comfortable white space above the
+    // content, not just on later pages.
     const imgWidth = pageWidth
     for (let p = 0; p < breakpoints.length - 1; p++) {
       const sliceTopCss = breakpoints[p]
@@ -328,7 +354,7 @@ async function renderHtmlToPdf(html) {
       const sliceImgHeightPt = (sliceHeightPx / canvas.width) * imgWidth
 
       if (p > 0) pdf.addPage()
-      pdf.addImage(sliceCanvas.toDataURL('image/png'), 'PNG', 0, 0, imgWidth, sliceImgHeightPt)
+      pdf.addImage(sliceCanvas.toDataURL('image/png'), 'PNG', 0, marginTopPt, imgWidth, sliceImgHeightPt)
     }
     return pdf
   } finally {
