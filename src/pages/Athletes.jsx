@@ -3447,7 +3447,7 @@ ${myDocs.length > 0 ? `<div class="section">
                           ? COACH_DEFAULT_COLS
                           : ALL_COLS.filter(c=>c.default).map(c=>c.key)
                       )} style={{ flex:1, padding:'5px', fontSize:11, background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:7, cursor:'pointer', color:'var(--text2)' }}>{tx('filters.default','Default')}</button>
-                      <button onClick={() => setVisibleCols(['name'])} style={{ flex:1, padding:'5px', fontSize:11, background:'#fef2f2', border:'1px solid #fca5a5', borderRadius:7, cursor:'pointer', color:'#dc2626' }}>{tx('filters.none','None')}</button>
+                      <button onClick={() => setVisibleCols([primaryNameKey])} style={{ flex:1, padding:'5px', fontSize:11, background:'#fef2f2', border:'1px solid #fca5a5', borderRadius:7, cursor:'pointer', color:'#dc2626' }}>{tx('filters.none','None')}</button>
                     </div>
                     <div style={{ overflowY:'auto', padding:'8px 4px' }}>
                       {COL_GROUPS.map(group => (
@@ -3460,8 +3460,8 @@ ${myDocs.length > 0 ? `<div class="section">
                               <label key={col.key} style={{ display:'flex', alignItems:'center', gap:10, padding:'6px 12px', cursor:col.key===primaryNameKey?'not-allowed':'pointer', borderRadius:8 }}>
                                 <input type="checkbox" checked={isVisible(col.key)} disabled={col.key===primaryNameKey} onChange={() => toggleCol(col.key)}
                                   style={{ width:14, height:14, cursor:col.key===primaryNameKey?'not-allowed':'pointer', accentColor:'#0085C7' }} />
-                                <span style={{ fontSize:13, color:col.key==='name'?'var(--text3)':'var(--text)' }}>{col.label}</span>
-                                {col.key==='name' && <span style={{ fontSize:10, color:'var(--text3)', marginLeft:'auto' }}>{tx('filters.always','always')}</span>}
+                                <span style={{ fontSize:13, color:col.key===primaryNameKey?'var(--text3)':'var(--text)' }}>{col.label}</span>
+                                {col.key===primaryNameKey && <span style={{ fontSize:10, color:'var(--text3)', marginLeft:'auto' }}>{tx('filters.always','always')}</span>}
                               </label>
                             )
                           })}
