@@ -1,4 +1,5 @@
 import { qpcLogo } from './logos'
+import { supabase } from './supabase'
 
 // ── Field mapping architecture ──────────────────────────────────────────
 // Templates map to submissions via each form field's stable
@@ -53,13 +54,23 @@ function printShell(bodyHtml, title) {
 // Automatically renders branding, title EN/AR, reference number, submission
 // date, submitter, every submitted field/answer, and current status — used
 // for every form unless it has an explicit custom template assigned.
-function buildDefaultTemplate(form, submission) {
+function buildDefaultTemplate(form, submission, signatureUrls = {}) {
   const fields = (form.request_form_fields || []).slice().sort((a,b) => a.sort_order - b.sort_order)
   const submittedBy = submission.is_guest
     ? `${submission.guest_name || 'Guest'} (Guest)`
     : (submission.profiles?.full_name || '—')
 
   const rows = fields.map(f => {
+    // Signature fields render the actual captured image, not the stored
+    // filename marker — signatureUrls is pre-fetched (signed URLs) before
+    // this template is built, since this function itself stays sync.
+    if (f.field_type === 'signature') {
+      const url = signatureUrls[f.id]
+      const cell = url
+        ? `<img src="${esc(url)}" style="max-width:220px;max-height:90px;border:1px solid #ddd;border-radius:4px;background:#fff;" />`
+        : '—'
+      return `<tr><th>${esc(f.label)}${f.label_ar ? `<br/><span dir="rtl" style="font-weight:400;color:#777">${esc(f.label_ar)}</span>` : ''}</th><td>${cell}</td></tr>`
+    }
     const v = submission.answers?.[f.id]
     const display = Array.isArray(v) ? v.join(', ') : (v ?? '—')
     return `<tr><th>${esc(f.label)}${f.label_ar ? `<br/><span dir="rtl" style="font-weight:400;color:#777">${esc(f.label_ar)}</span>` : ''}</th><td>${esc(display)}</td></tr>`
@@ -166,11 +177,31 @@ const CUSTOM_TEMPLATES = {
 // Always reads the CURRENT saved submission (never a cached/duplicated
 // copy) and picks the form's assigned template — default QPC layout unless
 // the form has an explicit, implemented custom template.
-export function buildPrintHtml(form, submission) {
+// Fetches a signed URL (private bucket — same access rules as every other
+// request submission file) for each signature-type field that has an
+// attached image, before the HTML is built — templates themselves stay
+// synchronous string-builders.
+async function fetchSignatureUrls(form, submission) {
+  const sigFields = (form.request_form_fields || []).filter(f => f.field_type === 'signature')
+  if (!sigFields.length) return {}
+  const { data: files } = await supabase.from('request_submission_files')
+    .select('field_id, file_path')
+    .eq('submission_id', submission.id)
+    .in('field_id', sigFields.map(f => f.id))
+  if (!files?.length) return {}
+  const entries = await Promise.all(files.map(async f => {
+    const { data } = await supabase.storage.from('request-attachments').createSignedUrl(f.file_path, 3600)
+    return [f.field_id, data?.signedUrl]
+  }))
+  return Object.fromEntries(entries.filter(([, url]) => url))
+}
+
+export async function buildPrintHtml(form, submission) {
+  const signatureUrls = await fetchSignatureUrls(form, submission)
   if (form.print_template === 'custom' && CUSTOM_TEMPLATES[form.custom_template_key]) {
     return CUSTOM_TEMPLATES[form.custom_template_key](form, submission)
   }
-  return buildDefaultTemplate(form, submission)
+  return buildDefaultTemplate(form, submission, signatureUrls)
 }
 
 function openPrintWindow(html) {
@@ -184,8 +215,8 @@ function openPrintWindow(html) {
 
 // Print always goes through the browser's native print dialog — this is
 // the ONLY function that ever triggers it.
-export function printSubmission(form, submission) {
-  openPrintWindow(buildPrintHtml(form, submission))
+export async function printSubmission(form, submission) {
+  openPrintWindow(await buildPrintHtml(form, submission))
 }
 
 // ── Shared PDF generation (single source for Preview + Download) ───────
@@ -261,7 +292,7 @@ function submissionPdfFilename(submission) {
 // Downloads the generated PDF directly — no browser print dialog, no new
 // tab/window, no navigation away from the submission the admin is on.
 export async function downloadSubmissionPdf(form, submission) {
-  const pdf = await renderHtmlToPdf(buildPrintHtml(form, submission))
+  const pdf = await renderHtmlToPdf(await buildPrintHtml(form, submission))
   pdf.save(submissionPdfFilename(submission))
 }
 
@@ -270,7 +301,7 @@ export async function downloadSubmissionPdf(form, submission) {
 // itself so the preview's own Download button can save the identical file
 // without regenerating it a second time.
 export async function previewSubmissionPdf(form, submission) {
-  const pdf = await renderHtmlToPdf(buildPrintHtml(form, submission))
+  const pdf = await renderHtmlToPdf(await buildPrintHtml(form, submission))
   const blob = pdf.output('blob')
   return { url: URL.createObjectURL(blob), blob, filename: submissionPdfFilename(submission) }
 }

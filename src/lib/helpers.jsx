@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 export const AV_COLORS = ['#0085C7','#EE334E','#009F6B','#8b5cf6','#e67e22','#16a085','#c0392b','#2980b9']
 
@@ -768,6 +768,78 @@ export function getDocPreviewKind(name) {
   // doc/docx/xls/xlsx/ppt/pptx/zip and anything unrecognized: no browser-
   // safe inline preview — caller keeps Download as the only action.
   return null
+}
+
+// Signature capture — mouse/touch/stylus via pointer events (one handler
+// covers all three, no separate touch/mouse code paths). `onSave(blob)`
+// receives a PNG Blob once the person confirms; `onClear` resets. A
+// filled/checked canvas region is required before Save is enabled so an
+// empty signature can't be "saved" as if it were real.
+export function SignaturePad({ onSave, ar, height = 160 }) {
+  const canvasRef = useRef(null)
+  const drawingRef = useRef(false)
+  const hasInkRef = useRef(false)
+  const [hasInk, setHasInk] = useState(false)
+
+  function getPos(e, canvas) {
+    const rect = canvas.getBoundingClientRect()
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top }
+  }
+  function start(e) {
+    e.preventDefault()
+    const canvas = canvasRef.current
+    canvas.setPointerCapture?.(e.pointerId)
+    const ctx = canvas.getContext('2d')
+    const { x, y } = getPos(e, canvas)
+    ctx.beginPath()
+    ctx.moveTo(x, y)
+    drawingRef.current = true
+  }
+  function move(e) {
+    if (!drawingRef.current) return
+    e.preventDefault()
+    const canvas = canvasRef.current
+    const ctx = canvas.getContext('2d')
+    const { x, y } = getPos(e, canvas)
+    ctx.lineWidth = 2.2
+    ctx.lineCap = 'round'
+    ctx.strokeStyle = '#111827'
+    ctx.lineTo(x, y)
+    ctx.stroke()
+    if (!hasInkRef.current) { hasInkRef.current = true; setHasInk(true) }
+  }
+  function end(e) { drawingRef.current = false }
+
+  function clear() {
+    const canvas = canvasRef.current
+    canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height)
+    hasInkRef.current = false
+    setHasInk(false)
+  }
+
+  function save() {
+    const canvas = canvasRef.current
+    canvas.toBlob(blob => { if (blob) onSave(blob) }, 'image/png')
+  }
+
+  return (
+    <div>
+      <canvas
+        ref={canvasRef}
+        width={560} height={height}
+        style={{ width:'100%', height, touchAction:'none', border:'1px dashed var(--border)', borderRadius:8, background:'#fff', cursor:'crosshair' }}
+        onPointerDown={start} onPointerMove={move} onPointerUp={end} onPointerLeave={end} onPointerCancel={end}
+      />
+      <div style={{ display:'flex', gap:8, marginTop:8 }}>
+        <button type="button" onClick={clear} className="btn-cancel" style={{ fontSize:12 }}>
+          <i className="ti ti-eraser" /> {ar ? 'مسح' : 'Clear'}
+        </button>
+        <button type="button" onClick={save} disabled={!hasInk} className="btn btn-blue" style={{ fontSize:12 }}>
+          <i className="ti ti-check" /> {ar ? 'حفظ التوقيع' : 'Save Signature'}
+        </button>
+      </div>
+    </div>
+  )
 }
 
 export function PdfPreviewModal({ src, onClose }) {
