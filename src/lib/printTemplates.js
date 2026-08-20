@@ -81,10 +81,7 @@ function buildDefaultTemplate(form, submission, signatureUrls = {}) {
     ? `${submission.guest_name || 'Guest'} (Guest)`
     : (submission.profiles?.full_name || '—')
 
-  const rows = fields.map(f => {
-    // Signature fields render the actual captured image, not the stored
-    // filename marker — signatureUrls is pre-fetched (signed URLs) before
-    // this template is built, since this function itself stays sync.
+  function fieldRow(f) {
     if (f.field_type === 'signature') {
       const url = signatureUrls[f.id]
       const cell = url
@@ -95,7 +92,38 @@ function buildDefaultTemplate(form, submission, signatureUrls = {}) {
     const v = submission.answers?.[f.id]
     const display = Array.isArray(v) ? v.join(', ') : (v ?? '—')
     return `<tr><th>${esc(f.label)}${f.label_ar ? `<br/><span dir="rtl" style="font-weight:400;color:#777">${esc(f.label_ar)}</span>` : ''}</th><td>${esc(display)}</td></tr>`
-  }).join('')
+  }
+
+  // Content blocks (section_title/description/divider) never collect an
+  // answer, so they're never a table row — they break the field list into
+  // separate <table> chunks with the block rendered as its own element in
+  // between, preserving the exact original order. This is also what lets
+  // the .section-title CSS rules (break-after:avoid, glued to the table
+  // that follows it) actually apply — a real sibling relationship, not a
+  // row inside one continuous table.
+  let fieldsHtml = ''
+  let pendingRows = []
+  function flushTable() {
+    if (pendingRows.length) {
+      fieldsHtml += `<table>${pendingRows.join('')}</table>`
+      pendingRows = []
+    }
+  }
+  for (const f of fields) {
+    if (f.field_type === 'divider') {
+      flushTable()
+      fieldsHtml += `<hr style="border:none;border-top:1px solid #ccc;margin:18px 0;" />`
+    } else if (f.field_type === 'section_title') {
+      flushTable()
+      fieldsHtml += `<div class="section-title">${esc(f.label)}${f.label_ar ? `<br/><span dir="rtl" style="font-weight:400;color:#777;text-transform:none;letter-spacing:normal;">${esc(f.label_ar)}</span>` : ''}</div>`
+    } else if (f.field_type === 'description') {
+      flushTable()
+      fieldsHtml += `<div style="font-size:12px;color:#555;line-height:1.6;margin-bottom:12px;white-space:pre-wrap;">${esc(f.label)}${f.label_ar ? `<br/><span dir="rtl">${esc(f.label_ar)}</span>` : ''}</div>`
+    } else {
+      pendingRows.push(fieldRow(f))
+    }
+  }
+  flushTable()
 
   const body = `
     <div class="qpc-header">
@@ -111,7 +139,7 @@ function buildDefaultTemplate(form, submission, signatureUrls = {}) {
       <span>Status: <span class="status-badge">${esc(STATUS_LABEL[submission.status] || submission.status)}</span></span>
     </div>
     <div class="meta-row"><span>Submitted by: <b>${esc(submittedBy)}</b></span></div>
-    <table>${rows}</table>
+    ${fieldsHtml}
   `
   return printShell(body, form.title)
 }
