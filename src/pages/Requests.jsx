@@ -380,6 +380,7 @@ export default function Requests({ profile, navState }) {
         if (error || data?.status !== 'ok') {
           throw new Error(data?.status === 'not_editable' ? (ar?'لم يعد بالإمكان تعديل هذا الطلب':'This submission can no longer be edited')
             : data?.status === 'not_permitted' ? (ar?'غير مسموح':'Not permitted')
+            : data?.status === 'required_file_missing' ? (ar?'يوجد حقل ملف مطلوب بدون مرفق':'A required file field is missing an attachment')
             : (error?.message || (ar?'فشل إعادة الإرسال':'Resubmission failed')))
         }
         toast(ar?'تم إعادة الإرسال!':'Resubmitted!','success')
@@ -1191,7 +1192,8 @@ export default function Requests({ profile, navState }) {
                     {selectedSub.is_guest && <span style={{fontSize:10,fontWeight:700,color:'#64748b',background:'#f1f5f9',padding:'2px 7px',borderRadius:10}}>ضيف</span>}
                   </div>
                   <div style={{display:'flex', flexDirection:'column', gap:4, marginTop:8}}>
-                    <MetaField label="تاريخ ووقت الإرسال" value={new Date(selectedSub.submitted_at).toLocaleString()} ltr align="right" />
+                    <MetaField label={selectedSub.resubmitted_at ? "تاريخ ووقت الإرسال الأصلي" : "تاريخ ووقت الإرسال"} value={new Date(selectedSub.submitted_at).toLocaleString()} ltr align="right" />
+                    <MetaField label="تاريخ ووقت إعادة الإرسال الأخير" value={selectedSub.resubmitted_at ? new Date(selectedSub.resubmitted_at).toLocaleString() : null} ltr align="right" />
                     <MetaField label="البريد الإلكتروني لمقدم الطلب" value={selectedSub.is_guest ? selectedSub.guest_contact : null} ltr align="right" />
                     <MetaField label="مرجع الطلب" value={selectedSub.reference_number} ltr align="right" />
                     <MetaField label="الحالة" value={statusBadge(selectedSub.status)} align="right" />
@@ -1214,7 +1216,8 @@ export default function Requests({ profile, navState }) {
                   {selectedSub.is_guest && <span style={{fontSize:10,fontWeight:700,color:'#64748b',background:'#f1f5f9',padding:'2px 7px',borderRadius:10}}>GUEST</span>}
                 </div>
                 <div style={{display:'flex', flexDirection:'column', gap:4, marginTop:8}}>
-                  <MetaField label="Submission Date &amp; Time" value={new Date(selectedSub.submitted_at).toLocaleString()} ltr />
+                  <MetaField label={selectedSub.resubmitted_at ? "Original Submission Date & Time" : "Submission Date & Time"} value={new Date(selectedSub.submitted_at).toLocaleString()} ltr />
+                  <MetaField label="Latest Resubmission Date & Time" value={selectedSub.resubmitted_at ? new Date(selectedSub.resubmitted_at).toLocaleString() : null} ltr />
                   <MetaField label="Submitter Email" value={selectedSub.is_guest ? selectedSub.guest_contact : null} ltr />
                   <MetaField label="Submission Reference" value={selectedSub.reference_number} ltr />
                   <MetaField label="Status" value={statusBadge(selectedSub.status)} />
