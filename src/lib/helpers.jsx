@@ -542,22 +542,43 @@ export function statusDot(status) {
 // الفئات المستهدفة — allowed values only, no free text. Single shared
 // source used by the Add/Edit form dropdown, the table column filter, and
 // exports, so nothing hardcodes this list a second time.
-export const TARGET_CATEGORY_OPTIONS = ['اللاعب الواعد', 'اللاعب الأمل', 'اللاعب المميز', 'اللاعب النخبة', 'غير مصنف', 'لا ينطبق']
+// Canonical stored values — stable English keys, never the Arabic display
+// label. 'promising'/'eligible'/'elite'/'national_team' are the original
+// four options (in their original dropdown order); 'unclassified'/
+// 'not_applicable' were added later. NULL is used for "blank" — never an
+// empty string, which the DB CHECK constraint doesn't allow.
+export const TARGET_CATEGORY_OPTIONS = ['promising', 'eligible', 'elite', 'national_team', 'unclassified', 'not_applicable']
 
-// English labels for the Targeted Athlete category — only the two newest
-// options have one, since the original four have "(no English translation
-// provided yet)" by established design (see FormModal.jsx) and must keep
-// displaying exactly as before. The canonical stored value stays the
-// Arabic string for every option (existing convention); this map only
-// controls what English UI shows for it.
 export const TARGET_CATEGORY_LABELS_EN = {
-  'غير مصنف': 'Unclassified',
-  'لا ينطبق': 'Not Applicable (N/A)',
+  promising: 'Promising Player',
+  eligible: 'Eligible Player',
+  elite: 'Elite Player',
+  national_team: 'National Team Player',
+  unclassified: 'Unclassified',
+  not_applicable: 'Not Applicable (N/A)',
+}
+export const TARGET_CATEGORY_LABELS_AR = {
+  promising: 'اللاعب الواعد',
+  eligible: 'اللاعب الأمل',
+  elite: 'اللاعب المميز',
+  national_team: 'اللاعب النخبة',
+  unclassified: 'غير مصنف',
+  not_applicable: 'لا ينطبق',
+}
+// Legacy rows from before the canonical-key migration stored the raw
+// Arabic string directly — this keeps old data displaying correctly
+// without needing every row backfilled at once.
+const LEGACY_TARGET_CATEGORY_AR_TO_KEY = {
+  'اللاعب الواعد': 'promising', 'اللاعب الأمل': 'eligible',
+  'اللاعب المميز': 'elite', 'اللاعب النخبة': 'national_team',
+  'غير مصنف': 'unclassified', 'لا ينطبق': 'not_applicable',
 }
 
 export function targetCategoryLabel(value, lang) {
   if (!value) return ''
-  return lang === 'ar' ? value : (TARGET_CATEGORY_LABELS_EN[value] || value)
+  const key = TARGET_CATEGORY_LABELS_EN[value] ? value : (LEGACY_TARGET_CATEGORY_AR_TO_KEY[value] || value)
+  if (lang === 'ar') return TARGET_CATEGORY_LABELS_AR[key] || value
+  return TARGET_CATEGORY_LABELS_EN[key] || value
 }
 
 export const COACH_DESIGNATIONS = ['Coach', 'Assistant Coach', 'Technical Expert', 'Physiotherapist', 'Doctor']
