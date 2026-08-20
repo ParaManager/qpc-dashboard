@@ -1519,6 +1519,11 @@ export default function Athletes({ athletes, coaches, employees, results, docume
   const restrictedView = !canViewDetails
   const RESTRICTED_COLS = ['name', 'name_ar', 'sport', 'disability', 'nationality', 'gender', 'age', 'coach_id', 'status']
   const COLS_STORAGE_KEY = 'qpc_athletes_visible_cols_v2'
+  // The always-selected/locked identity column follows the current UI
+  // language — 'name' (Athlete's English Name) in English, 'name_ar'
+  // (اسم اللاعب بالعربي) in Arabic. The other name column stays optional
+  // either way, never force-added or force-removed.
+  const primaryNameKey = lang === 'ar' ? 'name_ar' : 'name'
   function loadStoredCols(fallback) {
     if (restrictedView) return RESTRICTED_COLS
     try {
@@ -1527,7 +1532,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
       const parsed = JSON.parse(raw)
       if (!Array.isArray(parsed) || parsed.length === 0) return fallback
       if (!parsed.every(k => typeof k === 'string')) return fallback
-      return parsed.includes('name') ? parsed : ['name', ...parsed]
+      return parsed.includes(primaryNameKey) ? parsed : [primaryNameKey, ...parsed]
     } catch {
       return fallback
     }
@@ -1543,6 +1548,15 @@ export default function Athletes({ athletes, coaches, employees, results, docume
       return resolved
     })
   }
+  // A language switch doesn't remount this component, so the initial
+  // loadStoredCols() force-include above only covers the language active
+  // at mount time — this keeps it correct if the person switches
+  // language mid-session, without touching the other (now-optional) name
+  // column's own selection state.
+  useEffect(() => {
+    if (restrictedView) return
+    setVisibleColsRaw(prev => prev.includes(primaryNameKey) ? prev : [primaryNameKey, ...prev])
+  }, [primaryNameKey, restrictedView])
   const [colPickerOpen, setColPickerOpen] = useState(false)
   const colPickerRef = useRef(null)
   useEffect(() => {
@@ -3149,7 +3163,7 @@ ${myDocs.length > 0 ? `<div class="section">
   ]
 
   function toggleCol(key) {
-    if (key === 'name') return // always visible
+    if (key === primaryNameKey) return // always visible — follows the current language
     setVisibleCols(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key])
   }
   const isVisible = key => visibleCols.includes(key)
@@ -3443,9 +3457,9 @@ ${myDocs.length > 0 ? `<div class="section">
                             const col = ALL_COLS.find(c => c.key === key)
                             if (!col) return null
                             return (
-                              <label key={col.key} style={{ display:'flex', alignItems:'center', gap:10, padding:'6px 12px', cursor:col.key==='name'?'not-allowed':'pointer', borderRadius:8 }}>
-                                <input type="checkbox" checked={isVisible(col.key)} disabled={col.key==='name'} onChange={() => toggleCol(col.key)}
-                                  style={{ width:14, height:14, cursor:col.key==='name'?'not-allowed':'pointer', accentColor:'#0085C7' }} />
+                              <label key={col.key} style={{ display:'flex', alignItems:'center', gap:10, padding:'6px 12px', cursor:col.key===primaryNameKey?'not-allowed':'pointer', borderRadius:8 }}>
+                                <input type="checkbox" checked={isVisible(col.key)} disabled={col.key===primaryNameKey} onChange={() => toggleCol(col.key)}
+                                  style={{ width:14, height:14, cursor:col.key===primaryNameKey?'not-allowed':'pointer', accentColor:'#0085C7' }} />
                                 <span style={{ fontSize:13, color:col.key==='name'?'var(--text3)':'var(--text)' }}>{col.label}</span>
                                 {col.key==='name' && <span style={{ fontSize:10, color:'var(--text3)', marginLeft:'auto' }}>{tx('filters.always','always')}</span>}
                               </label>
