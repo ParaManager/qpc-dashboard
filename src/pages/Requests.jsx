@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
 import { toast, ConfirmModal } from '../components/Toast'
-import { initials, BackButton, DocPreviewButton, SUPPORTED_DOC_FILE_TYPES } from '../lib/helpers'
+import { initials, BackButton, DocPreviewButton, SUPPORTED_DOC_FILE_TYPES, SignaturePad } from '../lib/helpers'
 import { isTrustedAdmin } from '../lib/permissions'
 import { logAdminActivity } from '../lib/adminActivity'
 import { printSubmission, downloadSubmissionPdf, previewSubmissionPdf } from '../lib/printTemplates'
@@ -19,6 +19,7 @@ const FIELD_TYPES = [
   { value:'checkbox', icon:'ti-checkbox',       label:'Multiple Choice',label_ar:'اختيار متعدد' },
   { value:'yes_no',   icon:'ti-toggle-left',    label:'Yes / No',       label_ar:'نعم / لا' },
   { value:'file',     icon:'ti-paperclip',      label:'File Upload',    label_ar:'رفع ملف' },
+  { value:'signature',icon:'ti-signature',      label:'Signature',      label_ar:'التوقيع' },
 ]
 
 const ICON_OPTIONS = [
@@ -152,6 +153,7 @@ export default function Requests({ profile, navState }) {
   const [answers, setAnswers]           = useState({})
   const [resubmitTargetId, setResubmitTargetId] = useState(null) // submission id being edited/resubmitted (Returned status), null = normal new submission
   const [existingFiles, setExistingFiles] = useState([]) // attachments already linked to resubmitTargetId, kept unless explicitly removed
+  const [supabaseSignedUrlCache, setSupabaseSignedUrlCache] = useState({}) // { [fileId]: signedUrl } — for previewing existing signature images inline
   const [draftId, setDraftId]           = useState(null) // storage folder for this fill-form session's file uploads, until the real submission_id exists
   const [pendingFiles, setPendingFiles] = useState({}) // { [fieldId]: { name, path, type, size } }
   const [fileUploading, setFileUploading] = useState({}) // { [fieldId]: true } while an upload is in flight
@@ -348,7 +350,7 @@ export default function Requests({ profile, navState }) {
   async function submitForm() {
     const missing = (selectedForm.request_form_fields||[]).filter(f => {
       if (!f.is_required) return false
-      if (f.field_type === 'file') {
+      if (f.field_type === 'file' || f.field_type === 'signature') {
         // A required file field counts as satisfied by a kept existing
         // attachment (when editing a Returned submission) OR a
         // newly-uploaded file — not by a text answer.
@@ -593,6 +595,40 @@ export default function Requests({ profile, navState }) {
             {!uploading && pending && (
               <div style={{fontSize:12,color:'#009F6B',marginTop:6}}><i className="ti ti-circle-check"/> {pending.name} · {formatFileSize(pending.size)}</div>
             )}
+          </div>
+        )
+      }
+      case 'signature': {
+        const uploadingSig = !!fileUploading[field.id]
+        const pendingSig = pendingFiles[field.id]
+        const existingSig = resubmitTargetId ? existingFiles.filter(f => f.field_id === field.id) : []
+        const hasSignature = existingSig.length > 0 || !!pendingSig
+        return (
+          <div>
+            {existingSig.map(f => (
+              <div key={f.id} style={{marginBottom:8}}>
+                <img src={supabaseSignedUrlCache[f.id] || ''} alt="signature" style={{maxWidth:280,maxHeight:100,border:'1px solid var(--border)',borderRadius:8,background:'#fff',display:'block'}}
+                  onLoad={()=>{}} />
+                <div style={{display:'flex',alignItems:'center',gap:8,marginTop:4}}>
+                  <span style={{fontSize:10,color:'#009F6B',fontWeight:600}}>{ar?'التوقيع الحالي':'Current signature'}</span>
+                  <button type="button" onClick={()=>removeExistingResubmitFile(f)} style={{background:'none',border:'none',color:'#EE334E',cursor:'pointer',fontSize:12}}>
+                    {ar?'إزالة':'Remove'}
+                  </button>
+                </div>
+              </div>
+            ))}
+            {!uploadingSig && pendingSig && (
+              <div style={{fontSize:12,color:'#009F6B',marginBottom:8}}><i className="ti ti-circle-check"/> {ar?'تم حفظ التوقيع الجديد':'New signature saved'}</div>
+            )}
+            {!hasSignature || pendingSig ? null : (
+              <button type="button" className="btn-cancel" style={{fontSize:12,marginBottom:8}} onClick={()=>setPendingFiles(p=>{const n={...p};delete n[field.id];return n})}>
+                {ar?'توقيع من جديد':'Sign again'}
+              </button>
+            )}
+            {(!hasSignature) && (
+              <SignaturePad ar={ar} onSave={blob => handleFieldFileUpload(field, new File([blob], `signature-${Date.now()}.png`, { type: 'image/png' }))} />
+            )}
+            {uploadingSig && <div style={{fontSize:12,color:'var(--text3)',marginTop:6}}><i className="ti ti-loader ti-spin"/> {ar?'جارٍ الحفظ…':'Saving…'}</div>}
           </div>
         )
       }
@@ -1294,6 +1330,27 @@ export default function Requests({ profile, navState }) {
         <div className="card" style={{maxWidth:640}}>
           {(form?.request_form_fields||[]).map(field=>{
             const ans = selectedSub.answers[field.id]
+            if (field.field_type === 'signature') {
+              const sigFile = subFiles.find(f => f.field_id === field.id)
+              return (
+                <div key={field.id} style={{marginBottom:16,paddingBottom:16,borderBottom:'1px solid var(--border)', textAlign: ar ? 'right' : 'left'}}>
+                  <div style={{fontSize:11,color:'var(--text3)',fontWeight:600,marginBottom:4,textTransform:'uppercase',letterSpacing:'.04em'}}>{ar?(field.label_ar||field.label):field.label}</div>
+                  {sigFile?.signedUrl ? (
+                    <div>
+                      <img src={sigFile.signedUrl} alt="signature" style={{maxWidth:280,maxHeight:110,border:'1px solid var(--border)',borderRadius:8,background:'#fff',display:'block',marginBottom:6}} />
+                      <div style={{display:'flex',gap:8}}>
+                        <a href={sigFile.signedUrl} target="_blank" rel="noreferrer" download={sigFile.file_name} style={{fontSize:12,color:'#0085C7'}}>
+                          {ar?'تنزيل':'Download'}
+                        </a>
+                        <DocPreviewButton url={sigFile.signedUrl} name={sigFile.file_name} />
+                      </div>
+                    </div>
+                  ) : (
+                    <span style={{color:'var(--text3)',fontSize:13}}>—</span>
+                  )}
+                </div>
+              )
+            }
             return (
               <div key={field.id} style={{marginBottom:16,paddingBottom:16,borderBottom:'1px solid var(--border)', textAlign: ar ? 'right' : 'left'}}>
                 <div style={{fontSize:11,color:'var(--text3)',fontWeight:600,marginBottom:4,textTransform:'uppercase',letterSpacing:'.04em'}}>{ar?(field.label_ar||field.label):field.label}</div>
@@ -1443,11 +1500,23 @@ export default function Requests({ profile, navState }) {
     setAnswers(sub.answers || {})
     setPendingFiles({})
     setExistingFiles([])
+    setSupabaseSignedUrlCache({})
     setDraftId(crypto.randomUUID())
     setResubmitTargetId(sub.id)
     setView('fill-form')
     supabase.from('request_submission_files').select('*').eq('submission_id', sub.id)
-      .then(({ data }) => setExistingFiles(data || []))
+      .then(async ({ data }) => {
+        setExistingFiles(data || [])
+        // Signature previews need an actual (private, signed) URL to
+        // render inline — same signing mechanism the admin Attachments
+        // section already uses, not a public URL.
+        const sigFiles = (data || []).filter(f => (f.file_type||'').startsWith('image/'))
+        const entries = await Promise.all(sigFiles.map(async f => {
+          const { data: signed } = await supabase.storage.from('request-attachments').createSignedUrl(f.file_path, 3600)
+          return [f.id, signed?.signedUrl]
+        }))
+        setSupabaseSignedUrlCache(Object.fromEntries(entries.filter(([,u]) => u)))
+      })
   }
 
   // Existing attachment stays untouched unless explicitly removed here —

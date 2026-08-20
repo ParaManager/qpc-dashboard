@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
 import { qpcLogo as QPC_LOGO } from '../lib/logos'
-import { statusDot, statusClass, DashRow, SPORT_META, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, sportLabel, BackButton, SUPPORTED_DOC_FILE_TYPES } from '../lib/helpers'
+import { statusDot, statusClass, DashRow, SPORT_META, SPORTS_BY_CATEGORY, SPORT_CATEGORIES, sportLabel, BackButton, SUPPORTED_DOC_FILE_TYPES, SignaturePad } from '../lib/helpers'
 import { computeEventStatus } from './Events'
 import Calendar from './Calendar'
 import Events from './Events'
@@ -335,6 +335,17 @@ function GuestRequestField({ field, value, onChange, ar, onFileChange, uploading
           )}
         </div>
       )
+    case 'signature':
+      return (
+        <div>
+          {!uploading && pendingFile ? (
+            <div style={{fontSize:12,color:'#009F6B'}}><i className="ti ti-circle-check"/> {ar?'تم حفظ التوقيع':'Signature saved'}</div>
+          ) : (
+            <SignaturePad ar={ar} onSave={blob => onFileChange?.(field, new File([blob], `signature-${Date.now()}.png`, { type: 'image/png' }))} />
+          )}
+          {uploading && <div style={{fontSize:12,color:'var(--text3)',marginTop:6}}><i className="ti ti-loader ti-spin"/> {ar?'جارٍ الحفظ…':'Saving…'}</div>}
+        </div>
+      )
     default: return <input type="text" className="form-input" value={value||''} onChange={e=>set(e.target.value)} />
   }
 }
@@ -367,6 +378,7 @@ function GuestRequests() {
   // Never trusts the submission id alone.
   const [editLoadState, setEditLoadState] = useState(null) // null | 'loading' | 'invalid' | 'ready' | 'done'
   const [editData, setEditData] = useState(null) // { submissionId, token, form, answers, files }
+  const [editSignatureUrls, setEditSignatureUrls] = useState({}) // { [fileId]: signedUrl } — for previewing existing signature images inline
   const [editSubmitting, setEditSubmitting] = useState(false)
   const [editPendingFiles, setEditPendingFiles] = useState({}) // { [fieldId]: { name, path, type, size } } — newly-uploaded replacement/added files, not yet linked
   const [editFileUploading, setEditFileUploading] = useState({})
@@ -390,6 +402,17 @@ function GuestRequests() {
         referenceNumber: data.submission.reference_number,
         files: data.files || [], // existing attachments, kept unless explicitly removed
       })
+      // Sign preview URLs for any existing image attachments (signatures)
+      // — gated by the same guest-edit-window storage policy the RPC
+      // itself relies on, not a public URL.
+      const imageFiles = (data.files || []).filter(f => (f.file_type || '').startsWith('image/'))
+      if (imageFiles.length) {
+        const entries = await Promise.all(imageFiles.map(async f => {
+          const { data: signed } = await supabase.storage.from('request-attachments').createSignedUrl(f.file_path, 3600)
+          return [f.id, signed?.signedUrl]
+        }))
+        setEditSignatureUrls(Object.fromEntries(entries.filter(([, u]) => u)))
+      }
       setEditLoadState('ready')
     })()
   }, [])
@@ -435,7 +458,7 @@ function GuestRequests() {
     if (Object.values(editFileUploading).some(Boolean)) return alert(ar?'يرجى الانتظار حتى انتهاء رفع الملف':'Please wait for the file upload to finish')
     const missing = (editData.form.request_form_fields||[]).filter(f => {
       if (!f.is_required) return false
-      if (f.field_type === 'file') {
+      if (f.field_type === 'file' || f.field_type === 'signature') {
         // A required file field counts as satisfied by a kept existing
         // attachment OR a newly-uploaded replacement — not text answers.
         const hasExisting = editData.files.some(fl => fl.field_id === f.id)
@@ -461,7 +484,9 @@ function GuestRequests() {
     })
     setEditSubmitting(false)
     if (error || data?.status !== 'ok') {
-      alert(data?.status === 'invalid_or_expired' ? (ar?'انتهت صلاحية رابط التعديل أو أنه غير صالح':'This edit link is invalid or has expired') : (ar?'تعذر إعادة الإرسال':'Could not resubmit'))
+      alert(data?.status === 'invalid_or_expired' ? (ar?'انتهت صلاحية رابط التعديل أو أنه غير صالح':'This edit link is invalid or has expired')
+        : data?.status === 'required_file_missing' ? (ar?'يوجد حقل ملف مطلوب بدون مرفق':'A required file field is missing an attachment')
+        : (ar?'تعذر إعادة الإرسال':'Could not resubmit'))
       return
     }
     setEditPendingFiles({})
@@ -633,6 +658,39 @@ function GuestRequests() {
                 {!uploading && pending && (
                   <div style={{fontSize:12,color:'#009F6B',marginTop:6}}><i className="ti ti-circle-check"/> {pending.name}</div>
                 )}
+              </div>
+            )
+          }
+          if (field.field_type === 'signature') {
+            const existing = editData.files.filter(f => f.field_id === field.id)
+            const uploading = !!editFileUploading[field.id]
+            const pending = editPendingFiles[field.id]
+            const hasSignature = existing.length > 0 || !!pending
+            return (
+              <div key={field.id} className="form-group" style={{marginBottom:16}}>
+                <label className="form-label">
+                  {ar?(field.label_ar||field.label):field.label}{field.is_required && <span style={{color:'#EE334E'}}> *</span>}
+                </label>
+                {existing.map(f => (
+                  <div key={f.id} style={{marginBottom:8}}>
+                    {editSignatureUrls[f.id] && (
+                      <img src={editSignatureUrls[f.id]} alt="signature" style={{maxWidth:280,maxHeight:100,border:'1px solid var(--border)',borderRadius:8,background:'#fff',display:'block'}} />
+                    )}
+                    <div style={{display:'flex',alignItems:'center',gap:8,marginTop:4}}>
+                      <span style={{fontSize:10,color:'#009F6B',fontWeight:600}}>{L('Current signature','التوقيع الحالي')}</span>
+                      <button type="button" onClick={()=>removeEditExistingFile(f)} style={{background:'none',border:'none',color:'#EE334E',cursor:'pointer',fontSize:12}}>
+                        {L('Remove','إزالة')}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {!uploading && pending && (
+                  <div style={{fontSize:12,color:'#009F6B',marginBottom:8}}><i className="ti ti-circle-check"/> {L('New signature saved','تم حفظ التوقيع الجديد')}</div>
+                )}
+                {!hasSignature && (
+                  <SignaturePad ar={ar} onSave={blob => handleEditFieldFileUpload(field, new File([blob], `signature-${Date.now()}.png`, { type: 'image/png' }))} />
+                )}
+                {uploading && <div style={{fontSize:12,color:'var(--text3)',marginTop:6}}><i className="ti ti-loader ti-spin"/> {L('Saving…','جارٍ الحفظ…')}</div>}
               </div>
             )
           }
