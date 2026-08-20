@@ -20,7 +20,39 @@ const FIELD_TYPES = [
   { value:'yes_no',   icon:'ti-toggle-left',    label:'Yes / No',       label_ar:'نعم / لا' },
   { value:'file',     icon:'ti-paperclip',      label:'File Upload',    label_ar:'رفع ملف' },
   { value:'signature',icon:'ti-signature',      label:'Signature',      label_ar:'التوقيع' },
+  { value:'section_title', icon:'ti-heading',   label:'Section Title',  label_ar:'عنوان القسم' },
+  { value:'description',   icon:'ti-align-left',label:'Description / Instruction', label_ar:'وصف / تعليمات' },
+  { value:'divider',       icon:'ti-separator-horizontal', label:'Divider', label_ar:'فاصل' },
 ]
+
+// Content blocks — display-only, never collect an answer, never required,
+// never written into submission.answers, and skipped entirely by
+// required-field validation everywhere in the app.
+const CONTENT_BLOCK_TYPES = ['section_title', 'description', 'divider']
+
+// Display-only block for section_title/description/divider — never
+// collects an answer, so it's rendered standalone instead of inside the
+// usual label+input wrapper. Shared by every place a form's field list is
+// walked (fill-form, resubmit-edit, admin/submitter answers view).
+function ContentBlock({ field, ar }) {
+  const text = ar ? (field.label_ar || field.label) : field.label
+  if (field.field_type === 'divider') {
+    return <hr style={{ border:'none', borderTop:'1px solid var(--border)', margin:'18px 0' }} />
+  }
+  if (field.field_type === 'section_title') {
+    return (
+      <div style={{ fontSize:16, fontWeight:700, color:'var(--text)', marginTop:22, marginBottom:10, paddingBottom:6, borderBottom:'2px solid #0085C7', textAlign: ar ? 'right' : 'left' }} dir={ar ? 'rtl' : 'ltr'}>
+        {text}
+      </div>
+    )
+  }
+  // description
+  return (
+    <div style={{ fontSize:13, color:'var(--text2)', lineHeight:1.6, marginBottom:16, whiteSpace:'pre-wrap', textAlign: ar ? 'right' : 'left' }} dir={ar ? 'rtl' : 'ltr'}>
+      {text}
+    </div>
+  )
+}
 
 const ICON_OPTIONS = [
   'ti-clipboard-text','ti-first-aid-kit','ti-plane','ti-barbell','ti-shirt',
@@ -189,6 +221,23 @@ export default function Requests({ profile, navState }) {
     const returnView = pdfPreview?.returnView || 'my-submissions'
     setPdfPreview(null)
     setView(returnView)
+  }
+
+  // Shared wrapper for every Download PDF button — downloadSubmissionPdf
+  // itself was previously called bare from onClick with no error
+  // handling at all; a failure (e.g. PDF generation throwing) surfaced as
+  // a silent unhandled rejection with no feedback to the admin.
+  const [downloadingPdfId, setDownloadingPdfId] = useState(null)
+  async function handleDownloadPdf(form, submission) {
+    setDownloadingPdfId(submission.id)
+    try {
+      await downloadSubmissionPdf(form, submission)
+    } catch (err) {
+      console.error('PDF download failed', err)
+      toast(err.message || (ar?'تعذر إنشاء ملف PDF':'Could not generate the PDF'), 'error')
+    } finally {
+      setDownloadingPdfId(null)
+    }
   }
   const [cancelling, setCancelling]     = useState(false)
 
@@ -781,17 +830,28 @@ export default function Requests({ profile, navState }) {
                         <select className="form-input" style={{width:168,flexShrink:0,fontSize:12}} value={field.field_type} onChange={e=>updateField(field.id,'field_type',e.target.value)}>
                           {FIELD_TYPES.map(t=><option key={t.value} value={t.value}>{ar?t.label_ar:t.label}</option>)}
                         </select>
-                        <label style={{display:'flex',alignItems:'center',gap:5,fontSize:12,marginLeft:'auto',cursor:'pointer',userSelect:'none'}}>
-                          <input type="checkbox" checked={field.is_required} onChange={e=>updateField(field.id,'is_required',e.target.checked)}/>
-                          <span style={{color:field.is_required?'#EE334E':'var(--text3)',fontWeight:field.is_required?600:400}}>{ar?'مطلوب *':'Required *'}</span>
-                        </label>
-                        <button onClick={()=>removeField(field.id)} className="action-btn action-btn-delete" style={{padding:'3px 8px',flexShrink:0}}><i className="ti ti-trash" style={{fontSize:13}}/></button>
+                        {!CONTENT_BLOCK_TYPES.includes(field.field_type) && (
+                          <label style={{display:'flex',alignItems:'center',gap:5,fontSize:12,marginLeft:'auto',cursor:'pointer',userSelect:'none'}}>
+                            <input type="checkbox" checked={field.is_required} onChange={e=>updateField(field.id,'is_required',e.target.checked)}/>
+                            <span style={{color:field.is_required?'#EE334E':'var(--text3)',fontWeight:field.is_required?600:400}}>{ar?'مطلوب *':'Required *'}</span>
+                          </label>
+                        )}
+                        <button onClick={()=>removeField(field.id)} className="action-btn action-btn-delete" style={{padding:'3px 8px',flexShrink:0, marginLeft: CONTENT_BLOCK_TYPES.includes(field.field_type) ? 'auto' : undefined}}><i className="ti ti-trash" style={{fontSize:13}}/></button>
                       </div>
                       <div style={{padding:'12px 14px',display:'flex',flexDirection:'column',gap:8}}>
-                      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
-                        <input className="form-input" placeholder={ar ? "التسمية (EN)" : "Label (EN)"} value={field.label} onChange={e=>updateField(field.id,'label',e.target.value)}/>
-                        <input className="form-input" placeholder="التسمية (AR)" value={field.label_ar||''} onChange={e=>updateField(field.id,'label_ar',e.target.value)} dir="rtl"/>
-                      </div>
+                      {field.field_type === 'divider' ? (
+                        <div style={{fontSize:11,color:'var(--text3)'}}>{ar?'فاصل بصري فقط — لا حاجة لأي نص':'A visual separator only — no text needed'}</div>
+                      ) : field.field_type === 'description' ? (
+                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+                          <textarea className="form-input" rows={3} style={{resize:'vertical'}} placeholder={ar ? "النص (EN)" : "Text (EN)"} value={field.label} onChange={e=>updateField(field.id,'label',e.target.value)}/>
+                          <textarea className="form-input" rows={3} style={{resize:'vertical'}} placeholder="النص (AR)" value={field.label_ar||''} onChange={e=>updateField(field.id,'label_ar',e.target.value)} dir="rtl"/>
+                        </div>
+                      ) : (
+                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+                          <input className="form-input" placeholder={ar ? (field.field_type==='section_title' ? "عنوان القسم (EN)" : "التسمية (EN)") : (field.field_type==='section_title' ? "Section title (EN)" : "Label (EN)")} value={field.label} onChange={e=>updateField(field.id,'label',e.target.value)}/>
+                          <input className="form-input" placeholder={field.field_type==='section_title' ? "عنوان القسم (AR)" : "التسمية (AR)"} value={field.label_ar||''} onChange={e=>updateField(field.id,'label_ar',e.target.value)} dir="rtl"/>
+                        </div>
+                      )}
                       {formData.print_template==='custom' && (
                         <input className="form-input" style={{fontSize:12}} placeholder={ar?'مفتاح حقل القالب (مثال: full_name)':'Template field key (e.g. full_name)'} value={field.template_field_key||''} onChange={e=>updateField(field.id,'template_field_key',e.target.value.trim())}/>
                       )}
@@ -911,7 +971,7 @@ export default function Requests({ profile, navState }) {
                   <button className="action-btn action-btn-edit" title={ar?'طباعة':'Print'} onClick={e=>{e.stopPropagation();printSubmission(s.request_forms, s)}}>
                     <i className="ti ti-printer"/>
                   </button>
-                  <button className="action-btn action-btn-edit" title={ar?'تنزيل PDF':'Download PDF'} onClick={e=>{e.stopPropagation();downloadSubmissionPdf(s.request_forms, s)}}>
+                  <button className="action-btn action-btn-edit" title={ar?'تنزيل PDF':'Download PDF'} disabled={downloadingPdfId===s.id} onClick={e=>{e.stopPropagation();handleDownloadPdf(s.request_forms, s)}}>
                     <i className="ti ti-download"/>
                   </button>
                   {s.status === 'returned' && (
@@ -962,7 +1022,7 @@ export default function Requests({ profile, navState }) {
             <button className="action-btn action-btn-edit" onClick={()=>printSubmission(f, selectedSub)}>
               <i className="ti ti-printer"/> {ar?'طباعة':'Print'}
             </button>
-            <button className="action-btn action-btn-edit" onClick={()=>downloadSubmissionPdf(f, selectedSub)}>
+            <button className="action-btn action-btn-edit" disabled={downloadingPdfId===selectedSub.id} onClick={()=>handleDownloadPdf(f, selectedSub)}>
               <i className="ti ti-download"/> {ar?'تنزيل PDF':'Download PDF'}
             </button>
             {selectedSub.status === 'returned' && (
@@ -998,6 +1058,7 @@ export default function Requests({ profile, navState }) {
 
         <div className="card" style={{maxWidth:640}}>
           {(f?.request_form_fields||[]).map(field=>{
+            if (CONTENT_BLOCK_TYPES.includes(field.field_type)) return <ContentBlock key={field.id} field={field} ar={ar} />
             const ans = selectedSub.answers[field.id]
             return (
               <div key={field.id} style={{marginBottom:16,paddingBottom:16,borderBottom:'1px solid var(--border)'}}>
@@ -1048,15 +1109,19 @@ export default function Requests({ profile, navState }) {
           </div>
         </div>
         <div className="card" style={{maxWidth:640}}>
-          {(selectedForm.request_form_fields||[]).map(field=>(
-            <div key={field.id} className="form-group" style={{marginBottom:18}}>
-              <label className="form-label">
-                {ar?(field.label_ar||field.label):field.label}
-                {field.is_required && <span style={{color:'#EE334E',marginLeft:4}}>*</span>}
-              </label>
-              {renderFieldInput(field)}
-            </div>
-          ))}
+          {(selectedForm.request_form_fields||[]).map(field=>
+            CONTENT_BLOCK_TYPES.includes(field.field_type) ? (
+              <ContentBlock key={field.id} field={field} ar={ar} />
+            ) : (
+              <div key={field.id} className="form-group" style={{marginBottom:18}}>
+                <label className="form-label">
+                  {ar?(field.label_ar||field.label):field.label}
+                  {field.is_required && <span style={{color:'#EE334E',marginLeft:4}}>*</span>}
+                </label>
+                {renderFieldInput(field)}
+              </div>
+            )
+          )}
           <div style={{display:'flex',gap:10,marginTop:8}}>
             <button className="btn btn-blue" onClick={submitForm} disabled={submitting}>
               <i className="ti ti-send"/> {submitting?(ar?'جارٍ الإرسال…':'Submitting…'):(resubmitTargetId?(ar?'إعادة الإرسال':'Resubmit'):(ar?'إرسال':'Submit'))}
@@ -1216,7 +1281,7 @@ export default function Requests({ profile, navState }) {
               <button className="action-btn action-btn-edit" onClick={()=>openSubmissionPdfPreview(form, selectedSub, 'submission-view')} disabled={pdfPreviewLoading}>
                 <i className="ti ti-eye"/> {pdfPreviewLoading ? 'جارٍ التحضير…' : 'معاينة'}
               </button>
-              <button className="action-btn action-btn-edit" onClick={()=>downloadSubmissionPdf(form, selectedSub)}>
+              <button className="action-btn action-btn-edit" disabled={downloadingPdfId===selectedSub.id} onClick={()=>handleDownloadPdf(form, selectedSub)}>
                 <i className="ti ti-download"/> تنزيل PDF
               </button>
               {!hasWorkflow && canEditData && (
@@ -1278,7 +1343,7 @@ export default function Requests({ profile, navState }) {
             <button className="action-btn action-btn-edit" onClick={()=>openSubmissionPdfPreview(form, selectedSub, 'submission-view')} disabled={pdfPreviewLoading}>
               <i className="ti ti-eye"/> {pdfPreviewLoading ? 'Preparing…' : 'Preview'}
             </button>
-            <button className="action-btn action-btn-edit" onClick={()=>downloadSubmissionPdf(form, selectedSub)}>
+            <button className="action-btn action-btn-edit" disabled={downloadingPdfId===selectedSub.id} onClick={()=>handleDownloadPdf(form, selectedSub)}>
               <i className="ti ti-download"/> Download PDF
             </button>
             {!hasWorkflow && canEditData && (
@@ -1341,6 +1406,7 @@ export default function Requests({ profile, navState }) {
 
         <div className="card" style={{maxWidth:640}}>
           {(form?.request_form_fields||[]).map(field=>{
+            if (CONTENT_BLOCK_TYPES.includes(field.field_type)) return <ContentBlock key={field.id} field={field} ar={ar} />
             const ans = selectedSub.answers[field.id]
             if (field.field_type === 'signature') {
               const sigFile = subFiles.find(f => f.field_id === field.id)

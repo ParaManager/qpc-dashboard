@@ -310,6 +310,30 @@ function AboutQPC() {
   )
 }
 
+// Content blocks (section_title/description/divider) are display-only —
+// never collect an answer, so they're rendered standalone instead of
+// inside the usual label+input wrapper. Mirrors Requests.jsx's own
+// ContentBlock exactly.
+const CONTENT_BLOCK_TYPES = ['section_title', 'description', 'divider']
+function ContentBlock({ field, ar }) {
+  const text = ar ? (field.label_ar || field.label) : field.label
+  if (field.field_type === 'divider') {
+    return <hr style={{ border:'none', borderTop:'1px solid var(--border)', margin:'18px 0' }} />
+  }
+  if (field.field_type === 'section_title') {
+    return (
+      <div style={{ fontSize:16, fontWeight:700, color:'var(--text)', marginTop:22, marginBottom:10, paddingBottom:6, borderBottom:'2px solid #0085C7', textAlign: ar ? 'right' : 'left' }} dir={ar ? 'rtl' : 'ltr'}>
+        {text}
+      </div>
+    )
+  }
+  return (
+    <div style={{ fontSize:13, color:'var(--text2)', lineHeight:1.6, marginBottom:16, whiteSpace:'pre-wrap', textAlign: ar ? 'right' : 'left' }} dir={ar ? 'rtl' : 'ltr'}>
+      {text}
+    </div>
+  )
+}
+
 function GuestRequestField({ field, value, onChange, ar, onFileChange, uploading, pendingFile }) {
   const set = v => onChange(field.id, v)
   switch (field.field_type) {
@@ -626,6 +650,7 @@ function GuestRequests() {
         <div style={{fontWeight:700,fontSize:16,marginBottom:4}}>{ar?(editData.form.title_ar||editData.form.title):editData.form.title}</div>
         <div style={{color:'var(--text3)',fontSize:12,marginBottom:18}}>{L('Reference','المرجع')}: {editData.referenceNumber} — {L('Edit and resubmit your returned request below.','عدّل طلبك المُعاد أدناه ثم أعد إرساله.')}</div>
         {editData.form.request_form_fields.map(field => {
+          if (CONTENT_BLOCK_TYPES.includes(field.field_type)) return <ContentBlock key={field.id} field={field} ar={ar} />
           if (field.field_type === 'file') {
             const existing = editData.files.filter(f => f.field_id === field.id)
             const uploading = !!editFileUploading[field.id]
@@ -781,13 +806,17 @@ function GuestRequests() {
             <label className="form-label">{L('Contact (email or phone)','التواصل (بريد أو هاتف)')}</label>
             <input className="form-input" value={guestContact} onChange={e=>setGuestContact(e.target.value)} />
           </div>
-          {(selectedForm.request_form_fields||[]).map(field=>(
-            <div key={field.id} className="form-group" style={{marginBottom:18}}>
-              <label className="form-label">{ar?(field.label_ar||field.label):field.label}{field.is_required && <span style={{color:'#EE334E',marginLeft:4}}>*</span>}</label>
-              <GuestRequestField field={field} value={answers[field.id]} onChange={(id,v)=>setAnswers(p=>({...p,[id]:v}))} ar={ar}
-                onFileChange={handleFieldFileUpload} uploading={!!fileUploading[field.id]} pendingFile={pendingFiles[field.id]} />
-            </div>
-          ))}
+          {(selectedForm.request_form_fields||[]).map(field=>
+            CONTENT_BLOCK_TYPES.includes(field.field_type) ? (
+              <ContentBlock key={field.id} field={field} ar={ar} />
+            ) : (
+              <div key={field.id} className="form-group" style={{marginBottom:18}}>
+                <label className="form-label">{ar?(field.label_ar||field.label):field.label}{field.is_required && <span style={{color:'#EE334E',marginLeft:4}}>*</span>}</label>
+                <GuestRequestField field={field} value={answers[field.id]} onChange={(id,v)=>setAnswers(p=>({...p,[id]:v}))} ar={ar}
+                  onFileChange={handleFieldFileUpload} uploading={!!fileUploading[field.id]} pendingFile={pendingFiles[field.id]} />
+              </div>
+            )
+          )}
           <button className="btn btn-blue" disabled={submitting} onClick={submit}>
             <i className="ti ti-send"/> {submitting?L('Submitting…','جارٍ الإرسال…'):L('Submit','إرسال')}
           </button>
