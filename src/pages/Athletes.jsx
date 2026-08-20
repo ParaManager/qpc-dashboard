@@ -3061,7 +3061,13 @@ ${myDocs.length > 0 ? `<div class="section">
       }
       if (failed.length > 0) {
         const names = failed.slice(0, 5).map(f => f.name).join(', ') + (failed.length > 5 ? `, +${failed.length - 5} more` : '')
-        toast(`Failed to update: ${names}`, 'error')
+        // Show the actual DB/validation error, not just which rows failed
+        // — "Failed to update: X, Y" with no reason left admins unable to
+        // tell a real constraint violation from a permissions issue from
+        // a network blip.
+        const uniqueMessages = [...new Set(failed.map(f => f.message).filter(Boolean))]
+        const reason = uniqueMessages.slice(0, 2).join(' · ') + (uniqueMessages.length > 2 ? ` (+${uniqueMessages.length - 2} more reasons)` : '')
+        toast(`Failed to update: ${names}${reason ? ` — ${reason}` : ''}`, 'error')
       }
 
       // One activity_log entry + one trusted-admin notification for the
@@ -3314,7 +3320,7 @@ ${myDocs.length > 0 ? `<div class="section">
       case 'nationality':  return <input style={{ ...inlineInput, width:100 }} value={getVal(a,'nationality')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'nationality',e.target.value)} />
       case 'gender':       return <select style={inlineSelect} value={getVal(a,'gender')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'gender',e.target.value)}>{['','Male','Female'].map(s=><option key={s} value={s}>{s||'—'}</option>)}</select>
       case 'residency_status': return <select style={inlineSelect} value={getVal(a,'residency_status')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'residency_status',e.target.value)}>{['','Qatari Male','Qatari Female','Resident Male','Resident Female','Professional Male','Professional Female','Born in Qatar','Qatari Mother'].map(s=><option key={s} value={s}>{s||'—'}</option>)}</select>
-      case 'target_category':  return <select style={inlineSelect} value={getVal(a,'target_category')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'target_category',e.target.value)}>{['', ...TARGET_CATEGORY_OPTIONS].map(s=><option key={s} value={s}>{s ? targetCategoryLabel(s, lang) : '—'}</option>)}</select>
+      case 'target_category':  return <select style={inlineSelect} value={getVal(a,'target_category')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'target_category',e.target.value || null)}>{['', ...TARGET_CATEGORY_OPTIONS].map(s=><option key={s} value={s}>{s ? targetCategoryLabel(s, lang) : '—'}</option>)}</select>
       case 'dob':          return <input style={inlineInput} type="date" value={getVal(a,'dob')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'dob',e.target.value)} />
       case 'age':          return renderCell(a, key) // read-only: computed live from dob, not stored
       case 'age_category': return renderCell(a, key) // read-only: auto-computed from dob by a DB trigger
