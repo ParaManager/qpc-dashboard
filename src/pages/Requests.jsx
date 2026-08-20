@@ -318,23 +318,35 @@ export default function Requests({ profile, navState }) {
     if (!fields.length) return toast(ar?'أضف حقلاً واحداً':'Add at least one field','error')
     setSaving(true)
     try {
-      let formId = editingForm?.id
-      if (editingForm) {
-        await supabase.from('request_forms').update({...formData}).eq('id',formId)
-        await supabase.from('request_form_fields').delete().eq('form_id',formId)
-      } else {
-        const { data } = await supabase.from('request_forms').insert({...formData, created_by:profile.id}).select().single()
-        formId = data.id
+      // Single atomic RPC — validates every field's type/label and
+      // upserts the whole form/fields/steps in one transaction, instead
+      // of separate delete-then-insert calls that could leave the form
+      // with its existing fields wiped and nothing to replace them if a
+      // later step failed. Existing field ids (fields.id, populated when
+      // editing) are preserved so historical submissions' answers/
+      // attachments stay linked; only fields with no id get a new one.
+      const { data, error } = await supabase.rpc('save_request_form', {
+        p_form_id: editingForm?.id || null,
+        p_title: formData.title, p_title_ar: formData.title_ar || null,
+        p_description: formData.description || null, p_description_ar: formData.description_ar || null,
+        p_visible_to: formData.visible_to || [], p_is_private: !!formData.is_private, p_is_active: formData.is_active !== false,
+        p_icon: formData.icon || null, p_color: formData.color || null,
+        p_print_template: formData.print_template || null, p_custom_template_key: formData.custom_template_key || null,
+        p_fields: fields.map((f,i) => ({ id: f.id || null, label: f.label, label_ar: f.label_ar||'', field_type: f.field_type, is_required: f.is_required, options: ['dropdown','radio','checkbox'].includes(f.field_type)?f.options:null, template_field_key: f.template_field_key||null })),
+        p_steps: steps.map(s => ({ name: s.name, name_ar: s.name_ar||'', approver_role: s.approver_user_id?null:(s.approver_role||null), approver_user_id: s.approver_user_id||null, is_required: s.is_required!==false })),
+        p_created_by: profile.id,
+      })
+      // The RPC returning an error, or a non-'ok' status, means NOTHING
+      // was saved (the whole transaction rolled back) — never show a
+      // success message when persistence actually failed.
+      if (error || data?.status !== 'ok') {
+        const msg = data?.status === 'invalid_field_type' ? (ar?`نوع حقل غير صالح: ${data.field_type}`:`Invalid field type: ${data.field_type}`)
+          : data?.status === 'invalid' ? (ar?'يرجى التحقق من الحقول المطلوبة':'Please check the required fields')
+          : data?.status === 'not_found' ? (ar?'النموذج غير موجود':'Form not found')
+          : (error?.message || (ar?'فشل الحفظ. لم يتم تغيير أي شيء.':'Save failed. Nothing was changed.'))
+        throw new Error(msg)
       }
-      await supabase.from('request_form_fields').insert(
-        fields.map((f,i) => ({ form_id:formId, label:f.label, label_ar:f.label_ar||'', field_type:f.field_type, is_required:f.is_required, options:['dropdown','radio','checkbox'].includes(f.field_type)?f.options:null, sort_order:i, template_field_key:f.template_field_key||null }))
-      )
-      await supabase.from('request_form_workflow_steps').delete().eq('form_id',formId)
-      if (steps.length) {
-        await supabase.from('request_form_workflow_steps').insert(
-          steps.map((s,i) => ({ form_id:formId, step_order:i, name:s.name, name_ar:s.name_ar||'', approver_role:s.approver_user_id?null:(s.approver_role||null), approver_user_id:s.approver_user_id||null, is_required:s.is_required!==false }))
-        )
-      }
+      const formId = data.form_id
       toast(editingForm?(ar?'تم التحديث':'Updated'):(ar?'تم الإنشاء':'Created'),'success')
       setShowFormModal(false); fetchForms()
     } catch(e) { toast(e.message,'error') }
