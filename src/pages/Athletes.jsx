@@ -3161,6 +3161,14 @@ ${myDocs.length > 0 ? `<div class="section">
     { key:'documents',       label:tx('athletes.documents','Documents'),       default:false, editable:false },
     { key:'missing_documents', label: lang==='ar' ? 'الوثائق الناقصة' : 'Missing Documents', default:false, editable:false },
   ]
+  // In Arabic, the locked identity column (اسم اللاعب بالعربي) leads the
+  // column order — everywhere a column list is derived from ALL_COLS
+  // (table, picker groups, PDF/Excel export) — while English keeps its
+  // existing order (English name first) completely unchanged.
+  if (lang === 'ar') {
+    const nameArIdx = ALL_COLS.findIndex(c => c.key === 'name_ar')
+    if (nameArIdx > 0) ALL_COLS.unshift(ALL_COLS.splice(nameArIdx, 1)[0])
+  }
 
   function toggleCol(key) {
     if (key === primaryNameKey) return // always visible — follows the current language
@@ -3428,7 +3436,7 @@ ${myDocs.length > 0 ? `<div class="section">
               </button>
               {colPickerOpen && (() => {
                 const COL_GROUPS = [
-                  { label: lang==='ar' ? 'الهوية' : 'Identity', keys: ['name','name_ar','qss_number','id_number','career_profile'] },
+                  { label: lang==='ar' ? 'الهوية' : 'Identity', keys: lang==='ar' ? ['name_ar','name','qss_number','id_number','career_profile'] : ['name','name_ar','qss_number','id_number','career_profile'] },
                   { label: lang==='ar' ? 'الرياضة' : 'Sport', keys: ['sport_category','sport','classification','disability','statistics_disability','coach_id'] },
                   { label: lang==='ar' ? 'شخصي' : 'Personal', keys: ['nationality','gender','dob','age','age_category','sport_age_category','residency_status','target_category','phone','email'] },
                   { label: lang==='ar' ? 'الحالة' : 'Status', keys: ['status','medical_status','join_date'] },
