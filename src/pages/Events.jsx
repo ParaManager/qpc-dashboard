@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import MultiSelectFilter from '../components/MultiSelectFilter.jsx'
 import { Avatar, Badge, statusDot, statusClass, DashRow, sportLabel, buildSearchText, matchesSearch, BackButton } from '../lib/helpers'
 import FormModal from '../components/FormModal'
@@ -91,9 +91,31 @@ function PersonRow({ name, nameAr, id, subtitle, subtitleAr, status, ar, canRemo
 
 function OfficialsPicker({ roleKey, title, officials, employees, eventId, canEditMode, canAdd, ar, tx, onAdd, onRemove }) {
   const [adding, setAdding] = useState(false)
-  const [pick, setPick]     = useState('')
+  const [search, setSearch] = useState('')
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const searchRef = useRef(null)
+  const wrapRef = useRef(null)
   const assigned  = officials[roleKey] || []
   const available = employees.filter(e => !assigned.find(o => o.employee_id === e.id))
+  const filtered = search.trim()
+    ? available.filter(e => {
+        const q = search.trim().toLowerCase()
+        return (e.name||'').toLowerCase().includes(q) || (e.name_ar||'').includes(search.trim())
+      })
+    : available
+
+  useEffect(() => {
+    if (!dropdownOpen) return
+    function onOutside(ev) { if (wrapRef.current && !wrapRef.current.contains(ev.target)) setDropdownOpen(false) }
+    document.addEventListener('mousedown', onOutside)
+    return () => document.removeEventListener('mousedown', onOutside)
+  }, [dropdownOpen])
+
+  async function pickEmployee(emp) {
+    await onAdd(eventId, emp.id, roleKey)
+    setSearch(''); setDropdownOpen(false); setAdding(false)
+  }
+
   // Read-only (Coach/Staff) viewers never see an empty role section at
   // all — no heading, no "No employees assigned" placeholder — since
   // they can't act on it anyway. Admin keeps the heading + empty state
@@ -124,20 +146,37 @@ function OfficialsPicker({ roleKey, title, officials, employees, eventId, canEdi
       {canAdd && canEditMode && (
         <div style={{ marginTop: 8 }}>
           {adding ? (
-            <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-              <select value={pick} onChange={e => setPick(e.target.value)} style={{ fontSize: 12, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface1)', color: 'var(--text1)', flex: 1, minWidth: 0 }}>
-                <option value="">— {tx('events.selectEmployee', 'Select employee')} —</option>
-                {available.map(e => <option key={e.id} value={e.id}>{ar && e.name_ar ? e.name_ar : e.name}</option>)}
-              </select>
-              <button
-                onClick={async () => { if (pick) { await onAdd(eventId, parseInt(pick), roleKey); setPick(''); setAdding(false) } }}
-                style={{ background: '#0085C7', color: '#fff', border: 'none', borderRadius: 7, padding: '4px 10px', fontSize: 12, cursor: 'pointer', flexShrink: 0 }}>
-                {tx('actions.add', 'Add')}
-              </button>
-              <button onClick={() => { setAdding(false); setPick('') }} style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--text2)', borderRadius: 6, padding: '3px 8px', fontSize: 12, cursor: 'pointer', flexShrink: 0 }}>✕</button>
+            <div ref={wrapRef} style={{ display: 'flex', gap: 6, alignItems: 'flex-start', flexWrap: 'wrap', position: 'relative' }}>
+              <div style={{ position: 'relative', flex: 1, minWidth: 160 }}>
+                <i className="ti ti-search" style={{ position: 'absolute', insetInlineStart: 8, top: '50%', transform: 'translateY(-50%)', fontSize: 12, color: 'var(--text3)', pointerEvents: 'none' }} />
+                <input
+                  ref={searchRef}
+                  value={search}
+                  onChange={e => { setSearch(e.target.value); setDropdownOpen(true) }}
+                  onFocus={() => setDropdownOpen(true)}
+                  placeholder={tx('events.searchEmployee', 'Search staff…')}
+                  style={{ fontSize: 12, padding: '4px 8px 4px 26px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface1)', color: 'var(--text1)', width: '100%' }}
+                />
+                {dropdownOpen && (
+                  <div style={{ position: 'absolute', top: 'calc(100% + 4px)', insetInlineStart: 0, insetInlineEnd: 0, zIndex: 50, maxHeight: 220, overflowY: 'auto', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,.15)' }}>
+                    {filtered.length === 0 ? (
+                      <div style={{ padding: '10px 12px', fontSize: 12, color: 'var(--text3)' }}>{tx('common.noResults', 'No matches')}</div>
+                    ) : filtered.map(e => (
+                      <div key={e.id} onClick={() => pickEmployee(e)}
+                        style={{ padding: '7px 12px', fontSize: 12.5, cursor: 'pointer', borderBottom: '1px solid var(--border)' }}
+                        onMouseEnter={ev => ev.currentTarget.style.background = 'var(--surface2)'}
+                        onMouseLeave={ev => ev.currentTarget.style.background = 'transparent'}>
+                        {ar && e.name_ar ? e.name_ar : e.name}
+                        {e.designation && <span style={{ color: 'var(--text3)', marginInlineStart: 6, fontSize: 11 }}>· {e.designation}</span>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <button onClick={() => { setAdding(false); setSearch(''); setDropdownOpen(false) }} style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--text2)', borderRadius: 6, padding: '3px 8px', fontSize: 12, cursor: 'pointer', flexShrink: 0 }}>✕</button>
             </div>
           ) : (
-            <button onClick={() => setAdding(true)} style={{ background: '#0085C7', color: '#fff', border: 'none', borderRadius: 7, padding: '4px 10px', fontSize: 12, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            <button onClick={() => { setAdding(true); setTimeout(() => searchRef.current?.focus(), 0) }} style={{ background: '#0085C7', color: '#fff', border: 'none', borderRadius: 7, padding: '4px 10px', fontSize: 12, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
               <i className="ti ti-plus" style={{ fontSize: 11 }} />{tx('actions.add', 'Add')}
             </button>
           )}
