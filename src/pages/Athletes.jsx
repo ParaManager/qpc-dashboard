@@ -3073,6 +3073,36 @@ ${myDocs.length > 0 ? `<div class="section">
           failed.length === 0 ? 'success' : 'error'
         )
       }
+
+      // If an athlete's `sport` was changed here AND they already have
+      // athlete_sports junction rows, those junction rows take DISPLAY
+      // PRIORITY over the legacy athletes.sport column everywhere in this
+      // page (table cell, filters, PDF/Excel) — so the scalar column
+      // update above genuinely saved, but the UI kept showing the old
+      // junction-derived sport once the row left edit mode, looking like
+      // the change had silently reverted. Sync the junction table to
+      // match whenever this happens.
+      const sportSyncTargets = changed.filter(([id, fields]) =>
+        succeededIds.includes(id) && 'sport' in fields && (athleteSportsByAthlete[parseInt(id)]?.length > 0)
+      )
+      if (sportSyncTargets.length > 0) {
+        await Promise.all(sportSyncTargets.map(async ([id, fields]) => {
+          const athleteId = parseInt(id)
+          const existingRows = athleteSportsByAthlete[athleteId] || []
+          const newSportName = fields.sport
+          const newCategory = 'sport_category' in fields ? fields.sport_category : (existingRows[0]?.sportCategory || athletes.find(a=>a.id===athleteId)?.sport_category)
+          const matchedSport = sportsList.find(s => s.name === newSportName && (!newCategory || s.category === newCategory))
+            || sportsList.find(s => s.name === newSportName)
+          if (!matchedSport) return // can't resolve to a catalog sport — leave the junction rows alone rather than guess
+          // A single existing assignment's coach carries over to the new
+          // one; multiple existing assignments have no single coach to
+          // preserve, so the new row starts unassigned.
+          const preservedCoachId = existingRows.length === 1 ? existingRows[0].coachId : null
+          await supabase.from('athlete_sports').delete().eq('athlete_id', athleteId)
+          await supabase.from('athlete_sports').insert({ athlete_id: athleteId, sport_id: matchedSport.id, coach_id: preservedCoachId, is_primary: true })
+        }))
+        await refreshAthleteSportsByAthlete()
+      }
       if (failed.length > 0) {
         const names = failed.slice(0, 5).map(f => f.name).join(', ') + (failed.length > 5 ? `, +${failed.length - 5} more` : '')
         // Show the actual DB/validation error, not just which rows failed
