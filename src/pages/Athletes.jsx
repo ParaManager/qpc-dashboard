@@ -1482,6 +1482,8 @@ export default function Athletes({ athletes, coaches, employees, results, docume
   const [notesChanged, setNotesChanged] = useState(false)
   const [editMode, setEditMode]     = useState(false)
   const [edits, setEdits]           = useState({})
+  const [multiSportEdits, setMultiSportEdits] = useState({}) // { [athleteId]: [{sportId, sportName, sportCategory, coachId}] } — pending full sport-assignment set, only for rows touched via the multi-sport popover
+  const [multiSportPopoverId, setMultiSportPopoverId] = useState(null) // athlete id whose "manage sports" popover is open (one at a time)
   const [savingAll, setSavingAll]   = useState(false)
   const [generatingReport, setGeneratingReport] = useState(false)
   const [pdfExporting, setPdfExporting] = useState(false)
@@ -3004,9 +3006,9 @@ ${myDocs.length > 0 ? `<div class="section">
   }
 
   // ── LIST VIEW ──
-  function startEdit() { setEditMode(true); setEdits({}) }
+  function startEdit() { setEditMode(true); setEdits({}); setMultiSportEdits({}); setMultiSportPopoverId(null) }
   function cancelEdit() {
-    const changedCount = Object.keys(edits).length
+    const changedCount = Object.keys(edits).length + Object.keys(multiSportEdits).length
     if (changedCount > 0) {
       const ok = window.confirm(
         lang === 'ar'
@@ -3015,7 +3017,7 @@ ${myDocs.length > 0 ? `<div class="section">
       )
       if (!ok) return
     }
-    setEditMode(false); setEdits({})
+    setEditMode(false); setEdits({}); setMultiSportEdits({}); setMultiSportPopoverId(null)
   }
   function setEdit(id, field, value) {
     setEdits(prev => {
@@ -3040,10 +3042,40 @@ ${myDocs.length > 0 ? `<div class="section">
     return edits[a.id]?.[field] !== undefined ? edits[a.id][field] : a[field]
   }
 
+  // The athlete's current full sport-assignment set — a pending edit from
+  // the multi-sport popover takes priority; otherwise the real
+  // athlete_sports junction rows; otherwise falls back to the single
+  // legacy sport/sport_category/coach_id columns as a one-item list, so
+  // an athlete with no junction rows yet still shows their existing sport
+  // pre-checked when the popover opens.
+  function getAthleteSports(a) {
+    if (multiSportEdits[a.id]) return multiSportEdits[a.id]
+    const rows = athleteSportsByAthlete[a.id]
+    if (rows?.length) return rows
+    return a.sport ? [{ sportId: null, sportName: a.sport, sportCategory: a.sport_category, coachId: a.coach_id || null }] : []
+  }
+  function toggleAthleteSport(a, sportName, sportCategory) {
+    setMultiSportEdits(prev => {
+      const current = prev[a.id] || getAthleteSports(a)
+      const exists = current.some(r => r.sportName === sportName)
+      const next = exists
+        ? current.filter(r => r.sportName !== sportName)
+        : [...current, { sportId: null, sportName, sportCategory, coachId: null }]
+      return { ...prev, [a.id]: next }
+    })
+  }
+  function setAthleteSportCoach(a, sportName, coachId) {
+    setMultiSportEdits(prev => {
+      const current = prev[a.id] || getAthleteSports(a)
+      return { ...prev, [a.id]: current.map(r => r.sportName === sportName ? { ...r, coachId } : r) }
+    })
+  }
+
   async function saveAllEdits() {
     if (savingAll) return // prevent duplicate save clicks while a save is in flight
     const changed = Object.entries(edits)
-    if (changed.length === 0) { setEditMode(false); return }
+    const multiSportChanged = Object.entries(multiSportEdits)
+    if (changed.length === 0 && multiSportChanged.length === 0) { setEditMode(false); return }
     setSavingAll(true)
     try {
       const results = await Promise.allSettled(changed.map(([id, fields]) =>
@@ -3072,6 +3104,10 @@ ${myDocs.length > 0 ? `<div class="section">
             : `${succeededIds.length} updated, ${failed.length} failed`,
           failed.length === 0 ? 'success' : 'error'
         )
+      } else if (multiSportChanged.length > 0) {
+        // Multi-sport-only edits never touch the athletes table directly,
+        // so they wouldn't otherwise get their own confirmation.
+        toast(lang==='ar' ? 'تم تحديث رياضات اللاعبين' : 'Athlete sports updated', 'success')
       }
 
       // If an athlete's `sport` was changed here AND they already have
@@ -3083,7 +3119,7 @@ ${myDocs.length > 0 ? `<div class="section">
       // the change had silently reverted. Sync the junction table to
       // match whenever this happens.
       const sportSyncTargets = changed.filter(([id, fields]) =>
-        succeededIds.includes(id) && 'sport' in fields && (athleteSportsByAthlete[parseInt(id)]?.length > 0)
+        succeededIds.includes(id) && 'sport' in fields && !multiSportEdits[parseInt(id)] && (athleteSportsByAthlete[parseInt(id)]?.length > 0)
       )
       if (sportSyncTargets.length > 0) {
         await Promise.all(sportSyncTargets.map(async ([id, fields]) => {
@@ -3101,6 +3137,26 @@ ${myDocs.length > 0 ? `<div class="section">
           await supabase.from('athlete_sports').delete().eq('athlete_id', athleteId)
           await supabase.from('athlete_sports').insert({ athlete_id: athleteId, sport_id: matchedSport.id, coach_id: preservedCoachId, is_primary: true })
         }))
+        await refreshAthleteSportsByAthlete()
+      }
+
+      // Explicit multi-sport edits (from the "Manage sports" popover) are
+      // the more complete, deliberate edit — replace the athlete's full
+      // athlete_sports set with exactly what was checked there.
+      if (multiSportChanged.length > 0) {
+        await Promise.all(multiSportChanged.map(async ([id, rows]) => {
+          const athleteId = parseInt(id)
+          const resolvedRows = rows
+            .map(r => ({ ...r, resolved: sportsList.find(s => s.name === r.sportName && (!r.sportCategory || s.category === r.sportCategory)) || sportsList.find(s => s.name === r.sportName) }))
+            .filter(r => r.resolved)
+          await supabase.from('athlete_sports').delete().eq('athlete_id', athleteId)
+          if (resolvedRows.length > 0) {
+            await supabase.from('athlete_sports').insert(
+              resolvedRows.map((r, i) => ({ athlete_id: athleteId, sport_id: r.resolved.id, coach_id: r.coachId || null, is_primary: i === 0 }))
+            )
+          }
+        }))
+        setMultiSportEdits({})
         await refreshAthleteSportsByAthlete()
       }
       if (failed.length > 0) {
@@ -3151,6 +3207,8 @@ ${myDocs.length > 0 ? `<div class="section">
       } else {
         setEditMode(false)
         setEdits({})
+        setMultiSportEdits({})
+        setMultiSportPopoverId(null)
       }
       await onRefresh()
     } finally {
@@ -3357,10 +3415,60 @@ ${myDocs.length > 0 ? `<div class="section">
           <option value="">{tx('athletes.selectCategory','Select category')}</option>
           {SPORT_CATEGORIES.map(c => <option key={c} value={c}>{lang==='ar' ? (SPORT_CATEGORY_NAMES_AR[c]||c) : c}</option>)}
         </select>
-      case 'sport':        return <select style={inlineSelect} value={getVal(a,'sport')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'sport',e.target.value)}>
-          <option value="">{tx('athletes.selectSport','Select sport')}</option>
-          {(SPORTS_BY_CATEGORY[getVal(a,'sport_category')] || SPORTS).map(s=><option key={s} value={s}>{sportLabel(s, getVal(a,'sport_category'), lang==='ar')}</option>)}
-        </select>
+      case 'sport':        return (
+        <div style={{ position:'relative', display:'flex', alignItems:'center', gap:6 }} onClick={e=>e.stopPropagation()}>
+          <select style={inlineSelect} value={getVal(a,'sport')||''} onChange={e=>setEdit(a.id,'sport',e.target.value)}>
+            <option value="">{tx('athletes.selectSport','Select sport')}</option>
+            {(SPORTS_BY_CATEGORY[getVal(a,'sport_category')] || SPORTS).map(s=><option key={s} value={s}>{sportLabel(s, getVal(a,'sport_category'), lang==='ar')}</option>)}
+          </select>
+          {(() => {
+            const currentSports = getAthleteSports(a)
+            const extraCount = currentSports.length
+            return (
+              <button type="button" onClick={()=>setMultiSportPopoverId(p => p===a.id ? null : a.id)}
+                title={lang==='ar' ? 'إدارة رياضات متعددة' : 'Manage multiple sports'}
+                style={{ display:'flex', alignItems:'center', gap:3, fontSize:11, fontWeight:600, color:'#0085C7', background:'#0085C715', border:'none', borderRadius:12, padding:'3px 8px', cursor:'pointer', whiteSpace:'nowrap', flexShrink:0 }}>
+                <i className="ti ti-plus" style={{ fontSize:11 }} /> {extraCount > 0 ? extraCount : (lang==='ar' ? 'رياضات' : 'Sports')}
+              </button>
+            )
+          })()}
+          {multiSportPopoverId === a.id && (
+            <div onClick={e=>e.stopPropagation()}
+              style={{ position:'absolute', top:'calc(100% + 6px)', left:0, zIndex:300, width:260, maxHeight:320, overflowY:'auto', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:10, boxShadow:'0 12px 32px rgba(0,0,0,.18)', padding:10 }}>
+              <div style={{ fontSize:11.5, fontWeight:700, color:'var(--text3)', textTransform:'uppercase', letterSpacing:'.04em', marginBottom:8 }}>
+                {lang==='ar' ? 'رياضات هذا الرياضي' : "This athlete's sports"}
+              </div>
+              {SPORT_CATEGORIES.map(cat => (
+                <div key={cat} style={{ marginBottom:8 }}>
+                  <div style={{ fontSize:10.5, fontWeight:600, color:'var(--text3)', marginBottom:3 }}>{lang==='ar' ? (SPORT_CATEGORY_NAMES_AR[cat]||cat) : cat}</div>
+                  {(SPORTS_BY_CATEGORY[cat]||[]).map(s => {
+                    const currentSports = getAthleteSports(a)
+                    const row = currentSports.find(r => r.sportName === s)
+                    return (
+                      <div key={s} style={{ display:'flex', flexDirection:'column', gap:2, marginBottom:2 }}>
+                        <label style={{ display:'flex', alignItems:'center', gap:7, fontSize:12.5, padding:'3px 2px', cursor:'pointer' }}>
+                          <input type="checkbox" checked={!!row} onChange={()=>toggleAthleteSport(a, s, cat)} />
+                          {sportLabel(s, cat, lang==='ar')}
+                        </label>
+                        {row && (
+                          <select style={{ ...inlineSelect, marginInlineStart:20, fontSize:11, padding:'3px 6px' }}
+                            value={row.coachId || ''} onChange={e=>setAthleteSportCoach(a, s, e.target.value ? parseInt(e.target.value) : null)}>
+                            <option value="">{lang==='ar' ? 'بدون مدرب' : 'No coach'}</option>
+                            {coaches.map(c => <option key={c.id} value={c.id}>{lang==='ar' && c.name_ar ? c.name_ar : c.name}</option>)}
+                          </select>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              ))}
+              <button type="button" onClick={()=>setMultiSportPopoverId(null)} className="btn btn-blue" style={{ width:'100%', marginTop:6, fontSize:12, padding:'6px' }}>
+                {lang==='ar' ? 'تم' : 'Done'}
+              </button>
+            </div>
+          )}
+        </div>
+      )
       case 'classification': return <input style={{ ...inlineInput, width:100 }} value={getVal(a,'classification')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'classification',e.target.value)} />
       case 'disability':            return <input style={inlineInput} value={getVal(a,'disability')||''} onClick={e=>e.stopPropagation()} onChange={e=>setEdit(a.id,'disability',e.target.value)} />
       case 'statistics_disability': return (
