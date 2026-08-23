@@ -10,7 +10,7 @@ import { supabase } from '../lib/supabase'
 import { canEdit } from '../lib/useAuth'
 import { isTrustedAdmin, canViewAthleteDetails } from '../lib/permissions'
 import { logAdminActivity } from '../lib/adminActivity'
-import { useLang } from '../lib/LangContext.jsx'
+import { useLang, translateCountry } from '../lib/LangContext.jsx'
 
 const APPROVAL_COLORS = { Approved: '#009F6B', TBC: '#f59e0b', Rejected: '#dc2626' }
 
@@ -101,6 +101,25 @@ function PersonRow({ name, nameAr, id, subtitle, subtitleAr, status, ar, canRemo
 // Olympics page's own PDF export — every other Paralympic event keeps the
 // standard QPC template unchanged.
 const QPC_MAROON = [87, 25, 50]
+
+// Job-title/designation values are stored as free-text English on the
+// employee record — translate the common ones for the Arabic PDF rather
+// than leaving them raw English. Falls back to the stored value itself
+// for anything not in this list (e.g. a less common title), same as
+// every other best-effort label map elsewhere in the app.
+const DESIGNATION_AR = {
+  'Coach': 'مدرب',
+  'Technical Expert': 'خبير فني',
+  'Team Leader': 'رئيس الوفد',
+  'Head of Delegation': 'رئيس الوفد',
+  'Medical Staff': 'الجهاز الطبي',
+  'Administrative Staff': 'الجهاز الإداري',
+  'Support Staff': 'الجهاز المساند',
+}
+function designationLabel(designation, ar) {
+  if (!designation) return ''
+  return ar ? (DESIGNATION_AR[designation] || designation) : designation
+}
 const SO_RED = [211, 47, 47]
 
 // Uses the shared isSpecialOlympicsSport() helper (also used by
@@ -229,7 +248,14 @@ async function buildEventPdfDoc(ev, selectedAthletes, includeOfficials, official
   }
   y += 10
 
-  // Athletes table
+  // Athletes table — one shared column-definition object drives both the
+  // header row and every body row, for both languages, so they can never
+  // fall out of alignment. Only the ORDER of keys differs per language
+  // (English keeps its existing left-to-right order unchanged; Arabic
+  // uses the required right-to-left reading order: Name, Sport,
+  // Classification, Nationality — meaning Name is the LAST array entry,
+  // since autoTable always draws columns left-to-right internally and
+  // the last column lands physically on the right).
   if (selectedAthletes.length > 0) {
     setPdfFont('bold')
     doc.setFontSize(12)
@@ -237,13 +263,19 @@ async function buildEventPdfDoc(ev, selectedAthletes, includeOfficials, official
     doc.text(safeStr(L(`Athletes (${selectedAthletes.length})`, `الرياضيون (${selectedAthletes.length})`)), ar ? pageWidth - 40 : 40, y, { align: ar ? 'right' : 'left' })
     y += 10
 
-    const head = [[L('Name', 'الاسم'), L('Sport', 'الرياضة'), L('Classification', 'التصنيف'), L('Nationality', 'الجنسية')]]
-    const body = selectedAthletes.map(a => [
-      safeStr(ar && a.name_ar ? a.name_ar : a.name),
-      safeStr(sportLabel(a.sport, a.sport_category, ar)),
-      safeStr(a.classification),
-      safeStr(a.nationality),
-    ])
+    const athleteColDefs = {
+      name:           { headEn: 'Name',           headAr: 'الاسم',   get: a => ar && a.name_ar ? a.name_ar : a.name },
+      sport:          { headEn: 'Sport',          headAr: 'الرياضة', get: a => sportLabel(a.sport, a.sport_category, ar) },
+      classification: { headEn: 'Classification', headAr: 'التصنيف', get: a => a.classification },
+      // Nationality values are stored as English country names — always
+      // translate through the same country-name mapping used everywhere
+      // else in the app, never left as raw English in the Arabic PDF.
+      nationality:    { headEn: 'Nationality',     headAr: 'الجنسية', get: a => translateCountry(a.nationality, ar ? 'ar' : 'en') },
+    }
+    const athleteOrder = ar ? ['nationality', 'classification', 'sport', 'name'] : ['name', 'sport', 'classification', 'nationality']
+
+    const head = [athleteOrder.map(k => L(athleteColDefs[k].headEn, athleteColDefs[k].headAr))]
+    const body = selectedAthletes.map(a => athleteOrder.map(k => safeStr(athleteColDefs[k].get(a))))
     autoTable(doc, {
       startY: y + 6,
       head, body,
@@ -266,17 +298,32 @@ async function buildEventPdfDoc(ev, selectedAthletes, includeOfficials, official
       doc.setTextColor(...THEME)
       doc.text(safeStr(L('Officials', 'المسؤولون')), ar ? pageWidth - 40 : 40, y, { align: ar ? 'right' : 'left' })
       y += 10
-      const officialRows = []
+      const officialData = []
       for (const key of roleKeys) {
         for (const o of officialsByRole[key]) {
           const emp = employees.find(e => e.id === o.employee_id)
           if (!emp) continue
-          officialRows.push([roleTitles[key], safeStr(ar && emp.name_ar ? emp.name_ar : emp.name), safeStr(emp.designation)])
+          officialData.push({
+            role: roleTitles[key],
+            name: ar && emp.name_ar ? emp.name_ar : emp.name,
+            // Designation is a free-text job-title field on the employee
+            // record — translated through the same mapping the rest of
+            // the app already uses for it, so it never stays raw English
+            // in the Arabic PDF.
+            designation: designationLabel(emp.designation, ar),
+          })
         }
       }
+      const officialColDefs = {
+        role:        { headEn: 'Role',        headAr: 'الدور',    get: row => row.role },
+        name:        { headEn: 'Name',        headAr: 'الاسم',    get: row => row.name },
+        designation: { headEn: 'Designation', headAr: 'الوظيفة', get: row => row.designation },
+      }
+      const officialOrder = ar ? ['designation', 'role', 'name'] : ['role', 'name', 'designation']
+      const officialRows = officialData.map(row => officialOrder.map(k => safeStr(officialColDefs[k].get(row))))
       autoTable(doc, {
         startY: y + 6,
-        head: [[L('Role', 'الدور'), L('Name', 'الاسم'), L('Designation', 'الوظيفة')]],
+        head: [officialOrder.map(k => L(officialColDefs[k].headEn, officialColDefs[k].headAr))],
         body: officialRows,
         theme: 'grid',
         styles: { font: FONT, fontSize: 9.5, textColor: [30,30,30], cellPadding: 5, halign: ar ? 'right' : 'left' },
