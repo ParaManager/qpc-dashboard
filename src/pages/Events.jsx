@@ -96,15 +96,33 @@ function PersonRow({ name, nameAr, id, subtitle, subtitleAr, status, ar, canRemo
 // maroon header/accent, Amiri font loaded only when Arabic text is
 // actually needed) — a portrait single-event report rather than a big
 // data table: letterhead, event details, then the athletes/officials the
-// user chose to include.
+// user chose to include. A Special Olympics event instead gets the same
+// Special Olympics logo/red theme already used on the dedicated Special
+// Olympics page's own PDF export — every other Paralympic event keeps the
+// standard QPC template unchanged.
 const QPC_MAROON = [87, 25, 50]
+const SO_RED = [211, 47, 47]
+
+// Same membership convention already used elsewhere (SpecialOlympics.jsx,
+// Events.jsx's own athleteMatchesSports) — the legacy flat 'Special
+// Olympics' sport tag, or either Special Olympics sport_category value.
+function isSpecialOlympicsEvent(ev) {
+  const evSports = ev.sports?.length ? ev.sports : (ev.sport ? [ev.sport] : [])
+  return evSports.includes('Special Olympics')
+    || ev.sport_category === 'Summer Special Olympics'
+    || ev.sport_category === 'Winter Special Olympics'
+}
 
 async function exportEventPDF(ev, selectedAthletes, includeOfficials, officialsByRole, roleTitles, employees, lang) {
   const ar = lang === 'ar'
   const L = (en, a) => ar ? a : en
+  const isSO = isSpecialOlympicsEvent(ev)
+  const THEME = isSO ? SO_RED : QPC_MAROON
+  const logoPath = isSO ? '/logo-so.png' : '/logo-qpc.png'
+  const orgName = isSO ? L('Special Olympics Qatar', 'الأولمبياد الخاص القطري') : L('Qatar Paralympic Committee', 'اللجنة البارالمبية القطرية')
 
   const [logoDataUrl] = await Promise.all([
-    loadImageAsDataURL('/logo-qpc.png'),
+    loadImageAsDataURL(logoPath),
   ])
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' })
@@ -152,20 +170,20 @@ async function exportEventPDF(ev, selectedAthletes, includeOfficials, officialsB
   setPdfFont('bold')
   doc.setFontSize(13)
   doc.setTextColor(20, 20, 20)
-  doc.text(safeStr(L('Qatar Paralympic Committee', 'اللجنة البارالمبية القطرية')), pageWidth / 2, y + 16, { align: 'center' })
+  doc.text(safeStr(orgName), pageWidth / 2, y + 16, { align: 'center' })
   setPdfFont('normal')
   doc.setFontSize(9)
   doc.setTextColor(110, 110, 110)
   doc.text(safeStr(L('Event Report', 'تقرير الفعالية')), pageWidth / 2, y + 30, { align: 'center' })
   y += 58
-  doc.setDrawColor(...QPC_MAROON)
+  doc.setDrawColor(...THEME)
   doc.setLineWidth(1.2)
   doc.line(40, y, pageWidth - 40, y)
   y += 26
 
   // Event title (EN + AR when available)
   setPdfFont('bold')
-  doc.setTextColor(...QPC_MAROON)
+  doc.setTextColor(...THEME)
   doc.setFontSize(16)
   doc.text(safeStr(ev.name), 40, y)
   y += 20
@@ -198,7 +216,7 @@ async function exportEventPDF(ev, selectedAthletes, includeOfficials, officialsB
   if (selectedAthletes.length > 0) {
     setPdfFont('bold')
     doc.setFontSize(12)
-    doc.setTextColor(...QPC_MAROON)
+    doc.setTextColor(...THEME)
     doc.text(safeStr(L(`Athletes (${selectedAthletes.length})`, `الرياضيون (${selectedAthletes.length})`)), 40, y)
     y += 10
 
@@ -214,7 +232,7 @@ async function exportEventPDF(ev, selectedAthletes, includeOfficials, officialsB
       head, body,
       theme: 'grid',
       styles: { font: FONT, fontSize: 9.5, textColor: [30,30,30], cellPadding: 5, halign: ar ? 'right' : 'left' },
-      headStyles: { font: FONT, fillColor: QPC_MAROON, textColor: 255, fontStyle: 'bold' },
+      headStyles: { font: FONT, fillColor: THEME, textColor: 255, fontStyle: 'bold' },
       alternateRowStyles: { fillColor: [250, 245, 245] },
       margin: { left: 40, right: 40 },
     })
@@ -228,7 +246,7 @@ async function exportEventPDF(ev, selectedAthletes, includeOfficials, officialsB
       if (y > pageHeight - 100) { doc.addPage(); y = 40 }
       setPdfFont('bold')
       doc.setFontSize(12)
-      doc.setTextColor(...QPC_MAROON)
+      doc.setTextColor(...THEME)
       doc.text(safeStr(L('Officials', 'المسؤولون')), 40, y)
       y += 10
       const officialRows = []
@@ -245,7 +263,7 @@ async function exportEventPDF(ev, selectedAthletes, includeOfficials, officialsB
         body: officialRows,
         theme: 'grid',
         styles: { font: FONT, fontSize: 9.5, textColor: [30,30,30], cellPadding: 5, halign: ar ? 'right' : 'left' },
-        headStyles: { font: FONT, fillColor: QPC_MAROON, textColor: 255, fontStyle: 'bold' },
+        headStyles: { font: FONT, fillColor: THEME, textColor: 255, fontStyle: 'bold' },
         alternateRowStyles: { fillColor: [250, 245, 245] },
         margin: { left: 40, right: 40 },
       })
