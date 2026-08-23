@@ -3121,6 +3121,7 @@ ${myDocs.length > 0 ? `<div class="section">
       const sportSyncTargets = changed.filter(([id, fields]) =>
         succeededIds.includes(id) && 'sport' in fields && !multiSportEdits[parseInt(id)] && (athleteSportsByAthlete[parseInt(id)]?.length > 0)
       )
+      let sportSyncFailed = 0
       if (sportSyncTargets.length > 0) {
         await Promise.all(sportSyncTargets.map(async ([id, fields]) => {
           const athleteId = parseInt(id)
@@ -3129,35 +3130,60 @@ ${myDocs.length > 0 ? `<div class="section">
           const newCategory = 'sport_category' in fields ? fields.sport_category : (existingRows[0]?.sportCategory || athletes.find(a=>a.id===athleteId)?.sport_category)
           const matchedSport = sportsList.find(s => s.name === newSportName && (!newCategory || s.category === newCategory))
             || sportsList.find(s => s.name === newSportName)
-          if (!matchedSport) return // can't resolve to a catalog sport — leave the junction rows alone rather than guess
+          if (!matchedSport) { sportSyncFailed++; return } // can't resolve to a catalog sport — leave the junction rows alone rather than guess
           // A single existing assignment's coach carries over to the new
           // one; multiple existing assignments have no single coach to
           // preserve, so the new row starts unassigned.
           const preservedCoachId = existingRows.length === 1 ? existingRows[0].coachId : null
-          await supabase.from('athlete_sports').delete().eq('athlete_id', athleteId)
-          await supabase.from('athlete_sports').insert({ athlete_id: athleteId, sport_id: matchedSport.id, coach_id: preservedCoachId, is_primary: true })
+          const { error: delErr } = await supabase.from('athlete_sports').delete().eq('athlete_id', athleteId)
+          if (delErr) { console.error('athlete_sports delete failed', delErr); sportSyncFailed++; return }
+          const { error: insErr } = await supabase.from('athlete_sports').insert({ athlete_id: athleteId, sport_id: matchedSport.id, coach_id: preservedCoachId, is_primary: true })
+          if (insErr) { console.error('athlete_sports insert failed', insErr); sportSyncFailed++ }
         }))
         await refreshAthleteSportsByAthlete()
       }
 
       // Explicit multi-sport edits (from the "Manage sports" popover) are
       // the more complete, deliberate edit — replace the athlete's full
-      // athlete_sports set with exactly what was checked there.
+      // athlete_sports set with exactly what was checked there. Every
+      // write is checked for {error} — previously these calls were fired
+      // without ever inspecting the result, so a failure (e.g. an RLS
+      // rejection for a non-admin account, or a sport name that couldn't
+      // be resolved against the catalog) was completely silent: the
+      // popover appeared to accept the change, but nothing was actually
+      // written, which is exactly what "it doesn't save" looks like.
+      let multiSportFailed = 0
       if (multiSportChanged.length > 0) {
         await Promise.all(multiSportChanged.map(async ([id, rows]) => {
           const athleteId = parseInt(id)
           const resolvedRows = rows
             .map(r => ({ ...r, resolved: sportsList.find(s => s.name === r.sportName && (!r.sportCategory || s.category === r.sportCategory)) || sportsList.find(s => s.name === r.sportName) }))
             .filter(r => r.resolved)
-          await supabase.from('athlete_sports').delete().eq('athlete_id', athleteId)
+          if (resolvedRows.length < rows.length) {
+            // At least one checked sport couldn't be matched to the live
+            // sports catalog (name/category mismatch) — surfaced instead
+            // of silently dropping it from what gets saved.
+            console.error('Could not resolve some sports to the catalog for athlete', athleteId, rows.filter(r => !resolvedRows.includes(r)))
+          }
+          const { error: delErr } = await supabase.from('athlete_sports').delete().eq('athlete_id', athleteId)
+          if (delErr) { console.error('athlete_sports delete failed', delErr); multiSportFailed++; return }
           if (resolvedRows.length > 0) {
-            await supabase.from('athlete_sports').insert(
+            const { error: insErr } = await supabase.from('athlete_sports').insert(
               resolvedRows.map((r, i) => ({ athlete_id: athleteId, sport_id: r.resolved.id, coach_id: r.coachId || null, is_primary: i === 0 }))
             )
+            if (insErr) { console.error('athlete_sports insert failed', insErr); multiSportFailed++ }
           }
         }))
         setMultiSportEdits({})
         await refreshAthleteSportsByAthlete()
+      }
+      if (sportSyncFailed > 0 || multiSportFailed > 0) {
+        toast(
+          lang==='ar'
+            ? `تعذر حفظ رياضات بعض اللاعبين (${sportSyncFailed + multiSportFailed}). راجع سجل وحدة التحكم (Console) للتفاصيل.`
+            : `Could not save sport changes for ${sportSyncFailed + multiSportFailed} athlete(s). Check the browser console for details.`,
+          'error'
+        )
       }
       if (failed.length > 0) {
         const names = failed.slice(0, 5).map(f => f.name).join(', ') + (failed.length > 5 ? `, +${failed.length - 5} more` : '')
