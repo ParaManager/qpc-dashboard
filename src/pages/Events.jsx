@@ -130,10 +130,25 @@ async function exportEventPDF(ev, selectedAthletes, includeOfficials, officialsB
 
   const evSports = ev.sports?.length ? ev.sports : (ev.sport ? [ev.sport] : [])
   const sportNames = evSports.map(s => sportLabel(s, ev.sport_category, ar)).join(ar ? '، ' : ', ')
-  const dateRange = ev.start_date ? (ev.end_date && ev.end_date !== ev.start_date ? `${ev.start_date} → ${ev.end_date}` : ev.start_date) : ''
+  // jsPDF's built-in Helvetica has no glyph for "→" — it silently renders
+  // as garbled characters (exactly what showed up in the exported PDF).
+  // Use a plain ASCII separator instead, safe in every font.
+  const dateRange = ev.start_date ? (ev.end_date && ev.end_date !== ev.start_date ? `${ev.start_date} - ${ev.end_date}` : ev.start_date) : ''
 
   let y = 40
-  safeAddImage(doc, logoDataUrl, 40, y, 46, 46)
+  // Preserve the logo's real aspect ratio instead of forcing it into a
+  // fixed square, which was stretching/distorting it.
+  const LOGO_MAX_W = 52, LOGO_MAX_H = 46
+  let logoW = 0, logoH = 0
+  if (logoDataUrl) {
+    try {
+      const props = doc.getImageProperties(logoDataUrl)
+      const ratio = Math.min(LOGO_MAX_W / props.width, LOGO_MAX_H / props.height)
+      logoW = props.width * ratio
+      logoH = props.height * ratio
+    } catch { /* falls back to not drawing the logo */ }
+  }
+  safeAddImage(doc, logoDataUrl, 40, y, logoW, logoH)
   setPdfFont('bold')
   doc.setFontSize(13)
   doc.setTextColor(20, 20, 20)
