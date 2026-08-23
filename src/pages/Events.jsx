@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 import MultiSelectFilter from '../components/MultiSelectFilter.jsx'
-import { Avatar, Badge, statusDot, statusClass, DashRow, sportLabel, buildSearchText, matchesSearch, BackButton } from '../lib/helpers'
+import { Avatar, Badge, statusDot, statusClass, DashRow, sportLabel, buildSearchText, matchesSearch, BackButton, loadImageAsDataURL, safeAddImage, initials as personInitials } from '../lib/helpers'
 import FormModal from '../components/FormModal'
 import EventCategoryModal from '../components/EventCategoryModal'
 import { ConfirmModal, toast } from '../components/Toast'
@@ -85,6 +87,241 @@ function PersonRow({ name, nameAr, id, subtitle, subtitleAr, status, ar, canRemo
       {canRemove && (
         <button onClick={onRemove} style={{ background: 'none', border: '1px solid #fca5a5', color: '#dc2626', borderRadius: 6, padding: '2px 8px', fontSize: 11, cursor: 'pointer', flexShrink: 0 }}>✕</button>
       )}
+    </div>
+  )
+}
+
+// ── Event PDF export ─────────────────────────────────────────────────────
+// Same QPC-branding conventions used by the Athletes list export (logo,
+// maroon header/accent, Amiri font loaded only when Arabic text is
+// actually needed) — a portrait single-event report rather than a big
+// data table: letterhead, event details, then the athletes/officials the
+// user chose to include.
+const QPC_MAROON = [87, 25, 50]
+
+async function exportEventPDF(ev, selectedAthletes, includeOfficials, officialsByRole, roleTitles, employees, lang) {
+  const ar = lang === 'ar'
+  const L = (en, a) => ar ? a : en
+
+  const [logoDataUrl] = await Promise.all([
+    loadImageAsDataURL('/logo-qpc.png'),
+  ])
+
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' })
+  const pageWidth = doc.internal.pageSize.getWidth()
+  const pageHeight = doc.internal.pageSize.getHeight()
+
+  const needsArabicFont = ar
+  let arabicFontOk = false
+  if (needsArabicFont) {
+    try {
+      const { AMIRI_REGULAR_BASE64 } = await import('../lib/fonts/AmiriFont')
+      doc.addFileToVFS('Amiri-Regular.ttf', AMIRI_REGULAR_BASE64)
+      doc.addFont('Amiri-Regular.ttf', 'Amiri', 'normal')
+      doc.addFont('Amiri-Regular.ttf', 'Amiri', 'bold')
+      arabicFontOk = true
+    } catch (err) {
+      console.error('Event PDF export: Arabic font failed to load, falling back to Helvetica', err)
+    }
+  }
+  const FONT = (ar && arabicFontOk) ? 'Amiri' : 'helvetica'
+  const setPdfFont = style => doc.setFont(FONT, style)
+  const safeStr = s => (s === null || s === undefined) ? '' : String(s)
+
+  const evSports = ev.sports?.length ? ev.sports : (ev.sport ? [ev.sport] : [])
+  const sportNames = evSports.map(s => sportLabel(s, ev.sport_category, ar)).join(ar ? '، ' : ', ')
+  const dateRange = ev.start_date ? (ev.end_date && ev.end_date !== ev.start_date ? `${ev.start_date} → ${ev.end_date}` : ev.start_date) : ''
+
+  let y = 40
+  safeAddImage(doc, logoDataUrl, 40, y, 46, 46)
+  setPdfFont('bold')
+  doc.setFontSize(13)
+  doc.setTextColor(20, 20, 20)
+  doc.text(safeStr(L('Qatar Paralympic Committee', 'اللجنة البارالمبية القطرية')), pageWidth / 2, y + 16, { align: 'center' })
+  setPdfFont('normal')
+  doc.setFontSize(9)
+  doc.setTextColor(110, 110, 110)
+  doc.text(safeStr(L('Event Report', 'تقرير الفعالية')), pageWidth / 2, y + 30, { align: 'center' })
+  y += 58
+  doc.setDrawColor(...QPC_MAROON)
+  doc.setLineWidth(1.2)
+  doc.line(40, y, pageWidth - 40, y)
+  y += 26
+
+  // Event title (EN + AR when available)
+  setPdfFont('bold')
+  doc.setTextColor(...QPC_MAROON)
+  doc.setFontSize(16)
+  doc.text(safeStr(ev.name), 40, y)
+  y += 20
+  if (ev.name_ar) {
+    doc.setFontSize(13)
+    doc.text(safeStr(ev.name_ar), pageWidth - 40, y, { align: 'right' })
+    y += 18
+  }
+  y += 6
+
+  // Details block — dates, location, sports
+  const details = [
+    [L('Dates', 'التواريخ'), dateRange],
+    [L('Location', 'الموقع'), ev.venue],
+    [L('Sport(s)', 'الرياضة/الرياضات'), sportNames],
+  ].filter(([, v]) => v)
+  setPdfFont('normal')
+  doc.setFontSize(10.5)
+  doc.setTextColor(40, 40, 40)
+  for (const [label, value] of details) {
+    setPdfFont('bold')
+    doc.text(safeStr(`${label}:`), 40, y)
+    setPdfFont('normal')
+    doc.text(safeStr(value), 40 + doc.getTextWidth(safeStr(`${label}: `)) + 4, y)
+    y += 16
+  }
+  y += 10
+
+  // Athletes table
+  if (selectedAthletes.length > 0) {
+    setPdfFont('bold')
+    doc.setFontSize(12)
+    doc.setTextColor(...QPC_MAROON)
+    doc.text(safeStr(L(`Athletes (${selectedAthletes.length})`, `الرياضيون (${selectedAthletes.length})`)), 40, y)
+    y += 10
+
+    const head = [[L('Name', 'الاسم'), L('Sport', 'الرياضة'), L('Classification', 'التصنيف'), L('Nationality', 'الجنسية')]]
+    const body = selectedAthletes.map(a => [
+      safeStr(ar && a.name_ar ? a.name_ar : a.name),
+      safeStr(sportLabel(a.sport, a.sport_category, ar)),
+      safeStr(a.classification),
+      safeStr(a.nationality),
+    ])
+    autoTable(doc, {
+      startY: y + 6,
+      head, body,
+      theme: 'grid',
+      styles: { font: FONT, fontSize: 9.5, textColor: [30,30,30], cellPadding: 5, halign: ar ? 'right' : 'left' },
+      headStyles: { font: FONT, fillColor: QPC_MAROON, textColor: 255, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [250, 245, 245] },
+      margin: { left: 40, right: 40 },
+    })
+    y = doc.lastAutoTable.finalY + 26
+  }
+
+  // Officials — grouped by role, only if the person chose to include them
+  if (includeOfficials) {
+    const roleKeys = Object.keys(roleTitles).filter(k => (officialsByRole[k] || []).length > 0)
+    if (roleKeys.length > 0) {
+      if (y > pageHeight - 100) { doc.addPage(); y = 40 }
+      setPdfFont('bold')
+      doc.setFontSize(12)
+      doc.setTextColor(...QPC_MAROON)
+      doc.text(safeStr(L('Officials', 'المسؤولون')), 40, y)
+      y += 10
+      const officialRows = []
+      for (const key of roleKeys) {
+        for (const o of officialsByRole[key]) {
+          const emp = employees.find(e => e.id === o.employee_id)
+          if (!emp) continue
+          officialRows.push([roleTitles[key], safeStr(ar && emp.name_ar ? emp.name_ar : emp.name), safeStr(emp.designation)])
+        }
+      }
+      autoTable(doc, {
+        startY: y + 6,
+        head: [[L('Role', 'الدور'), L('Name', 'الاسم'), L('Designation', 'الوظيفة')]],
+        body: officialRows,
+        theme: 'grid',
+        styles: { font: FONT, fontSize: 9.5, textColor: [30,30,30], cellPadding: 5, halign: ar ? 'right' : 'left' },
+        headStyles: { font: FONT, fillColor: QPC_MAROON, textColor: 255, fontStyle: 'bold' },
+        alternateRowStyles: { fillColor: [250, 245, 245] },
+        margin: { left: 40, right: 40 },
+      })
+    }
+  }
+
+  const exportDate = new Date().toISOString().slice(0, 10)
+  doc.save(`${(ev.name || 'Event').replace(/[^\w\-]+/g, '_')}_${exportDate}.pdf`)
+}
+
+// Pre-export modal — pick which registered athletes and whether officials
+// go into the report. "Select all" toggles every currently-registered
+// athlete at once; individual checkboxes stay available either way.
+function EventExportModal({ ev, regAthletes, officials, roleTitles, employees, ar, tx, onClose, onExport }) {
+  const [selectedIds, setSelectedIds] = useState(() => new Set(regAthletes.map(a => a.id)))
+  const [includeOfficials, setIncludeOfficials] = useState(true)
+  const [exporting, setExporting] = useState(false)
+  const allSelected = regAthletes.length > 0 && selectedIds.size === regAthletes.length
+
+  function toggleAll() {
+    setSelectedIds(allSelected ? new Set() : new Set(regAthletes.map(a => a.id)))
+  }
+  function toggleOne(id) {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+  async function handleExport() {
+    setExporting(true)
+    try {
+      const chosen = regAthletes.filter(a => selectedIds.has(a.id))
+      await exportEventPDF(ev, chosen, includeOfficials, officials, roleTitles, employees, ar ? 'ar' : 'en')
+      onExport?.()
+      onClose()
+    } catch (err) {
+      console.error('Event PDF export failed', err)
+      toast(ar ? 'تعذر إنشاء ملف PDF' : 'Could not generate the PDF', 'error')
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-box" style={{ width: 480 }} onClick={e => e.stopPropagation()}>
+        <div style={{ padding: '18px 22px', borderBottom: '1px solid var(--border)' }}>
+          <div style={{ fontSize: 15, fontWeight: 700 }}>{ar ? 'تصدير الفعالية كـ PDF' : 'Export Event as PDF'}</div>
+          <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>{ar ? ev.name_ar || ev.name : ev.name}</div>
+        </div>
+        <div style={{ padding: '16px 22px', maxHeight: '60vh', overflowY: 'auto' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.04em' }}>
+              {ar ? `الرياضيون (${selectedIds.size}/${regAthletes.length})` : `Athletes (${selectedIds.size}/${regAthletes.length})`}
+            </span>
+            {regAthletes.length > 0 && (
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, cursor: 'pointer', userSelect: 'none' }}>
+                <input type="checkbox" checked={allSelected} onChange={toggleAll} />
+                {ar ? 'تحديد الكل' : 'Select all'}
+              </label>
+            )}
+          </div>
+          {regAthletes.length === 0 ? (
+            <div className="empty" style={{ padding: '12px 0', fontSize: 12.5 }}>{ar ? 'لا يوجد رياضيون مسجلون' : 'No athletes registered'}</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 18 }}>
+              {regAthletes.map(a => (
+                <label key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, padding: '5px 4px', cursor: 'pointer', userSelect: 'none' }}>
+                  <input type="checkbox" checked={selectedIds.has(a.id)} onChange={() => toggleOne(a.id)} />
+                  <Avatar name={a.name} photoUrl={a.photo_url} size={22} />
+                  <span>{ar && a.name_ar ? a.name_ar : a.name}</span>
+                  <span style={{ color: 'var(--text3)', fontSize: 11 }}>· {sportLabel(a.sport, a.sport_category, ar)}</span>
+                </label>
+              ))}
+            </div>
+          )}
+          <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer', userSelect: 'none' }}>
+              <input type="checkbox" checked={includeOfficials} onChange={e => setIncludeOfficials(e.target.checked)} />
+              {ar ? 'تضمين المسؤولين (المدربون، الطاقم الطبي، إلخ)' : 'Include officials (coaches, medical staff, etc.)'}
+            </label>
+          </div>
+        </div>
+        <div style={{ padding: '14px 22px', borderTop: '1px solid var(--border)', display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <button className="btn-cancel" onClick={onClose}>{ar ? 'إلغاء' : 'Cancel'}</button>
+          <button className="btn btn-blue" disabled={exporting} onClick={handleExport}>
+            <i className="ti ti-file-download" /> {exporting ? (ar ? 'جارٍ التصدير…' : 'Exporting…') : (ar ? 'تصدير PDF' : 'Export PDF')}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -221,6 +458,7 @@ export default function Events({ events, athletes, results, registrations, onRef
   const [selected, setSelected]   = useState(initEventId || null)
   const [form, setForm]           = useState(null)
   const [confirm, setConfirm]     = useState(null)
+  const [showExportModal, setShowExportModal] = useState(false)
   const [showCatModal, setShowCatModal] = useState(false)
   const [officials, setOfficials] = useState({ head_of_delegation: [], medical_staff: [], coach: [], administrative_staff: [], support_staff: [], technical_expert: [] })
   const [athleteSearch, setAthleteSearch] = useState('')
@@ -453,7 +691,19 @@ export default function Events({ events, athletes, results, registrations, onRef
           <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
             <button className="action-btn action-btn-edit" onClick={() => setForm('edit')}><i className="ti ti-pencil" /> {tx('actions.edit', 'Edit')}</button>
             <button className="action-btn action-btn-delete" onClick={() => setConfirm(true)}><i className="ti ti-trash" /> {tx('actions.delete', 'Delete')}</button>
+            <button className="action-btn action-btn-edit" onClick={() => setShowExportModal(true)}><i className="ti ti-file-download" /> {tx('events.exportPdf', 'Export PDF')}</button>
           </div>
+        )}
+        {!canEditProfile && (
+          <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
+            <button className="action-btn action-btn-edit" onClick={() => setShowExportModal(true)}><i className="ti ti-file-download" /> {tx('events.exportPdf', 'Export PDF')}</button>
+          </div>
+        )}
+        {showExportModal && (
+          <EventExportModal
+            ev={ev} regAthletes={regAthletes} officials={officials} roleTitles={ROLE_TITLES} employees={employees}
+            ar={ar} tx={tx} onClose={() => setShowExportModal(false)}
+          />
         )}
 
         <div className="detail-grid">
