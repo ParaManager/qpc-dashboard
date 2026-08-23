@@ -16,20 +16,6 @@ import { supabase } from './supabase'
 import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
 
-// ── Field mapping architecture ──────────────────────────────────────────
-// Templates map to submissions via each form field's stable
-// `template_field_key` (set in the form builder), never via displayed
-// label text — renaming/translating a label never breaks printing.
-// `answerByKey(form, submission, key)` is the single lookup used by every
-// template so this stays the one place that needs to change if the
-// mapping strategy ever changes.
-function answerByKey(form, submission, key) {
-  const field = (form.request_form_fields || []).find(f => f.template_field_key === key)
-  if (!field) return ''
-  const v = submission.answers?.[field.id]
-  return Array.isArray(v) ? v.join(', ') : (v ?? '')
-}
-
 function esc(v) {
   return String(v ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]))
 }
@@ -45,19 +31,28 @@ function printShell(bodyHtml, title) {
   @page { size: A4; margin: 14mm; }
   * { box-sizing: border-box; }
   body { font-family: 'DM Sans', Arial, sans-serif; color: #1a1a1a; margin: 0; padding: 24px; }
-  .qpc-header { display:flex; align-items:center; gap:14px; border-bottom: 3px solid #0085C7; padding-bottom:12px; margin-bottom:18px; break-inside:avoid; page-break-inside:avoid; }
-  .qpc-header img { height:56px; }
+  /* Same compact branding lockup used across every other QPC PDF export
+     (Events, Athletes list): logo on the left, org name beside it with a
+     muted subtitle directly underneath, maroon divider below — instead
+     of a generic blue-bordered header that didn't match the logo's
+     actual color identity. */
+  .qpc-header { display:flex; align-items:center; gap:14px; padding-bottom:14px; margin-bottom:16px; border-bottom:3px solid #571932; break-inside:avoid; page-break-inside:avoid; }
+  .qpc-header img { height:52px; width:auto; }
   .qpc-header .titles { flex:1; }
-  .qpc-header .titles .en { font-size:18px; font-weight:700; color:#0085C7; }
-  .qpc-header .titles .ar { font-size:16px; font-weight:700; direction:rtl; color:#333; }
-  .meta-row { display:flex; justify-content:space-between; font-size:12px; color:#555; margin-bottom:16px; break-inside:avoid; page-break-inside:avoid; }
-  .status-badge { display:inline-block; padding:3px 10px; border-radius:12px; font-size:11px; font-weight:700; background:#0085C715; color:#0085C7; }
+  .qpc-header .titles .org-en { font-size:15px; font-weight:700; color:#1a1a1a; }
+  .qpc-header .titles .org-sub { font-size:9.5px; color:#888; margin-top:2px; }
+  .form-title { margin-bottom:14px; }
+  .form-title .en { font-size:17px; font-weight:700; color:#571932; }
+  .form-title .ar { font-size:14px; font-weight:700; direction:rtl; color:#444; margin-top:2px; }
+  .meta-row { display:flex; justify-content:space-between; font-size:11.5px; color:#555; margin-bottom:14px; break-inside:avoid; page-break-inside:avoid; }
+  .status-badge { display:inline-block; padding:3px 10px; border-radius:12px; font-size:11px; font-weight:700; background:#57193214; color:#571932; }
   table { width:100%; border-collapse:collapse; margin-bottom:14px; }
   thead { display: table-header-group; } /* repeat header row on each printed page where the browser supports it */
   tr { break-inside:avoid; page-break-inside:avoid; }
-  th, td { border:1px solid #ccc; padding:6px 8px; font-size:12px; text-align:left; vertical-align:top; }
-  th { background:#f2f6f9; width:38%; font-weight:600; }
-  .section-title { font-size:13px; font-weight:700; color:#0085C7; text-transform:uppercase; letter-spacing:.04em; margin:18px 0 6px; border-bottom:1px solid #0085C7; padding-bottom:3px; break-after:avoid; page-break-after:avoid; }
+  tr:nth-child(even) td, tr:nth-child(even) th { background:#fdf5f6; }
+  th, td { border:1px solid #e2d9db; padding:7px 9px; font-size:12px; text-align:left; vertical-align:top; }
+  th { background:#f7eef0; width:38%; font-weight:600; color:#333; }
+  .section-title { font-size:13px; font-weight:700; color:#571932; text-transform:uppercase; letter-spacing:.04em; margin:20px 0 7px; border-bottom:1.5px solid #571932; padding-bottom:4px; break-after:avoid; page-break-after:avoid; }
   /* Keeps a section title glued to whatever immediately follows it (its
      first row/table), so a title never ends up alone at the bottom of a
      page with its content pushed to the next one. */
@@ -129,9 +124,13 @@ function buildDefaultTemplate(form, submission, signatureUrls = {}) {
     <div class="qpc-header">
       <img src="${qpcLogo}" />
       <div class="titles">
-        <div class="en">${esc(form.title)}</div>
-        ${form.title_ar ? `<div class="ar">${esc(form.title_ar)}</div>` : ''}
+        <div class="org-en">Qatar Paralympic Committee</div>
+        <div class="org-sub">Submission Report</div>
       </div>
+    </div>
+    <div class="form-title">
+      <div class="en">${esc(form.title)}</div>
+      ${form.title_ar ? `<div class="ar">${esc(form.title_ar)}</div>` : ''}
     </div>
     <div class="meta-row">
       <span>Reference: <b>${esc(submission.reference_number || submission.id)}</b></span>
@@ -144,92 +143,15 @@ function buildDefaultTemplate(form, submission, signatureUrls = {}) {
   return printShell(body, form.title)
 }
 
-// ── Custom template: New Athlete Registration Form ─────────────────────
-// Recreates the QPC registration PDF layout. Every value is pulled through
-// answerByKey() from the saved submission — nothing here is hardcoded.
-function buildAthleteRegistrationTemplate(form, submission) {
-  const a = key => esc(answerByKey(form, submission, key))
-  const hasDoc = key => {
-    const field = (form.request_form_fields || []).find(f => f.template_field_key === key)
-    const v = field ? submission.answers?.[field.id] : null
-    return v ? true : false
-  }
-  const docRow = (labelEn, labelAr, key) => `
-    <tr><td>${esc(labelEn)} <span dir="rtl" style="color:#777">/ ${esc(labelAr)}</span></td>
-    <td class="doc-check">${hasDoc(key) ? '<span class="yes">&#10003; Submitted</span>' : '<span class="no">&#10007; Not submitted</span>'}</td></tr>`
-
-  const body = `
-    <div class="qpc-header">
-      <img src="${qpcLogo}" />
-      <div class="titles">
-        <div class="en">NEW ATHLETE REGISTRATION FORM</div>
-        <div class="ar">استمارة تسجيل لاعب جديد</div>
-      </div>
-    </div>
-    <div class="meta-row">
-      <span>Reference: <b>${esc(submission.reference_number || submission.id)}</b></span>
-      <span>Date: <b>${a('date') || esc(new Date(submission.submitted_at).toLocaleDateString())}</b></span>
-      <span>Status: <span class="status-badge">${esc(STATUS_LABEL[submission.status] || submission.status)}</span></span>
-    </div>
-
-    <div class="section-title">Personal Data <span dir="rtl" style="color:#777">/ البيانات الشخصية</span></div>
-    <table>
-      <tr><th>Full Name (Passport)</th><td>${a('full_name')}</td></tr>
-      <tr><th>Gender</th><td>${a('gender')}</td></tr>
-      <tr><th>Date of Birth</th><td>${a('dob')}</td></tr>
-      <tr><th>Nationality</th><td>${a('nationality')}</td></tr>
-      <tr><th>QID Number</th><td>${a('qid')}</td></tr>
-      <tr><th>Passport Number</th><td>${a('passport_number')}</td></tr>
-      <tr><th>Passport Expiry</th><td>${a('passport_expiry')}</td></tr>
-    </table>
-
-    <div class="section-title">Contact Details <span dir="rtl" style="color:#777">/ بيانات التواصل</span></div>
-    <table>
-      <tr><th>Mobile</th><td>${a('mobile')}</td></tr>
-      <tr><th>Email</th><td>${a('email')}</td></tr>
-      <tr><th>Address in Qatar</th><td>${a('address')}</td></tr>
-      <tr><th>Emergency Contact Name</th><td>${a('emergency_name')}</td></tr>
-      <tr><th>Emergency Contact Phone</th><td>${a('emergency_phone')}</td></tr>
-      <tr><th>Relationship</th><td>${a('relationship')}</td></tr>
-    </table>
-
-    <div class="section-title">Medical / Impairment <span dir="rtl" style="color:#777">/ الحالة الطبية / الإعاقة</span></div>
-    <table>
-      <tr><th>Impairment Type</th><td>${a('impairment')}</td></tr>
-      <tr><th>Assistive Device(s)</th><td>${a('assistive_devices')}</td></tr>
-      <tr><th>Notes / Restrictions</th><td>${a('notes')}</td></tr>
-    </table>
-
-    <div class="section-title">Document List <span dir="rtl" style="color:#777">/ قائمة المستندات</span></div>
-    <table>
-      ${docRow('Passport Copy', 'صورة الجواز', 'doc_passport_copy')}
-      ${docRow('QID Copy', 'صورة البطاقة الشخصية', 'doc_qid_copy')}
-      ${docRow('Personal Photo', 'صورة شخصية', 'doc_personal_photo')}
-      ${docRow('Medical Report', 'التقرير الطبي', 'doc_medical_report')}
-    </table>
-
-    <div class="section-title">Signatures <span dir="rtl" style="color:#777">/ التوقيعات</span></div>
-    <div class="sig-row">
-      <div class="sig-box">Athlete / Guardian Name: ${a('guardian_name') || '&nbsp;'}</div>
-      <div class="sig-box">Signature: ${a('guardian_signature') || '&nbsp;'}</div>
-      <div class="sig-box">Date: ${a('date')}</div>
-    </div>
-  `
-  return printShell(body, 'New Athlete Registration Form')
-}
-
-const CUSTOM_TEMPLATES = {
-  athlete_registration: buildAthleteRegistrationTemplate,
-}
-
 // ── Public entry point ──────────────────────────────────────────────────
-// Always reads the CURRENT saved submission (never a cached/duplicated
-// copy) and picks the form's assigned template — default QPC layout unless
-// the form has an explicit, implemented custom template.
+// Every form uses this one shared, professionally-branded template —
+// Registration Form and every other form render identically in structure
+// (only their own fields/sections differ), so there's no separate custom
+// template to keep in sync with the shared one.
 // Fetches a signed URL (private bucket — same access rules as every other
 // request submission file) for each signature-type field that has an
-// attached image, before the HTML is built — templates themselves stay
-// synchronous string-builders.
+// attached image, before the HTML is built — the template itself stays a
+// synchronous string-builder.
 async function fetchSignatureUrls(form, submission) {
   const sigFields = (form.request_form_fields || []).filter(f => f.field_type === 'signature')
   if (!sigFields.length) return {}
@@ -247,9 +169,6 @@ async function fetchSignatureUrls(form, submission) {
 
 export async function buildPrintHtml(form, submission) {
   const signatureUrls = await fetchSignatureUrls(form, submission)
-  if (form.print_template === 'custom' && CUSTOM_TEMPLATES[form.custom_template_key]) {
-    return CUSTOM_TEMPLATES[form.custom_template_key](form, submission)
-  }
   return buildDefaultTemplate(form, submission, signatureUrls)
 }
 
@@ -334,7 +253,7 @@ async function renderHtmlToPdf(html) {
     // follows them. Sorted top-to-bottom; overlapping/nested unbreakable
     // elements (e.g. an <img> inside a <tr>) are naturally subsumed since
     // we only need the outermost boundary that must not be split.
-    const unbreakable = Array.from(doc.querySelectorAll('tr, .sig-row, .qpc-header, .meta-row'))
+    const unbreakable = Array.from(doc.querySelectorAll('tr, .sig-row, .qpc-header, .meta-row, .form-title'))
       .map(el => {
         const r = el.getBoundingClientRect()
         return { top: r.top, bottom: r.bottom }
