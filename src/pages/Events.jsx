@@ -114,7 +114,7 @@ function isSpecialOlympicsEvent(ev) {
   return ev.sport_category === 'Summer Special Olympics' || ev.sport_category === 'Winter Special Olympics'
 }
 
-async function exportEventPDF(ev, selectedAthletes, includeOfficials, officialsByRole, roleTitles, employees, lang) {
+async function buildEventPdfDoc(ev, selectedAthletes, includeOfficials, officialsByRole, roleTitles, employees, lang) {
   const ar = lang === 'ar'
   const L = (en, a) => ar ? a : en
   const isSO = isSpecialOlympicsEvent(ev)
@@ -155,43 +155,12 @@ async function exportEventPDF(ev, selectedAthletes, includeOfficials, officialsB
   const dateRange = ev.start_date ? (ev.end_date && ev.end_date !== ev.start_date ? `${ev.start_date} - ${ev.end_date}` : ev.start_date) : ''
 
   let y = 40
-  if (isSO) {
-    // Compact horizontal lockup — logo on the left, "Special Olympics
-    // Qatar" + muted "Event Report" stacked and vertically centered
-    // against it as one branding unit, instead of a big centered logo
-    // with the title/subtitle floating far below it (the large empty
-    // gap this replaces). QPC's own header layout below is untouched.
-    const LOGO_MAX_W = 54, LOGO_MAX_H = 54
-    let logoW = 0, logoH = 0
-    if (logoDataUrl) {
-      try {
-        const props = doc.getImageProperties(logoDataUrl)
-        const ratio = Math.min(LOGO_MAX_W / props.width, LOGO_MAX_H / props.height)
-        logoW = props.width * ratio
-        logoH = props.height * ratio
-      } catch { /* falls back to not drawing the logo */ }
-    }
-    const lockupH = Math.max(logoH, 34)
-    const logoY = y + (lockupH - logoH) / 2
-    safeAddImage(doc, logoDataUrl, 40, logoY, logoW, logoH)
-    const textX = 40 + logoW + 14
-    setPdfFont('bold')
-    doc.setFontSize(15)
-    doc.setTextColor(20, 20, 20)
-    doc.text(safeStr(orgName), textX, y + lockupH / 2 - 4)
-    setPdfFont('normal')
-    doc.setFontSize(9)
-    doc.setTextColor(110, 110, 110)
-    doc.text(safeStr(L('Event Report', 'تقرير الفعالية')), textX, y + lockupH / 2 + 11)
-    y += lockupH + 16
-    doc.setDrawColor(...THEME)
-    doc.setLineWidth(1.2)
-    doc.line(40, y, pageWidth - 40, y)
-    y += 26
-  } else {
-  // Preserve the logo's real aspect ratio instead of forcing it into a
-  // fixed square, which was stretching/distorting it.
-  const LOGO_MAX_W = 90, LOGO_MAX_H = 78
+  // Compact horizontal lockup — logo on the left, org name + muted
+  // "Event Report" stacked and vertically centered against it as one
+  // branding unit. Same structural layout, height, logo sizing, and
+  // spacing for both templates — only the logo image, org name text, and
+  // THEME color differ between QPC/Para and Special Olympics.
+  const LOGO_MAX_W = 54, LOGO_MAX_H = 54
   let logoW = 0, logoH = 0
   if (logoDataUrl) {
     try {
@@ -201,31 +170,36 @@ async function exportEventPDF(ev, selectedAthletes, includeOfficials, officialsB
       logoH = props.height * ratio
     } catch { /* falls back to not drawing the logo */ }
   }
-  safeAddImage(doc, logoDataUrl, 40, y, logoW, logoH)
+  const lockupH = Math.max(logoH, 34)
+  const logoX = ar ? pageWidth - 40 - logoW : 40
+  const logoY = y + (lockupH - logoH) / 2
+  safeAddImage(doc, logoDataUrl, logoX, logoY, logoW, logoH)
+  const textX = ar ? pageWidth - 40 - logoW - 14 : 40 + logoW + 14
+  const textAlign = ar ? 'right' : 'left'
   setPdfFont('bold')
-  doc.setFontSize(13)
+  doc.setFontSize(15)
   doc.setTextColor(20, 20, 20)
-  doc.text(safeStr(orgName), pageWidth / 2, y + 30, { align: 'center' })
+  doc.text(safeStr(orgName), textX, y + lockupH / 2 - 4, { align: textAlign })
   setPdfFont('normal')
   doc.setFontSize(9)
   doc.setTextColor(110, 110, 110)
-  doc.text(safeStr(L('Event Report', 'تقرير الفعالية')), pageWidth / 2, y + 44, { align: 'center' })
-  y += 92
+  doc.text(safeStr(L('Event Report', 'تقرير الفعالية')), textX, y + lockupH / 2 + 11, { align: textAlign })
+  y += lockupH + 16
   doc.setDrawColor(...THEME)
   doc.setLineWidth(1.2)
   doc.line(40, y, pageWidth - 40, y)
   y += 26
-  }
 
-  // Event title (EN + AR when available)
+  // Event title (EN + AR when available) — right-aligned from the page's
+  // right edge in Arabic, matching the RTL header lockup above.
   setPdfFont('bold')
   doc.setTextColor(...THEME)
   doc.setFontSize(16)
-  doc.text(safeStr(ev.name), 40, y)
+  doc.text(safeStr(ev.name), ar ? pageWidth - 40 : 40, y, { align: ar ? 'right' : 'left' })
   y += 20
   if (ev.name_ar) {
     doc.setFontSize(13)
-    doc.text(safeStr(ev.name_ar), pageWidth - 40, y, { align: 'right' })
+    doc.text(safeStr(ev.name_ar), ar ? pageWidth - 40 : pageWidth - 40, y, { align: 'right' })
     y += 18
   }
   y += 6
@@ -240,10 +214,17 @@ async function exportEventPDF(ev, selectedAthletes, includeOfficials, officialsB
   doc.setFontSize(10.5)
   doc.setTextColor(40, 40, 40)
   for (const [label, value] of details) {
-    setPdfFont('bold')
-    doc.text(safeStr(`${label}:`), 40, y)
-    setPdfFont('normal')
-    doc.text(safeStr(value), 40 + doc.getTextWidth(safeStr(`${label}: `)) + 4, y)
+    if (ar) {
+      setPdfFont('bold')
+      doc.text(safeStr(`:${label}`), pageWidth - 40, y, { align: 'right' })
+      setPdfFont('normal')
+      doc.text(safeStr(value), pageWidth - 40 - doc.getTextWidth(safeStr(`:${label} `)) - 4, y, { align: 'right' })
+    } else {
+      setPdfFont('bold')
+      doc.text(safeStr(`${label}:`), 40, y)
+      setPdfFont('normal')
+      doc.text(safeStr(value), 40 + doc.getTextWidth(safeStr(`${label}: `)) + 4, y)
+    }
     y += 16
   }
   y += 10
@@ -253,7 +234,7 @@ async function exportEventPDF(ev, selectedAthletes, includeOfficials, officialsB
     setPdfFont('bold')
     doc.setFontSize(12)
     doc.setTextColor(...THEME)
-    doc.text(safeStr(L(`Athletes (${selectedAthletes.length})`, `الرياضيون (${selectedAthletes.length})`)), 40, y)
+    doc.text(safeStr(L(`Athletes (${selectedAthletes.length})`, `الرياضيون (${selectedAthletes.length})`)), ar ? pageWidth - 40 : 40, y, { align: ar ? 'right' : 'left' })
     y += 10
 
     const head = [[L('Name', 'الاسم'), L('Sport', 'الرياضة'), L('Classification', 'التصنيف'), L('Nationality', 'الجنسية')]]
@@ -268,7 +249,7 @@ async function exportEventPDF(ev, selectedAthletes, includeOfficials, officialsB
       head, body,
       theme: 'grid',
       styles: { font: FONT, fontSize: 9.5, textColor: [30,30,30], cellPadding: 5, halign: ar ? 'right' : 'left' },
-      headStyles: { font: FONT, fillColor: THEME, textColor: 255, fontStyle: 'bold' },
+      headStyles: { font: FONT, fillColor: THEME, textColor: 255, fontStyle: 'bold', halign: ar ? 'right' : 'left' },
       alternateRowStyles: { fillColor: [250, 245, 245] },
       margin: { left: 40, right: 40 },
     })
@@ -283,7 +264,7 @@ async function exportEventPDF(ev, selectedAthletes, includeOfficials, officialsB
       setPdfFont('bold')
       doc.setFontSize(12)
       doc.setTextColor(...THEME)
-      doc.text(safeStr(L('Officials', 'المسؤولون')), 40, y)
+      doc.text(safeStr(L('Officials', 'المسؤولون')), ar ? pageWidth - 40 : 40, y, { align: ar ? 'right' : 'left' })
       y += 10
       const officialRows = []
       for (const key of roleKeys) {
@@ -299,7 +280,7 @@ async function exportEventPDF(ev, selectedAthletes, includeOfficials, officialsB
         body: officialRows,
         theme: 'grid',
         styles: { font: FONT, fontSize: 9.5, textColor: [30,30,30], cellPadding: 5, halign: ar ? 'right' : 'left' },
-        headStyles: { font: FONT, fillColor: THEME, textColor: 255, fontStyle: 'bold' },
+        headStyles: { font: FONT, fillColor: THEME, textColor: 255, fontStyle: 'bold', halign: ar ? 'right' : 'left' },
         alternateRowStyles: { fillColor: [250, 245, 245] },
         margin: { left: 40, right: 40 },
       })
@@ -307,13 +288,26 @@ async function exportEventPDF(ev, selectedAthletes, includeOfficials, officialsB
   }
 
   const exportDate = new Date().toISOString().slice(0, 10)
-  doc.save(`${(ev.name || 'Event').replace(/[^\w\-]+/g, '_')}_${exportDate}.pdf`)
+  const filename = `${(ev.name || 'Event').replace(/[^\w\-]+/g, '_')}_${exportDate}.pdf`
+  return { doc, filename }
+}
+
+// Preview and Download both call the exact same builder above — never two
+// separate generators that could drift out of sync.
+async function previewEventPdf(...args) {
+  const { doc, filename } = await buildEventPdfDoc(...args)
+  const blob = doc.output('blob')
+  return { url: URL.createObjectURL(blob), blob, filename }
+}
+async function downloadEventPdf(...args) {
+  const { doc, filename } = await buildEventPdfDoc(...args)
+  doc.save(filename)
 }
 
 // Pre-export modal — pick which registered athletes and whether officials
 // go into the report. "Select all" toggles every currently-registered
 // athlete at once; individual checkboxes stay available either way.
-function EventExportModal({ ev, regAthletes, officials, roleTitles, employees, ar, tx, onClose, onExport }) {
+function EventExportModal({ ev, regAthletes, officials, roleTitles, employees, ar, tx, onClose, onPreview }) {
   const [selectedIds, setSelectedIds] = useState(() => new Set(regAthletes.map(a => a.id)))
   const [includeOfficials, setIncludeOfficials] = useState(true)
   const [exporting, setExporting] = useState(false)
@@ -333,8 +327,11 @@ function EventExportModal({ ev, regAthletes, officials, roleTitles, employees, a
     setExporting(true)
     try {
       const chosen = regAthletes.filter(a => selectedIds.has(a.id))
-      await exportEventPDF(ev, chosen, includeOfficials, officials, roleTitles, employees, ar ? 'ar' : 'en')
-      onExport?.()
+      // Opens the in-app preview instead of downloading immediately —
+      // Download/Print live on the preview screen itself, both reading
+      // from the exact same generated PDF as this preview.
+      const preview = await previewEventPdf(ev, chosen, includeOfficials, officials, roleTitles, employees, ar ? 'ar' : 'en')
+      onPreview(preview)
       onClose()
     } catch (err) {
       console.error('Event PDF export failed', err)
@@ -466,7 +463,7 @@ function OfficialsPicker({ roleKey, title, officials, employees, eventId, canEdi
                 {dropdownOpen && (
                   <div style={{ position: 'absolute', top: 'calc(100% + 4px)', insetInlineStart: 0, insetInlineEnd: 0, zIndex: 50, maxHeight: 220, overflowY: 'auto', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,.15)' }}>
                     {filtered.length === 0 ? (
-                      <div style={{ padding: '10px 12px', fontSize: 12, color: 'var(--text3)' }}>{tx('common.noResults', 'No matches')}</div>
+                      <div style={{ padding: '10px 12px', fontSize: 12, color: 'var(--text3)' }}>{tx('events.noMatches', 'No matches')}</div>
                     ) : filtered.map(e => (
                       <div key={e.id} onClick={() => pickEmployee(e)}
                         style={{ padding: '7px 12px', fontSize: 12.5, cursor: 'pointer', borderBottom: '1px solid var(--border)' }}
@@ -528,6 +525,12 @@ export default function Events({ events, athletes, results, registrations, onRef
   const [form, setForm]           = useState(null)
   const [confirm, setConfirm]     = useState(null)
   const [showExportModal, setShowExportModal] = useState(false)
+  const [eventPdfPreview, setEventPdfPreview] = useState(null) // { url, blob, filename, ev }
+
+  function closeEventPdfPreview() {
+    if (eventPdfPreview?.url) URL.revokeObjectURL(eventPdfPreview.url)
+    setEventPdfPreview(null)
+  }
   const [showCatModal, setShowCatModal] = useState(false)
   const [officials, setOfficials] = useState({ head_of_delegation: [], medical_staff: [], coach: [], administrative_staff: [], support_staff: [], technical_expert: [] })
   const [athleteSearch, setAthleteSearch] = useState('')
@@ -686,6 +689,48 @@ export default function Events({ events, athletes, results, registrations, onRef
   }
 
   // ── DETAIL VIEW ──
+  // Admin PDF preview page — a dedicated in-app view (not a browser print
+  // dialog, not an immediate download). Rendered ahead of the normal
+  // event-detail view; Back only clears this state, leaving `selected`
+  // untouched, so it returns to the exact same event.
+  if (eventPdfPreview) {
+    return (
+      <div className="pdf-preview-page">
+        <div className="pdf-preview-toolbar">
+          <button className="action-btn action-btn-edit pdf-preview-back" onClick={closeEventPdfPreview}>
+            <i className="ti ti-arrow-left"/> {ar?'رجوع':'Back'}
+          </button>
+          <div className="pdf-preview-title">{eventPdfPreview.filename}</div>
+          <div className="pdf-preview-actions">
+            <button className="action-btn action-btn-edit" onClick={()=>{
+              const iframe = document.createElement('iframe')
+              iframe.style.display = 'none'
+              iframe.src = eventPdfPreview.url
+              document.body.appendChild(iframe)
+              iframe.onload = () => {
+                iframe.contentWindow.focus()
+                iframe.contentWindow.print()
+              }
+            }}>
+              <i className="ti ti-printer"/> {ar?'طباعة':'Print'}
+            </button>
+            <button className="btn btn-blue" onClick={()=>{
+              const a = document.createElement('a')
+              a.href = eventPdfPreview.url
+              a.download = eventPdfPreview.filename
+              a.click()
+            }}>
+              <i className="ti ti-download"/> {ar?'تنزيل PDF':'Download PDF'}
+            </button>
+          </div>
+        </div>
+        <div className="pdf-preview-frame-wrap">
+          <iframe src={eventPdfPreview.url} title="Event PDF preview" className="pdf-preview-frame" />
+        </div>
+      </div>
+    )
+  }
+
   if (selected) {
     const ev = events.find(x => x.id === selected)
     if (!ev) { setSelected(null); return null }
@@ -772,6 +817,7 @@ export default function Events({ events, athletes, results, registrations, onRef
           <EventExportModal
             ev={ev} regAthletes={regAthletes} officials={officials} roleTitles={ROLE_TITLES} employees={employees}
             ar={ar} tx={tx} onClose={() => setShowExportModal(false)}
+            onPreview={preview => setEventPdfPreview({ ...preview, ev })}
           />
         )}
 
