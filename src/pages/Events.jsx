@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import MultiSelectFilter from '../components/MultiSelectFilter.jsx'
-import { Avatar, Badge, statusDot, statusClass, DashRow, sportLabel, buildSearchText, matchesSearch, BackButton, loadImageAsDataURL, safeAddImage, initials as personInitials } from '../lib/helpers'
+import { Avatar, Badge, statusDot, statusClass, DashRow, sportLabel, buildSearchText, matchesSearch, BackButton, loadImageAsDataURL, safeAddImage, initials as personInitials, isSpecialOlympicsSport } from '../lib/helpers'
 import FormModal from '../components/FormModal'
 import EventCategoryModal from '../components/EventCategoryModal'
 import { ConfirmModal, toast } from '../components/Toast'
@@ -103,14 +103,15 @@ function PersonRow({ name, nameAr, id, subtitle, subtitleAr, status, ar, canRemo
 const QPC_MAROON = [87, 25, 50]
 const SO_RED = [211, 47, 47]
 
-// Same membership convention already used elsewhere (SpecialOlympics.jsx,
-// Events.jsx's own athleteMatchesSports) — the legacy flat 'Special
-// Olympics' sport tag, or either Special Olympics sport_category value.
+// Uses the shared isSpecialOlympicsSport() helper (also used by
+// sportLabel()) so template/branding selection and label formatting can
+// never disagree — an event counts as Special Olympics if ANY of its
+// sports does (category-based, name-based "SO "-prefixed, or the literal
+// "Special Olympics" tag), not just an exact-match event-level category.
 function isSpecialOlympicsEvent(ev) {
   const evSports = ev.sports?.length ? ev.sports : (ev.sport ? [ev.sport] : [])
-  return evSports.includes('Special Olympics')
-    || ev.sport_category === 'Summer Special Olympics'
-    || ev.sport_category === 'Winter Special Olympics'
+  if (evSports.some(s => isSpecialOlympicsSport(s, ev.sport_category))) return true
+  return ev.sport_category === 'Summer Special Olympics' || ev.sport_category === 'Winter Special Olympics'
 }
 
 async function exportEventPDF(ev, selectedAthletes, includeOfficials, officialsByRole, roleTitles, employees, lang) {
