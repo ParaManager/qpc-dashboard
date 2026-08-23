@@ -3045,29 +3045,36 @@ ${myDocs.length > 0 ? `<div class="section">
   // The athlete's current full sport-assignment set — a pending edit from
   // the multi-sport popover takes priority; otherwise the real
   // athlete_sports junction rows; otherwise falls back to the single
-  // legacy sport/sport_category/coach_id columns as a one-item list, so
-  // an athlete with no junction rows yet still shows their existing sport
-  // pre-checked when the popover opens.
+  // legacy sport/sport_category/coach_id columns (resolved to a real
+  // sportsList entry, so it carries a genuine sportId too) as a one-item
+  // list, so an athlete with no junction rows yet still shows their
+  // existing sport pre-checked when the popover opens.
   function getAthleteSports(a) {
     if (multiSportEdits[a.id]) return multiSportEdits[a.id]
     const rows = athleteSportsByAthlete[a.id]
     if (rows?.length) return rows
-    return a.sport ? [{ sportId: null, sportName: a.sport, sportCategory: a.sport_category, coachId: a.coach_id || null }] : []
+    if (!a.sport) return []
+    const matched = sportsList.find(s => s.name === a.sport && (!a.sport_category || s.category === a.sport_category)) || sportsList.find(s => s.name === a.sport)
+    return matched ? [{ sportId: matched.id, sportName: matched.name, sportCategory: matched.category, coachId: a.coach_id || null }] : []
   }
-  function toggleAthleteSport(a, sportName, sportCategory) {
+  // Identity is the real sports.id from the catalog (sport param is the
+  // full { id, name, category } row from sportsList) — never a name
+  // string — so there's no name/category matching left to do (and
+  // possibly get wrong) at save time.
+  function toggleAthleteSport(a, sport) {
     setMultiSportEdits(prev => {
       const current = prev[a.id] || getAthleteSports(a)
-      const exists = current.some(r => r.sportName === sportName)
+      const exists = current.some(r => r.sportId === sport.id)
       const next = exists
-        ? current.filter(r => r.sportName !== sportName)
-        : [...current, { sportId: null, sportName, sportCategory, coachId: null }]
+        ? current.filter(r => r.sportId !== sport.id)
+        : [...current, { sportId: sport.id, sportName: sport.name, sportCategory: sport.category, coachId: null }]
       return { ...prev, [a.id]: next }
     })
   }
-  function setAthleteSportCoach(a, sportName, coachId) {
+  function setAthleteSportCoach(a, sportId, coachId) {
     setMultiSportEdits(prev => {
       const current = prev[a.id] || getAthleteSports(a)
-      return { ...prev, [a.id]: current.map(r => r.sportName === sportName ? { ...r, coachId } : r) }
+      return { ...prev, [a.id]: current.map(r => r.sportId === sportId ? { ...r, coachId } : r) }
     })
   }
 
@@ -3145,31 +3152,25 @@ ${myDocs.length > 0 ? `<div class="section">
 
       // Explicit multi-sport edits (from the "Manage sports" popover) are
       // the more complete, deliberate edit — replace the athlete's full
-      // athlete_sports set with exactly what was checked there. Every
-      // write is checked for {error} — previously these calls were fired
-      // without ever inspecting the result, so a failure (e.g. an RLS
-      // rejection for a non-admin account, or a sport name that couldn't
-      // be resolved against the catalog) was completely silent: the
-      // popover appeared to accept the change, but nothing was actually
-      // written, which is exactly what "it doesn't save" looks like.
+      // athlete_sports set with exactly what was checked there. Every row
+      // already carries a real sportId (the popover is built directly
+      // from sportsList, the live DB catalog, and toggles by that id —
+      // not by name/category matching, which could silently drop a sport
+      // whose display label didn't exactly match the catalog's stored
+      // name/category and previously caused a checked sport to just not
+      // get saved). Every write is checked for {error} too — previously
+      // fired without inspecting the result, so an RLS rejection was
+      // completely silent.
       let multiSportFailed = 0
       if (multiSportChanged.length > 0) {
         await Promise.all(multiSportChanged.map(async ([id, rows]) => {
           const athleteId = parseInt(id)
-          const resolvedRows = rows
-            .map(r => ({ ...r, resolved: sportsList.find(s => s.name === r.sportName && (!r.sportCategory || s.category === r.sportCategory)) || sportsList.find(s => s.name === r.sportName) }))
-            .filter(r => r.resolved)
-          if (resolvedRows.length < rows.length) {
-            // At least one checked sport couldn't be matched to the live
-            // sports catalog (name/category mismatch) — surfaced instead
-            // of silently dropping it from what gets saved.
-            console.error('Could not resolve some sports to the catalog for athlete', athleteId, rows.filter(r => !resolvedRows.includes(r)))
-          }
+          const validRows = rows.filter(r => r.sportId != null)
           const { error: delErr } = await supabase.from('athlete_sports').delete().eq('athlete_id', athleteId)
           if (delErr) { console.error('athlete_sports delete failed', delErr); multiSportFailed++; return }
-          if (resolvedRows.length > 0) {
+          if (validRows.length > 0) {
             const { error: insErr } = await supabase.from('athlete_sports').insert(
-              resolvedRows.map((r, i) => ({ athlete_id: athleteId, sport_id: r.resolved.id, coach_id: r.coachId || null, is_primary: i === 0 }))
+              validRows.map((r, i) => ({ athlete_id: athleteId, sport_id: r.sportId, coach_id: r.coachId || null, is_primary: i === 0 }))
             )
             if (insErr) { console.error('athlete_sports insert failed', insErr); multiSportFailed++ }
           }
@@ -3464,21 +3465,26 @@ ${myDocs.length > 0 ? `<div class="section">
               <div style={{ fontSize:11.5, fontWeight:700, color:'var(--text3)', textTransform:'uppercase', letterSpacing:'.04em', marginBottom:8 }}>
                 {lang==='ar' ? 'رياضات هذا الرياضي' : "This athlete's sports"}
               </div>
-              {SPORT_CATEGORIES.map(cat => (
+              {/* Grouped straight from the real sports catalog (sportsList,
+                  fetched from the DB) — not the hardcoded SPORTS_BY_CATEGORY
+                  constant, which can drift out of sync with what's actually
+                  in the database and silently fail to resolve at save
+                  time. Every checkbox here always maps to a real sports.id. */}
+              {Array.from(new Set(sportsList.map(s => s.category))).map(cat => (
                 <div key={cat} style={{ marginBottom:8 }}>
                   <div style={{ fontSize:10.5, fontWeight:600, color:'var(--text3)', marginBottom:3 }}>{lang==='ar' ? (SPORT_CATEGORY_NAMES_AR[cat]||cat) : cat}</div>
-                  {(SPORTS_BY_CATEGORY[cat]||[]).map(s => {
+                  {sportsList.filter(s => s.category === cat).map(s => {
                     const currentSports = getAthleteSports(a)
-                    const row = currentSports.find(r => r.sportName === s)
+                    const row = currentSports.find(r => r.sportId === s.id)
                     return (
-                      <div key={s} style={{ display:'flex', flexDirection:'column', gap:2, marginBottom:2 }}>
+                      <div key={s.id} style={{ display:'flex', flexDirection:'column', gap:2, marginBottom:2 }}>
                         <label style={{ display:'flex', alignItems:'center', gap:7, fontSize:12.5, padding:'3px 2px', cursor:'pointer' }}>
-                          <input type="checkbox" checked={!!row} onChange={()=>toggleAthleteSport(a, s, cat)} />
-                          {sportLabel(s, cat, lang==='ar')}
+                          <input type="checkbox" checked={!!row} onChange={()=>toggleAthleteSport(a, s)} />
+                          {sportLabel(s.name, cat, lang==='ar')}
                         </label>
                         {row && (
                           <select style={{ ...inlineSelect, marginInlineStart:20, fontSize:11, padding:'3px 6px' }}
-                            value={row.coachId || ''} onChange={e=>setAthleteSportCoach(a, s, e.target.value ? parseInt(e.target.value) : null)}>
+                            value={row.coachId || ''} onChange={e=>setAthleteSportCoach(a, s.id, e.target.value ? parseInt(e.target.value) : null)}>
                             <option value="">{lang==='ar' ? 'بدون مدرب' : 'No coach'}</option>
                             {coaches.map(c => <option key={c.id} value={c.id}>{lang==='ar' && c.name_ar ? c.name_ar : c.name}</option>)}
                           </select>
