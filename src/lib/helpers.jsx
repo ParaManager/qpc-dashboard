@@ -199,19 +199,41 @@ export function detectDocTypeFromFilename(filename, qid) {
 export const SUPPORTED_DOC_FILE_TYPES = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png']
 export const MAX_DOC_FILE_SIZE_BYTES = 20 * 1024 * 1024 // matches the individual-upload limit
 
+// Single source of truth for "is this a Special Olympics sport" — used
+// for template/branding selection (Events.jsx PDF export) AND for label
+// formatting (sportLabel below), so they can never disagree. Normalizes
+// case/spacing rather than requiring exact equality, since sports can be
+// tagged as Special Olympics either through their category or through
+// their own name (e.g. a sport literally named "SO Football" under a
+// category that hasn't been set to a Special Olympics category).
+export function isSpecialOlympicsSport(sport, sportCategory) {
+  const s = (sport || '').trim()
+  const cat = (sportCategory || '').trim()
+  if (cat === 'Summer Special Olympics' || cat === 'Winter Special Olympics') return true
+  if (s.toLowerCase() === 'special olympics') return true
+  if (/^so\s/i.test(s)) return true
+  return false
+}
+
 export function sportLabel(sport, category, ar) {
   if (!sport) return ''
   const base = ar ? (SPORT_NAMES_AR[sport] || sport) : sport
 
-  const isParalympicCategory = category === 'Summer Paralympic' || category === 'Winter Paralympic'
-  const isSpecialOlympicsCategory = category === 'Summer Special Olympics' || category === 'Winter Special Olympics'
-  const isUnknownCategory = !category || category === 'All' || category === 'All categories'
-
-  if (isSpecialOlympicsCategory) {
+  if (isSpecialOlympicsSport(sport, category)) {
+    // The stored/display name may already carry the "SO " prefix (e.g.
+    // "SO Football") — never double it into "SO SO Football", and never
+    // let it fall through to the Para-prefixing branch below just
+    // because its category field wasn't (yet) set to a Special Olympics
+    // category — that's exactly what produced "Para SO Football".
+    if (/^so\s/i.test(sport) || sport === 'Special Olympics') return base
     return ar ? `${base} (الأولمبياد الخاص)` : `SO ${base}`
   }
+
+  const isParalympicCategory = category === 'Summer Paralympic' || category === 'Winter Paralympic'
+  const isUnknownCategory = !category || category === 'All' || category === 'All categories'
+
   if (isParalympicCategory || isUnknownCategory) {
-    if (PARALYMPIC_NO_PREFIX.includes(sport) || sport === 'Special Olympics') return base
+    if (PARALYMPIC_NO_PREFIX.includes(sport)) return base
     return ar ? `${base} (بارالمبي)` : `Para ${base}`
   }
   return base
