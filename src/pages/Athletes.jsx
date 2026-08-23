@@ -3290,7 +3290,7 @@ ${myDocs.length > 0 ? `<div class="section">
   }
   const isVisible = key => visibleCols.includes(key)
 
-  const changedCount = Object.keys(edits).length
+  const changedCount = Object.keys(edits).length + Object.keys(multiSportEdits).length
   const inlineInput  = { padding:'5px 8px', borderRadius:7, border:'1px solid var(--border)', fontSize:12, background:'var(--surface)', color:'var(--text)', outline:'none', width:'100%', fontFamily:'DM Sans, sans-serif' }
   const inlineSelect = { ...inlineInput, cursor:'pointer' }
   // Fixed width for the sticky Athlete column (header + every cell) so its
@@ -3654,7 +3654,7 @@ ${myDocs.length > 0 ? `<div class="section">
           {editMode && (
             <>
               <button className="btn-cancel" onClick={cancelEdit} style={{ padding:'8px 14px' }}>Cancel</button>
-              <button className="btn btn-blue" onClick={saveAllEdits} disabled={savingAll || Object.keys(edits).length === 0}>
+              <button className="btn btn-blue" onClick={saveAllEdits} disabled={savingAll || (Object.keys(edits).length === 0 && Object.keys(multiSportEdits).length === 0)}>
                 {savingAll
                   ? <><div style={{ width:14, height:14, border:'2px solid rgba(255,255,255,.4)', borderTopColor:'#fff', borderRadius:'50%', animation:'spin .7s linear infinite' }} /> Saving…</>
                   : <><i className="ti ti-device-floppy" /> Save {changedCount > 0 ? `${changedCount} change${changedCount>1?'s':''}` : 'all'}</>
