@@ -1484,6 +1484,20 @@ export default function Athletes({ athletes, coaches, employees, results, docume
   const [edits, setEdits]           = useState({})
   const [multiSportEdits, setMultiSportEdits] = useState({}) // { [athleteId]: [{sportId, sportName, sportCategory, coachId}] } — pending full sport-assignment set, only for rows touched via the multi-sport popover
   const [multiSportPopoverId, setMultiSportPopoverId] = useState(null) // athlete id whose "manage sports" popover is open (one at a time)
+  const multiSportPopoverRef = useRef(null)
+
+  // Click anywhere outside the open "Manage sports" popover closes it —
+  // no need to scroll down to find a Done button when the list is long.
+  useEffect(() => {
+    if (multiSportPopoverId === null) return
+    function onOutside(ev) {
+      if (multiSportPopoverRef.current && !multiSportPopoverRef.current.contains(ev.target)) {
+        setMultiSportPopoverId(null)
+      }
+    }
+    document.addEventListener('mousedown', onOutside)
+    return () => document.removeEventListener('mousedown', onOutside)
+  }, [multiSportPopoverId])
   const [savingAll, setSavingAll]   = useState(false)
   const [generatingReport, setGeneratingReport] = useState(false)
   const [pdfExporting, setPdfExporting] = useState(false)
@@ -3460,10 +3474,14 @@ ${myDocs.length > 0 ? `<div class="section">
             )
           })()}
           {multiSportPopoverId === a.id && (
-            <div onClick={e=>e.stopPropagation()}
+            <div ref={multiSportPopoverRef} onClick={e=>e.stopPropagation()}
               style={{ position:'absolute', top:'calc(100% + 6px)', left:0, zIndex:300, width:260, maxHeight:320, overflowY:'auto', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:10, boxShadow:'0 12px 32px rgba(0,0,0,.18)', padding:10 }}>
-              <div style={{ fontSize:11.5, fontWeight:700, color:'var(--text3)', textTransform:'uppercase', letterSpacing:'.04em', marginBottom:8 }}>
-                {lang==='ar' ? 'رياضات هذا الرياضي' : "This athlete's sports"}
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8 }}>
+                <span style={{ fontSize:11.5, fontWeight:700, color:'var(--text3)', textTransform:'uppercase', letterSpacing:'.04em' }}>
+                  {lang==='ar' ? 'رياضات هذا الرياضي' : "This athlete's sports"}
+                </span>
+                <button type="button" onClick={()=>setMultiSportPopoverId(null)}
+                  style={{ background:'none', border:'none', color:'var(--text3)', cursor:'pointer', fontSize:15, lineHeight:1, padding:2 }}>✕</button>
               </div>
               {/* Grouped straight from the real sports catalog (sportsList,
                   fetched from the DB) — not the hardcoded SPORTS_BY_CATEGORY
