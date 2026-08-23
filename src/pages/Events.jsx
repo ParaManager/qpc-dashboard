@@ -155,6 +155,40 @@ async function exportEventPDF(ev, selectedAthletes, includeOfficials, officialsB
   const dateRange = ev.start_date ? (ev.end_date && ev.end_date !== ev.start_date ? `${ev.start_date} - ${ev.end_date}` : ev.start_date) : ''
 
   let y = 40
+  if (isSO) {
+    // Compact horizontal lockup — logo on the left, "Special Olympics
+    // Qatar" + muted "Event Report" stacked and vertically centered
+    // against it as one branding unit, instead of a big centered logo
+    // with the title/subtitle floating far below it (the large empty
+    // gap this replaces). QPC's own header layout below is untouched.
+    const LOGO_MAX_W = 54, LOGO_MAX_H = 54
+    let logoW = 0, logoH = 0
+    if (logoDataUrl) {
+      try {
+        const props = doc.getImageProperties(logoDataUrl)
+        const ratio = Math.min(LOGO_MAX_W / props.width, LOGO_MAX_H / props.height)
+        logoW = props.width * ratio
+        logoH = props.height * ratio
+      } catch { /* falls back to not drawing the logo */ }
+    }
+    const lockupH = Math.max(logoH, 34)
+    const logoY = y + (lockupH - logoH) / 2
+    safeAddImage(doc, logoDataUrl, 40, logoY, logoW, logoH)
+    const textX = 40 + logoW + 14
+    setPdfFont('bold')
+    doc.setFontSize(15)
+    doc.setTextColor(20, 20, 20)
+    doc.text(safeStr(orgName), textX, y + lockupH / 2 - 4)
+    setPdfFont('normal')
+    doc.setFontSize(9)
+    doc.setTextColor(110, 110, 110)
+    doc.text(safeStr(L('Event Report', 'تقرير الفعالية')), textX, y + lockupH / 2 + 11)
+    y += lockupH + 16
+    doc.setDrawColor(...THEME)
+    doc.setLineWidth(1.2)
+    doc.line(40, y, pageWidth - 40, y)
+    y += 26
+  } else {
   // Preserve the logo's real aspect ratio instead of forcing it into a
   // fixed square, which was stretching/distorting it.
   const LOGO_MAX_W = 90, LOGO_MAX_H = 78
@@ -181,6 +215,7 @@ async function exportEventPDF(ev, selectedAthletes, includeOfficials, officialsB
   doc.setLineWidth(1.2)
   doc.line(40, y, pageWidth - 40, y)
   y += 26
+  }
 
   // Event title (EN + AR when available)
   setPdfFont('bold')
