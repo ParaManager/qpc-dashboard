@@ -156,7 +156,7 @@ async function exportEventPDF(ev, selectedAthletes, includeOfficials, officialsB
   let y = 40
   // Preserve the logo's real aspect ratio instead of forcing it into a
   // fixed square, which was stretching/distorting it.
-  const LOGO_MAX_W = 52, LOGO_MAX_H = 46
+  const LOGO_MAX_W = 90, LOGO_MAX_H = 78
   let logoW = 0, logoH = 0
   if (logoDataUrl) {
     try {
@@ -170,12 +170,12 @@ async function exportEventPDF(ev, selectedAthletes, includeOfficials, officialsB
   setPdfFont('bold')
   doc.setFontSize(13)
   doc.setTextColor(20, 20, 20)
-  doc.text(safeStr(orgName), pageWidth / 2, y + 16, { align: 'center' })
+  doc.text(safeStr(orgName), pageWidth / 2, y + 30, { align: 'center' })
   setPdfFont('normal')
   doc.setFontSize(9)
   doc.setTextColor(110, 110, 110)
-  doc.text(safeStr(L('Event Report', 'تقرير الفعالية')), pageWidth / 2, y + 30, { align: 'center' })
-  y += 58
+  doc.text(safeStr(L('Event Report', 'تقرير الفعالية')), pageWidth / 2, y + 44, { align: 'center' })
+  y += 92
   doc.setDrawColor(...THEME)
   doc.setLineWidth(1.2)
   doc.line(40, y, pageWidth - 40, y)
