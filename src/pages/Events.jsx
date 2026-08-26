@@ -124,13 +124,17 @@ const SO_RED = [211, 47, 47]
 
 // Uses the shared isSpecialOlympicsSport() helper (also used by
 // sportLabel()) so template/branding selection and label formatting can
-// never disagree — an event counts as Special Olympics if ANY of its
-// sports does (category-based, name-based "SO "-prefixed, or the literal
-// "Special Olympics" tag), not just an exact-match event-level category.
+// never disagree. An event only gets the Special Olympics template when
+// EVERY one of its sports is Special Olympics — a mixed/hybrid event
+// (some SO, some Paralympic) intentionally falls through to the QPC/Para
+// template, same as a purely Paralympic event, rather than being
+// classified as SO just because one sport happens to be.
 function isSpecialOlympicsEvent(ev) {
   const evSports = ev.sports?.length ? ev.sports : (ev.sport ? [ev.sport] : [])
-  if (evSports.some(s => isSpecialOlympicsSport(s, ev.sport_category))) return true
-  return ev.sport_category === 'Summer Special Olympics' || ev.sport_category === 'Winter Special Olympics'
+  if (evSports.length === 0) {
+    return ev.sport_category === 'Summer Special Olympics' || ev.sport_category === 'Winter Special Olympics'
+  }
+  return evSports.every(s => isSpecialOlympicsSport(s, ev.sport_category))
 }
 
 async function buildEventPdfDoc(ev, selectedAthletes, includeOfficials, officialsByRole, roleTitles, employees, lang) {
@@ -248,49 +252,14 @@ async function buildEventPdfDoc(ev, selectedAthletes, includeOfficials, official
   }
   y += 10
 
-  // Athletes table — one shared column-definition object drives both the
-  // header row and every body row, for both languages, so they can never
-  // fall out of alignment. Only the ORDER of keys differs per language
-  // (English keeps its existing left-to-right order unchanged; Arabic
-  // uses the required right-to-left reading order: Name, Sport,
-  // Classification, Nationality — meaning Name is the LAST array entry,
-  // since autoTable always draws columns left-to-right internally and
-  // the last column lands physically on the right).
-  if (selectedAthletes.length > 0) {
-    setPdfFont('bold')
-    doc.setFontSize(12)
-    doc.setTextColor(...THEME)
-    doc.text(safeStr(L(`Athletes (${selectedAthletes.length})`, `الرياضيون (${selectedAthletes.length})`)), ar ? pageWidth - 40 : 40, y, { align: ar ? 'right' : 'left' })
-    y += 10
-
-    const athleteColDefs = {
-      name:           { headEn: 'Name',           headAr: 'الاسم',   get: a => ar && a.name_ar ? a.name_ar : a.name },
-      sport:          { headEn: 'Sport',          headAr: 'الرياضة', get: a => sportLabel(a.sport, a.sport_category, ar) },
-      classification: { headEn: 'Classification', headAr: 'التصنيف', get: a => a.classification },
-      // Nationality values are stored as English country names — always
-      // translate through the same country-name mapping used everywhere
-      // else in the app, never left as raw English in the Arabic PDF.
-      nationality:    { headEn: 'Nationality',     headAr: 'الجنسية', get: a => translateCountry(a.nationality, ar ? 'ar' : 'en') },
-    }
-    const athleteOrder = ar ? ['nationality', 'classification', 'sport', 'name'] : ['name', 'sport', 'classification', 'nationality']
-
-    const head = [athleteOrder.map(k => L(athleteColDefs[k].headEn, athleteColDefs[k].headAr))]
-    const body = selectedAthletes.map(a => athleteOrder.map(k => safeStr(athleteColDefs[k].get(a))))
-    autoTable(doc, {
-      startY: y + 6,
-      head, body,
-      theme: 'grid',
-      styles: { font: FONT, fontSize: 9.5, textColor: [30,30,30], cellPadding: 5, halign: ar ? 'right' : 'left' },
-      headStyles: { font: FONT, fillColor: THEME, textColor: 255, fontStyle: 'bold', halign: ar ? 'right' : 'left' },
-      alternateRowStyles: { fillColor: [250, 245, 245] },
-      margin: { left: 40, right: 40 },
-    })
-    y = doc.lastAutoTable.finalY + 26
-  }
-
-  // Officials — grouped by role, only if the person chose to include them
+  // Officials — grouped by role, only if the person chose to include
+  // them. Comes BEFORE Athletes (both in English and Arabic), and always
+  // in this fixed sequence regardless of the order employees happen to
+  // have been assigned in: Team Leader, Technical Expert, Administrative
+  // Staff, Medical Staff, Coaches, Support Staff.
+  const OFFICIAL_ROLE_ORDER = ['head_of_delegation', 'technical_expert', 'administrative_staff', 'medical_staff', 'coach', 'support_staff']
   if (includeOfficials) {
-    const roleKeys = Object.keys(roleTitles).filter(k => (officialsByRole[k] || []).length > 0)
+    const roleKeys = OFFICIAL_ROLE_ORDER.filter(k => (officialsByRole[k] || []).length > 0)
     if (roleKeys.length > 0) {
       if (y > pageHeight - 100) { doc.addPage(); y = 40 }
       setPdfFont('bold')
@@ -331,7 +300,49 @@ async function buildEventPdfDoc(ev, selectedAthletes, includeOfficials, official
         alternateRowStyles: { fillColor: [250, 245, 245] },
         margin: { left: 40, right: 40 },
       })
+      y = doc.lastAutoTable.finalY + 26
     }
+  }
+
+  // Athletes table — one shared column-definition object drives both the
+  // header row and every body row, for both languages, so they can never
+  // fall out of alignment. Only the ORDER of keys differs per language
+  // (English keeps its existing left-to-right order unchanged; Arabic
+  // uses the required right-to-left reading order: Name, Sport,
+  // Classification, Nationality — meaning Name is the LAST array entry,
+  // since autoTable always draws columns left-to-right internally and
+  // the last column lands physically on the right).
+  if (selectedAthletes.length > 0) {
+    if (y > pageHeight - 100) { doc.addPage(); y = 40 }
+    setPdfFont('bold')
+    doc.setFontSize(12)
+    doc.setTextColor(...THEME)
+    doc.text(safeStr(L(`Athletes (${selectedAthletes.length})`, `الرياضيون (${selectedAthletes.length})`)), ar ? pageWidth - 40 : 40, y, { align: ar ? 'right' : 'left' })
+    y += 10
+
+    const athleteColDefs = {
+      name:           { headEn: 'Name',           headAr: 'الاسم',   get: a => ar && a.name_ar ? a.name_ar : a.name },
+      sport:          { headEn: 'Sport',          headAr: 'الرياضة', get: a => sportLabel(a.sport, a.sport_category, ar) },
+      classification: { headEn: 'Classification', headAr: 'التصنيف', get: a => a.classification },
+      // Nationality values are stored as English country names — always
+      // translate through the same country-name mapping used everywhere
+      // else in the app, never left as raw English in the Arabic PDF.
+      nationality:    { headEn: 'Nationality',     headAr: 'الجنسية', get: a => translateCountry(a.nationality, ar ? 'ar' : 'en') },
+    }
+    const athleteOrder = ar ? ['nationality', 'classification', 'sport', 'name'] : ['name', 'sport', 'classification', 'nationality']
+
+    const head = [athleteOrder.map(k => L(athleteColDefs[k].headEn, athleteColDefs[k].headAr))]
+    const body = selectedAthletes.map(a => athleteOrder.map(k => safeStr(athleteColDefs[k].get(a))))
+    autoTable(doc, {
+      startY: y + 6,
+      head, body,
+      theme: 'grid',
+      styles: { font: FONT, fontSize: 9.5, textColor: [30,30,30], cellPadding: 5, halign: ar ? 'right' : 'left' },
+      headStyles: { font: FONT, fillColor: THEME, textColor: 255, fontStyle: 'bold', halign: ar ? 'right' : 'left' },
+      alternateRowStyles: { fillColor: [250, 245, 245] },
+      margin: { left: 40, right: 40 },
+    })
+    y = doc.lastAutoTable.finalY + 26
   }
 
   const exportDate = new Date().toISOString().slice(0, 10)
