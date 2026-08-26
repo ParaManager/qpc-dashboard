@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import MultiSelectFilter from '../components/MultiSelectFilter.jsx'
-import { Avatar, Badge, statusDot, statusClass, DashRow, sportLabel, buildSearchText, matchesSearch, BackButton, loadImageAsDataURL, safeAddImage, initials as personInitials, isSpecialOlympicsSport } from '../lib/helpers'
+import { Avatar, Badge, statusDot, statusClass, DashRow, sportLabel, buildSearchText, matchesSearch, BackButton, loadImageAsDataURL, safeAddImage, initials as personInitials, isSpecialOlympicsSport, effectiveStatus, employeeStatusSource } from '../lib/helpers'
 import FormModal from '../components/FormModal'
 import EventCategoryModal from '../components/EventCategoryModal'
 import { ConfirmModal, toast } from '../components/Toast'
@@ -450,7 +450,7 @@ function EventExportModal({ ev, regAthletes, officials, roleTitles, employees, a
   )
 }
 
-function OfficialsPicker({ roleKey, title, officials, employees, eventId, canEditMode, canAdd, ar, tx, onAdd, onRemove }) {
+function OfficialsPicker({ roleKey, title, officials, employees, coaches, eventId, canEditMode, canAdd, ar, tx, onAdd, onRemove }) {
   const [adding, setAdding] = useState(false)
   const [search, setSearch] = useState('')
   const [dropdownOpen, setDropdownOpen] = useState(false)
@@ -497,7 +497,7 @@ function OfficialsPicker({ roleKey, title, officials, employees, eventId, canEdi
             name={emp.name} nameAr={emp.name_ar}
             id={emp.id}
             subtitle={emp.designation || null} subtitleAr={emp.designation_ar || null}
-            status={emp.status || null}
+            status={emp.status ? effectiveStatus(employeeStatusSource(emp, coaches)) : null}
             ar={ar}
             canRemove={canEditMode}
             onRemove={() => onRemove(o.id)}
@@ -549,7 +549,7 @@ function OfficialsPicker({ roleKey, title, officials, employees, eventId, canEdi
 
 
 
-export default function Events({ events, athletes, results, registrations, onRefresh, onNav, initEventId, initStatusFilter, onConsumeNavState, profile, eventCategories = [], employees = [], sportsList = [], guestMode = false }) {
+export default function Events({ events, athletes, coaches = [], results, registrations, onRefresh, onNav, initEventId, initStatusFilter, onConsumeNavState, profile, eventCategories = [], employees = [], sportsList = [], guestMode = false }) {
   const { lang, tx } = useLang()
   const ar = lang === 'ar'
 
@@ -844,7 +844,7 @@ export default function Events({ events, athletes, results, registrations, onRef
     }
 
     const pickerProps = {
-      officials, employees, eventId: ev.id,
+      officials, employees, coaches, eventId: ev.id,
       canEditMode: canEditProfile,
       canAdd: canManageOfficials,
       ar, tx,
@@ -953,7 +953,7 @@ export default function Events({ events, athletes, results, registrations, onRef
                         </div>
                       )}
                     </div>
-                    <Badge label={a.status} />
+                    <Badge label={effectiveStatus(a)} />
                     {canReg && (
                       <button onClick={e => { e.stopPropagation(); unregisterAthlete(ev.id, a.id) }}
                         style={{ background: 'none', border: '1px solid #fca5a5', color: '#dc2626', borderRadius: 6, padding: '2px 8px', fontSize: 11, cursor: 'pointer', flexShrink: 0 }}>✕</button>
