@@ -96,6 +96,20 @@ export default function App() {
   const { lang, setLang, tx } = useLang()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
+
+  // A new service worker took control (see index.html) — a fresh
+  // deployment is active. Only shows a prompt to refresh; never
+  // auto-reloads or clears caches on its own, so nobody gets yanked out
+  // of what they're doing.
+  useEffect(() => {
+    function onSwUpdated() {
+      toast(lang === 'ar'
+        ? 'يتوفر إصدار جديد — يرجى تحديث الصفحة'
+        : 'A new version is available — please refresh the page', 'info')
+    }
+    window.addEventListener('qpc-sw-updated', onSwUpdated)
+    return () => window.removeEventListener('qpc-sw-updated', onSwUpdated)
+  }, [lang])
   const [collapsedSections, setCollapsedSections] = useState({})  // { [sectionLabel]: true } when collapsed; sections default to expanded
   const [requestSent, setRequestSent] = useState(false)
   // A guest resubmission link (from a Returned-status email) must work
@@ -1025,7 +1039,7 @@ export default function App() {
           {page==='athletes'  && <Athletes  key={`athletes-${refreshToken}`} athletes={myAthletes} coaches={coaches} employees={employees} results={results} documents={documents} events={events} registrations={registrations} onRefresh={fetchAll} onNav={goTo} initAthleteId={navState.athleteId} initStatusFilter={navState.statusFilter} onConsumeNavState={consumeNavStateKey} navState={navState} profile={profile} sportsList={sportsList} pageTitle={isCoach ? tx('athletes.myAthletes','My Athletes') : undefined} />}
           {page==='athletes-all' && (isCoach || isEmployee || isAthlete) && <Athletes key={`athletes-all-${refreshToken}`} athletes={athletes} coaches={coaches} employees={employees} results={results} documents={documents} events={events} registrations={registrations} onRefresh={fetchAll} onNav={goTo} initAthleteId={navState.athleteId} initStatusFilter={navState.statusFilter} onConsumeNavState={consumeNavStateKey} navState={navState} profile={profile} sportsList={sportsList} isAllAthletesView />}
           {page==='coaches'   && (isAdmin || isCoach || isEmployee || isAthlete) && <Coaches   key={`coaches-${refreshToken}`} coaches={coaches} athletes={athletes} employees={employees} personDocs={personDocs} onRefresh={fetchAll} onNav={goTo} initCoachId={navState.coachId} navState={navState} profile={profile} />}
-          {page==='events' && <Events key={`events-${refreshToken}`} events={events} athletes={athletes} employees={employees} results={results} registrations={registrations} onRefresh={fetchAll} onNav={goTo} initEventId={navState.eventId} initStatusFilter={navState.statusFilter} onConsumeNavState={consumeNavStateKey} profile={profile} eventCategories={eventCategories} sportsList={sportsList} />} {page==='schedule'  && <Schedule  key={`schedule-${refreshToken}`} profile={profile} coachId={isAdmin ? null : myCoachId} myAthletes={myAthletes} athletes={athletes} coaches={coaches} onNav={goTo} readOnly={isAthlete} viewOnly={isAdmin} athleteId={isAthlete ? myAthleteId : null} initSessionId={navState?.sessionId} initCoachFilter={navState?.coachFilter} />}
+          {page==='events' && <Events key={`events-${refreshToken}`} events={events} athletes={athletes} employees={employees} coaches={coaches} results={results} registrations={registrations} onRefresh={fetchAll} onNav={goTo} initEventId={navState.eventId} initStatusFilter={navState.statusFilter} onConsumeNavState={consumeNavStateKey} profile={profile} eventCategories={eventCategories} sportsList={sportsList} />} {page==='schedule'  && <Schedule  key={`schedule-${refreshToken}`} profile={profile} coachId={isAdmin ? null : myCoachId} myAthletes={myAthletes} athletes={athletes} coaches={coaches} onNav={goTo} readOnly={isAthlete} viewOnly={isAdmin} athleteId={isAthlete ? myAthleteId : null} initSessionId={navState?.sessionId} initCoachFilter={navState?.coachFilter} />}
           {page==='calendar' && isAdmin && <Calendar key={`calendar-${refreshToken}`} profile={profile} events={events} employees={employees} onNav={goTo} />}
           {page==='calendar' && (isCoach || isEmployee || isAthlete) && <Calendar key={`calendar-${refreshToken}`} profile={profile} events={events} employees={employees} onNav={goTo} readOnly />}
           {page==='attendance' && <Attendance key={`attendance-${refreshToken}`} profile={profile} coachId={isAdmin ? null : myCoachId} myAthletes={myAthletes} onNav={goTo} viewOnly={isAdmin} initSessionId={navState.sessionId} />}
