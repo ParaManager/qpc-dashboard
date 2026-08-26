@@ -621,24 +621,31 @@ export function effectiveStatus(person) {
 
 export const AWAY_STATUSES = ['On Leave', 'In Competition', 'In Training Camp']
 
+// Coach-type employees (Coach, Assistant Coach, Technical Expert,
+// Physiotherapist, Doctor) show status from the linked `coaches` table
+// record, not the `employees` row — same convention already established
+// for the Employees page. Exported as its own function (rather than kept
+// private inside computeAwayPeople) so any other page needing an
+// employee's live effective status — e.g. Event Details — resolves it
+// the exact same way instead of re-implementing the coach lookup.
+export function employeeStatusSource(emp, coaches) {
+  if (!COACH_DESIGNATIONS.includes(emp.designation)) return emp
+  const coachRec = coaches?.find(c => c.status !== 'Inactive' && (
+    (emp.qss_number && c.qss_number && c.qss_number === emp.qss_number) ||
+    (emp.name && c.name && c.name.trim().toLowerCase() === emp.name.trim().toLowerCase())
+  ))
+  return coachRec || emp
+}
+
 export function computeAwayPeople(athletes, coaches, employees, lang) {
   const ar = lang === 'ar'
 
   const awayAthletes = (athletes || []).filter(a => AWAY_STATUSES.includes(effectiveStatus(a)))
 
-  function employeeStatusSource(emp) {
-    if (!COACH_DESIGNATIONS.includes(emp.designation)) return emp
-    const coachRec = coaches?.find(c => c.status !== 'Inactive' && (
-      (emp.qss_number && c.qss_number && c.qss_number === emp.qss_number) ||
-      (emp.name && c.name && c.name.trim().toLowerCase() === emp.name.trim().toLowerCase())
-    ))
-    return coachRec || emp
-  }
-
   const matchedCoachIds = new Set()
   const awayEmployeeResults = (employees || [])
     .map(e => {
-      const src = employeeStatusSource(e)
+      const src = employeeStatusSource(e, coaches)
       if (src !== e) matchedCoachIds.add(src.id)
       return { emp: e, src, isCoachType: src !== e }
     })
