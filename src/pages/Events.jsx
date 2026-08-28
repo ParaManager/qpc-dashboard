@@ -137,7 +137,7 @@ function isSpecialOlympicsEvent(ev) {
   return evSports.every(s => isSpecialOlympicsSport(s, ev.sport_category))
 }
 
-async function buildEventPdfDoc(ev, selectedAthletes, includeOfficials, officialsByRole, roleTitles, employees, lang) {
+async function buildEventPdfDoc(ev, selectedAthletes, includeOfficials, officialsByRole, roleTitles, employees, lang, athleteCols, officialCols) {
   const ar = lang === 'ar'
   const L = (en, a) => ar ? a : en
   const isSO = isSpecialOlympicsEvent(ev)
@@ -288,7 +288,12 @@ async function buildEventPdfDoc(ev, selectedAthletes, includeOfficials, official
         name:        { headEn: 'Name',        headAr: 'الاسم',    get: row => row.name },
         designation: { headEn: 'Designation', headAr: 'الوظيفة', get: row => row.designation },
       }
-      const officialOrder = ar ? ['designation', 'role', 'name'] : ['role', 'name', 'designation']
+      const officialOrderFull = ar ? ['designation', 'role', 'name'] : ['role', 'name', 'designation']
+      // Name always stays — everything else only appears if the person
+      // picked it in the export modal (defaults to "all" when no
+      // selection was passed in, so nothing else calling this function
+      // needs to change).
+      const officialOrder = officialOrderFull.filter(k => k === 'name' || !officialCols || officialCols.includes(k))
       const officialRows = officialData.map(row => officialOrder.map(k => safeStr(officialColDefs[k].get(row))))
       autoTable(doc, {
         startY: y + 6,
@@ -329,7 +334,8 @@ async function buildEventPdfDoc(ev, selectedAthletes, includeOfficials, official
       // else in the app, never left as raw English in the Arabic PDF.
       nationality:    { headEn: 'Nationality',     headAr: 'الجنسية', get: a => translateCountry(a.nationality, ar ? 'ar' : 'en') },
     }
-    const athleteOrder = ar ? ['nationality', 'classification', 'sport', 'name'] : ['name', 'sport', 'classification', 'nationality']
+    const athleteOrderFull = ar ? ['nationality', 'classification', 'sport', 'name'] : ['name', 'sport', 'classification', 'nationality']
+    const athleteOrder = athleteOrderFull.filter(k => k === 'name' || !athleteCols || athleteCols.includes(k))
 
     const head = [athleteOrder.map(k => L(athleteColDefs[k].headEn, athleteColDefs[k].headAr))]
     const body = selectedAthletes.map(a => athleteOrder.map(k => safeStr(athleteColDefs[k].get(a))))
@@ -365,9 +371,25 @@ async function downloadEventPdf(...args) {
 // Pre-export modal — pick which registered athletes and whether officials
 // go into the report. "Select all" toggles every currently-registered
 // athlete at once; individual checkboxes stay available either way.
+// Optional columns for each table — Name is always included (not shown
+// here as a toggle at all) and always appears in the correct position per
+// the existing per-language ordering logic; these three/two are the only
+// ones the person can choose to leave out.
+const ATHLETE_OPTIONAL_COLS = [
+  { key: 'sport', en: 'Sport', ar: 'الرياضة' },
+  { key: 'classification', en: 'Classification', ar: 'التصنيف' },
+  { key: 'nationality', en: 'Nationality', ar: 'الجنسية' },
+]
+const OFFICIAL_OPTIONAL_COLS = [
+  { key: 'role', en: 'Role', ar: 'الدور' },
+  { key: 'designation', en: 'Designation', ar: 'الوظيفة' },
+]
+
 function EventExportModal({ ev, regAthletes, officials, roleTitles, employees, ar, tx, onClose, onPreview }) {
   const [selectedIds, setSelectedIds] = useState(() => new Set(regAthletes.map(a => a.id)))
   const [includeOfficials, setIncludeOfficials] = useState(true)
+  const [athleteCols, setAthleteCols] = useState(() => new Set(ATHLETE_OPTIONAL_COLS.map(c => c.key)))
+  const [officialCols, setOfficialCols] = useState(() => new Set(OFFICIAL_OPTIONAL_COLS.map(c => c.key)))
   const [exporting, setExporting] = useState(false)
   const allSelected = regAthletes.length > 0 && selectedIds.size === regAthletes.length
 
@@ -381,6 +403,13 @@ function EventExportModal({ ev, regAthletes, officials, roleTitles, employees, a
       return next
     })
   }
+  function toggleCol(setFn, key) {
+    setFn(prev => {
+      const next = new Set(prev)
+      next.has(key) ? next.delete(key) : next.add(key)
+      return next
+    })
+  }
   async function handleExport() {
     setExporting(true)
     try {
@@ -388,7 +417,7 @@ function EventExportModal({ ev, regAthletes, officials, roleTitles, employees, a
       // Opens the in-app preview instead of downloading immediately —
       // Download/Print live on the preview screen itself, both reading
       // from the exact same generated PDF as this preview.
-      const preview = await previewEventPdf(ev, chosen, includeOfficials, officials, roleTitles, employees, ar ? 'ar' : 'en')
+      const preview = await previewEventPdf(ev, chosen, includeOfficials, officials, roleTitles, employees, ar ? 'ar' : 'en', Array.from(athleteCols), Array.from(officialCols))
       onPreview(preview)
       onClose()
     } catch (err) {
@@ -421,7 +450,7 @@ function EventExportModal({ ev, regAthletes, officials, roleTitles, employees, a
           {regAthletes.length === 0 ? (
             <div className="empty" style={{ padding: '12px 0', fontSize: 12.5 }}>{ar ? 'لا يوجد رياضيون مسجلون' : 'No athletes registered'}</div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 18 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 14 }}>
               {regAthletes.map(a => (
                 <label key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, padding: '5px 4px', cursor: 'pointer', userSelect: 'none' }}>
                   <input type="checkbox" checked={selectedIds.has(a.id)} onChange={() => toggleOne(a.id)} />
@@ -432,11 +461,43 @@ function EventExportModal({ ev, regAthletes, officials, roleTitles, employees, a
               ))}
             </div>
           )}
+          {regAthletes.length > 0 && (
+            <div style={{ marginBottom: 18 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 6 }}>
+                {ar ? 'أعمدة جدول الرياضيين' : 'Athlete table columns'}
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 16px' }}>
+                <span style={{ fontSize: 12.5, color: 'var(--text3)' }}>{ar ? 'الاسم (دائماً)' : 'Name (always)'}</span>
+                {ATHLETE_OPTIONAL_COLS.map(c => (
+                  <label key={c.key} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12.5, cursor: 'pointer', userSelect: 'none' }}>
+                    <input type="checkbox" checked={athleteCols.has(c.key)} onChange={() => toggleCol(setAthleteCols, c.key)} />
+                    {ar ? c.ar : c.en}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
           <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer', userSelect: 'none' }}>
               <input type="checkbox" checked={includeOfficials} onChange={e => setIncludeOfficials(e.target.checked)} />
               {ar ? 'تضمين المسؤولين (المدربون، الطاقم الطبي، إلخ)' : 'Include officials (coaches, medical staff, etc.)'}
             </label>
+            {includeOfficials && (
+              <div style={{ marginTop: 12 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 6 }}>
+                  {ar ? 'أعمدة جدول المسؤولين' : 'Officials table columns'}
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 16px' }}>
+                  <span style={{ fontSize: 12.5, color: 'var(--text3)' }}>{ar ? 'الاسم (دائماً)' : 'Name (always)'}</span>
+                  {OFFICIAL_OPTIONAL_COLS.map(c => (
+                    <label key={c.key} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12.5, cursor: 'pointer', userSelect: 'none' }}>
+                      <input type="checkbox" checked={officialCols.has(c.key)} onChange={() => toggleCol(setOfficialCols, c.key)} />
+                      {ar ? c.ar : c.en}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
         <div style={{ padding: '14px 22px', borderTop: '1px solid var(--border)', display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
