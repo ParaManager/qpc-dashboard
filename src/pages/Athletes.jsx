@@ -1356,12 +1356,14 @@ export default function Athletes({ athletes, coaches, employees, results, docume
   const [athleteSportsByAthlete, setAthleteSportsByAthlete] = useState({})
   async function refreshAthleteSportsByAthlete() {
     const { data, error } = await supabase.from('athlete_sports')
-      .select('athlete_id, sport_id, coach_id, sports(name, category), coaches(name, name_ar)')
+      .select('id, athlete_id, sport_id, coach_id, is_primary, sports(name, category), coaches(name, name_ar)')
     if (error) return
     const grouped = {}
     for (const row of (data || [])) {
       if (!grouped[row.athlete_id]) grouped[row.athlete_id] = []
       grouped[row.athlete_id].push({
+        rowId: row.id,
+        isPrimary: !!row.is_primary,
         sportId: row.sport_id,
         sportName: row.sports?.name || null,
         sportCategory: row.sports?.category || null,
@@ -2018,22 +2020,53 @@ export default function Athletes({ athletes, coaches, employees, results, docume
     athleteId = savedRow?.id || athleteId
 
     // Sync athlete_sports (multi-sport/coach assignments) to match exactly
-    // what was edited in the form — athlete_sports is the sole source of
-    // truth, this never touches the legacy athletes.sport/coach_id columns.
+    // what was edited in the form — athlete_sports is the canonical
+    // source of truth for what sport(s) an athlete is assigned to.
     if (sportSync && athleteId) {
       if (sportSync.delete?.length) {
-        await supabase.from('athlete_sports').delete().in('id', sportSync.delete)
+        const { error: delErr } = await supabase.from('athlete_sports').delete().in('id', sportSync.delete)
+        if (delErr) console.error('athlete_sports delete failed', delErr)
       }
       if (sportSync.update?.length) {
-        await Promise.all(sportSync.update.map(r =>
+        const results = await Promise.all(sportSync.update.map(r =>
           supabase.from('athlete_sports').update({ coach_id: r.coachId || null }).eq('id', r.rowId)
         ))
+        results.forEach(r => { if (r.error) console.error('athlete_sports update failed', r.error) })
       }
       if (sportSync.insert?.length) {
-        await supabase.from('athlete_sports').insert(
+        const { error: insErr } = await supabase.from('athlete_sports').insert(
           sportSync.insert.map(r => ({ athlete_id: athleteId, sport_id: r.sportId, coach_id: r.coachId || null }))
         )
+        if (insErr) console.error('athlete_sports insert failed', insErr)
       }
+    }
+
+    // The legacy scalar athletes.sport/sport_category/coach_id columns are
+    // no longer independently editable anywhere in this form — they're
+    // kept only as a derived, DISPLAY-ONLY mirror of one representative
+    // athlete_sports row, for the handful of places that still read them
+    // directly as a fallback (display when the caller doesn't consult
+    // athlete_sports itself, exports, filters). This mirror is purely a
+    // read/display convenience — it NEVER writes or invents an is_primary
+    // designation in the database. `is_primary` stays fully optional: an
+    // athlete can have several sports and no primary at all, and this
+    // step never changes that. When one row IS already flagged primary,
+    // the mirror follows it; otherwise it deterministically picks the
+    // earliest-created row for display purposes only (same ordering the
+    // rest of the app already uses when no primary is set), without
+    // touching is_primary on any row.
+    if (athleteId) {
+      const { data: currentRows } = await supabase.from('athlete_sports')
+        .select('id, sport_id, coach_id, is_primary, sports(name, category)')
+        .eq('athlete_id', athleteId)
+        .order('id', { ascending: true })
+      const rows = currentRows || []
+      const displayRow = rows.find(r => r.is_primary) || rows[0] || null
+      await supabase.from('athletes').update({
+        sport: displayRow?.sports?.name || null,
+        sport_category: displayRow?.sports?.category || null,
+        coach_id: displayRow?.coach_id || null,
+      }).eq('id', athleteId)
       await refreshAthleteSportsByAthlete()
     }
     // Resolution rule: once an expiry date is actually changed (renewed or
@@ -3131,35 +3164,82 @@ ${myDocs.length > 0 ? `<div class="section">
         toast(lang==='ar' ? 'تم تحديث رياضات اللاعبين' : 'Athlete sports updated', 'success')
       }
 
-      // If an athlete's `sport` was changed here AND they already have
-      // athlete_sports junction rows, those junction rows take DISPLAY
-      // PRIORITY over the legacy athletes.sport column everywhere in this
-      // page (table cell, filters, PDF/Excel) — so the scalar column
-      // update above genuinely saved, but the UI kept showing the old
-      // junction-derived sport once the row left edit mode, looking like
-      // the change had silently reverted. Sync the junction table to
-      // match whenever this happens.
+      // The white "Sport" dropdown edits the athlete's PRIMARY
+      // athlete_sports relationship — the canonical source of truth.
+      // Previously this only ever wrote the legacy scalar athletes.sport
+      // column and only synced the junction table for athletes who
+      // ALREADY had rows there, so a brand-new athlete (or one whose
+      // sport had never gone through the junction table) never got a
+      // proper relationship created at all, and kept showing as plain
+      // text instead of the normal blue badge. Now covers every case:
+      // no existing rows -> create one; one or more existing rows -> only
+      // the row flagged is_primary (or the sole row) is replaced/updated,
+      // any other assigned sports are left completely untouched.
       const sportSyncTargets = changed.filter(([id, fields]) =>
-        succeededIds.includes(id) && 'sport' in fields && !multiSportEdits[parseInt(id)] && (athleteSportsByAthlete[parseInt(id)]?.length > 0)
+        succeededIds.includes(id) && ('sport' in fields || 'sport_category' in fields) && !multiSportEdits[parseInt(id)]
       )
       let sportSyncFailed = 0
       if (sportSyncTargets.length > 0) {
         await Promise.all(sportSyncTargets.map(async ([id, fields]) => {
           const athleteId = parseInt(id)
           const existingRows = athleteSportsByAthlete[athleteId] || []
-          const newSportName = fields.sport
-          const newCategory = 'sport_category' in fields ? fields.sport_category : (existingRows[0]?.sportCategory || athletes.find(a=>a.id===athleteId)?.sport_category)
+          const primaryRow = existingRows.find(r => r.isPrimary) || (existingRows.length === 1 ? existingRows[0] : null)
+          const athleteRow = athletes.find(a => a.id === athleteId)
+          const newSportName = 'sport' in fields ? fields.sport : (primaryRow?.sportName ?? athleteRow?.sport)
+          const newCategory = 'sport_category' in fields ? fields.sport_category : (primaryRow?.sportCategory ?? athleteRow?.sport_category)
+
+          // Cleared to blank — remove the primary relationship (if any);
+          // any other assigned sports for this athlete are untouched.
+          if (!newSportName) {
+            if (primaryRow) {
+              const { error: delErr } = await supabase.from('athlete_sports').delete().eq('id', primaryRow.rowId)
+              if (delErr) { console.error('athlete_sports delete failed', delErr); sportSyncFailed++; return }
+            }
+            await supabase.from('athletes').update({ sport: null, sport_category: null, coach_id: null }).eq('id', athleteId)
+            return
+          }
+
           const matchedSport = sportsList.find(s => s.name === newSportName && (!newCategory || s.category === newCategory))
             || sportsList.find(s => s.name === newSportName)
           if (!matchedSport) { sportSyncFailed++; return } // can't resolve to a catalog sport — leave the junction rows alone rather than guess
-          // A single existing assignment's coach carries over to the new
-          // one; multiple existing assignments have no single coach to
-          // preserve, so the new row starts unassigned.
-          const preservedCoachId = existingRows.length === 1 ? existingRows[0].coachId : null
-          const { error: delErr } = await supabase.from('athlete_sports').delete().eq('athlete_id', athleteId)
-          if (delErr) { console.error('athlete_sports delete failed', delErr); sportSyncFailed++; return }
-          const { error: insErr } = await supabase.from('athlete_sports').insert({ athlete_id: athleteId, sport_id: matchedSport.id, coach_id: preservedCoachId, is_primary: true })
-          if (insErr) { console.error('athlete_sports insert failed', insErr); sportSyncFailed++ }
+
+          if (primaryRow) {
+            // Update the SAME row in place — never delete-and-reinsert,
+            // which would risk losing it if a later step failed, and
+            // would needlessly change its id. Coach carries over only if
+            // the sport is actually unchanged; switching to a different
+            // sport clears it, since the old coach may not even coach
+            // the new sport.
+            const { error: updErr } = await supabase.from('athlete_sports')
+              .update({ sport_id: matchedSport.id, coach_id: primaryRow.sportId === matchedSport.id ? primaryRow.coachId : null })
+              .eq('id', primaryRow.rowId)
+            if (updErr) { console.error('athlete_sports update failed', updErr); sportSyncFailed++; return }
+          } else {
+            // Never forces is_primary — an athlete can have multiple
+            // sports with none marked primary; this just adds a plain
+            // relationship for whichever sport the dropdown was set to.
+            const { error: insErr } = await supabase.from('athlete_sports')
+              .insert({ athlete_id: athleteId, sport_id: matchedSport.id, coach_id: null })
+            if (insErr) { console.error('athlete_sports insert failed', insErr); sportSyncFailed++; return }
+          }
+        }))
+        // Re-derive the scalar mirror columns from each affected athlete's
+        // (possibly new) primary row, same convention as Add/Edit Athlete.
+        await refreshAthleteSportsByAthlete()
+        const { data: freshRows } = await supabase.from('athlete_sports')
+          .select('athlete_id, sport_id, coach_id, is_primary, sports(name, category)')
+          .in('athlete_id', sportSyncTargets.map(([id]) => parseInt(id)))
+        const byAthlete = {}
+        for (const r of (freshRows || [])) { (byAthlete[r.athlete_id] ||= []).push(r) }
+        await Promise.all(sportSyncTargets.map(async ([id]) => {
+          const athleteId = parseInt(id)
+          const rows = byAthlete[athleteId] || []
+          const primary = rows.find(r => r.is_primary) || rows[0] || null
+          await supabase.from('athletes').update({
+            sport: primary?.sports?.name || null,
+            sport_category: primary?.sports?.category || null,
+            coach_id: primary?.coach_id || null,
+          }).eq('id', athleteId)
         }))
         await refreshAthleteSportsByAthlete()
       }
