@@ -233,7 +233,11 @@ export function sportLabel(sport, category, ar) {
   const isUnknownCategory = !category || category === 'All' || category === 'All categories'
 
   if (isParalympicCategory || isUnknownCategory) {
-    if (PARALYMPIC_NO_PREFIX.includes(sport)) return base
+    // Same "don't double a prefix the stored name already carries" guard
+    // as the Special Olympics branch above — the canonical sportsList
+    // catalog already stores names like "Para Athletics", so prepending
+    // "Para " again produced "Para Para Athletics".
+    if (PARALYMPIC_NO_PREFIX.includes(sport) || /^para\s/i.test(sport)) return base
     return ar ? `${base} (بارالمبي)` : `Para ${base}`
   }
   return base
