@@ -3179,6 +3179,12 @@ ${myDocs.length > 0 ? `<div class="section">
         succeededIds.includes(id) && ('sport' in fields || 'sport_category' in fields) && !multiSportEdits[parseInt(id)]
       )
       let sportSyncFailed = 0
+      const sportSyncErrors = [] // { athleteId, message } — surfaced in the toast, not just the console
+      function logSportSyncError(athleteId, operation, payload, error) {
+        console.error('[Athlete sport sync]', { athleteId, operation, payload, error, message: error?.message, details: error?.details, hint: error?.hint, code: error?.code })
+        sportSyncErrors.push({ athleteId, message: error?.message || error?.hint || error?.details || String(error) })
+        sportSyncFailed++
+      }
       if (sportSyncTargets.length > 0) {
         await Promise.all(sportSyncTargets.map(async ([id, fields]) => {
           const athleteId = parseInt(id)
@@ -3192,54 +3198,77 @@ ${myDocs.length > 0 ? `<div class="section">
           // any other assigned sports for this athlete are untouched.
           if (!newSportName) {
             if (primaryRow) {
-              const { error: delErr } = await supabase.from('athlete_sports').delete().eq('id', primaryRow.rowId)
-              if (delErr) { console.error('athlete_sports delete failed', delErr); sportSyncFailed++; return }
+              const { data, error: delErr } = await supabase.from('athlete_sports').delete().eq('id', primaryRow.rowId).select()
+              if (delErr) { logSportSyncError(athleteId, 'delete (clear primary)', { id: primaryRow.rowId }, delErr); return }
             }
-            await supabase.from('athletes').update({ sport: null, sport_category: null, coach_id: null }).eq('id', athleteId)
+            const { data, error: mirrorErr } = await supabase.from('athletes').update({ sport: null, sport_category: null, coach_id: null }).eq('id', athleteId).select()
+            if (mirrorErr) { logSportSyncError(athleteId, 'mirror update (clear)', { sport: null }, mirrorErr); return }
             return
           }
 
           const matchedSport = sportsList.find(s => s.name === newSportName && (!newCategory || s.category === newCategory))
             || sportsList.find(s => s.name === newSportName)
-          if (!matchedSport) { sportSyncFailed++; return } // can't resolve to a catalog sport — leave the junction rows alone rather than guess
+          if (!matchedSport) {
+            logSportSyncError(athleteId, 'resolve sport from catalog', { newSportName, newCategory }, { message: `No catalog sport matched name="${newSportName}" category="${newCategory}"` })
+            return
+          }
 
-          if (primaryRow) {
+          // A row for this exact sport may already exist for this athlete
+          // (e.g. as a non-primary secondary assignment) — athlete_sports
+          // has a UNIQUE(athlete_id, sport_id) constraint, so inserting a
+          // second row for the same sport would fail outright. Update
+          // that row in place instead of inserting a duplicate.
+          const rowForThisSport = existingRows.find(r => r.sportId === matchedSport.id)
+
+          if (primaryRow && primaryRow.rowId === rowForThisSport?.rowId) {
+            // Unchanged sport (possibly just re-saved) — nothing to move,
+            // leave the row exactly as it is.
+          } else if (rowForThisSport) {
+            // The target sport already exists as a different (non-primary)
+            // row — point that row's data at what the dropdown intends
+            // rather than violating the unique constraint with a new row.
+            const payload = { coach_id: rowForThisSport.coachId }
+            const { data, error: updErr } = await supabase.from('athlete_sports').update(payload).eq('id', rowForThisSport.rowId).select()
+            if (updErr) { logSportSyncError(athleteId, 'update (existing row for target sport)', { id: rowForThisSport.rowId, ...payload }, updErr); return }
+          } else if (primaryRow) {
             // Update the SAME row in place — never delete-and-reinsert,
             // which would risk losing it if a later step failed, and
             // would needlessly change its id. Coach carries over only if
             // the sport is actually unchanged; switching to a different
             // sport clears it, since the old coach may not even coach
             // the new sport.
-            const { error: updErr } = await supabase.from('athlete_sports')
-              .update({ sport_id: matchedSport.id, coach_id: primaryRow.sportId === matchedSport.id ? primaryRow.coachId : null })
-              .eq('id', primaryRow.rowId)
-            if (updErr) { console.error('athlete_sports update failed', updErr); sportSyncFailed++; return }
+            const payload = { sport_id: matchedSport.id, coach_id: primaryRow.sportId === matchedSport.id ? primaryRow.coachId : null }
+            const { data, error: updErr } = await supabase.from('athlete_sports').update(payload).eq('id', primaryRow.rowId).select()
+            if (updErr) { logSportSyncError(athleteId, 'update (primary row)', { id: primaryRow.rowId, ...payload }, updErr); return }
           } else {
             // Never forces is_primary — an athlete can have multiple
             // sports with none marked primary; this just adds a plain
             // relationship for whichever sport the dropdown was set to.
-            const { error: insErr } = await supabase.from('athlete_sports')
-              .insert({ athlete_id: athleteId, sport_id: matchedSport.id, coach_id: null })
-            if (insErr) { console.error('athlete_sports insert failed', insErr); sportSyncFailed++; return }
+            const payload = { athlete_id: athleteId, sport_id: matchedSport.id, coach_id: null }
+            const { data, error: insErr } = await supabase.from('athlete_sports').insert(payload).select()
+            if (insErr) { logSportSyncError(athleteId, 'insert (new relationship)', payload, insErr); return }
           }
         }))
         // Re-derive the scalar mirror columns from each affected athlete's
         // (possibly new) primary row, same convention as Add/Edit Athlete.
         await refreshAthleteSportsByAthlete()
-        const { data: freshRows } = await supabase.from('athlete_sports')
+        const { data: freshRows, error: freshErr } = await supabase.from('athlete_sports')
           .select('athlete_id, sport_id, coach_id, is_primary, sports(name, category)')
           .in('athlete_id', sportSyncTargets.map(([id]) => parseInt(id)))
+        if (freshErr) console.error('[Athlete sport sync]', { operation: 'refetch for mirror', error: freshErr, message: freshErr.message, details: freshErr.details, hint: freshErr.hint, code: freshErr.code })
         const byAthlete = {}
         for (const r of (freshRows || [])) { (byAthlete[r.athlete_id] ||= []).push(r) }
         await Promise.all(sportSyncTargets.map(async ([id]) => {
           const athleteId = parseInt(id)
           const rows = byAthlete[athleteId] || []
           const primary = rows.find(r => r.is_primary) || rows[0] || null
-          await supabase.from('athletes').update({
+          const mirrorPayload = {
             sport: primary?.sports?.name || null,
             sport_category: primary?.sports?.category || null,
             coach_id: primary?.coach_id || null,
-          }).eq('id', athleteId)
+          }
+          const { data, error: mirrorErr } = await supabase.from('athletes').update(mirrorPayload).eq('id', athleteId).select()
+          if (mirrorErr) logSportSyncError(athleteId, 'mirror update (post-sync)', mirrorPayload, mirrorErr)
         }))
         await refreshAthleteSportsByAthlete()
       }
@@ -3260,23 +3289,24 @@ ${myDocs.length > 0 ? `<div class="section">
         await Promise.all(multiSportChanged.map(async ([id, rows]) => {
           const athleteId = parseInt(id)
           const validRows = rows.filter(r => r.sportId != null)
-          const { error: delErr } = await supabase.from('athlete_sports').delete().eq('athlete_id', athleteId)
-          if (delErr) { console.error('athlete_sports delete failed', delErr); multiSportFailed++; return }
+          const { data: delData, error: delErr } = await supabase.from('athlete_sports').delete().eq('athlete_id', athleteId).select()
+          if (delErr) { logSportSyncError(athleteId, '+Sports delete (replace set)', { athlete_id: athleteId }, delErr); return }
           if (validRows.length > 0) {
-            const { error: insErr } = await supabase.from('athlete_sports').insert(
-              validRows.map((r, i) => ({ athlete_id: athleteId, sport_id: r.sportId, coach_id: r.coachId || null, is_primary: i === 0 }))
-            )
-            if (insErr) { console.error('athlete_sports insert failed', insErr); multiSportFailed++ }
+            const insertPayload = validRows.map((r, i) => ({ athlete_id: athleteId, sport_id: r.sportId, coach_id: r.coachId || null, is_primary: i === 0 }))
+            const { data: insData, error: insErr } = await supabase.from('athlete_sports').insert(insertPayload).select()
+            if (insErr) { logSportSyncError(athleteId, '+Sports insert (replace set)', insertPayload, insErr) }
           }
         }))
         setMultiSportEdits({})
         await refreshAthleteSportsByAthlete()
       }
       if (sportSyncFailed > 0 || multiSportFailed > 0) {
+        const uniqueSportErrorMessages = [...new Set(sportSyncErrors.map(e => e.message).filter(Boolean))]
+        const sportReason = uniqueSportErrorMessages.slice(0, 2).join(' · ')
         toast(
           lang==='ar'
-            ? `تعذر حفظ رياضات بعض اللاعبين (${sportSyncFailed + multiSportFailed}). راجع سجل وحدة التحكم (Console) للتفاصيل.`
-            : `Could not save sport changes for ${sportSyncFailed + multiSportFailed} athlete(s). Check the browser console for details.`,
+            ? `تعذر حفظ رياضات بعض اللاعبين (${sportSyncFailed + multiSportFailed})${sportReason ? ` — ${sportReason}` : ' — راجع سجل وحدة التحكم (Console) للتفاصيل.'}`
+            : `Could not save sport changes for ${sportSyncFailed + multiSportFailed} athlete(s)${sportReason ? ` — ${sportReason}` : '. Check the browser console for details.'}`,
           'error'
         )
       }
