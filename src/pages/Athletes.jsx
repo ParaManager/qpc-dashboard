@@ -3135,7 +3135,8 @@ ${myDocs.length > 0 ? `<div class="section">
     if (savingAll) return // prevent duplicate save clicks while a save is in flight
     const changed = Object.entries(edits)
     const multiSportChanged = Object.entries(multiSportEdits)
-    if (changed.length === 0 && multiSportChanged.length === 0) { setEditMode(false); return }
+    const primarySportChanged = Object.entries(primarySportEdits)
+    if (changed.length === 0 && multiSportChanged.length === 0 && primarySportChanged.length === 0) { setEditMode(false); return }
     setSavingAll(true)
     try {
       const results = await Promise.allSettled(changed.map(([id, fields]) =>
@@ -3196,6 +3197,7 @@ ${myDocs.length > 0 ? `<div class="section">
           const athleteId = parseInt(id)
           const existingRows = athleteSportsByAthlete[athleteId] || []
           const primaryRow = existingRows.find(r => r.isPrimary) || (existingRows.length === 1 ? existingRows[0] : null)
+          console.log('[Athlete sport sync] before', { athleteId, pending, existingRows })
 
           // Cleared to blank — remove the primary relationship (if any);
           // any other assigned sports for this athlete are untouched.
@@ -3203,6 +3205,7 @@ ${myDocs.length > 0 ? `<div class="section">
             if (primaryRow) {
               const { data, error: delErr } = await supabase.from('athlete_sports').delete().eq('id', primaryRow.rowId).select()
               if (delErr) { logSportSyncError(athleteId, 'delete (clear primary)', { id: primaryRow.rowId }, delErr); return }
+              if (!data?.length) { logSportSyncError(athleteId, 'delete (clear primary) — 0 rows affected', { id: primaryRow.rowId }, { message: 'DELETE matched no row — the rowId no longer exists' }); return }
             }
             const { data, error: mirrorErr } = await supabase.from('athletes').update({ sport: null, sport_category: null, coach_id: null }).eq('id', athleteId).select()
             if (mirrorErr) { logSportSyncError(athleteId, 'mirror update (clear)', { sport: null }, mirrorErr); return }
@@ -3215,17 +3218,21 @@ ${myDocs.length > 0 ? `<div class="section">
           // second row for the same sport would fail outright. Update
           // that row in place instead of inserting a duplicate.
           const rowForThisSport = existingRows.find(r => r.sportId === pending.sportId)
+          let branch, writeResult
 
           if (primaryRow && primaryRow.rowId === rowForThisSport?.rowId) {
             // Unchanged sport (possibly just re-saved) — nothing to move,
             // leave the row exactly as it is.
+            branch = 'unchanged'
           } else if (rowForThisSport) {
             // The target sport already exists as a different (non-primary)
             // row — point that row's data at what the dropdown intends
             // rather than violating the unique constraint with a new row.
+            branch = 'update (existing row for target sport)'
             const payload = { coach_id: rowForThisSport.coachId }
-            const { data, error: updErr } = await supabase.from('athlete_sports').update(payload).eq('id', rowForThisSport.rowId).select()
-            if (updErr) { logSportSyncError(athleteId, 'update (existing row for target sport)', { id: rowForThisSport.rowId, ...payload }, updErr); return }
+            writeResult = await supabase.from('athlete_sports').update(payload).eq('id', rowForThisSport.rowId).select()
+            if (writeResult.error) { logSportSyncError(athleteId, branch, { id: rowForThisSport.rowId, ...payload }, writeResult.error); return }
+            if (!writeResult.data?.length) { logSportSyncError(athleteId, branch + ' — 0 rows affected', { id: rowForThisSport.rowId, ...payload }, { message: 'UPDATE matched no row' }); return }
           } else if (primaryRow) {
             // Update the SAME row in place — never delete-and-reinsert,
             // which would risk losing it if a later step failed, and
@@ -3233,25 +3240,48 @@ ${myDocs.length > 0 ? `<div class="section">
             // the sport is actually unchanged; switching to a different
             // sport clears it, since the old coach may not even coach
             // the new sport.
+            branch = 'update (primary row)'
             const payload = { sport_id: pending.sportId, coach_id: primaryRow.sportId === pending.sportId ? primaryRow.coachId : null }
-            const { data, error: updErr } = await supabase.from('athlete_sports').update(payload).eq('id', primaryRow.rowId).select()
-            if (updErr) { logSportSyncError(athleteId, 'update (primary row)', { id: primaryRow.rowId, ...payload }, updErr); return }
+            writeResult = await supabase.from('athlete_sports').update(payload).eq('id', primaryRow.rowId).select()
+            if (writeResult.error) { logSportSyncError(athleteId, branch, { id: primaryRow.rowId, ...payload }, writeResult.error); return }
+            if (!writeResult.data?.length) {
+              // The row this was meant to update no longer exists (stale
+              // local state) — never silently drop the person's
+              // selection; fall back to inserting a fresh relationship
+              // for it instead.
+              branch = 'update (primary row) 0-rows -> fallback insert'
+              const insertPayload = { athlete_id: athleteId, sport_id: pending.sportId, coach_id: null }
+              writeResult = await supabase.from('athlete_sports').insert(insertPayload).select()
+              if (writeResult.error) { logSportSyncError(athleteId, branch, insertPayload, writeResult.error); return }
+              if (!writeResult.data?.length) { logSportSyncError(athleteId, branch + ' — insert returned no row', insertPayload, { message: 'INSERT returned no row' }); return }
+            }
           } else {
             // Never forces is_primary — an athlete can have multiple
             // sports with none marked primary; this just adds a plain
             // relationship for whichever sport the dropdown was set to.
+            // This is the only reachable branch for an athlete with zero
+            // existing athlete_sports rows.
+            branch = 'insert (new relationship)'
             const payload = { athlete_id: athleteId, sport_id: pending.sportId, coach_id: null }
-            const { data, error: insErr } = await supabase.from('athlete_sports').insert(payload).select()
-            if (insErr) { logSportSyncError(athleteId, 'insert (new relationship)', payload, insErr); return }
+            writeResult = await supabase.from('athlete_sports').insert(payload).select()
+            if (writeResult.error) { logSportSyncError(athleteId, branch, payload, writeResult.error); return }
+            if (!writeResult.data?.length) { logSportSyncError(athleteId, branch + ' — insert returned no row', payload, { message: 'INSERT returned no row' }); return }
           }
+          console.log('[Athlete sport sync] write result', { athleteId, branch, data: writeResult?.data })
         }))
         // Re-derive the scalar mirror columns from each affected athlete's
         // (possibly new) primary row, same convention as Add/Edit Athlete.
+        // Awaited fully — including the mirror write and the final
+        // re-fetch into athleteSportsByAthlete — BEFORE primarySportEdits
+        // is cleared, so pending state is never dropped ahead of the
+        // canonical relationship actually being confirmed and reflected
+        // in local state.
         await refreshAthleteSportsByAthlete()
         const { data: freshRows, error: freshErr } = await supabase.from('athlete_sports')
           .select('athlete_id, sport_id, coach_id, is_primary, sports(name, category)')
           .in('athlete_id', sportSyncTargets.map(([id]) => parseInt(id)))
         if (freshErr) console.error('[Athlete sport sync]', { operation: 'refetch for mirror', error: freshErr, message: freshErr.message, details: freshErr.details, hint: freshErr.hint, code: freshErr.code })
+        console.log('[Athlete sport sync] after (fresh rows for affected athletes)', freshRows)
         const byAthlete = {}
         for (const r of (freshRows || [])) { (byAthlete[r.athlete_id] ||= []).push(r) }
         await Promise.all(sportSyncTargets.map(async ([id]) => {
@@ -3266,8 +3296,11 @@ ${myDocs.length > 0 ? `<div class="section">
           const { data, error: mirrorErr } = await supabase.from('athletes').update(mirrorPayload).eq('id', athleteId).select()
           if (mirrorErr) logSportSyncError(athleteId, 'mirror update (post-sync)', mirrorPayload, mirrorErr)
         }))
-        setPrimarySportEdits({})
+        // Refresh local athleteSportsByAthlete BEFORE clearing pending
+        // edits — never drop primarySportEdits ahead of the canonical
+        // relationship being confirmed and reflected in local state.
         await refreshAthleteSportsByAthlete()
+        setPrimarySportEdits({})
       }
 
       // Explicit multi-sport edits (from the "Manage sports" popover) are
