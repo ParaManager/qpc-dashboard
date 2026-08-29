@@ -333,8 +333,11 @@ async function buildEventPdfDoc(ev, selectedAthletes, includeOfficials, official
       // translate through the same country-name mapping used everywhere
       // else in the app, never left as raw English in the Arabic PDF.
       nationality:    { headEn: 'Nationality',     headAr: 'الجنسية', get: a => translateCountry(a.nationality, ar ? 'ar' : 'en') },
+      // Same Male/Female -> ذكر/أنثى convention already used everywhere
+      // else in the app (Athletes list, profile, PDF/Excel exports).
+      gender:         { headEn: 'Gender',          headAr: 'الجنس',   get: a => a.gender ? (ar ? (a.gender === 'Male' ? 'ذكر' : 'أنثى') : a.gender) : '' },
     }
-    const athleteOrderFull = ar ? ['nationality', 'classification', 'sport', 'name'] : ['name', 'sport', 'classification', 'nationality']
+    const athleteOrderFull = ar ? ['nationality', 'gender', 'classification', 'sport', 'name'] : ['name', 'sport', 'classification', 'gender', 'nationality']
     const athleteOrder = athleteOrderFull.filter(k => k === 'name' || !athleteCols || athleteCols.includes(k))
 
     const head = [athleteOrder.map(k => L(athleteColDefs[k].headEn, athleteColDefs[k].headAr))]
@@ -378,6 +381,7 @@ async function downloadEventPdf(...args) {
 const ATHLETE_OPTIONAL_COLS = [
   { key: 'sport', en: 'Sport', ar: 'الرياضة' },
   { key: 'classification', en: 'Classification', ar: 'التصنيف' },
+  { key: 'gender', en: 'Gender', ar: 'الجنس' },
   { key: 'nationality', en: 'Nationality', ar: 'الجنسية' },
 ]
 const OFFICIAL_OPTIONAL_COLS = [
