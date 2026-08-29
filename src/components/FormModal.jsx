@@ -163,7 +163,16 @@ export default function FormModal({ type, record, coaches, athletes, onSave, onC
     if (record) { setForm({ ...record }) }
     else {
       const defaults = {
-        athlete: { gender: 'Male', nationality: 'Qatari', sportCategory: 'Summer Paralympic', sport: SPORTS[0], status: 'Active' },
+        // Athletes no longer have a scalar Sport/Sport Category field in
+        // this form at all — only the "Assigned Sports" multi-sport
+        // editor (sportAssignments state) below, which is the sole
+        // source of truth via athlete_sports. Defaulting sport/
+        // sportCategory here was a leftover from before that editor
+        // existed: since nothing in the athlete UI ever changes them,
+        // every new athlete silently got this exact stale value written
+        // to athletes.sport/sport_category regardless of what was
+        // actually picked in Assigned Sports.
+        athlete: { gender: 'Male', nationality: 'Qatari', status: 'Active' },
         coach:   { sportCategory: 'Summer Paralympic', sport: SPORTS[0], status: 'Active' },
         event:   { status: 'Planning', approvalStatus: 'TBC', sports: [] },
         result:  { medal: 'gold', position: 1 },
