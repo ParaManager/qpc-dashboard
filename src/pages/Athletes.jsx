@@ -1937,18 +1937,18 @@ export default function Athletes({ athletes, coaches, employees, results, docume
         ;(eRes.data||[]).forEach(x => linkedRoles.push({ type:'employee', id:x.id, is_historical: !!x.is_historical }))
         ;(rRes.data||[]).forEach(x => linkedRoles.push({ type:'referee', id:x.id, is_historical: !!x.is_historical }))
         if (linkedRoles.length > 1) {
-          setPendingStatusSave({ formData, roles: linkedRoles })
+          setPendingStatusSave({ formData, sportSync, roles: linkedRoles })
           return
         }
       }
     }
-    await commitSaveAthlete(formData)
+    await commitSaveAthlete(formData, sportSync)
   }
 
   async function applyStatusToRolesAthlete(selectedTypes, pending) {
-    const { formData, roles } = pending
+    const { formData, sportSync, roles } = pending
     if (selectedTypes.includes('athlete')) {
-      await commitSaveAthlete(formData)
+      await commitSaveAthlete(formData, sportSync)
     }
     const DATE_STATUSES_SCOPE = ['On Leave', 'In Competition', 'In Training Camp']
     // Retired is now a valid, shared status across Athlete, Employee, and
@@ -1974,7 +1974,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
     await onRefresh()
   }
 
-  async function commitSaveAthlete(formData) {
+  async function commitSaveAthlete(formData, sportSync) {
     const isEdit = !!formData.id
     // Rule 4: temporary status dates only make sense alongside a dated
     // status (On Leave / In Competition / In Training Camp). If the person
