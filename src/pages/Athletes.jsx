@@ -1485,6 +1485,12 @@ export default function Athletes({ athletes, coaches, employees, results, docume
   const [editMode, setEditMode]     = useState(false)
   const [edits, setEdits]           = useState({})
   const [multiSportEdits, setMultiSportEdits] = useState({}) // { [athleteId]: [{sportId, sportName, sportCategory, coachId}] } — pending full sport-assignment set, only for rows touched via the multi-sport popover
+  // { [athleteId]: {sportId, sportName, sportCategory} | null } — pending
+  // selection from the white "Sport" dropdown. Always carries a real
+  // sports.id (never a legacy name string) so saving never needs to
+  // re-resolve a catalog row from text; `null` means explicitly cleared
+  // to blank, distinct from "untouched" (absent from this map).
+  const [primarySportEdits, setPrimarySportEdits] = useState({})
   const [multiSportPopoverId, setMultiSportPopoverId] = useState(null) // athlete id whose "manage sports" popover is open (one at a time)
   const multiSportPopoverRef = useRef(null)
 
@@ -3053,9 +3059,9 @@ ${myDocs.length > 0 ? `<div class="section">
   }
 
   // ── LIST VIEW ──
-  function startEdit() { setEditMode(true); setEdits({}); setMultiSportEdits({}); setMultiSportPopoverId(null) }
+  function startEdit() { setEditMode(true); setEdits({}); setMultiSportEdits({}); setPrimarySportEdits({}); setMultiSportPopoverId(null) }
   function cancelEdit() {
-    const changedCount = Object.keys(edits).length + Object.keys(multiSportEdits).length
+    const changedCount = Object.keys(edits).length + Object.keys(multiSportEdits).length + Object.keys(primarySportEdits).length
     if (changedCount > 0) {
       const ok = window.confirm(
         lang === 'ar'
@@ -3064,7 +3070,7 @@ ${myDocs.length > 0 ? `<div class="section">
       )
       if (!ok) return
     }
-    setEditMode(false); setEdits({}); setMultiSportEdits({}); setMultiSportPopoverId(null)
+    setEditMode(false); setEdits({}); setMultiSportEdits({}); setPrimarySportEdits({}); setMultiSportPopoverId(null)
   }
   function setEdit(id, field, value) {
     setEdits(prev => {
@@ -3158,26 +3164,26 @@ ${myDocs.length > 0 ? `<div class="section">
             : `${succeededIds.length} updated, ${failed.length} failed`,
           failed.length === 0 ? 'success' : 'error'
         )
-      } else if (multiSportChanged.length > 0) {
-        // Multi-sport-only edits never touch the athletes table directly,
-        // so they wouldn't otherwise get their own confirmation.
+      } else if (multiSportChanged.length > 0 || Object.keys(primarySportEdits).length > 0) {
+        // Sport-only edits (multi-sport popover or the white dropdown)
+        // never touch the athletes table directly via the bulk update
+        // above, so they wouldn't otherwise get their own confirmation.
         toast(lang==='ar' ? 'تم تحديث رياضات اللاعبين' : 'Athlete sports updated', 'success')
       }
 
       // The white "Sport" dropdown edits the athlete's PRIMARY
       // athlete_sports relationship — the canonical source of truth.
-      // Previously this only ever wrote the legacy scalar athletes.sport
-      // column and only synced the junction table for athletes who
-      // ALREADY had rows there, so a brand-new athlete (or one whose
-      // sport had never gone through the junction table) never got a
-      // proper relationship created at all, and kept showing as plain
-      // text instead of the normal blue badge. Now covers every case:
-      // no existing rows -> create one; one or more existing rows -> only
-      // the row flagged is_primary (or the sole row) is replaced/updated,
-      // any other assigned sports are left completely untouched.
-      const sportSyncTargets = changed.filter(([id, fields]) =>
-        succeededIds.includes(id) && ('sport' in fields || 'sport_category' in fields) && !multiSportEdits[parseInt(id)]
-      )
+      // The dropdown itself now only ever stores a real sports.id
+      // (primarySportEdits), so no name/category catalog lookup is
+      // needed here at all — that legacy resolution path (matching a
+      // typed/derived name string back to a sportsList row) is what
+      // broke for any sport whose plain scalar name didn't exactly match
+      // a catalog entry (e.g. "Athletics" vs "Para Athletics"). Covers
+      // every case: no existing rows -> create one; one or more existing
+      // rows -> only the row flagged is_primary (or the sole row) is
+      // replaced/updated, any other assigned sports are left completely
+      // untouched.
+      const sportSyncTargets = Object.entries(primarySportEdits).filter(([id]) => succeededIds.includes(id) || !edits[id])
       let sportSyncFailed = 0
       const sportSyncErrors = [] // { athleteId, message } — surfaced in the toast, not just the console
       function logSportSyncError(athleteId, operation, payload, error) {
@@ -3186,17 +3192,14 @@ ${myDocs.length > 0 ? `<div class="section">
         sportSyncFailed++
       }
       if (sportSyncTargets.length > 0) {
-        await Promise.all(sportSyncTargets.map(async ([id, fields]) => {
+        await Promise.all(sportSyncTargets.map(async ([id, pending]) => {
           const athleteId = parseInt(id)
           const existingRows = athleteSportsByAthlete[athleteId] || []
           const primaryRow = existingRows.find(r => r.isPrimary) || (existingRows.length === 1 ? existingRows[0] : null)
-          const athleteRow = athletes.find(a => a.id === athleteId)
-          const newSportName = 'sport' in fields ? fields.sport : (primaryRow?.sportName ?? athleteRow?.sport)
-          const newCategory = 'sport_category' in fields ? fields.sport_category : (primaryRow?.sportCategory ?? athleteRow?.sport_category)
 
           // Cleared to blank — remove the primary relationship (if any);
           // any other assigned sports for this athlete are untouched.
-          if (!newSportName) {
+          if (!pending) {
             if (primaryRow) {
               const { data, error: delErr } = await supabase.from('athlete_sports').delete().eq('id', primaryRow.rowId).select()
               if (delErr) { logSportSyncError(athleteId, 'delete (clear primary)', { id: primaryRow.rowId }, delErr); return }
@@ -3206,19 +3209,12 @@ ${myDocs.length > 0 ? `<div class="section">
             return
           }
 
-          const matchedSport = sportsList.find(s => s.name === newSportName && (!newCategory || s.category === newCategory))
-            || sportsList.find(s => s.name === newSportName)
-          if (!matchedSport) {
-            logSportSyncError(athleteId, 'resolve sport from catalog', { newSportName, newCategory }, { message: `No catalog sport matched name="${newSportName}" category="${newCategory}"` })
-            return
-          }
-
           // A row for this exact sport may already exist for this athlete
           // (e.g. as a non-primary secondary assignment) — athlete_sports
           // has a UNIQUE(athlete_id, sport_id) constraint, so inserting a
           // second row for the same sport would fail outright. Update
           // that row in place instead of inserting a duplicate.
-          const rowForThisSport = existingRows.find(r => r.sportId === matchedSport.id)
+          const rowForThisSport = existingRows.find(r => r.sportId === pending.sportId)
 
           if (primaryRow && primaryRow.rowId === rowForThisSport?.rowId) {
             // Unchanged sport (possibly just re-saved) — nothing to move,
@@ -3237,14 +3233,14 @@ ${myDocs.length > 0 ? `<div class="section">
             // the sport is actually unchanged; switching to a different
             // sport clears it, since the old coach may not even coach
             // the new sport.
-            const payload = { sport_id: matchedSport.id, coach_id: primaryRow.sportId === matchedSport.id ? primaryRow.coachId : null }
+            const payload = { sport_id: pending.sportId, coach_id: primaryRow.sportId === pending.sportId ? primaryRow.coachId : null }
             const { data, error: updErr } = await supabase.from('athlete_sports').update(payload).eq('id', primaryRow.rowId).select()
             if (updErr) { logSportSyncError(athleteId, 'update (primary row)', { id: primaryRow.rowId, ...payload }, updErr); return }
           } else {
             // Never forces is_primary — an athlete can have multiple
             // sports with none marked primary; this just adds a plain
             // relationship for whichever sport the dropdown was set to.
-            const payload = { athlete_id: athleteId, sport_id: matchedSport.id, coach_id: null }
+            const payload = { athlete_id: athleteId, sport_id: pending.sportId, coach_id: null }
             const { data, error: insErr } = await supabase.from('athlete_sports').insert(payload).select()
             if (insErr) { logSportSyncError(athleteId, 'insert (new relationship)', payload, insErr); return }
           }
@@ -3270,6 +3266,7 @@ ${myDocs.length > 0 ? `<div class="section">
           const { data, error: mirrorErr } = await supabase.from('athletes').update(mirrorPayload).eq('id', athleteId).select()
           if (mirrorErr) logSportSyncError(athleteId, 'mirror update (post-sync)', mirrorPayload, mirrorErr)
         }))
+        setPrimarySportEdits({})
         await refreshAthleteSportsByAthlete()
       }
 
@@ -3359,6 +3356,7 @@ ${myDocs.length > 0 ? `<div class="section">
         setEditMode(false)
         setEdits({})
         setMultiSportEdits({})
+        setPrimarySportEdits({})
         setMultiSportPopoverId(null)
       }
       await onRefresh()
@@ -3415,7 +3413,7 @@ ${myDocs.length > 0 ? `<div class="section">
   }
   const isVisible = key => visibleCols.includes(key)
 
-  const changedCount = Object.keys(edits).length + Object.keys(multiSportEdits).length
+  const changedCount = Object.keys(edits).length + Object.keys(multiSportEdits).length + Object.keys(primarySportEdits).length
   const inlineInput  = { padding:'5px 8px', borderRadius:7, border:'1px solid var(--border)', fontSize:12, background:'var(--surface)', color:'var(--text)', outline:'none', width:'100%', fontFamily:'DM Sans, sans-serif' }
   const inlineSelect = { ...inlineInput, cursor:'pointer' }
   // Fixed width for the sticky Athlete column (header + every cell) so its
@@ -3568,10 +3566,39 @@ ${myDocs.length > 0 ? `<div class="section">
         </select>
       case 'sport':        return (
         <div style={{ position:'relative', display:'flex', alignItems:'center', gap:6 }} onClick={e=>e.stopPropagation()}>
-          <select style={inlineSelect} value={getVal(a,'sport')||''} onChange={e=>setEdit(a.id,'sport',e.target.value)}>
-            <option value="">{tx('athletes.selectSport','Select sport')}</option>
-            {(SPORTS_BY_CATEGORY[getVal(a,'sport_category')] || SPORTS).map(s=><option key={s} value={s}>{sportLabel(s, getVal(a,'sport_category'), lang==='ar')}</option>)}
-          </select>
+          {(() => {
+            // Canonical current selection: an explicit pending edit wins;
+            // otherwise derive from the athlete's actual primary/sole
+            // athlete_sports row — never the legacy name-only scalar.
+            const hasPendingEdit = a.id in primarySportEdits
+            const pending = primarySportEdits[a.id]
+            const currentSports = getAthleteSports(a)
+            const derivedRow = currentSports.find(r => r.isPrimary) || (currentSports.length === 1 ? currentSports[0] : null)
+            const currentSportId = hasPendingEdit ? (pending?.sportId ?? '') : (derivedRow?.sportId ?? '')
+            return (
+              <select style={inlineSelect} value={currentSportId}
+                onChange={e => {
+                  const val = e.target.value
+                  if (!val) { setPrimarySportEdits(prev => ({ ...prev, [a.id]: null })); return }
+                  const s = sportsList.find(sp => sp.id === Number(val))
+                  if (!s) return
+                  setPrimarySportEdits(prev => ({ ...prev, [a.id]: { sportId: s.id, sportName: s.name, sportCategory: s.category } }))
+                }}>
+                <option value="">{tx('athletes.selectSport','Select sport')}</option>
+                {/* Same live catalog (sportsList, from the sports table)
+                    the + Sports popover already uses — never the
+                    hardcoded SPORTS_BY_CATEGORY/SPORTS legacy string
+                    lists, which have no stable id to save against. */}
+                {Array.from(new Set(sportsList.map(s => s.category))).map(cat => (
+                  <optgroup key={cat} label={lang==='ar' ? (SPORT_CATEGORY_NAMES_AR[cat]||cat) : cat}>
+                    {sportsList.filter(s => s.category === cat).map(s => (
+                      <option key={s.id} value={s.id}>{sportLabel(s.name, s.category, lang==='ar')}</option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            )
+          })()}
           {(() => {
             const currentSports = getAthleteSports(a)
             const extraCount = currentSports.length
@@ -3788,7 +3815,7 @@ ${myDocs.length > 0 ? `<div class="section">
           {editMode && (
             <>
               <button className="btn-cancel" onClick={cancelEdit} style={{ padding:'8px 14px' }}>Cancel</button>
-              <button className="btn btn-blue" onClick={saveAllEdits} disabled={savingAll || (Object.keys(edits).length === 0 && Object.keys(multiSportEdits).length === 0)}>
+              <button className="btn btn-blue" onClick={saveAllEdits} disabled={savingAll || (Object.keys(edits).length === 0 && Object.keys(multiSportEdits).length === 0 && Object.keys(primarySportEdits).length === 0)}>
                 {savingAll
                   ? <><div style={{ width:14, height:14, border:'2px solid rgba(255,255,255,.4)', borderTopColor:'#fff', borderRadius:'50%', animation:'spin .7s linear infinite' }} /> Saving…</>
                   : <><i className="ti ti-device-floppy" /> Save {changedCount > 0 ? `${changedCount} change${changedCount>1?'s':''}` : 'all'}</>
