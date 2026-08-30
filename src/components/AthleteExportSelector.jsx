@@ -8,6 +8,21 @@ import { translateCountry } from '../lib/LangContext.jsx'
 // inside Athletes.jsx around live `tx()`/`lang` closures. The field KEYS
 // match exactly (name, name_ar, id_number, sport, coach_id, nationality,
 // status, target_category, medical_status, passport_expiry, id_expiry).
+const SEARCH_PLACEHOLDERS = {
+  all:              { en: 'Search athletes…',                                   ar: 'ابحث عن الرياضيين…' },
+  name:             { en: 'Search by English name…',                           ar: 'ابحث بالاسم بالإنجليزي…' },
+  name_ar:          { en: 'Search by Arabic name…',                            ar: 'ابحث بالاسم بالعربي…' },
+  id_number:        { en: 'Search by Qatar ID… (paste multiple IDs supported)', ar: 'ابحث بالرقم الشخصي… (يمكن لصق عدة أرقام)' },
+  sport:            { en: 'Search by sport…',                                  ar: 'ابحث بالرياضة…' },
+  coach:            { en: 'Search by coach…',                                  ar: 'ابحث بالمدرب…' },
+  nationality:      { en: 'Search by nationality…',                           ar: 'ابحث بالجنسية…' },
+  status:           { en: 'Search by status…',                                ar: 'ابحث بالحالة…' },
+  target_category:  { en: 'Search by targeted athlete category…',            ar: 'ابحث بالفئة المستهدفة…' },
+  medical_status:   { en: 'Search by medical status…',                       ar: 'ابحث بالحالة الطبية…' },
+  passport_expiry:  { en: 'Search by passport expiry…',                      ar: 'ابحث بتاريخ انتهاء الجواز…' },
+  id_expiry:        { en: 'Search by ID expiry…',                            ar: 'ابحث بتاريخ انتهاء البطاقة…' },
+}
+
 const SEARCH_FIELDS = [
   { key: 'all',              en: 'All fields',        ar: 'كل الحقول' },
   { key: 'name',             en: 'English Name',      ar: 'الاسم بالإنجليزي' },
@@ -126,7 +141,7 @@ export default function AthleteExportSelector({
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <input
               value={search} onChange={e => setSearch(e.target.value)}
-              placeholder={L('Search… (paste multiple values for Qatar ID)', 'بحث… (يمكن لصق عدة قيم للرقم الشخصي)')}
+              placeholder={ar ? SEARCH_PLACEHOLDERS[searchField].ar : SEARCH_PLACEHOLDERS[searchField].en}
               className="form-input" style={{ flex: '1 1 220px', minWidth: 0 }}
             />
             <select value={searchField} onChange={e => setSearchField(e.target.value)} className="form-input" style={{ flex: '0 0 180px' }}>
