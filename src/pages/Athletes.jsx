@@ -3774,6 +3774,7 @@ ${myDocs.length > 0 ? `<div class="section">
             <AthleteExportSelector
               allAthletes={athletes}
               coaches={coaches}
+              sportsList={sportsList}
               initialSelectedIds={list.map(a => a.id)}
               ar={lang === 'ar'}
               tx={tx}
