@@ -207,6 +207,15 @@ function buildAthleteFieldDefs(ar) {
   ]
 }
 
+// ── Officials tab ────────────────────────────────────────────────────────
+function buildOfficialFieldDefs(roleTitles, ar) {
+  return [
+    { key: 'name', en: 'Name', ar: 'الاسم', type: 'text', getText: o => `${o.name || ''} ${o.name_ar || ''}`, getValue: o => o.name || '', applyOverride: v => ({ name: v }) },
+    { key: 'role', en: 'Role', ar: 'الدور', type: 'select', options: Object.entries(roleTitles).map(([k, label]) => ({ value: k, label })), getText: o => o.roleLabel || '', getValue: o => o.role, applyOverride: v => ({ role: v }) },
+    { key: 'designation', en: 'Designation', ar: 'الوظيفة', type: 'text', getText: o => o.designation || '', getValue: o => o.designation || '', applyOverride: v => ({ designation: v }) },
+  ]
+}
+
 // ── Root modal ───────────────────────────────────────────────────────────
 export default function EventExportSelector({ ev, regAthletes, officialsByRole, roleTitles, employees, ar, onClose, onPreview }) {
   const L = (en, arTx) => ar ? arTx : en
