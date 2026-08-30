@@ -9,6 +9,7 @@ import PhotoCropModal from '../components/PhotoCropModal'
 import AthleteSportsCard from '../components/AthleteSportsCard'
 import ImportCompletionSummary from '../components/ImportCompletionSummary'
 import FormModal from '../components/FormModal'
+import AthleteExportSelector from '../components/AthleteExportSelector'
 import { ConfirmModal, toast } from '../components/Toast'
 import { supabase } from '../lib/supabase'
 import JSZip from 'jszip'
@@ -1509,6 +1510,7 @@ export default function Athletes({ athletes, coaches, employees, results, docume
   const [savingAll, setSavingAll]   = useState(false)
   const [generatingReport, setGeneratingReport] = useState(false)
   const [pdfExporting, setPdfExporting] = useState(false)
+  const [showExportSelector, setShowExportSelector] = useState(false)
   // Coaches only ever see their own athletes here (already filtered before this
   // page even receives them), so the Sport and Coach columns are pure repetition
   // of things they already know — default them out for coaches, but keep them
@@ -3764,22 +3766,45 @@ ${myDocs.length > 0 ? `<div class="section">
           )}
           {!editMode && (
             <button className="btn" style={{ background:'#c0392b' }} disabled={pdfExporting}
-              onClick={async () => {
+              onClick={() => setShowExportSelector(true)}>
+              <i className="ti ti-file-type-pdf" /> {pdfExporting ? tx('actions.exporting','Exporting...') : tx('actions.exportPdf','Export PDF')}
+            </button>
+          )}
+          {showExportSelector && (
+            <AthleteExportSelector
+              allAthletes={athletes}
+              coaches={coaches}
+              initialSelectedIds={list.map(a => a.id)}
+              ar={lang === 'ar'}
+              tx={tx}
+              title={lang==='ar' ? 'اختر الرياضيين للتصدير' : 'Select Athletes to Export'}
+              exportLabelPrefix={lang==='ar' ? 'تصدير' : 'Export'}
+              onClose={() => setShowExportSelector(false)}
+              onExport={async (selectedAthletes) => {
                 setPdfExporting(true)
                 try {
                   const ar = lang === 'ar'
                   // Same activeFilters list the badge/viewer show — a PDF
                   // export's filter summary can never disagree with what
                   // the person sees on screen when they clicked Export.
+                  // Now reflects the athletes actually chosen in the
+                  // selector rather than always describing the page's own
+                  // filters, since the two can now differ.
                   const parts = activeFilters.map(f => `${f.label}: ${f.value}`)
-                  const filterSummaryText = parts.length ? parts.join('  •  ') : (ar ? 'كل الرياضيين' : 'All athletes')
-                  await exportAthletesListPDF(list, coaches, documents||[], visibleCols, ALL_COLS, lang, athleteSportsByAthlete, filterSummaryText)
+                  const baseSummary = parts.length ? parts.join('  •  ') : (ar ? 'كل الرياضيين' : 'All athletes')
+                  const filterSummaryText = selectedAthletes.length === list.length
+                    ? baseSummary
+                    : (ar ? `${selectedAthletes.length} رياضي محدد يدوياً` : `${selectedAthletes.length} manually selected athletes`)
+                  // Reuses the exact same PDF generator as before — only
+                  // the athlete array passed in changes; headers, columns,
+                  // sport formatting, RTL handling, and styling are
+                  // completely untouched.
+                  await exportAthletesListPDF(selectedAthletes, coaches, documents||[], visibleCols, ALL_COLS, lang, athleteSportsByAthlete, filterSummaryText)
                 } finally {
                   setPdfExporting(false)
                 }
-              }}>
-              <i className="ti ti-file-type-pdf" /> {pdfExporting ? tx('actions.exporting','Exporting...') : tx('actions.exportPdf','Export PDF')}
-            </button>
+              }}
+            />
           )}
           {/* Ministry Statistics button removed from this page per spec — the
               generateStatisticsReport() logic (imported above) and the
