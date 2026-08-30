@@ -69,6 +69,13 @@ function useExportSection({ items, getId, fieldDefs, initialSelectedIds }) {
   function setOverrideValue(id, field, value) {
     setOverrides(prev => ({ ...prev, [id]: { ...prev[id], ...field.applyOverride(value) } }))
   }
+  // Merges arbitrary extra keys straight into an item's override object —
+  // used for satellite inputs that don't map to a single field's own
+  // applyOverride (e.g. the free-text box that appears when "Custom..."
+  // is picked for Role).
+  function setRawOverride(id, partial) {
+    setOverrides(prev => ({ ...prev, [id]: { ...prev[id], ...partial } }))
+  }
   function resetOneValue(id, field) {
     setOverrides(prev => {
       const current = { ...(prev[id] || {}) }
@@ -90,7 +97,7 @@ function useExportSection({ items, getId, fieldDefs, initialSelectedIds }) {
     selectedIds, search, setSearch, searchField, setSearchField, editField, setEditField,
     overrides, fieldByKey, searchFields, editFields, filtered, allFilteredSelected, allSelectedTotal,
     toggleOne, selectAllFiltered, selectAllComplete, clearSelection,
-    setOverrideValue, resetOneValue, resetItem, resetAll, overrideCount, selectedItems,
+    setOverrideValue, setRawOverride, resetOneValue, resetItem, resetAll, overrideCount, selectedItems,
   }
 }
 
@@ -181,7 +188,15 @@ function EditPanel({ section, getId, getName, getSecondary, ar, L }) {
               <div style={{ fontSize: 10.5, color: 'var(--text3)', fontWeight: 400 }}>{getSecondary(item)}</div>
             </div>
             <div style={{ flex: '0 0 120px', fontSize: 11.5, color: 'var(--text3)' }}>{L('Original: ', 'الأصلي: ')}{activeField.getText(item) || '—'}</div>
-            <div style={{ flex: '0 0 190px' }}>{renderInput(activeField, current, v => section.setOverrideValue(id, activeField, v))}</div>
+            <div style={{ flex: '0 0 190px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {renderInput(activeField, current, v => section.setOverrideValue(id, activeField, v))}
+              {activeField.isCustomRoleField && current === '__custom__' && (
+                <input type="text" className="form-input" style={{ fontSize: 12.5 }}
+                  placeholder={L('Custom role…', 'دور مخصص…')}
+                  value={section.overrides[id]?.customRole ?? ''}
+                  onChange={e => section.setRawOverride(id, { customRole: e.target.value })} />
+              )}
+            </div>
             {section.overrideCount(id) > 0 && (
               <>
                 <span title={L('Edited for PDF', 'مُعدَّل')} style={{ fontSize: 10, fontWeight: 700, color: '#0085C7', background: '#0085C715', padding: '2px 6px', borderRadius: 10 }}>{L('Edited', 'مُعدَّل')}</span>
@@ -211,7 +226,16 @@ function buildAthleteFieldDefs(ar) {
 function buildOfficialFieldDefs(roleTitles, ar) {
   return [
     { key: 'name', en: 'Name', ar: 'الاسم', type: 'text', getText: o => `${o.name || ''} ${o.name_ar || ''}`, getValue: o => o.name || '', applyOverride: v => ({ name: v }) },
-    { key: 'role', en: 'Role', ar: 'الدور', type: 'select', options: Object.entries(roleTitles).map(([k, label]) => ({ value: k, label })), getText: o => o.roleLabel || '', getValue: o => o.role, applyOverride: v => ({ role: v }) },
+    {
+      key: 'role', en: 'Role', ar: 'الدور', type: 'select', isCustomRoleField: true,
+      options: [...Object.entries(roleTitles).map(([k, label]) => ({ value: k, label })), { value: '__custom__', label: ar ? 'مخصص...' : 'Custom...' }],
+      getText: o => o.roleLabel || '', getValue: o => o.role,
+      // Selecting Custom starts a fresh (empty) customRole text — never
+      // written to Supabase, PDF-only. Picking a canonical role clears
+      // any leftover customRole so it can't reappear if the field is
+      // switched back and forth.
+      applyOverride: v => v === '__custom__' ? { role: '__custom__', customRole: '' } : { role: v, customRole: undefined },
+    },
     { key: 'designation', en: 'Designation', ar: 'الوظيفة', type: 'text', getText: o => o.designation || '', getValue: o => o.designation || '', applyOverride: v => ({ designation: v }) },
   ]
 }
@@ -267,6 +291,10 @@ export default function EventExportSelector({ ev, regAthletes, officialsByRole, 
         const row = { ...o }
         if ('name' in ov) { row._overrideName = ov.name; row._overrideNameAr = ov.name }
         if ('designation' in ov) row._overrideDesignation = ov.designation
+        // Custom role is PDF-only display text, never a real group to
+        // move the assignment into — it stays in its original role
+        // group/position, only the Role column text changes.
+        if (ov.role === '__custom__') row._overrideRoleText = ov.customRole || ''
         return row
       }
 
@@ -275,15 +303,16 @@ export default function EventExportSelector({ ev, regAthletes, officialsByRole, 
         exportOfficialsByRole[role] = list
           .filter(o => selectedRowIds.has(o.id))
           // A role override moves only THIS assignment row into a
-          // different role group for the PDF — other rows for the same
+          // different CANONICAL role group for the PDF — Custom never
+          // moves groups (handled above), and other rows for the same
           // employee, or other rows in this same role, are untouched.
-          .filter(o => !(officialSection.overrides[o.id]?.role && officialSection.overrides[o.id].role !== role))
+          .filter(o => !(officialSection.overrides[o.id]?.role && officialSection.overrides[o.id].role !== role && officialSection.overrides[o.id].role !== '__custom__'))
           .map(withOverrides)
       }
       for (const [role, list] of Object.entries(officialsByRole || {})) {
         for (const o of list) {
           const newRole = officialSection.overrides[o.id]?.role
-          if (newRole && newRole !== role && selectedRowIds.has(o.id)) {
+          if (newRole && newRole !== '__custom__' && newRole !== role && selectedRowIds.has(o.id)) {
             exportOfficialsByRole[newRole] = [...(exportOfficialsByRole[newRole] || []), withOverrides(o)]
           }
         }

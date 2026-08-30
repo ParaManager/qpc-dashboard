@@ -346,7 +346,7 @@ export default function AthleteExportSelector({
         <div style={{ padding: '14px 22px', borderTop: '1px solid var(--border)', display: 'flex', gap: 10, justifyContent: 'flex-end', flexShrink: 0 }}>
           <button className="btn-cancel" onClick={onClose}>{L('Cancel', 'إلغاء')}</button>
           <button className="btn btn-blue" disabled={selectedIds.size === 0 || exporting} onClick={handleExport}>
-            <i className="ti ti-file-export" /> {exporting ? L('Exporting…', 'جارٍ التصدير…') : `${exportLabelPrefix || L('Export', 'تصدير')} ${selectedIds.size} ${L('Athletes', 'رياضي')}`}
+            <i className="ti ti-file-eye" /> {exporting ? L('Preparing preview…', 'جارٍ تجهيز المعاينة…') : L('Preview PDF', 'معاينة PDF')}
           </button>
         </div>
       </div>
