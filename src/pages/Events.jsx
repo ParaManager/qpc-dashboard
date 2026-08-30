@@ -279,7 +279,10 @@ async function buildEventPdfDoc(ev, selectedAthletes, includeOfficials, official
           // employee (e.g. Team Leader and Guest) from leaking a PDF-only
           // edit made to one into the other.
           officialData.push({
-            role: roleTitles[key],
+            // A Custom PDF-only role is exact user-typed text — never
+            // run through roleTitles translation or any auto-translation
+            // in Arabic mode, rendered verbatim exactly as entered.
+            role: o._overrideRoleText !== undefined ? o._overrideRoleText : roleTitles[key],
             name: o._overrideName !== undefined ? o._overrideName : (ar && emp.name_ar ? emp.name_ar : emp.name),
             // Designation is a free-text job-title field on the employee
             // record — translated through the same mapping the rest of

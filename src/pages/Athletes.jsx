@@ -734,7 +734,7 @@ function formatFileSize(bytes) {
 }
 
 // ── PDF export (filtered/sorted athlete list, with photos + QPC letterhead) ──
-async function exportAthletesListPDF(athletes, coaches, documents, visibleCols, allCols, lang, athleteSportsByAthlete = {}, filterSummaryText = '') {
+async function buildAthletesListPdfDoc(athletes, coaches, documents, visibleCols, allCols, lang, athleteSportsByAthlete = {}, filterSummaryText = '') {
   const ar = lang === 'ar'
   const STATUS_AR = {'Active':'نشط','Inactive':'غير نشط','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي','Injured':'مصاب','Under Medical Review':'تحت المراجعة الطبية','Suspended':'موقوف','Retired':'متقاعد'}
   // Established app-wide Arabic maps (same values used elsewhere in this
@@ -1076,11 +1076,28 @@ async function exportAthletesListPDF(athletes, coaches, documents, visibleCols, 
     })
 
     const date = new Date().toISOString().slice(0, 10)
-    doc.save(`QPC_${ar ? 'الرياضيون' : 'Athletes'}_${date}.pdf`)
+    const filename = `QPC_${ar ? 'الرياضيون' : 'Athletes'}_${date}.pdf`
+    return { doc, filename }
   } catch (err) {
     console.error('PDF export failed', err)
     toast(ar ? 'تعذر إنشاء ملف PDF' : 'Could not generate the PDF')
+    return null
   }
+}
+
+// Preview and Download both build from the exact same document — never
+// two separate generators that could drift out of sync, and the temporary
+// export-only athlete data (selection + PDF-only overrides) is baked into
+// `athletes` by the caller before either of these runs.
+async function previewAthletesListPdf(...args) {
+  const result = await buildAthletesListPdfDoc(...args)
+  if (!result) return null
+  const blob = result.doc.output('blob')
+  return { url: URL.createObjectURL(blob), blob, filename: result.filename }
+}
+async function downloadAthletesListPdf(...args) {
+  const result = await buildAthletesListPdfDoc(...args)
+  if (result) result.doc.save(result.filename)
 }
 
 function exportExcel(athletes, coaches, documents, visibleCols, allCols, lang, athleteSportsByAthlete = {}) {
@@ -1511,6 +1528,11 @@ export default function Athletes({ athletes, coaches, employees, results, docume
   const [generatingReport, setGeneratingReport] = useState(false)
   const [pdfExporting, setPdfExporting] = useState(false)
   const [showExportSelector, setShowExportSelector] = useState(false)
+  const [pdfListPreview, setPdfListPreview] = useState(null) // { url, blob, filename }
+  function closePdfListPreview() {
+    if (pdfListPreview?.url) URL.revokeObjectURL(pdfListPreview.url)
+    setPdfListPreview(null)
+  }
   // Coaches only ever see their own athletes here (already filtered before this
   // page even receives them), so the Sport and Coach columns are pure repetition
   // of things they already know — default them out for coaches, but keep them
@@ -3725,6 +3747,47 @@ ${myDocs.length > 0 ? `<div class="section">
     }
   }
 
+  // Admin PDF preview page — dedicated in-app view (not an immediate
+  // download), reusing the exact same layout/CSS as the Event and
+  // submission PDF previews. Back only clears this state.
+  if (pdfListPreview) {
+    return (
+      <div className="pdf-preview-page">
+        <div className="pdf-preview-toolbar">
+          <button className="action-btn action-btn-edit pdf-preview-back" onClick={closePdfListPreview}>
+            <i className="ti ti-arrow-left"/> {lang==='ar'?'رجوع':'Back'}
+          </button>
+          <div className="pdf-preview-title">{pdfListPreview.filename}</div>
+          <div className="pdf-preview-actions">
+            <button className="action-btn action-btn-edit" onClick={()=>{
+              const iframe = document.createElement('iframe')
+              iframe.style.display = 'none'
+              iframe.src = pdfListPreview.url
+              document.body.appendChild(iframe)
+              iframe.onload = () => {
+                iframe.contentWindow.focus()
+                iframe.contentWindow.print()
+              }
+            }}>
+              <i className="ti ti-printer"/> {lang==='ar'?'طباعة':'Print'}
+            </button>
+            <button className="btn btn-blue" onClick={()=>{
+              const a = document.createElement('a')
+              a.href = pdfListPreview.url
+              a.download = pdfListPreview.filename
+              a.click()
+            }}>
+              <i className="ti ti-download"/> {lang==='ar'?'تنزيل PDF':'Download PDF'}
+            </button>
+          </div>
+        </div>
+        <div className="pdf-preview-frame-wrap">
+          <iframe src={pdfListPreview.url} title="Athletes PDF preview" className="pdf-preview-frame" />
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div>
       {form && <FormModal type="athlete" record={null} coaches={coaches} sportsList={sportsList} onSave={handleSave} onClose={() => setForm(null)} />}
@@ -3801,8 +3864,12 @@ ${myDocs.length > 0 ? `<div class="section">
                   // Reuses the exact same PDF generator as before — only
                   // the athlete array passed in changes; headers, columns,
                   // sport formatting, RTL handling, and styling are
-                  // completely untouched.
-                  await exportAthletesListPDF(selectedAthletes, coaches, documents||[], visibleCols, ALL_COLS, lang, athleteSportsByAthlete, filterSummaryText)
+                  // completely untouched. Opens the in-app preview instead
+                  // of downloading immediately — Print/Download live on
+                  // the preview screen itself, both reading from this
+                  // exact same generated PDF.
+                  const preview = await previewAthletesListPdf(selectedAthletes, coaches, documents||[], visibleCols, ALL_COLS, lang, athleteSportsByAthlete, filterSummaryText)
+                  if (preview) setPdfListPreview(preview)
                 } finally {
                   setPdfExporting(false)
                 }
