@@ -3773,6 +3773,8 @@ ${myDocs.length > 0 ? `<div class="section">
           {showExportSelector && (
             <AthleteExportSelector
               allAthletes={athletes}
+              allCols={ALL_COLS}
+              visibleColKeys={visibleCols}
               coaches={coaches}
               sportsList={sportsList}
               initialSelectedIds={list.map(a => a.id)}
