@@ -167,6 +167,8 @@ export const AR = {
     officials:'المسؤولون',
     headOfDelegation:'رئيس الوفد',
     teamLeader:'رئيس الوفد',
+    guests:'الضيوف',
+    guest:'ضيف',
     medicalStaff:'الجهاز الطبي',
     coaches:'المدربون',
     administrativeStaff:'الجهاز الإداري',
