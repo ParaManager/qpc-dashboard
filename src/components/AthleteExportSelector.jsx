@@ -1,107 +1,6 @@
 import { useState, useMemo } from 'react'
 import { Avatar, sportLabel, targetCategoryLabel, TARGET_CATEGORY_OPTIONS } from '../lib/helpers'
-import { translateCountry } from '../lib/LangContext.jsx'
-
-// ── Canonical field configuration ───────────────────────────────────────
-// One shared definition per athlete export field — Search-by and Edit-by
-// both read from this single array instead of maintaining separate lists
-// that could drift out of sync. Field keys match the page's own ALL_COLS
-// column config (name, name_ar, id_number, sport, coach, nationality,
-// status, target_category, medical_status, passport_expiry, id_expiry).
-//
-// `type` drives which input the Edit-by panel renders; `getText` builds
-// the searchable text for that field; `getDisplay` builds what's shown as
-// the "current value" in the Edit-by list; `applyOverride(value)` returns
-// the partial object merged into the temporary export row for that field
-// -- e.g. picking a coach stores { coach_id }, since the existing PDF
-// generator resolves the coach name from coach_id + the real coaches
-// list, so no PDF-side change is needed for the override to take effect.
-const STATUS_OPTIONS = ['Active', 'On Leave', 'In Competition', 'In Training Camp', 'Inactive', 'Injured', 'Under Medical Review', 'Suspended', 'Retired']
-
-function buildFieldDefs(coaches, sportsList) {
-  return [
-    {
-      key: 'name', en: 'English Name', ar: 'الاسم بالإنجليزي', type: 'text', searchable: true, editableForExport: true,
-      getText: a => a.name || '', getDisplay: (a, ar) => a.name || '',
-      applyOverride: v => ({ name: v }),
-    },
-    {
-      key: 'name_ar', en: 'Arabic Name', ar: 'الاسم بالعربي', type: 'text', searchable: true, editableForExport: true,
-      getText: a => a.name_ar || '', getDisplay: (a, ar) => a.name_ar || '',
-      applyOverride: v => ({ name_ar: v }),
-    },
-    {
-      key: 'id_number', en: 'Qatar ID', ar: 'الرقم الشخصي', type: 'text', searchable: true, editableForExport: true,
-      getText: a => a.id_number || '', getDisplay: (a, ar) => a.id_number || '',
-      applyOverride: v => ({ id_number: v }),
-    },
-    {
-      key: 'sport', en: 'Sport', ar: 'الرياضة', type: 'select-sport', searchable: true, editableForExport: true,
-      getText: a => a.sport ? `${sportLabel(a.sport, a.sport_category, false)} ${sportLabel(a.sport, a.sport_category, true)}` : '',
-      getDisplay: (a, ar) => a.sport ? sportLabel(a.sport, a.sport_category, ar) : '',
-      // PDF-only -- the merged export row still just carries the scalar
-      // sport/sport_category fields the existing PDF already reads;
-      // athlete_sports is never touched by this override.
-      applyOverride: sportId => {
-        const s = sportsList.find(sp => sp.id === sportId)
-        return s ? { sport: s.name, sport_category: s.category } : {}
-      },
-    },
-    {
-      key: 'coach', en: 'Coach', ar: 'المدرب', type: 'select-coach', searchable: true, editableForExport: true,
-      getText: a => { const c = coaches.find(c => c.id === a.coach_id); return c ? `${c.name || ''} ${c.name_ar || ''}` : '' },
-      getDisplay: (a, ar) => { const c = coaches.find(c => c.id === a.coach_id); return c ? (ar && c.name_ar ? c.name_ar : c.name) : '' },
-      applyOverride: coachId => ({ coach_id: coachId || null }),
-    },
-    {
-      key: 'nationality', en: 'Nationality', ar: 'الجنسية', type: 'text', searchable: true, editableForExport: true,
-      getText: a => `${translateCountry(a.nationality, 'en') || ''} ${translateCountry(a.nationality, 'ar') || ''} ${a.nationality || ''}`,
-      getDisplay: (a, ar) => translateCountry(a.nationality, ar ? 'ar' : 'en') || a.nationality || '',
-      applyOverride: v => ({ nationality: v }),
-    },
-    {
-      key: 'status', en: 'Status', ar: 'الحالة', type: 'select-status', searchable: true, editableForExport: true,
-      getText: a => a.status || '', getDisplay: (a, ar) => a.status || '',
-      applyOverride: v => ({ status: v }),
-    },
-    {
-      key: 'target_category', en: 'Targeted Athletes', ar: 'الفئات المستهدفة', type: 'select-target', searchable: true, editableForExport: true,
-      getText: a => a.target_category ? `${targetCategoryLabel(a.target_category, 'en')} ${targetCategoryLabel(a.target_category, 'ar')}` : '',
-      getDisplay: (a, ar) => a.target_category ? targetCategoryLabel(a.target_category, ar ? 'ar' : 'en') : '',
-      applyOverride: v => ({ target_category: v || null }),
-    },
-    {
-      key: 'medical_status', en: 'Medical Status', ar: 'الحالة الطبية', type: 'text', searchable: true, editableForExport: true,
-      getText: a => a.medical_status || '', getDisplay: (a, ar) => a.medical_status || '',
-      applyOverride: v => ({ medical_status: v }),
-    },
-    {
-      key: 'passport_expiry', en: 'Passport Expiry', ar: 'تاريخ انتهاء الجواز', type: 'date', searchable: true, editableForExport: true,
-      getText: a => a.passport_expiry || '', getDisplay: (a, ar) => a.passport_expiry || '',
-      applyOverride: v => ({ passport_expiry: v }),
-    },
-    {
-      key: 'id_expiry', en: 'ID Expiry', ar: 'تاريخ انتهاء البطاقة', type: 'date', searchable: true, editableForExport: true,
-      getText: a => a.id_expiry || '', getDisplay: (a, ar) => a.id_expiry || '',
-      applyOverride: v => ({ id_expiry: v }),
-    },
-  ]
-}
-
-const SEARCH_PLACEHOLDERS = {
-  all:              { en: 'Search athletes…',                                   ar: 'ابحث عن الرياضيين…' },
-  name:             { en: 'Search by English name…',                           ar: 'ابحث بالاسم بالإنجليزي…' },
-  name_ar:          { en: 'Search by Arabic name…',                            ar: 'ابحث بالاسم بالعربي…' },
-  id_number:        { en: 'Search by Qatar ID… (paste multiple IDs supported)', ar: 'ابحث بالرقم الشخصي… (يمكن لصق عدة أرقام)' },
-  sport:            { en: 'Search by sport…',                                  ar: 'ابحث بالرياضة…' },
-  coach:            { en: 'Search by coach…',                                  ar: 'ابحث بالمدرب…' },
-  nationality:      { en: 'Search by nationality…',                           ar: 'ابحث بالجنسية…' },
-  status:           { en: 'Search by status…',                                ar: 'ابحث بالحالة…' },
-  target_category:  { en: 'Search by targeted athlete category…',            ar: 'ابحث بالفئة المستهدفة…' },
-  medical_status:   { en: 'Search by medical status…',                       ar: 'ابحث بالحالة الطبية…' },
-  passport_expiry:  { en: 'Search by passport expiry…',                      ar: 'ابحث بتاريخ انتهاء الجواز…' },
-  id_expiry:        { en: 'Search by ID expiry…',                            ar: 'ابحث بتاريخ انتهاء البطاقة…' },
-}
+import { buildAthleteFieldDefs, STATUS_OPTIONS, GENDER_OPTIONS } from '../lib/athleteFieldResolvers'
 
 // Splits pasted multi-value input on newlines/commas/semicolons, trims,
 // drops blanks. A single resulting value just falls through to normal
@@ -110,28 +9,57 @@ function parseMultiValues(raw) {
   return raw.split(/[\n,;]+/).map(v => v.trim()).filter(Boolean)
 }
 
+// allCols: the SAME ALL_COLS array the Athletes page's Columns menu uses
+// (key + already-translated label) — this is the canonical column source;
+// per-field value/search/edit behavior comes from athleteFieldResolvers,
+// keyed to match ALL_COLS exactly, so Search-by/Edit-for-PDF can never
+// offer a smaller or disconnected field list than the Columns menu does.
+// visibleColKeys: the athlete page's CURRENT selected-column keys — used
+// only to default which fields are offered by default; "Show all
+// available fields" switches to every resolver-backed column regardless.
 export default function AthleteExportSelector({
-  allAthletes, coaches = [], sportsList = [], initialSelectedIds, ar, tx,
+  allAthletes, allCols = [], visibleColKeys = [], coaches = [], sportsList = [], initialSelectedIds, ar, tx,
   title, exportLabelPrefix, onExport, onClose,
 }) {
-  const fieldDefs = useMemo(() => buildFieldDefs(coaches, sportsList), [coaches, sportsList])
+  const allFieldDefs = useMemo(() => buildAthleteFieldDefs(allCols, { coaches, sportsList, ar }), [allCols, coaches, sportsList, ar])
+  const [showAllFields, setShowAllFields] = useState(false)
+  const fieldDefs = useMemo(() => {
+    if (showAllFields || !visibleColKeys?.length) return allFieldDefs
+    const visibleSet = new Set(visibleColKeys)
+    const scoped = allFieldDefs.filter(f => visibleSet.has(f.key))
+    return scoped.length ? scoped : allFieldDefs
+  }, [allFieldDefs, showAllFields, visibleColKeys])
+
   const fieldByKey = useMemo(() => Object.fromEntries(fieldDefs.map(f => [f.key, f])), [fieldDefs])
-  const searchFields = useMemo(() => [{ key: 'all', en: 'All fields', ar: 'كل الحقول' }, ...fieldDefs.filter(f => f.searchable)], [fieldDefs])
+  const searchFields = useMemo(() => [{ key: 'all', label: ar ? 'كل الحقول' : 'All fields' }, ...fieldDefs.filter(f => f.searchable)], [fieldDefs, ar])
   const editFields = useMemo(() => fieldDefs.filter(f => f.editableForExport), [fieldDefs])
+  const ctx = useMemo(() => ({ coaches, sportsList, ar }), [coaches, sportsList, ar])
 
   const [selectedIds, setSelectedIds] = useState(() => new Set(initialSelectedIds || []))
   const [search, setSearch] = useState('')
   const [searchField, setSearchField] = useState('all')
   const [editField, setEditField] = useState('') // '' = Edit-by panel closed
-  // { [athleteId]: { [fieldKey]: value } } -- PDF-only, never written to
+  // { [athleteId]: { [column]: value } } -- PDF-only, never written to
   // Supabase, discarded entirely on close/cancel.
   const [exportOverrides, setExportOverrides] = useState({})
   const [exporting, setExporting] = useState(false)
   const L = (en, arTx) => ar ? arTx : en
 
+  // Reset the active search/edit field if it's no longer offered after
+  // switching the visible/all-fields scope.
+  if (searchField !== 'all' && !fieldByKey[searchField]) { setSearchField('all') }
+  if (editField && !fieldByKey[editField]) { setEditField('') }
+
   function allFieldsText(a) {
-    return fieldDefs.filter(f => f.searchable).map(f => f.getText(a)).join(' ').toLowerCase()
+    return fieldDefs.filter(f => f.searchable).map(f => f.getText(a, ctx)).join(' ').toLowerCase()
   }
+
+  const searchPlaceholder = useMemo(() => {
+    if (searchField === 'all') return L('Search athletes…', 'ابحث عن الرياضيين…')
+    if (searchField === 'id_number') return L('Search by Qatar ID… (paste multiple IDs supported)', 'ابحث بالرقم الشخصي… (يمكن لصق عدة أرقام)')
+    const f = fieldByKey[searchField]
+    return f ? L(`Search by ${f.label}…`, `ابحث حسب ${f.label}…`) : L('Search…', 'بحث…')
+  }, [searchField, fieldByKey, ar])
 
   const filtered = useMemo(() => {
     const raw = search.trim()
@@ -148,8 +76,9 @@ export default function AthleteExportSelector({
     const q = raw.toLowerCase()
     if (searchField === 'all') return allAthletes.filter(a => allFieldsText(a).includes(q))
     const def = fieldByKey[searchField]
-    return allAthletes.filter(a => def.getText(a).toLowerCase().includes(q))
-  }, [search, searchField, allAthletes, fieldByKey])
+    if (!def) return allAthletes
+    return allAthletes.filter(a => def.getText(a, ctx).toLowerCase().includes(q))
+  }, [search, searchField, allAthletes, fieldByKey, ctx])
 
   const allSelectedTotal = selectedIds.size === allAthletes.length && allAthletes.length > 0
   const allFilteredSelected = filtered.length > 0 && filtered.every(a => selectedIds.has(a.id))
@@ -179,24 +108,18 @@ export default function AthleteExportSelector({
   }
 
   // ── PDF-only temporary edits ──────────────────────────────────────────
-  // The Edit-by panel operates on every SELECTED athlete, not just the
-  // currently-visible search results -- searching is only for finding who
-  // to select/edit, never a scope restriction on what gets edited.
   const selectedAthletesForEdit = useMemo(() => allAthletes.filter(a => selectedIds.has(a.id)), [allAthletes, selectedIds])
 
   function setOverrideValue(athleteId, field, rawValue) {
     setExportOverrides(prev => ({
       ...prev,
-      [athleteId]: { ...prev[athleteId], ...field.applyOverride(rawValue) },
+      [athleteId]: { ...prev[athleteId], ...field.applyOverride(rawValue, ctx) },
     }))
   }
   function resetOneValue(athleteId, field) {
     setExportOverrides(prev => {
       const current = { ...(prev[athleteId] || {}) }
-      // A field can expand into multiple stored keys (e.g. sport ->
-      // sport/sport_category) -- clear all keys that field's applyOverride
-      // could ever produce, using a neutral probe value.
-      Object.keys(field.applyOverride(field.key === 'sport' ? null : '')).forEach(k => delete current[k])
+      Object.keys(field.applyOverride(field.type === 'select-sport' ? null : '', ctx)).forEach(k => delete current[k])
       const next = { ...prev, [athleteId]: current }
       if (Object.keys(current).length === 0) delete next[athleteId]
       return next
@@ -220,7 +143,9 @@ export default function AthleteExportSelector({
     try {
       // Temporary merge only -- original athlete objects (and Supabase)
       // are never touched. Only this derived copy is handed to the
-      // existing, unmodified PDF generator.
+      // existing, unmodified PDF generator, which already builds its own
+      // columns from the page's visibleCols/ALL_COLS independently of
+      // this selector.
       const exportRows = allAthletes
         .filter(a => selectedIds.has(a.id))
         .map(a => ({ ...a, ...(exportOverrides[a.id] || {}) }))
@@ -272,6 +197,14 @@ export default function AthleteExportSelector({
         </select>
       )
     }
+    if (field.type === 'select-gender') {
+      return (
+        <select className="form-input" style={{ fontSize: 12.5 }} value={value} onChange={e => setOverrideValue(a.id, field, e.target.value)}>
+          <option value="">{L('— None —', '— بدون —')}</option>
+          {GENDER_OPTIONS.map(g => <option key={g} value={g}>{g}</option>)}
+        </select>
+      )
+    }
     if (field.type === 'select-target') {
       return (
         <select className="form-input" style={{ fontSize: 12.5 }} value={value} onChange={e => setOverrideValue(a.id, field, e.target.value)}>
@@ -290,18 +223,26 @@ export default function AthleteExportSelector({
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-box" style={{ width: 720, display: 'flex', flexDirection: 'column', maxHeight: '88vh' }} onClick={e => e.stopPropagation()}>
+      <div className="modal-box" style={{ width: 760, display: 'flex', flexDirection: 'column', maxHeight: '88vh' }} onClick={e => e.stopPropagation()}>
         {/* Sticky header + search -- stays visible while the list below scrolls, important with 190+ athletes. */}
         <div style={{ padding: '18px 22px 14px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
-          <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 12 }}>{title || L('Select Athletes to Export', 'اختر الرياضيين للتصدير')}</div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 6 }}>
+            <div style={{ fontSize: 15, fontWeight: 700 }}>{title || L('Select Athletes to Export', 'اختر الرياضيين للتصدير')}</div>
+            {visibleColKeys?.length > 0 && (
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: 'var(--text3)', cursor: 'pointer', userSelect: 'none' }}>
+                <input type="checkbox" checked={showAllFields} onChange={e => setShowAllFields(e.target.checked)} />
+                {L('Show all available fields (not just currently visible columns)', 'إظهار كل الحقول المتاحة (وليس فقط الأعمدة الظاهرة حالياً)')}
+              </label>
+            )}
+          </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <input
               value={search} onChange={e => setSearch(e.target.value)}
-              placeholder={ar ? SEARCH_PLACEHOLDERS[searchField].ar : SEARCH_PLACEHOLDERS[searchField].en}
+              placeholder={searchPlaceholder}
               className="form-input" style={{ flex: '1 1 220px', minWidth: 0 }}
             />
-            <select value={searchField} onChange={e => setSearchField(e.target.value)} className="form-input" style={{ flex: '0 0 170px' }}>
-              {searchFields.map(f => <option key={f.key} value={f.key}>{L('Search by: ', 'البحث حسب: ') + (ar ? f.ar : f.en)}</option>)}
+            <select value={searchField} onChange={e => setSearchField(e.target.value)} className="form-input" style={{ flex: '0 0 190px' }}>
+              {searchFields.map(f => <option key={f.key} value={f.key}>{L('Search by: ', 'البحث حسب: ') + f.label}</option>)}
             </select>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10, flexWrap: 'wrap', gap: 8 }}>
@@ -325,9 +266,9 @@ export default function AthleteExportSelector({
           </div>
           {/* Edit-by -- PDF-only temporary edits, never written to Supabase */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, flexWrap: 'wrap', paddingTop: 10, borderTop: '1px dashed var(--border)' }}>
-            <select value={editField} onChange={e => setEditField(e.target.value)} className="form-input" style={{ flex: '0 0 210px' }}>
+            <select value={editField} onChange={e => setEditField(e.target.value)} className="form-input" style={{ flex: '0 0 220px' }}>
               <option value="">{L('Edit for PDF (optional)…', 'تعديل للتصدير (اختياري)…')}</option>
-              {editFields.map(f => <option key={f.key} value={f.key}>{L('Edit by: ', 'تعديل حسب: ') + (ar ? f.ar : f.en)}</option>)}
+              {editFields.map(f => <option key={f.key} value={f.key}>{L('Edit by: ', 'تعديل حسب: ') + f.label}</option>)}
             </select>
             {Object.keys(exportOverrides).length > 0 && (
               <button type="button" className="btn-cancel" style={{ padding: '4px 10px', fontSize: 12, color: '#EE334E' }} onClick={resetAllOverrides}>
@@ -338,8 +279,6 @@ export default function AthleteExportSelector({
         </div>
 
         {activeEditField ? (
-          // ── Edit-by panel -- operates on SELECTED athletes regardless of
-          // the current search text.
           <div style={{ overflowY: 'auto', flex: 1, padding: '10px 14px' }}>
             {selectedAthletesForEdit.length === 0 ? (
               <div className="empty" style={{ padding: '28px 0' }}>{L('Select athletes first to edit values for the PDF', 'حدد الرياضيين أولاً لتعديل القيم في الملف')}</div>
@@ -350,7 +289,7 @@ export default function AthleteExportSelector({
                   {ar && a.name_ar ? a.name_ar : a.name}
                 </div>
                 <div style={{ flex: '0 0 130px', fontSize: 11.5, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {L('Original: ', 'الأصلي: ')}{activeEditField.getDisplay(a, ar) || '—'}
+                  {L('Original: ', 'الأصلي: ')}{activeEditField.getDisplay(a, ctx) || '—'}
                 </div>
                 <div style={{ flex: '0 0 190px' }}>{renderEditInput(a, activeEditField)}</div>
                 {overrideCount(a.id) > 0 && (
@@ -372,7 +311,6 @@ export default function AthleteExportSelector({
             ))}
           </div>
         ) : (
-          /* Scrollable athlete list (selection mode) */
           <div style={{ overflowY: 'auto', flex: 1, padding: '6px 14px' }}>
             {allAthletes.length === 0 ? (
               <div className="empty" style={{ padding: '28px 0' }}>{L('No athletes available', 'لا يوجد رياضيون')}</div>
