@@ -5,6 +5,7 @@ import MultiSelectFilter from '../components/MultiSelectFilter.jsx'
 import { Avatar, Badge, statusDot, statusClass, DashRow, sportLabel, buildSearchText, matchesSearch, BackButton, loadImageAsDataURL, safeAddImage, initials as personInitials, isSpecialOlympicsSport, effectiveStatus, employeeStatusSource } from '../lib/helpers'
 import FormModal from '../components/FormModal'
 import EventCategoryModal from '../components/EventCategoryModal'
+import EventExportSelector from '../components/EventExportSelector'
 import { ConfirmModal, toast } from '../components/Toast'
 import { supabase } from '../lib/supabase'
 import { canEdit } from '../lib/useAuth'
@@ -257,7 +258,7 @@ async function buildEventPdfDoc(ev, selectedAthletes, includeOfficials, official
   // in this fixed sequence regardless of the order employees happen to
   // have been assigned in: Team Leader, Technical Expert, Administrative
   // Staff, Medical Staff, Coaches, Support Staff.
-  const OFFICIAL_ROLE_ORDER = ['head_of_delegation', 'technical_expert', 'administrative_staff', 'medical_staff', 'coach', 'support_staff']
+  const OFFICIAL_ROLE_ORDER = ['head_of_delegation', 'guest', 'technical_expert', 'administrative_staff', 'medical_staff', 'coach', 'support_staff']
   if (includeOfficials) {
     const roleKeys = OFFICIAL_ROLE_ORDER.filter(k => (officialsByRole[k] || []).length > 0)
     if (roleKeys.length > 0) {
@@ -272,14 +273,19 @@ async function buildEventPdfDoc(ev, selectedAthletes, includeOfficials, official
         for (const o of officialsByRole[key]) {
           const emp = employees.find(e => e.id === o.employee_id)
           if (!emp) continue
+          // Assignment-row-specific PDF-only overrides (event_officials.id
+          // is the unique identity) take priority over the employee
+          // record — this is what keeps two roles held by the same
+          // employee (e.g. Team Leader and Guest) from leaking a PDF-only
+          // edit made to one into the other.
           officialData.push({
             role: roleTitles[key],
-            name: ar && emp.name_ar ? emp.name_ar : emp.name,
+            name: o._overrideName !== undefined ? o._overrideName : (ar && emp.name_ar ? emp.name_ar : emp.name),
             // Designation is a free-text job-title field on the employee
             // record — translated through the same mapping the rest of
             // the app already uses for it, so it never stays raw English
             // in the Arabic PDF.
-            designation: designationLabel(emp.designation, ar),
+            designation: designationLabel(o._overrideDesignation !== undefined ? o._overrideDesignation : emp.designation, ar),
           })
         }
       }
@@ -374,147 +380,6 @@ async function downloadEventPdf(...args) {
 // Pre-export modal — pick which registered athletes and whether officials
 // go into the report. "Select all" toggles every currently-registered
 // athlete at once; individual checkboxes stay available either way.
-// Optional columns for each table — Name is always included (not shown
-// here as a toggle at all) and always appears in the correct position per
-// the existing per-language ordering logic; these three/two are the only
-// ones the person can choose to leave out.
-const ATHLETE_OPTIONAL_COLS = [
-  { key: 'sport', en: 'Sport', ar: 'الرياضة' },
-  { key: 'classification', en: 'Classification', ar: 'التصنيف' },
-  { key: 'gender', en: 'Gender', ar: 'الجنس' },
-  { key: 'nationality', en: 'Nationality', ar: 'الجنسية' },
-]
-const OFFICIAL_OPTIONAL_COLS = [
-  { key: 'role', en: 'Role', ar: 'الدور' },
-  { key: 'designation', en: 'Designation', ar: 'الوظيفة' },
-]
-
-function EventExportModal({ ev, regAthletes, officials, roleTitles, employees, ar, tx, onClose, onPreview }) {
-  const [selectedIds, setSelectedIds] = useState(() => new Set(regAthletes.map(a => a.id)))
-  const [includeOfficials, setIncludeOfficials] = useState(true)
-  const [athleteCols, setAthleteCols] = useState(() => new Set(ATHLETE_OPTIONAL_COLS.map(c => c.key)))
-  const [officialCols, setOfficialCols] = useState(() => new Set(OFFICIAL_OPTIONAL_COLS.map(c => c.key)))
-  const [exporting, setExporting] = useState(false)
-  const allSelected = regAthletes.length > 0 && selectedIds.size === regAthletes.length
-
-  function toggleAll() {
-    setSelectedIds(allSelected ? new Set() : new Set(regAthletes.map(a => a.id)))
-  }
-  function toggleOne(id) {
-    setSelectedIds(prev => {
-      const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
-      return next
-    })
-  }
-  function toggleCol(setFn, key) {
-    setFn(prev => {
-      const next = new Set(prev)
-      next.has(key) ? next.delete(key) : next.add(key)
-      return next
-    })
-  }
-  async function handleExport() {
-    setExporting(true)
-    try {
-      const chosen = regAthletes.filter(a => selectedIds.has(a.id))
-      // Opens the in-app preview instead of downloading immediately —
-      // Download/Print live on the preview screen itself, both reading
-      // from the exact same generated PDF as this preview.
-      const preview = await previewEventPdf(ev, chosen, includeOfficials, officials, roleTitles, employees, ar ? 'ar' : 'en', Array.from(athleteCols), Array.from(officialCols))
-      onPreview(preview)
-      onClose()
-    } catch (err) {
-      console.error('Event PDF export failed', err)
-      toast(ar ? 'تعذر إنشاء ملف PDF' : 'Could not generate the PDF', 'error')
-    } finally {
-      setExporting(false)
-    }
-  }
-
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-box" style={{ width: 480 }} onClick={e => e.stopPropagation()}>
-        <div style={{ padding: '18px 22px', borderBottom: '1px solid var(--border)' }}>
-          <div style={{ fontSize: 15, fontWeight: 700 }}>{ar ? 'تصدير الفعالية كـ PDF' : 'Export Event as PDF'}</div>
-          <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>{ar ? ev.name_ar || ev.name : ev.name}</div>
-        </div>
-        <div style={{ padding: '16px 22px', maxHeight: '60vh', overflowY: 'auto' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-            <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.04em' }}>
-              {ar ? `الرياضيون (${selectedIds.size}/${regAthletes.length})` : `Athletes (${selectedIds.size}/${regAthletes.length})`}
-            </span>
-            {regAthletes.length > 0 && (
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, cursor: 'pointer', userSelect: 'none' }}>
-                <input type="checkbox" checked={allSelected} onChange={toggleAll} />
-                {ar ? 'تحديد الكل' : 'Select all'}
-              </label>
-            )}
-          </div>
-          {regAthletes.length === 0 ? (
-            <div className="empty" style={{ padding: '12px 0', fontSize: 12.5 }}>{ar ? 'لا يوجد رياضيون مسجلون' : 'No athletes registered'}</div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 14 }}>
-              {regAthletes.map(a => (
-                <label key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, padding: '5px 4px', cursor: 'pointer', userSelect: 'none' }}>
-                  <input type="checkbox" checked={selectedIds.has(a.id)} onChange={() => toggleOne(a.id)} />
-                  <Avatar name={a.name} photoUrl={a.photo_url} size={22} />
-                  <span>{ar && a.name_ar ? a.name_ar : a.name}</span>
-                  <span style={{ color: 'var(--text3)', fontSize: 11 }}>· {sportLabel(a.sport, a.sport_category, ar)}</span>
-                </label>
-              ))}
-            </div>
-          )}
-          {regAthletes.length > 0 && (
-            <div style={{ marginBottom: 18 }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 6 }}>
-                {ar ? 'أعمدة جدول الرياضيين' : 'Athlete table columns'}
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 16px' }}>
-                <span style={{ fontSize: 12.5, color: 'var(--text3)' }}>{ar ? 'الاسم (دائماً)' : 'Name (always)'}</span>
-                {ATHLETE_OPTIONAL_COLS.map(c => (
-                  <label key={c.key} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12.5, cursor: 'pointer', userSelect: 'none' }}>
-                    <input type="checkbox" checked={athleteCols.has(c.key)} onChange={() => toggleCol(setAthleteCols, c.key)} />
-                    {ar ? c.ar : c.en}
-                  </label>
-                ))}
-              </div>
-            </div>
-          )}
-          <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer', userSelect: 'none' }}>
-              <input type="checkbox" checked={includeOfficials} onChange={e => setIncludeOfficials(e.target.checked)} />
-              {ar ? 'تضمين المسؤولين (المدربون، الطاقم الطبي، إلخ)' : 'Include officials (coaches, medical staff, etc.)'}
-            </label>
-            {includeOfficials && (
-              <div style={{ marginTop: 12 }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 6 }}>
-                  {ar ? 'أعمدة جدول المسؤولين' : 'Officials table columns'}
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 16px' }}>
-                  <span style={{ fontSize: 12.5, color: 'var(--text3)' }}>{ar ? 'الاسم (دائماً)' : 'Name (always)'}</span>
-                  {OFFICIAL_OPTIONAL_COLS.map(c => (
-                    <label key={c.key} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12.5, cursor: 'pointer', userSelect: 'none' }}>
-                      <input type="checkbox" checked={officialCols.has(c.key)} onChange={() => toggleCol(setOfficialCols, c.key)} />
-                      {ar ? c.ar : c.en}
-                    </label>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-        <div style={{ padding: '14px 22px', borderTop: '1px solid var(--border)', display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-          <button className="btn-cancel" onClick={onClose}>{ar ? 'إلغاء' : 'Cancel'}</button>
-          <button className="btn btn-blue" disabled={exporting} onClick={handleExport}>
-            <i className="ti ti-file-download" /> {exporting ? (ar ? 'جارٍ التصدير…' : 'Exporting…') : (ar ? 'تصدير PDF' : 'Export PDF')}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 function OfficialsPicker({ roleKey, title, officials, employees, coaches, eventId, canEditMode, canAdd, ar, tx, onAdd, onRemove }) {
   const [adding, setAdding] = useState(false)
   const [search, setSearch] = useState('')
@@ -655,7 +520,7 @@ export default function Events({ events, athletes, coaches = [], results, regist
     setEventPdfPreview(null)
   }
   const [showCatModal, setShowCatModal] = useState(false)
-  const [officials, setOfficials] = useState({ head_of_delegation: [], medical_staff: [], coach: [], administrative_staff: [], support_staff: [], technical_expert: [] })
+  const [officials, setOfficials] = useState({ head_of_delegation: [], guest: [], medical_staff: [], coach: [], administrative_staff: [], support_staff: [], technical_expert: [] })
   const [athleteSearch, setAthleteSearch] = useState('')
 
   useEffect(() => {
@@ -686,7 +551,7 @@ export default function Events({ events, athletes, coaches = [], results, regist
   async function loadOfficials(eventId) {
     const { data } = await supabase.from('event_officials').select('id, employee_id, role').eq('event_id', eventId)
     if (!data) return
-    const grouped = { head_of_delegation: [], medical_staff: [], coach: [], administrative_staff: [], support_staff: [], technical_expert: [] }
+    const grouped = { head_of_delegation: [], guest: [], medical_staff: [], coach: [], administrative_staff: [], support_staff: [], technical_expert: [] }
     for (const row of data) { if (grouped[row.role]) grouped[row.role].push(row) }
     setOfficials(grouped)
   }
@@ -901,6 +766,7 @@ export default function Events({ events, athletes, coaches = [], results, regist
 
     const ROLE_TITLES = {
       head_of_delegation:   tx('events.teamLeader',        'Team Leader'),
+      guest:                tx('events.guests',             'Guests'),
       medical_staff:        tx('events.medicalStaff',       'Medical Staff'),
       coach:                tx('events.coaches',             'Coaches'),
       administrative_staff: tx('events.administrativeStaff','Administrative Staff'),
@@ -937,10 +803,13 @@ export default function Events({ events, athletes, coaches = [], results, regist
           </div>
         )}
         {showExportModal && (
-          <EventExportModal
-            ev={ev} regAthletes={regAthletes} officials={officials} roleTitles={ROLE_TITLES} employees={employees}
-            ar={ar} tx={tx} onClose={() => setShowExportModal(false)}
-            onPreview={preview => setEventPdfPreview({ ...preview, ev })}
+          <EventExportSelector
+            ev={ev} regAthletes={regAthletes} officialsByRole={officials} roleTitles={ROLE_TITLES} employees={employees}
+            ar={ar} onClose={() => setShowExportModal(false)}
+            onPreview={async ({ athletes: exportAthletes, includeOfficials, officialsByRole, employees: exportEmployees }) => {
+              const preview = await previewEventPdf(ev, exportAthletes, includeOfficials, officialsByRole, ROLE_TITLES, exportEmployees, ar ? 'ar' : 'en')
+              setEventPdfPreview({ ...preview, ev })
+            }}
           />
         )}
 
@@ -983,10 +852,11 @@ export default function Events({ events, athletes, coaches = [], results, regist
             <div className="info-card">
               <div className="info-title">{tx('events.officials', 'Officials')}</div>
               <OfficialsPicker roleKey="head_of_delegation"   title={ROLE_TITLES.head_of_delegation}   {...pickerProps} />
+              <OfficialsPicker roleKey="guest"                title={ROLE_TITLES.guest}                {...pickerProps} />
               <OfficialsPicker roleKey="technical_expert"     title={ROLE_TITLES.technical_expert}     {...pickerProps} />
+              <OfficialsPicker roleKey="administrative_staff" title={ROLE_TITLES.administrative_staff} {...pickerProps} />
               <OfficialsPicker roleKey="medical_staff"        title={ROLE_TITLES.medical_staff}        {...pickerProps} />
               <OfficialsPicker roleKey="coach"                title={ROLE_TITLES.coach}                {...pickerProps} />
-              <OfficialsPicker roleKey="administrative_staff" title={ROLE_TITLES.administrative_staff} {...pickerProps} />
               <OfficialsPicker roleKey="support_staff"        title={ROLE_TITLES.support_staff}        {...pickerProps} />
             </div>
 
