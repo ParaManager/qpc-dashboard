@@ -241,10 +241,11 @@ function buildOfficialFieldDefs(roleTitles, ar) {
 }
 
 // ── Root modal ───────────────────────────────────────────────────────────
-export default function EventExportSelector({ ev, regAthletes, officialsByRole, roleTitles, employees, ar, onClose, onPreview }) {
+export default function EventExportSelector({ ev, regAthletes, officialsByRole, roleTitles, employees, ar, onClose, onGeneratePreview, onExportFinal }) {
   const L = (en, arTx) => ar ? arTx : en
   const [tab, setTab] = useState('athletes')
   const [exporting, setExporting] = useState(false)
+  const [inlinePreview, setInlinePreview] = useState(null) // { url, blob, filename } — small in-modal preview stage
 
   const flatOfficials = useMemo(() => {
     const rows = []
@@ -268,79 +269,139 @@ export default function EventExportSelector({ ev, regAthletes, officialsByRole, 
   const officialFieldDefs = useMemo(() => buildOfficialFieldDefs(roleTitles, ar), [roleTitles, ar])
   const officialSection = useExportSection({ items: flatOfficials, getId: o => o.rowId, fieldDefs: officialFieldDefs })
 
-  async function handleExport() {
-    setExporting(true)
-    try {
-      const exportAthletes = regAthletes
-        .filter(a => athleteSection.selectedIds.has(a.id))
-        .map(a => ({ ...a, ...(athleteSection.overrides[a.id] || {}) }))
+  // Revokes any small-preview blob before actually closing, so the modal
+  // never leaks an object URL when the whole session ends.
+  function handleCloseSelector() {
+    if (inlinePreview?.url) URL.revokeObjectURL(inlinePreview.url)
+    onClose()
+  }
 
-      // Officials: rebuild officialsByRole from only the SELECTED rows
-      // (preserving role grouping/order). PDF-only overrides are attached
-      // directly onto each assignment row (as _overrideName/_overrideNameAr/
-      // _overrideDesignation) rather than collapsed by employee_id — the
-      // same employee can hold two different roles in the same event
-      // (e.g. Team Leader AND Guest), each its own event_officials row,
-      // and editing one assignment's PDF display must never leak into the
-      // other. event_officials.id (rowId) stays the unique identity for
-      // every override the whole way into PDF generation.
-      const selectedRowIds = officialSection.selectedIds
-      const withOverrides = o => {
-        const ov = officialSection.overrides[o.id]
-        if (!ov) return o
-        const row = { ...o }
-        if ('name' in ov) { row._overrideName = ov.name; row._overrideNameAr = ov.name }
-        if ('designation' in ov) row._overrideDesignation = ov.designation
-        // Custom role is PDF-only display text, never a real group to
-        // move the assignment into — it stays in its original role
-        // group/position, only the Role column text changes.
-        if (ov.role === '__custom__') row._overrideRoleText = ov.customRole || ''
-        return row
-      }
+  function buildExportPayload() {
+    const exportAthletes = regAthletes
+      .filter(a => athleteSection.selectedIds.has(a.id))
+      .map(a => ({ ...a, ...(athleteSection.overrides[a.id] || {}) }))
 
-      const exportOfficialsByRole = {}
-      for (const [role, list] of Object.entries(officialsByRole || {})) {
-        exportOfficialsByRole[role] = list
-          .filter(o => selectedRowIds.has(o.id))
-          // A role override moves only THIS assignment row into a
-          // different CANONICAL role group for the PDF — Custom never
-          // moves groups (handled above), and other rows for the same
-          // employee, or other rows in this same role, are untouched.
-          .filter(o => !(officialSection.overrides[o.id]?.role && officialSection.overrides[o.id].role !== role && officialSection.overrides[o.id].role !== '__custom__'))
-          .map(withOverrides)
-      }
-      for (const [role, list] of Object.entries(officialsByRole || {})) {
-        for (const o of list) {
-          const newRole = officialSection.overrides[o.id]?.role
-          if (newRole && newRole !== '__custom__' && newRole !== role && selectedRowIds.has(o.id)) {
-            exportOfficialsByRole[newRole] = [...(exportOfficialsByRole[newRole] || []), withOverrides(o)]
-          }
+    // Officials: rebuild officialsByRole from only the SELECTED rows
+    // (preserving role grouping/order). PDF-only overrides are attached
+    // directly onto each assignment row (as _overrideName/_overrideNameAr/
+    // _overrideDesignation) rather than collapsed by employee_id — the
+    // same employee can hold two different roles in the same event
+    // (e.g. Team Leader AND Guest), each its own event_officials row,
+    // and editing one assignment's PDF display must never leak into the
+    // other. event_officials.id (rowId) stays the unique identity for
+    // every override the whole way into PDF generation.
+    const selectedRowIds = officialSection.selectedIds
+    const withOverrides = o => {
+      const ov = officialSection.overrides[o.id]
+      if (!ov) return o
+      const row = { ...o }
+      if ('name' in ov) { row._overrideName = ov.name; row._overrideNameAr = ov.name }
+      if ('designation' in ov) row._overrideDesignation = ov.designation
+      // Custom role is PDF-only display text, never a real group to
+      // move the assignment into — it stays in its original role
+      // group/position, only the Role column text changes.
+      if (ov.role === '__custom__') row._overrideRoleText = ov.customRole || ''
+      return row
+    }
+
+    const exportOfficialsByRole = {}
+    for (const [role, list] of Object.entries(officialsByRole || {})) {
+      exportOfficialsByRole[role] = list
+        .filter(o => selectedRowIds.has(o.id))
+        // A role override moves only THIS assignment row into a
+        // different CANONICAL role group for the PDF — Custom never
+        // moves groups (handled above), and other rows for the same
+        // employee, or other rows in this same role, are untouched.
+        .filter(o => !(officialSection.overrides[o.id]?.role && officialSection.overrides[o.id].role !== role && officialSection.overrides[o.id].role !== '__custom__'))
+        .map(withOverrides)
+    }
+    for (const [role, list] of Object.entries(officialsByRole || {})) {
+      for (const o of list) {
+        const newRole = officialSection.overrides[o.id]?.role
+        if (newRole && newRole !== '__custom__' && newRole !== role && selectedRowIds.has(o.id)) {
+          exportOfficialsByRole[newRole] = [...(exportOfficialsByRole[newRole] || []), withOverrides(o)]
         }
       }
+    }
 
-      const includeOfficials = officialSection.selectedIds.size > 0
-      const preview = await onPreview({
-        athletes: exportAthletes,
-        includeOfficials,
-        officialsByRole: exportOfficialsByRole,
-        // employees passed through UNCHANGED — real employee records are
-        // never touched by PDF-only overrides; the PDF generator reads
-        // each row's own _override* fields first when present.
-        employees,
-      })
-      onClose()
+    const includeOfficials = officialSection.selectedIds.size > 0
+    return {
+      athletes: exportAthletes,
+      includeOfficials,
+      officialsByRole: exportOfficialsByRole,
+      // employees passed through UNCHANGED — real employee records are
+      // never touched by PDF-only overrides; the PDF generator reads
+      // each row's own _override* fields first when present.
+      employees,
+    }
+  }
+
+  // Stage 1: small in-modal preview, built fresh from whatever the
+  // current temporary state is right now.
+  async function handlePreviewClick() {
+    setExporting(true)
+    try {
+      const preview = await onGeneratePreview(buildExportPayload())
+      if (preview) {
+        if (inlinePreview?.url) URL.revokeObjectURL(inlinePreview.url)
+        setInlinePreview(preview)
+      }
     } catch (err) {
       console.error('Event PDF export failed', err)
     } finally {
       setExporting(false)
     }
   }
+  // Closes ONLY the small preview — every piece of selection/override/
+  // search state in both tabs is completely untouched.
+  function handleContinueEditing() {
+    if (inlinePreview?.url) URL.revokeObjectURL(inlinePreview.url)
+    setInlinePreview(null)
+  }
+  // Commits to the final stage: hands the SAME already-generated blob to
+  // the parent's full-screen preview — never regenerated.
+  function handleExportFinal() {
+    if (!inlinePreview) return
+    onExportFinal(inlinePreview)
+    setInlinePreview(null)
+  }
+
+  // Stage 1 preview — rendered in place of the normal editing UI while
+  // staying the SAME mounted component instance, so "Continue Editing"
+  // never resets either tab's selection/overrides/search.
+  if (inlinePreview) {
+    return (
+      <div className="modal-overlay" onClick={handleCloseSelector}>
+        <div className="modal-box" style={{ width: 760, display: 'flex', flexDirection: 'column', maxHeight: '88vh' }} onClick={e => e.stopPropagation()}>
+          <div style={{ padding: '16px 22px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+            <div style={{ fontSize: 15, fontWeight: 700 }}>{L('PDF Preview', 'معاينة PDF')}</div>
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
+              {L('Changes here affect this PDF only and are not saved to the database.', 'التعديلات هنا خاصة بملف PDF فقط ولن يتم حفظها في قاعدة البيانات.')}
+            </div>
+          </div>
+          <div style={{ flex: 1, minHeight: 0, padding: '14px 22px', display: 'flex', justifyContent: 'center' }}>
+            <iframe src={inlinePreview.url} title="Event PDF inline preview"
+              style={{ width: '100%', maxWidth: 640, height: '100%', border: '1px solid var(--border)', borderRadius: 8, background: '#525659' }} />
+          </div>
+          <div style={{ padding: '14px 22px', borderTop: '1px solid var(--border)', display: 'flex', gap: 10, justifyContent: 'flex-end', flexShrink: 0 }}>
+            <button className="btn-cancel" onClick={handleContinueEditing}>{L('Continue Editing', 'متابعة التعديل')}</button>
+            <button className="btn btn-blue" onClick={handleExportFinal}>
+              <i className="ti ti-file-export" /> {L('Export PDF', 'تصدير PDF')}
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={handleCloseSelector}>
       <div className="modal-box" style={{ width: 760, display: 'flex', flexDirection: 'column', maxHeight: '88vh' }} onClick={e => e.stopPropagation()}>
         <div style={{ padding: '18px 22px 0', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
           <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>{L('Select Event Data to Export', 'اختر بيانات الفعالية للتصدير')}</div>
+          <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 8 }}>
+            {L('Changes here affect this PDF only and are not saved to the database.', 'التعديلات هنا خاصة بملف PDF فقط ولن يتم حفظها في قاعدة البيانات.')}
+          </div>
           <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 12 }}>{ar ? ev.name_ar || ev.name : ev.name}</div>
           <div style={{ display: 'flex', gap: 4 }}>
             <button type="button" onClick={() => setTab('athletes')}
@@ -408,9 +469,9 @@ export default function EventExportSelector({ ev, regAthletes, officialsByRole, 
         </div>
 
         <div style={{ padding: '14px 22px', borderTop: '1px solid var(--border)', display: 'flex', gap: 10, justifyContent: 'flex-end', flexShrink: 0 }}>
-          <button className="btn-cancel" onClick={onClose}>{L('Cancel', 'إلغاء')}</button>
-          <button className="btn btn-blue" disabled={exporting} onClick={handleExport}>
-            <i className="ti ti-file-export" /> {exporting ? L('Exporting…', 'جارٍ التصدير…') : L(`Export PDF — ${athleteSection.selectedIds.size} Athletes, ${officialSection.selectedIds.size} Officials`, `تصدير PDF — ${athleteSection.selectedIds.size} رياضي، ${officialSection.selectedIds.size} مسؤول`)}
+          <button className="btn-cancel" onClick={handleCloseSelector}>{L('Cancel', 'إلغاء')}</button>
+          <button className="btn btn-blue" disabled={exporting} onClick={handlePreviewClick}>
+            <i className="ti ti-file-eye" /> {exporting ? L('Preparing preview…', 'جارٍ تجهيز المعاينة…') : L('Preview PDF', 'معاينة PDF')}
           </button>
         </div>
       </div>

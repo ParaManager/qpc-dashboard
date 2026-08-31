@@ -19,7 +19,7 @@ function parseMultiValues(raw) {
 // available fields" switches to every resolver-backed column regardless.
 export default function AthleteExportSelector({
   allAthletes, allCols = [], visibleColKeys = [], coaches = [], sportsList = [], initialSelectedIds, ar, tx,
-  title, exportLabelPrefix, onExport, onClose,
+  title, exportLabelPrefix, onGeneratePreview, onExportFinal, onClose,
 }) {
   const allFieldDefs = useMemo(() => buildAthleteFieldDefs(allCols, { coaches, sportsList, ar }), [allCols, coaches, sportsList, ar])
   const [showAllFields, setShowAllFields] = useState(false)
@@ -43,6 +43,7 @@ export default function AthleteExportSelector({
   // Supabase, discarded entirely on close/cancel.
   const [exportOverrides, setExportOverrides] = useState({})
   const [exporting, setExporting] = useState(false)
+  const [inlinePreview, setInlinePreview] = useState(null) // { url, blob, filename } — small in-modal preview stage
   const L = (en, arTx) => ar ? arTx : en
 
   // Reset the active search/edit field if it's no longer offered after
@@ -137,23 +138,41 @@ export default function AthleteExportSelector({
   }
   const overrideCount = id => Object.keys(exportOverrides[id] || {}).length
 
-  async function handleExport() {
+  // Stage 1: small in-modal preview. Builds fresh from whatever the
+  // current temporary state is right now; never touches Supabase.
+  async function handlePreviewClick() {
     if (selectedIds.size === 0) return
     setExporting(true)
     try {
-      // Temporary merge only -- original athlete objects (and Supabase)
-      // are never touched. Only this derived copy is handed to the
-      // existing, unmodified PDF generator, which already builds its own
-      // columns from the page's visibleCols/ALL_COLS independently of
-      // this selector.
       const exportRows = allAthletes
         .filter(a => selectedIds.has(a.id))
         .map(a => ({ ...a, ...(exportOverrides[a.id] || {}) }))
-      await onExport(exportRows)
-      onClose()
+      const preview = await onGeneratePreview(exportRows)
+      if (preview) {
+        // Revoke any previous small-preview blob before replacing it —
+        // e.g. Preview -> Continue Editing -> change something -> Preview
+        // again must not leak the earlier blob URL.
+        if (inlinePreview?.url) URL.revokeObjectURL(inlinePreview.url)
+        setInlinePreview(preview)
+      }
     } finally {
       setExporting(false)
     }
+  }
+  // Closes ONLY the small preview — every piece of selection/override/
+  // search state above is completely untouched, so the person returns to
+  // exactly where they left off.
+  function handleContinueEditing() {
+    if (inlinePreview?.url) URL.revokeObjectURL(inlinePreview.url)
+    setInlinePreview(null)
+  }
+  // Commits to the final stage: hands the SAME already-generated blob to
+  // the parent's full-screen preview — never regenerated, so small
+  // preview === final preview === downloaded PDF.
+  function handleExportFinal() {
+    if (!inlinePreview) return
+    onExportFinal(inlinePreview)
+    setInlinePreview(null)
   }
 
   function renderEditInput(a, field) {
@@ -221,13 +240,53 @@ export default function AthleteExportSelector({
 
   const activeEditField = editField ? fieldByKey[editField] : null
 
+  // Revokes any small-preview blob before actually closing, so the
+  // modal never leaks an object URL when the whole session ends.
+  function handleCloseSelector() {
+    if (inlinePreview?.url) URL.revokeObjectURL(inlinePreview.url)
+    onClose()
+  }
+
+  // Stage 1 preview — rendered in place of the normal editing UI while
+  // staying the SAME mounted component instance, so switching back via
+  // "Continue Editing" never resets selection/overrides/search (that only
+  // happens if the parent unmounts this component entirely, which it
+  // doesn't do here).
+  if (inlinePreview) {
+    return (
+      <div className="modal-overlay" onClick={handleCloseSelector}>
+        <div className="modal-box" style={{ width: 760, display: 'flex', flexDirection: 'column', maxHeight: '88vh' }} onClick={e => e.stopPropagation()}>
+          <div style={{ padding: '16px 22px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+            <div style={{ fontSize: 15, fontWeight: 700 }}>{L('PDF Preview', 'معاينة PDF')}</div>
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
+              {L('Changes here affect this PDF only and are not saved to the database.', 'التعديلات هنا خاصة بملف PDF فقط ولن يتم حفظها في قاعدة البيانات.')}
+            </div>
+          </div>
+          <div style={{ flex: 1, minHeight: 0, padding: '14px 22px', display: 'flex', justifyContent: 'center' }}>
+            <iframe src={inlinePreview.url} title="Athletes PDF inline preview"
+              style={{ width: '100%', maxWidth: 640, height: '100%', border: '1px solid var(--border)', borderRadius: 8, background: '#525659' }} />
+          </div>
+          <div style={{ padding: '14px 22px', borderTop: '1px solid var(--border)', display: 'flex', gap: 10, justifyContent: 'flex-end', flexShrink: 0 }}>
+            <button className="btn-cancel" onClick={handleContinueEditing}>{L('Continue Editing', 'متابعة التعديل')}</button>
+            <button className="btn btn-blue" onClick={handleExportFinal}>
+              <i className="ti ti-file-export" /> {L('Export PDF', 'تصدير PDF')}
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={handleCloseSelector}>
       <div className="modal-box" style={{ width: 760, display: 'flex', flexDirection: 'column', maxHeight: '88vh' }} onClick={e => e.stopPropagation()}>
         {/* Sticky header + search -- stays visible while the list below scrolls, important with 190+ athletes. */}
         <div style={{ padding: '18px 22px 14px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 6 }}>
             <div style={{ fontSize: 15, fontWeight: 700 }}>{title || L('Select Athletes to Export', 'اختر الرياضيين للتصدير')}</div>
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
+              {L('Changes here affect this PDF only and are not saved to the database.', 'التعديلات هنا خاصة بملف PDF فقط ولن يتم حفظها في قاعدة البيانات.')}
+            </div>
             {visibleColKeys?.length > 0 && (
               <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: 'var(--text3)', cursor: 'pointer', userSelect: 'none' }}>
                 <input type="checkbox" checked={showAllFields} onChange={e => setShowAllFields(e.target.checked)} />
@@ -344,8 +403,8 @@ export default function AthleteExportSelector({
         )}
 
         <div style={{ padding: '14px 22px', borderTop: '1px solid var(--border)', display: 'flex', gap: 10, justifyContent: 'flex-end', flexShrink: 0 }}>
-          <button className="btn-cancel" onClick={onClose}>{L('Cancel', 'إلغاء')}</button>
-          <button className="btn btn-blue" disabled={selectedIds.size === 0 || exporting} onClick={handleExport}>
+          <button className="btn-cancel" onClick={handleCloseSelector}>{L('Cancel', 'إلغاء')}</button>
+          <button className="btn btn-blue" disabled={selectedIds.size === 0 || exporting} onClick={handlePreviewClick}>
             <i className="ti ti-file-eye" /> {exporting ? L('Preparing preview…', 'جارٍ تجهيز المعاينة…') : L('Preview PDF', 'معاينة PDF')}
           </button>
         </div>
