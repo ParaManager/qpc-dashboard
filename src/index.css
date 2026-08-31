@@ -273,6 +273,12 @@ select.filter { padding: 8px 12px; border-radius: 9px; border: 1px solid var(--b
 /* MODALS */
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 1000; display: flex; align-items: center; justify-content: center; animation: fadeIn .15s ease; }
 .modal-box { background: var(--surface); border-radius: 16px; width: 560px; max-width: 92vw; max-height: 88vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,.18); animation: slideUp .2s ease; }
+/* Large intermediate ("stage 1") PDF preview modal — desktop target per
+   spec: ~90vw wide capped at 1100px, ~85vh tall, PDF area gets the
+   majority of that height. Distinct from .modal-box's normal compact
+   sizing and from the full-screen final preview (.pdf-preview-page),
+   which has no visible modal boundary at all. */
+.pdf-inline-preview-box { width: min(1100px, 90vw); max-width: min(1100px, 90vw); height: 85vh; max-height: 85vh; overflow: hidden; }
 
 /* Admin submission PDF preview page — full-height app view (not a modal),
    Back/title/Print/Download toolbar on top, the generated PDF filling the
@@ -558,6 +564,17 @@ body { overscroll-behavior: none; }
     border-radius: 20px 20px 0 0;
     max-height: 90vh;
     margin: 0;
+  }
+  /* Nearly full viewport on mobile, with a small outer margin so it never
+     touches the very edge — same intent as the desktop 90vw/85vh target,
+     scaled for small screens. */
+  .pdf-inline-preview-box {
+    width: calc(100vw - 16px);
+    max-width: calc(100vw - 16px);
+    height: calc(100dvh - 16px);
+    max-height: calc(100dvh - 16px);
+    border-radius: 16px;
+    margin: 8px;
   }
 
   /* Tighter form spacing on mobile - the default gaps look sparse on a long form */
