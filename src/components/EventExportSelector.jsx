@@ -237,7 +237,12 @@ function buildOfficialFieldDefs(roleTitles, ar) {
       // switched back and forth.
       applyOverride: v => v === '__custom__' ? { role: '__custom__', customRole: '' } : { role: v, customRole: undefined },
     },
-    { key: 'designation', en: 'Designation', ar: 'الوظيفة', type: 'text', getText: o => o.designation || '', getValue: o => o.designation || '', applyOverride: v => ({ designation: v }) },
+    // Designation is no longer a column in the Event PDF at all, so it's
+    // excluded from "Edit for PDF" (editing something the PDF will never
+    // show would be pointless) — but it stays searchable, since finding
+    // an official by their designation is still a legitimate use of
+    // Search-by independent of what the PDF itself displays.
+    { key: 'designation', en: 'Designation', ar: 'الوظيفة', type: 'text', editable: false, getText: o => o.designation || '', getValue: o => o.designation || '', applyOverride: v => ({ designation: v }) },
   ]
 }
 
