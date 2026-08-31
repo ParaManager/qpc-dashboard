@@ -6,6 +6,7 @@ import { Avatar, Badge, statusDot, statusClass, DashRow, sportLabel, buildSearch
 import FormModal from '../components/FormModal'
 import EventCategoryModal from '../components/EventCategoryModal'
 import EventExportSelector from '../components/EventExportSelector'
+import PdfCanvasPreview from '../components/PdfCanvasPreview'
 import { ConfirmModal, toast } from '../components/Toast'
 import { supabase } from '../lib/supabase'
 import { canEdit } from '../lib/useAuth'
@@ -822,7 +823,7 @@ export default function Events({ events, athletes, coaches = [], results, regist
               </div>
             </div>
             <div className="pdf-preview-frame-wrap">
-              <iframe src={eventPdfPreview.url} title="Event PDF preview" className="pdf-preview-frame" />
+              <PdfCanvasPreview blob={eventPdfPreview.blob} className="pdf-preview-frame" style={{ background: '#525659' }} />
             </div>
           </div>
         )}

@@ -9,6 +9,7 @@ import PhotoCropModal from '../components/PhotoCropModal'
 import AthleteSportsCard from '../components/AthleteSportsCard'
 import ImportCompletionSummary from '../components/ImportCompletionSummary'
 import FormModal from '../components/FormModal'
+import PdfCanvasPreview from '../components/PdfCanvasPreview'
 import AthleteExportSelector from '../components/AthleteExportSelector'
 import { ConfirmModal, toast } from '../components/Toast'
 import { supabase } from '../lib/supabase'
@@ -3788,7 +3789,7 @@ ${myDocs.length > 0 ? `<div class="section">
             </div>
           </div>
           <div className="pdf-preview-frame-wrap">
-            <iframe src={pdfListPreview.url} title="Athletes PDF preview" className="pdf-preview-frame" />
+            <PdfCanvasPreview blob={pdfListPreview.blob} className="pdf-preview-frame" style={{ background: '#525659' }} />
           </div>
         </div>
       )}      {form && <FormModal type="athlete" record={null} coaches={coaches} sportsList={sportsList} onSave={handleSave} onClose={() => setForm(null)} />}
