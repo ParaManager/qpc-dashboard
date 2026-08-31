@@ -684,44 +684,6 @@ export default function Events({ events, athletes, coaches = [], results, regist
   // dialog, not an immediate download). Rendered ahead of the normal
   // event-detail view; Back only clears this state, leaving `selected`
   // untouched, so it returns to the exact same event.
-  if (eventPdfPreview) {
-    return (
-      <div className="pdf-preview-page">
-        <div className="pdf-preview-toolbar">
-          <button className="action-btn action-btn-edit pdf-preview-back" onClick={closeEventPdfPreview}>
-            <i className="ti ti-arrow-left"/> {ar?'رجوع':'Back'}
-          </button>
-          <div className="pdf-preview-title">{eventPdfPreview.filename}</div>
-          <div className="pdf-preview-actions">
-            <button className="action-btn action-btn-edit" onClick={()=>{
-              const iframe = document.createElement('iframe')
-              iframe.style.display = 'none'
-              iframe.src = eventPdfPreview.url
-              document.body.appendChild(iframe)
-              iframe.onload = () => {
-                iframe.contentWindow.focus()
-                iframe.contentWindow.print()
-              }
-            }}>
-              <i className="ti ti-printer"/> {ar?'طباعة':'Print'}
-            </button>
-            <button className="btn btn-blue" onClick={()=>{
-              const a = document.createElement('a')
-              a.href = eventPdfPreview.url
-              a.download = eventPdfPreview.filename
-              a.click()
-            }}>
-              <i className="ti ti-download"/> {ar?'تنزيل PDF':'Download PDF'}
-            </button>
-          </div>
-        </div>
-        <div className="pdf-preview-frame-wrap">
-          <iframe src={eventPdfPreview.url} title="Event PDF preview" className="pdf-preview-frame" />
-        </div>
-      </div>
-    )
-  }
-
   if (selected) {
     const ev = events.find(x => x.id === selected)
     if (!ev) { setSelected(null); return null }
@@ -809,11 +771,60 @@ export default function Events({ events, athletes, coaches = [], results, regist
           <EventExportSelector
             ev={ev} regAthletes={regAthletes} officialsByRole={officials} roleTitles={ROLE_TITLES} employees={employees}
             ar={ar} onClose={() => setShowExportModal(false)}
-            onPreview={async ({ athletes: exportAthletes, includeOfficials, officialsByRole, employees: exportEmployees }) => {
-              const preview = await previewEventPdf(ev, exportAthletes, includeOfficials, officialsByRole, ROLE_TITLES, exportEmployees, ar ? 'ar' : 'en')
+            onGeneratePreview={async ({ athletes: exportAthletes, includeOfficials, officialsByRole, employees: exportEmployees }) => {
+              // Stage 1 (small in-modal preview) — builds from the CURRENT
+              // temporary selection/overrides across both tabs; does not
+              // touch this page's own state or close anything.
+              return previewEventPdf(ev, exportAthletes, includeOfficials, officialsByRole, ROLE_TITLES, exportEmployees, ar ? 'ar' : 'en')
+            }}
+            onExportFinal={(preview) => {
+              // Stage 2 — commits to the final full-screen preview using
+              // the EXACT SAME already-generated blob from stage 1, then
+              // ends the export session (selector closes).
               setEventPdfPreview({ ...preview, ev })
+              setShowExportModal(false)
             }}
           />
+        )}
+        {eventPdfPreview && (
+          // Rendered as an overlay ON TOP of the still-mounted export
+          // selector above (never an early return that would unmount it)
+          // — "Back to Edit" only hides this overlay, so every temporary
+          // selection/override in both the Athletes and Officials tabs is
+          // still exactly as the person left it.
+          <div className="pdf-preview-page" style={{ position: 'fixed', inset: 0, zIndex: 1100, background: 'var(--bg)' }}>
+            <div className="pdf-preview-toolbar">
+              <button className="action-btn action-btn-edit pdf-preview-back" onClick={closeEventPdfPreview}>
+                <i className="ti ti-arrow-left"/> {ar?'← العودة للتعديل':'← Back to Edit'}
+              </button>
+              <div className="pdf-preview-title">{eventPdfPreview.filename}</div>
+              <div className="pdf-preview-actions">
+                <button className="action-btn action-btn-edit" onClick={()=>{
+                  const iframe = document.createElement('iframe')
+                  iframe.style.display = 'none'
+                  iframe.src = eventPdfPreview.url
+                  document.body.appendChild(iframe)
+                  iframe.onload = () => {
+                    iframe.contentWindow.focus()
+                    iframe.contentWindow.print()
+                  }
+                }}>
+                  <i className="ti ti-printer"/> {ar?'طباعة':'Print'}
+                </button>
+                <button className="btn btn-blue" onClick={()=>{
+                  const a = document.createElement('a')
+                  a.href = eventPdfPreview.url
+                  a.download = eventPdfPreview.filename
+                  a.click()
+                }}>
+                  <i className="ti ti-download"/> {ar?'تنزيل PDF':'Download PDF'}
+                </button>
+              </div>
+            </div>
+            <div className="pdf-preview-frame-wrap">
+              <iframe src={eventPdfPreview.url} title="Event PDF preview" className="pdf-preview-frame" />
+            </div>
+          </div>
         )}
 
         <div className="detail-grid">

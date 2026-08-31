@@ -3750,47 +3750,48 @@ ${myDocs.length > 0 ? `<div class="section">
   // Admin PDF preview page — dedicated in-app view (not an immediate
   // download), reusing the exact same layout/CSS as the Event and
   // submission PDF previews. Back only clears this state.
-  if (pdfListPreview) {
-    return (
-      <div className="pdf-preview-page">
-        <div className="pdf-preview-toolbar">
-          <button className="action-btn action-btn-edit pdf-preview-back" onClick={closePdfListPreview}>
-            <i className="ti ti-arrow-left"/> {lang==='ar'?'رجوع':'Back'}
-          </button>
-          <div className="pdf-preview-title">{pdfListPreview.filename}</div>
-          <div className="pdf-preview-actions">
-            <button className="action-btn action-btn-edit" onClick={()=>{
-              const iframe = document.createElement('iframe')
-              iframe.style.display = 'none'
-              iframe.src = pdfListPreview.url
-              document.body.appendChild(iframe)
-              iframe.onload = () => {
-                iframe.contentWindow.focus()
-                iframe.contentWindow.print()
-              }
-            }}>
-              <i className="ti ti-printer"/> {lang==='ar'?'طباعة':'Print'}
-            </button>
-            <button className="btn btn-blue" onClick={()=>{
-              const a = document.createElement('a')
-              a.href = pdfListPreview.url
-              a.download = pdfListPreview.filename
-              a.click()
-            }}>
-              <i className="ti ti-download"/> {lang==='ar'?'تنزيل PDF':'Download PDF'}
-            </button>
-          </div>
-        </div>
-        <div className="pdf-preview-frame-wrap">
-          <iframe src={pdfListPreview.url} title="Athletes PDF preview" className="pdf-preview-frame" />
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div>
-      {form && <FormModal type="athlete" record={null} coaches={coaches} sportsList={sportsList} onSave={handleSave} onClose={() => setForm(null)} />}
+      {pdfListPreview && (
+        // Rendered as an overlay ON TOP of the normal page (never an early
+        // return that would replace/unmount everything below) — the export
+        // selector stays mounted underneath with all its temporary
+        // selection/edit state intact, so "Back to Edit" only has to hide
+        // this overlay, not rebuild a destroyed session.
+        <div className="pdf-preview-page" style={{ position: 'fixed', inset: 0, zIndex: 1100, background: 'var(--bg)' }}>
+          <div className="pdf-preview-toolbar">
+            <button className="action-btn action-btn-edit pdf-preview-back" onClick={closePdfListPreview}>
+              <i className="ti ti-arrow-left"/> {lang==='ar'?'← العودة للتعديل':'← Back to Edit'}
+            </button>
+            <div className="pdf-preview-title">{pdfListPreview.filename}</div>
+            <div className="pdf-preview-actions">
+              <button className="action-btn action-btn-edit" onClick={()=>{
+                const iframe = document.createElement('iframe')
+                iframe.style.display = 'none'
+                iframe.src = pdfListPreview.url
+                document.body.appendChild(iframe)
+                iframe.onload = () => {
+                  iframe.contentWindow.focus()
+                  iframe.contentWindow.print()
+                }
+              }}>
+                <i className="ti ti-printer"/> {lang==='ar'?'طباعة':'Print'}
+              </button>
+              <button className="btn btn-blue" onClick={()=>{
+                const a = document.createElement('a')
+                a.href = pdfListPreview.url
+                a.download = pdfListPreview.filename
+                a.click()
+              }}>
+                <i className="ti ti-download"/> {lang==='ar'?'تنزيل PDF':'Download PDF'}
+              </button>
+            </div>
+          </div>
+          <div className="pdf-preview-frame-wrap">
+            <iframe src={pdfListPreview.url} title="Athletes PDF preview" className="pdf-preview-frame" />
+          </div>
+        </div>
+      )}      {form && <FormModal type="athlete" record={null} coaches={coaches} sportsList={sportsList} onSave={handleSave} onClose={() => setForm(null)} />}
       {pendingStatusSave && (
         <StatusScopeModal
           roles={pendingStatusSave.roles}
@@ -3846,33 +3847,28 @@ ${myDocs.length > 0 ? `<div class="section">
               title={lang==='ar' ? 'اختر الرياضيين للتصدير' : 'Select Athletes to Export'}
               exportLabelPrefix={lang==='ar' ? 'تصدير' : 'Export'}
               onClose={() => setShowExportSelector(false)}
-              onExport={async (selectedAthletes) => {
-                setPdfExporting(true)
-                try {
-                  const ar = lang === 'ar'
-                  // Same activeFilters list the badge/viewer show — a PDF
-                  // export's filter summary can never disagree with what
-                  // the person sees on screen when they clicked Export.
-                  // Now reflects the athletes actually chosen in the
-                  // selector rather than always describing the page's own
-                  // filters, since the two can now differ.
-                  const parts = activeFilters.map(f => `${f.label}: ${f.value}`)
-                  const baseSummary = parts.length ? parts.join('  •  ') : (ar ? 'كل الرياضيين' : 'All athletes')
-                  const filterSummaryText = selectedAthletes.length === list.length
-                    ? baseSummary
-                    : (ar ? `${selectedAthletes.length} رياضي محدد يدوياً` : `${selectedAthletes.length} manually selected athletes`)
-                  // Reuses the exact same PDF generator as before — only
-                  // the athlete array passed in changes; headers, columns,
-                  // sport formatting, RTL handling, and styling are
-                  // completely untouched. Opens the in-app preview instead
-                  // of downloading immediately — Print/Download live on
-                  // the preview screen itself, both reading from this
-                  // exact same generated PDF.
-                  const preview = await previewAthletesListPdf(selectedAthletes, coaches, documents||[], visibleCols, ALL_COLS, lang, athleteSportsByAthlete, filterSummaryText)
-                  if (preview) setPdfListPreview(preview)
-                } finally {
-                  setPdfExporting(false)
-                }
+              onGeneratePreview={async (selectedAthletes) => {
+                // Stage 1 (small in-modal preview) — builds the PDF from
+                // the CURRENT temporary selection/overrides and returns it
+                // to the selector; does not touch this page's own state or
+                // close anything, since the person may still go back and
+                // keep editing.
+                const arNow = lang === 'ar'
+                const parts = activeFilters.map(f => `${f.label}: ${f.value}`)
+                const baseSummary = parts.length ? parts.join('  •  ') : (arNow ? 'كل الرياضيين' : 'All athletes')
+                const filterSummaryText = selectedAthletes.length === list.length
+                  ? baseSummary
+                  : (arNow ? `${selectedAthletes.length} رياضي محدد يدوياً` : `${selectedAthletes.length} manually selected athletes`)
+                return previewAthletesListPdf(selectedAthletes, coaches, documents||[], visibleCols, ALL_COLS, lang, athleteSportsByAthlete, filterSummaryText)
+              }}
+              onExportFinal={(preview) => {
+                // Stage 2 — commits to the final full-screen preview using
+                // the EXACT SAME already-generated blob from stage 1
+                // (never regenerated), then ends the export session: the
+                // selector closes, matching "Export PDF means the user has
+                // committed to the final preview stage."
+                setPdfListPreview(preview)
+                setShowExportSelector(false)
               }}
             />
           )}
