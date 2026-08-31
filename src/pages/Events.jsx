@@ -103,25 +103,6 @@ function PersonRow({ name, nameAr, id, subtitle, subtitleAr, status, ar, canRemo
 // Olympics page's own PDF export — every other Paralympic event keeps the
 // standard QPC template unchanged.
 const QPC_MAROON = [87, 25, 50]
-
-// Job-title/designation values are stored as free-text English on the
-// employee record — translate the common ones for the Arabic PDF rather
-// than leaving them raw English. Falls back to the stored value itself
-// for anything not in this list (e.g. a less common title), same as
-// every other best-effort label map elsewhere in the app.
-const DESIGNATION_AR = {
-  'Coach': 'مدرب',
-  'Technical Expert': 'خبير فني',
-  'Team Leader': 'رئيس الوفد',
-  'Head of Delegation': 'رئيس الوفد',
-  'Medical Staff': 'الجهاز الطبي',
-  'Administrative Staff': 'الجهاز الإداري',
-  'Support Staff': 'الجهاز المساند',
-}
-function designationLabel(designation, ar) {
-  if (!designation) return ''
-  return ar ? (DESIGNATION_AR[designation] || designation) : designation
-}
 const SO_RED = [211, 47, 47]
 
 // Uses the shared isSpecialOlympicsSport() helper (also used by
@@ -285,24 +266,19 @@ async function buildEventPdfDoc(ev, selectedAthletes, includeOfficials, official
             // in Arabic mode, rendered verbatim exactly as entered.
             role: o._overrideRoleText !== undefined ? o._overrideRoleText : roleTitles[key],
             name: o._overrideName !== undefined ? o._overrideName : (ar && emp.name_ar ? emp.name_ar : emp.name),
-            // Designation is a free-text job-title field on the employee
-            // record — translated through the same mapping the rest of
-            // the app already uses for it, so it never stays raw English
-            // in the Arabic PDF.
-            designation: designationLabel(o._overrideDesignation !== undefined ? o._overrideDesignation : emp.designation, ar),
           })
         }
       }
       const officialColDefs = {
-        role:        { headEn: 'Role',        headAr: 'الدور',    get: row => row.role },
-        name:        { headEn: 'Name',        headAr: 'الاسم',    get: row => row.name },
-        designation: { headEn: 'Designation', headAr: 'الوظيفة', get: row => row.designation },
+        role: { headEn: 'Role', headAr: 'الدور', get: row => row.role },
+        name: { headEn: 'Name', headAr: 'الاسم', get: row => row.name },
       }
-      const officialOrderFull = ar ? ['designation', 'role', 'name'] : ['role', 'name', 'designation']
-      // Name always stays — everything else only appears if the person
-      // picked it in the export modal (defaults to "all" when no
-      // selection was passed in, so nothing else calling this function
-      // needs to change).
+      // Designation removed from the Event PDF entirely — only Role and
+      // Name remain. Array order is [role, name] for both languages;
+      // since autoTable draws columns left-to-right, Name being last
+      // means it lands rightmost in Arabic (reads first, right-to-left),
+      // matching the athlete table's existing "Name reads first" rule.
+      const officialOrderFull = ['role', 'name']
       const officialOrder = officialOrderFull.filter(k => k === 'name' || !officialCols || officialCols.includes(k))
       const officialRows = officialData.map(row => officialOrder.map(k => safeStr(officialColDefs[k].get(row))))
       autoTable(doc, {
@@ -313,6 +289,11 @@ async function buildEventPdfDoc(ev, selectedAthletes, includeOfficials, official
         styles: { font: FONT, fontSize: 9.5, textColor: [30,30,30], cellPadding: 5, halign: ar ? 'right' : 'left' },
         headStyles: { font: FONT, fillColor: THEME, textColor: 255, fontStyle: 'bold', halign: ar ? 'right' : 'left' },
         alternateRowStyles: { fillColor: [250, 245, 245] },
+        // With only two columns left, give Name (variable-length person
+        // names) more room than Role (short, mostly standardized labels)
+        // — array order is [role, name] for both languages here, so the
+        // column-index mapping doesn't need to differ by language.
+        columnStyles: { 0: { cellWidth: (pageWidth - 80) * 0.35 }, 1: { cellWidth: (pageWidth - 80) * 0.65 } },
         margin: { left: 40, right: 40 },
       })
       y = doc.lastAutoTable.finalY + 26
