@@ -3750,49 +3750,52 @@ ${myDocs.length > 0 ? `<div class="section">
 
   // Admin PDF preview page — dedicated in-app view (not an immediate
   // download), reusing the exact same layout/CSS as the Event and
-  // submission PDF previews. Back only clears this state.
-  return (
-    <div>
-      {pdfListPreview && (
-        // Rendered as an overlay ON TOP of the normal page (never an early
-        // return that would replace/unmount everything below) — the export
-        // selector stays mounted underneath with all its temporary
-        // selection/edit state intact, so "Back to Edit" only has to hide
-        // this overlay, not rebuild a destroyed session.
-        <div className="pdf-preview-page" style={{ position: 'fixed', inset: 0, zIndex: 1100, background: 'var(--bg)' }}>
-          <div className="pdf-preview-toolbar">
-            <button className="action-btn action-btn-edit pdf-preview-back" onClick={closePdfListPreview}>
-              <i className="ti ti-arrow-left"/> {lang==='ar'?'← العودة للتعديل':'← Back to Edit'}
+  // submission PDF previews. A genuine early return (not an overlay kept
+  // above a still-mounted selector) — the export selector has already
+  // been closed by this point (onExportFinal below does that); "Back"
+  // here intentionally ends the export session and returns to the normal
+  // Athletes page.
+  if (pdfListPreview) {
+    return (
+      <div className="pdf-preview-page">
+        <div className="pdf-preview-toolbar">
+          <button className="action-btn action-btn-edit pdf-preview-back" onClick={closePdfListPreview}>
+            <i className="ti ti-arrow-left"/> {lang==='ar'?'← العودة':'← Back'}
+          </button>
+          <div className="pdf-preview-title">{pdfListPreview.filename}</div>
+          <div className="pdf-preview-actions">
+            <button className="action-btn action-btn-edit" onClick={()=>{
+              const iframe = document.createElement('iframe')
+              iframe.style.display = 'none'
+              iframe.src = pdfListPreview.url
+              document.body.appendChild(iframe)
+              iframe.onload = () => {
+                iframe.contentWindow.focus()
+                iframe.contentWindow.print()
+              }
+            }}>
+              <i className="ti ti-printer"/> {lang==='ar'?'طباعة':'Print'}
             </button>
-            <div className="pdf-preview-title">{pdfListPreview.filename}</div>
-            <div className="pdf-preview-actions">
-              <button className="action-btn action-btn-edit" onClick={()=>{
-                const iframe = document.createElement('iframe')
-                iframe.style.display = 'none'
-                iframe.src = pdfListPreview.url
-                document.body.appendChild(iframe)
-                iframe.onload = () => {
-                  iframe.contentWindow.focus()
-                  iframe.contentWindow.print()
-                }
-              }}>
-                <i className="ti ti-printer"/> {lang==='ar'?'طباعة':'Print'}
-              </button>
-              <button className="btn btn-blue" onClick={()=>{
-                const a = document.createElement('a')
-                a.href = pdfListPreview.url
-                a.download = pdfListPreview.filename
-                a.click()
-              }}>
-                <i className="ti ti-download"/> {lang==='ar'?'تنزيل PDF':'Download PDF'}
-              </button>
-            </div>
-          </div>
-          <div className="pdf-preview-frame-wrap">
-            <PdfCanvasPreview blob={pdfListPreview.blob} className="pdf-preview-frame" style={{ background: '#525659' }} />
+            <button className="btn btn-blue" onClick={()=>{
+              const a = document.createElement('a')
+              a.href = pdfListPreview.url
+              a.download = pdfListPreview.filename
+              a.click()
+            }}>
+              <i className="ti ti-download"/> {lang==='ar'?'تنزيل PDF':'Download PDF'}
+            </button>
           </div>
         </div>
-      )}      {form && <FormModal type="athlete" record={null} coaches={coaches} sportsList={sportsList} onSave={handleSave} onClose={() => setForm(null)} />}
+        <div className="pdf-preview-frame-wrap">
+          <PdfCanvasPreview blob={pdfListPreview.blob} className="pdf-preview-frame" style={{ background: '#525659' }} />
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      {form && <FormModal type="athlete" record={null} coaches={coaches} sportsList={sportsList} onSave={handleSave} onClose={() => setForm(null)} />}
       {pendingStatusSave && (
         <StatusScopeModal
           roles={pendingStatusSave.roles}
