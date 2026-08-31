@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { Avatar, sportLabel } from '../lib/helpers'
+import PdfCanvasPreview from './PdfCanvasPreview'
 
 // ── Shared small helpers (deliberately lightweight) ─────────────────────
 // A full reuse of AthleteExportSelector's field-resolver architecture was
@@ -372,18 +373,15 @@ export default function EventExportSelector({ ev, regAthletes, officialsByRole, 
   if (inlinePreview) {
     return (
       <div className="modal-overlay" onClick={handleCloseSelector}>
-        <div className="modal-box" style={{ width: 760, display: 'flex', flexDirection: 'column', maxHeight: '88vh' }} onClick={e => e.stopPropagation()}>
-          <div style={{ padding: '16px 22px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+        <div className="modal-box pdf-inline-preview-box" style={{ display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+          <div style={{ padding: '14px 22px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
             <div style={{ fontSize: 15, fontWeight: 700 }}>{L('PDF Preview', 'معاينة PDF')}</div>
             <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
               {L('Changes here affect this PDF only and are not saved to the database.', 'التعديلات هنا خاصة بملف PDF فقط ولن يتم حفظها في قاعدة البيانات.')}
             </div>
           </div>
-          <div style={{ flex: 1, minHeight: 0, padding: '14px 22px', display: 'flex', justifyContent: 'center' }}>
-            <iframe src={inlinePreview.url} title="Event PDF inline preview"
-              style={{ width: '100%', maxWidth: 640, height: '100%', border: '1px solid var(--border)', borderRadius: 8, background: '#525659' }} />
-          </div>
-          <div style={{ padding: '14px 22px', borderTop: '1px solid var(--border)', display: 'flex', gap: 10, justifyContent: 'flex-end', flexShrink: 0 }}>
+          <PdfCanvasPreview blob={inlinePreview.blob} style={{ flex: 1, minHeight: 0, background: '#525659' }} />
+          <div style={{ padding: '12px 22px', borderTop: '1px solid var(--border)', display: 'flex', gap: 10, justifyContent: 'flex-end', flexShrink: 0 }}>
             <button className="btn-cancel" onClick={handleContinueEditing}>{L('Continue Editing', 'متابعة التعديل')}</button>
             <button className="btn btn-blue" onClick={handleExportFinal}>
               <i className="ti ti-file-export" /> {L('Export PDF', 'تصدير PDF')}
