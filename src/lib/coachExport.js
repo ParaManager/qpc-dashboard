@@ -26,7 +26,6 @@ function buildColumns(ar) {
     { key: 'category',   label: L('Sport Category', 'فئة الرياضة'),     w: 65,  get: c => ar ? (SPORT_CATEGORY_NAMES_AR[c.sport_category] || s(c.sport_category)) : s(c.sport_category) },
     { key: 'status',     label: L('Status', 'الحالة'),                  w: 50,  get: c => { const st = effectiveStatus(c); return ar ? (STATUS_AR[st] || s(st)) : s(st) } },
     { key: 'count',      label: L('Athletes', 'عدد الرياضيين'),         w: 36,  get: (c, i, x) => x.athletesFor(c.id).length },
-    { key: 'athletes',   label: L('Assigned Athletes', 'الرياضيون المعينون'), w: 0, get: (c, i, x) => x.athletesFor(c.id).map(a => (ar && a.name_ar) ? a.name_ar : a.name).filter(Boolean).join(ar ? '، ' : ', ') },
   ]
 }
 
@@ -42,7 +41,7 @@ export function exportCoachesExcel(coaches, ctx) {
   const idxs = ordered.map(c => cols.indexOf(c))
   const aoa = [ordered.map(c => c.label), ...rows.map(r => idxs.map(i => r[i]))]
   const ws = XLSX.utils.aoa_to_sheet(aoa)
-  ws['!cols'] = ordered.map(c => ({ wch: c.key === 'idx' ? 5 : c.key === 'athletes' ? 60 : c.key === 'count' ? 10 : 22 }))
+  ws['!cols'] = ordered.map(c => ({ wch: c.key === 'idx' ? 5 : c.key === 'count' ? 10 : 22 }))
   ws['!freeze'] = { xSplit: 0, ySplit: 1 }
   const wb = XLSX.utils.book_new()
   if (ar) wb.Workbook = { Views: [{ RTL: true }] }
@@ -97,14 +96,16 @@ export async function exportCoachesPdf(coaches, ctx) {
   }
 
   const arabicColIdx = new Set(ordered.map((c, i) => c.arabic ? i : -1).filter(i => i >= 0))
-  const colStyles = Object.fromEntries(ordered.map((c, i) => [i, c.w ? { cellWidth: c.w } : {}]))
+  const avail = pageW - 72
+  const sumW = ordered.reduce((n, c) => n + (c.w || 0), 0)
+  const colStyles = Object.fromEntries(ordered.map((c, i) => [i, { cellWidth: Math.floor((c.w / sumW) * avail * 100) / 100 }]))
 
   autoTable(doc, {
     head: [ordered.map(c => c.label)],
     body: rows.map(r => idxs.map(i => String(r[i] ?? ''))),
     startY: 76,
     margin: { top: 76, left: 36, right: 36, bottom: 26 },
-    styles: { font: FONT, fontSize: 7.5, cellPadding: 3.5, valign: 'middle', overflow: 'linebreak', halign: ar ? 'right' : 'left', lineColor: [232, 220, 224], lineWidth: 0.4 },
+    styles: { font: FONT, fontSize: 8.5, cellPadding: 5, valign: 'middle', overflow: 'linebreak', halign: ar ? 'right' : 'left', lineColor: [232, 220, 224], lineWidth: 0.4 },
     headStyles: { font: FONT, fillColor: MAROON, textColor: 255, fontStyle: 'bold', halign: ar ? 'right' : 'left' },
     alternateRowStyles: { fillColor: [249, 244, 245] },
     columnStyles: colStyles,
