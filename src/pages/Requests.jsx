@@ -1301,8 +1301,12 @@ export default function Requests({ profile, navState }) {
             </label>)
           return (
             <div className="modal-overlay" onClick={()=>{ if(!running){setExportOpen(false);setExportState(null)} }}>
-              <div className="modal" style={{maxWidth:460}} onClick={e=>e.stopPropagation()}>
-                <div className="confirm-title" style={{fontWeight:700,fontSize:16,marginBottom:12}}>{ar?'تصدير الطلبات (ZIP)':'Export Submissions (ZIP)'}</div>
+              <div className="modal-box modal-sm" dir={ar?'rtl':'ltr'} style={{width:460}} onClick={e=>e.stopPropagation()}>
+                <div className="modal-header">
+                  <div className="modal-title">{ar?'تصدير الطلبات (ZIP)':'Export Submissions (ZIP)'}</div>
+                  {!running && <button className="modal-close" onClick={()=>{setExportOpen(false);setExportState(null)}}>×</button>}
+                </div>
+                <div style={{padding:'18px 22px 20px'}}>
                 {!st && <>
                   {opt('filtered', ar?'الطلبات المعروضة حالياً (حسب الفلتر)':'Current filter', nFilt)}
                   {opt('all', ar?'كل الطلبات':'All submissions', formSubs.length)}
@@ -1327,6 +1331,7 @@ export default function Requests({ profile, navState }) {
                         <button className="btn-cancel" onClick={()=>{setExportOpen(false);setExportState(null)}}>{st?(ar?'إغلاق':'Close'):(ar?'إلغاء':'Cancel')}</button>
                         {!st && <button className="btn btn-blue" disabled={exportScope==='selected'&&!nSel} onClick={()=>runBulkExport(selectedForm)}><i className="ti ti-download"/> {ar?'تصدير':'Export'}</button>}
                       </>}
+                </div>
                 </div>
               </div>
             </div>
