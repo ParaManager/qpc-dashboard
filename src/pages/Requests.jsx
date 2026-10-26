@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useLang } from '../lib/LangContext.jsx'
 import { toast, ConfirmModal } from '../components/Toast'
 import { initials, BackButton, DocPreviewButton, SUPPORTED_DOC_FILE_TYPES, SignaturePad } from '../lib/helpers'
 import { isTrustedAdmin } from '../lib/permissions'
 import { logAdminActivity } from '../lib/adminActivity'
+import { exportSubmissionsZip, fetchAllFormSubmissions } from '../lib/bulkExport'
 import { printSubmission, downloadSubmissionPdf, previewSubmissionPdf } from '../lib/printTemplates'
 
 const FIELD_TYPES = [
@@ -197,6 +198,11 @@ export default function Requests({ profile, navState }) {
   const [cancelConfirm, setCancelConfirm] = useState(null) // submission pending cancel-confirmation
   const [deleteSubConfirm, setDeleteSubConfirm] = useState(null) // admin: submission pending permanent deletion
   const [deletingSub, setDeletingSub] = useState(false)
+  const [bulkSel, setBulkSel] = useState(() => new Set()) // admin: manually selected submission ids (bulk export)
+  const [exportOpen, setExportOpen] = useState(false)
+  const [exportScope, setExportScope] = useState('filtered')
+  const [exportState, setExportState] = useState(null) // { running, progress, report, error }
+  const exportCancelRef = useRef(false)
   const [pdfPreview, setPdfPreview] = useState(null) // { url, blob, filename, form, submission, returnView } — admin PDF preview page
   const [pdfPreviewLoading, setPdfPreviewLoading] = useState(false)
 
@@ -606,8 +612,39 @@ export default function Requests({ profile, navState }) {
       ? (ar?'تم حذف الطلب لكن تعذر حذف بعض المرفقات':'Submission deleted, but some attachments could not be removed')
       : (ar?'تم حذف الطلب نهائياً':'Submission permanently deleted'), storageFailed ? 'error' : 'success')
     setFormSubs(p => p.filter(s => s.id !== sub.id))
+    setBulkSel(p => { const n = new Set(p); n.delete(sub.id); return n })
     setSelectedSub(p => p && p.id===sub.id ? null : p)
     fetchForms()
+  }
+
+  // Admin-only bulk export (any form type). PDFs come from the form's own
+  // print template; attachments from the submission's own file rows. The
+  // attachment list is fetched through an admin-only RPC (server-enforced).
+  async function runBulkExport(form) {
+    exportCancelRef.current = false
+    setExportState({ running: true, progress: { done: 0, total: 0, current: '' } })
+    try {
+      let subs
+      if (exportScope === 'selected') subs = formSubs.filter(s => bulkSel.has(s.id))
+      else {
+        const all = await fetchAllFormSubmissions(form.id)
+        subs = exportScope === 'all' ? all : (subFilter === 'all' ? all : all.filter(s => s.status === subFilter))
+      }
+      if (!subs.length) { setExportState({ error: ar?'لا توجد طلبات للتصدير':'No submissions to export' }); return }
+      const { blob, filename, report } = await exportSubmissionsZip({
+        form, submissions: subs,
+        onProgress: p => setExportState(st => ({ ...st, running: true, progress: p.zipping ? { ...(st?.progress||{}), zipping: true } : p })),
+        isCancelled: () => exportCancelRef.current,
+      })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a'); a.href = url; a.download = filename
+      document.body.appendChild(a); a.click(); a.remove()
+      setTimeout(() => URL.revokeObjectURL(url), 10000)
+      setExportState({ report })
+    } catch (e) {
+      console.error('Bulk export failed', e)
+      setExportState({ error: e.message || (ar?'فشل التصدير':'Export failed') })
+    }
   }
 
   // Uploads immediately (while the person is still filling the form) into
@@ -1188,6 +1225,7 @@ export default function Requests({ profile, navState }) {
           </div>
           {canEditData && (
           <div style={{display:'flex',gap:8}}>
+            <button className="action-btn action-btn-edit" onClick={()=>{setExportScope(bulkSel.size?'selected':'filtered');setExportState(null);setExportOpen(true)}}><i className="ti ti-file-zip"/> {ar?'تصدير الطلبات':'Export Submissions'}</button>
             <button className="action-btn action-btn-edit" onClick={()=>openEditForm(selectedForm)}><i className="ti ti-edit"/> {ar?'تعديل':'Edit'}</button>
             <button className="action-btn action-btn-delete" onClick={()=>setConfirmDel(selectedForm)}><i className="ti ti-trash"/></button>
           </div>
@@ -1221,6 +1259,10 @@ export default function Requests({ profile, navState }) {
                     onMouseEnter={e=>e.currentTarget.style.borderColor='var(--border2)'}
                     onMouseLeave={e=>e.currentTarget.style.borderColor='var(--border)'}
                     onClick={()=>{setSelectedSub(s);fetchSubActions(s.id);fetchSubFiles(s.id);setActionNote('');setView('submission-view')}}>
+                    {canEditData && (
+                      <input type="checkbox" checked={bulkSel.has(s.id)} onClick={e=>e.stopPropagation()}
+                        onChange={()=>setBulkSel(p=>{const n=new Set(p); n.has(s.id)?n.delete(s.id):n.add(s.id); return n})} />
+                    )}
                     <div style={{width:36,height:36,borderRadius:'50%',background:roleClr,display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700,color:'white',flexShrink:0}}>
                       {initials(initName)}
                     </div>
@@ -1248,6 +1290,48 @@ export default function Requests({ profile, navState }) {
             </div>
         }
         {confirmDel && <ConfirmModal title={ar?'حذف النموذج':'Delete form'} message={`${ar?'حذف':'Delete'} "${confirmDel.title}"?`} onConfirm={()=>deleteForm(confirmDel)} onCancel={()=>setConfirmDel(null)}/>}
+        {exportOpen && canEditData && (() => {
+          const st = exportState, running = st?.running
+          const nSel = formSubs.filter(x=>bulkSel.has(x.id)).length
+          const nFilt = filteredSubs.length
+          const pr = st?.progress
+          const opt = (v, label, n) => (
+            <label key={v} style={{display:'flex',gap:8,alignItems:'center',padding:'6px 0',opacity:(v==='selected'&&!nSel)?.5:1}}>
+              <input type="radio" disabled={running||(v==='selected'&&!nSel)} checked={exportScope===v} onChange={()=>setExportScope(v)}/> {label} {n!=null && <span style={{color:'var(--text3)'}}>({n})</span>}
+            </label>)
+          return (
+            <div className="modal-overlay" onClick={()=>{ if(!running){setExportOpen(false);setExportState(null)} }}>
+              <div className="modal" style={{maxWidth:460}} onClick={e=>e.stopPropagation()}>
+                <div className="confirm-title" style={{fontWeight:700,fontSize:16,marginBottom:12}}>{ar?'تصدير الطلبات (ZIP)':'Export Submissions (ZIP)'}</div>
+                {!st && <>
+                  {opt('filtered', ar?'الطلبات المعروضة حالياً (حسب الفلتر)':'Current filter', nFilt)}
+                  {opt('all', ar?'كل الطلبات':'All submissions', formSubs.length)}
+                  {opt('selected', ar?'الطلبات المحددة':'Selected only', nSel)}
+                  <div style={{fontSize:12,color:'var(--text3)',marginTop:8}}>{ar?'مجلد لكل طلب: ملف PDF + مجلد المرفقات (إن وجدت).':'One folder per submission: PDF + Attachments folder (only if any).'}</div>
+                </>}
+                {running && <div>
+                  <div style={{fontSize:13,marginBottom:6}}>{pr?.zipping ? (ar?'جارٍ إنشاء الملف…':'Building ZIP…') : `${pr?.done||0} / ${pr?.total||'…'} ${pr?.current?'· '+pr.current:''}`}</div>
+                  <div style={{height:6,background:'var(--border)',borderRadius:4}}><div style={{height:6,borderRadius:4,background:'var(--blue)',width:`${pr?.total?Math.round((pr.done/pr.total)*100):0}%`}}/></div>
+                </div>}
+                {st?.error && <div style={{color:'#EE334E',fontSize:13}}>{st.error}</div>}
+                {st?.report && <div style={{fontSize:13}}>
+                  <div style={{fontWeight:600}}>{ar?'اكتمل التصدير':'Export complete'}: {st.report.exported}/{st.report.total} · {st.report.attachments} {ar?'مرفق':'attachment(s)'}</div>
+                  {st.report.cancelled && <div style={{color:'#EE334E'}}>{ar?'تم الإلغاء قبل الاكتمال':'Cancelled before completion'}</div>}
+                  {st.report.missingPdf.length>0 && <div style={{color:'#EE334E',marginTop:6}}>{ar?'ملفات PDF مفقودة':'Missing PDFs'}: {st.report.missingPdf.join(', ')}</div>}
+                  {st.report.missingAttachments.length>0 && <div style={{color:'#EE334E',marginTop:6}}>{ar?'مرفقات مفقودة':'Missing attachments'}: {st.report.missingAttachments.length} <span style={{color:'var(--text3)'}}>({ar?'التفاصيل في EXPORT_REPORT.txt':'see EXPORT_REPORT.txt in the ZIP'})</span></div>}
+                </div>}
+                <div style={{display:'flex',gap:8,justifyContent:'flex-end',marginTop:16}}>
+                  {running
+                    ? <button className="btn-cancel" onClick={()=>{exportCancelRef.current=true}}>{ar?'إلغاء':'Cancel'}</button>
+                    : <>
+                        <button className="btn-cancel" onClick={()=>{setExportOpen(false);setExportState(null)}}>{st?(ar?'إغلاق':'Close'):(ar?'إلغاء':'Cancel')}</button>
+                        {!st && <button className="btn btn-blue" disabled={exportScope==='selected'&&!nSel} onClick={()=>runBulkExport(selectedForm)}><i className="ti ti-download"/> {ar?'تصدير':'Export'}</button>}
+                      </>}
+                </div>
+              </div>
+            </div>
+          )
+        })()}
         {deleteSubConfirm && (
           <ConfirmModal
             title={ar?'حذف الطلب نهائياً':'Delete Submission'}
@@ -1609,7 +1693,7 @@ export default function Requests({ profile, navState }) {
   }
 
   function openForm(f) { setSelectedForm(f); setAnswers({}); setPendingFiles({}); setExistingFiles([]); setDraftId(crypto.randomUUID()); setResubmitTargetId(null); setView('fill-form') }
-  function openFormDetail(f, initialFilter = 'all') { setSelectedForm(f); fetchFormSubs(f.id); setSubFilter(initialFilter); setView('form-detail') }
+  function openFormDetail(f, initialFilter = 'all') { setBulkSel(new Set()); setSelectedForm(f); fetchFormSubs(f.id); setSubFilter(initialFilter); setView('form-detail') }
 
   // Opens the fill-form view pre-filled with a Returned submission's
   // previous answers, so the person edits rather than starting over.
