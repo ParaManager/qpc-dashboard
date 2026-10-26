@@ -5,7 +5,7 @@ import { toast, ConfirmModal } from '../components/Toast'
 import { initials, BackButton, DocPreviewButton, SUPPORTED_DOC_FILE_TYPES, SignaturePad } from '../lib/helpers'
 import { isTrustedAdmin } from '../lib/permissions'
 import { logAdminActivity } from '../lib/adminActivity'
-import { exportSubmissionsZip, fetchAllFormSubmissions } from '../lib/bulkExport'
+import { exportSubmissionsZip } from '../lib/bulkExport'
 import { printSubmission, downloadSubmissionPdf, previewSubmissionPdf } from '../lib/printTemplates'
 
 const FIELD_TYPES = [
@@ -205,7 +205,6 @@ export default function Requests({ profile, navState }) {
   const [bulkDelResult, setBulkDelResult] = useState(null) // { ok, failed:[{label,msg}] }
   const bulkDeletingRef = useRef(false)
   const [exportOpen, setExportOpen] = useState(false)
-  const [exportScope, setExportScope] = useState('filtered')
   const [exportState, setExportState] = useState(null) // { running, progress, report, error }
   const exportCancelRef = useRef(false)
   const [pdfPreview, setPdfPreview] = useState(null) // { url, blob, filename, form, submission, returnView } — admin PDF preview page
@@ -671,15 +670,11 @@ export default function Requests({ profile, navState }) {
   // print template; attachments from the submission's own file rows. The
   // attachment list is fetched through an admin-only RPC (server-enforced).
   async function runBulkExport(form) {
+    // Selection-mode export only: operates on the explicitly selected, loaded submissions.
     exportCancelRef.current = false
     setExportState({ running: true, progress: { done: 0, total: 0, current: '' } })
     try {
-      let subs
-      if (exportScope === 'selected') subs = formSubs.filter(s => bulkSel.has(s.id))
-      else {
-        const all = await fetchAllFormSubmissions(form.id)
-        subs = exportScope === 'all' ? all : (subFilter === 'all' ? all : all.filter(s => s.status === subFilter))
-      }
+      const subs = formSubs.filter(s => bulkSel.has(s.id))
       if (!subs.length) { setExportState({ error: ar?'لا توجد طلبات للتصدير':'No submissions to export' }); return }
       const { blob, filename, report } = await exportSubmissionsZip({
         form, submissions: subs,
@@ -1275,8 +1270,7 @@ export default function Requests({ profile, navState }) {
           </div>
           {canEditData && (
           <div style={{display:'flex',gap:8}}>
-            <button className={`action-btn action-btn-edit`} onClick={()=>selectMode?exitSelectMode():setSelectMode(true)}><i className="ti ti-checkbox"/> {selectMode?(ar?'إلغاء التحديد':'Cancel Selection'):(ar?'تحديد':'Select')}</button>
-            <button className="action-btn action-btn-edit" onClick={()=>{setExportScope('filtered');setExportState(null);setExportOpen(true)}}><i className="ti ti-file-zip"/> {ar?'تصدير الطلبات':'Export Submissions'}</button>
+            {!selectMode && <button className="action-btn action-btn-edit" onClick={()=>setSelectMode(true)}><i className="ti ti-checkbox"/> {ar?'تحديد':'Select'}</button>}
             <button className="action-btn action-btn-edit" onClick={()=>openEditForm(selectedForm)}><i className="ti ti-edit"/> {ar?'تعديل':'Edit'}</button>
             <button className="action-btn action-btn-delete" onClick={()=>setConfirmDel(selectedForm)}><i className="ti ti-trash"/></button>
           </div>
@@ -1289,7 +1283,7 @@ export default function Requests({ profile, navState }) {
             const m = s==='all' ? null : STATUS_META[s]
             const active = subFilter===s
             return (
-              <button key={s} onClick={()=>setSubFilter(s)}
+              <button key={s} onClick={()=>{setSubFilter(s);setBulkSel(new Set())}}
                 style={{padding:'5px 14px',borderRadius:20,border:`1px solid ${active?(m?.color||'var(--blue)'):'var(--border)'}`,background:active?(m?.bg||'rgba(0,133,199,.08)'):'var(--surface)',color:active?(m?.color||'#0085C7'):'var(--text2)',fontSize:12,fontWeight:active?600:400,cursor:'pointer',transition:'all .15s'}}>
                 {s==='all'?(ar?'الكل':'All'):(ar?STATUS_META[s].label_ar:STATUS_META[s].label)}
                 {s!=='all' && formSubs.filter(x=>x.status===s).length>0 && <span style={{marginLeft:5,background:m?.color,color:'white',borderRadius:10,padding:'1px 5px',fontSize:10}}>{formSubs.filter(x=>x.status===s).length}</span>}
@@ -1305,7 +1299,7 @@ export default function Requests({ profile, navState }) {
               <span style={{fontWeight:600,fontSize:13,marginInlineEnd:'auto'}}>{nSel} {ar?'محدد':'selected'}</span>
               <button className="action-btn action-btn-edit" disabled={bulkDeleting||!filteredSubs.length} onClick={()=>setBulkSel(p=>{const n=new Set(p); filteredSubs.forEach(x=>n.add(x.id)); return n})}>{ar?`تحديد كل المحمّل (${filteredSubs.length})`:`Select All Loaded (${filteredSubs.length})`}</button>
               <button className="action-btn action-btn-edit" disabled={bulkDeleting||!nSel} onClick={()=>setBulkSel(new Set())}>{ar?'مسح التحديد':'Clear Selection'}</button>
-              <button className="action-btn action-btn-edit" disabled={bulkDeleting||!nSel} onClick={()=>{setExportScope('selected');setExportState(null);setExportOpen(true)}}><i className="ti ti-file-zip"/> {ar?'تصدير المحدد':'Export Selected'}</button>
+              <button className="action-btn action-btn-edit" disabled={bulkDeleting||!nSel} onClick={()=>{setExportOpen(true);runBulkExport(selectedForm)}}><i className="ti ti-file-zip"/> {ar?'تصدير المحدد':'Export Selected'}</button>
               <button className="action-btn action-btn-delete" disabled={bulkDeleting||!nSel} onClick={()=>setBulkDelConfirm(true)}><i className="ti ti-trash"/> {ar?'حذف المحدد':'Delete Selected'}</button>
               <button className="btn-cancel" disabled={bulkDeleting} onClick={exitSelectMode}>{ar?'إلغاء':'Cancel'}</button>
             </div>
@@ -1358,13 +1352,7 @@ export default function Requests({ profile, navState }) {
         {confirmDel && <ConfirmModal title={ar?'حذف النموذج':'Delete form'} message={`${ar?'حذف':'Delete'} "${confirmDel.title}"?`} onConfirm={()=>deleteForm(confirmDel)} onCancel={()=>setConfirmDel(null)}/>}
         {exportOpen && canEditData && (() => {
           const st = exportState, running = st?.running
-          const nSel = formSubs.filter(x=>bulkSel.has(x.id)).length
-          const nFilt = filteredSubs.length
           const pr = st?.progress
-          const opt = (v, label, n) => (
-            <label key={v} style={{display:'flex',gap:8,alignItems:'center',padding:'6px 0',opacity:(v==='selected'&&!nSel)?.5:1}}>
-              <input type="radio" disabled={running||(v==='selected'&&!nSel)} checked={exportScope===v} onChange={()=>setExportScope(v)}/> {label} {n!=null && <span style={{color:'var(--text3)'}}>({n})</span>}
-            </label>)
           return (
             <div className="modal-overlay" onClick={()=>{ if(!running){setExportOpen(false);setExportState(null)} }}>
               <div className="modal-box modal-sm" dir={ar?'rtl':'ltr'} style={{width:460}} onClick={e=>e.stopPropagation()}>
@@ -1373,12 +1361,6 @@ export default function Requests({ profile, navState }) {
                   {!running && <button className="modal-close" onClick={()=>{setExportOpen(false);setExportState(null)}}>×</button>}
                 </div>
                 <div style={{padding:'18px 22px 20px'}}>
-                {!st && <>
-                  {opt('filtered', ar?'الطلبات المعروضة حالياً (حسب الفلتر)':'Current filter', nFilt)}
-                  {opt('all', ar?'كل الطلبات':'All submissions', formSubs.length)}
-                  {opt('selected', ar?'الطلبات المحددة':'Selected only', nSel)}
-                  <div style={{fontSize:12,color:'var(--text3)',marginTop:8}}>{ar?'مجلد لكل طلب: ملف PDF + مجلد المرفقات (إن وجدت).':'One folder per submission: PDF + Attachments folder (only if any).'}</div>
-                </>}
                 {running && <div>
                   <div style={{fontSize:13,marginBottom:6}}>{pr?.zipping ? (ar?'جارٍ إنشاء الملف…':'Building ZIP…') : `${pr?.done||0} / ${pr?.total||'…'} ${pr?.current?'· '+pr.current:''}`}</div>
                   <div style={{height:6,background:'var(--border)',borderRadius:4}}><div style={{height:6,borderRadius:4,background:'var(--blue)',width:`${pr?.total?Math.round((pr.done/pr.total)*100):0}%`}}/></div>
@@ -1394,8 +1376,7 @@ export default function Requests({ profile, navState }) {
                   {running
                     ? <button className="btn-cancel" onClick={()=>{exportCancelRef.current=true}}>{ar?'إلغاء':'Cancel'}</button>
                     : <>
-                        <button className="btn-cancel" onClick={()=>{setExportOpen(false);setExportState(null)}}>{st?(ar?'إغلاق':'Close'):(ar?'إلغاء':'Cancel')}</button>
-                        {!st && <button className="btn btn-blue" disabled={exportScope==='selected'&&!nSel} onClick={()=>runBulkExport(selectedForm)}><i className="ti ti-download"/> {ar?'تصدير':'Export'}</button>}
+                        <button className="btn-cancel" onClick={()=>{setExportOpen(false);setExportState(null)}}>{ar?'إغلاق':'Close'}</button>
                       </>}
                 </div>
                 </div>
