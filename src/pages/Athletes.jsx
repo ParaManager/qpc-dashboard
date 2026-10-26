@@ -1529,6 +1529,15 @@ export default function Athletes({ athletes, coaches, employees, results, docume
   const [generatingReport, setGeneratingReport] = useState(false)
   const [pdfExporting, setPdfExporting] = useState(false)
   const [showExportSelector, setShowExportSelector] = useState(false)
+  const [exportMenuOpen, setExportMenuOpen] = useState(false)
+  const exportMenuRef = useRef(null)
+  useEffect(() => {
+    if (!exportMenuOpen) return
+    const onDown = e => { if (exportMenuRef.current && !exportMenuRef.current.contains(e.target)) setExportMenuOpen(false) }
+    const onKey = e => { if (e.key === 'Escape') setExportMenuOpen(false) }
+    document.addEventListener('mousedown', onDown); document.addEventListener('touchstart', onDown); document.addEventListener('keydown', onKey)
+    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('touchstart', onDown); document.removeEventListener('keydown', onKey) }
+  }, [exportMenuOpen])
   const [pdfListPreview, setPdfListPreview] = useState(null) // { url, blob, filename }
   function closePdfListPreview() {
     if (pdfListPreview?.url) URL.revokeObjectURL(pdfListPreview.url)
@@ -3828,15 +3837,22 @@ ${myDocs.length > 0 ? `<div class="section">
         <div><div className="page-title">{pageTitle || tx('pages.athletes','Athletes')}</div><div className="page-sub">{list.length} of {athletes.length} {tx('pages.athletes','athletes')}</div></div>
         <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
           {!editMode && (
-            <button className="btn" style={{ background:'#009F6B' }} onClick={() => exportExcel(list, coaches, documents||[], visibleCols, ALL_COLS, lang, athleteSportsByAthlete)}>
-              <i className="ti ti-table-export" /> {tx('actions.exportExcel','Export Excel')}
-            </button>
-          )}
-          {!editMode && (
-            <button className="btn" style={{ background:'#c0392b' }} disabled={pdfExporting}
-              onClick={() => setShowExportSelector(true)}>
-              <i className="ti ti-file-type-pdf" /> {pdfExporting ? tx('actions.exporting','Exporting...') : tx('actions.exportPdf','Export PDF')}
-            </button>
+            <div ref={exportMenuRef} style={{ position:'relative' }}>
+              <button className="btn" aria-haspopup="menu" aria-expanded={exportMenuOpen} onClick={() => setExportMenuOpen(o => !o)}>
+                <i className="ti ti-download" /> {tx('actions.export','Export')} <i className={`ti ti-chevron-${exportMenuOpen ? 'up' : 'down'}`} style={{ fontSize:14 }} />
+              </button>
+              {exportMenuOpen && (
+                <div role="menu" style={{ position:'absolute', top:'calc(100% + 6px)', insetInlineEnd:0, zIndex:1000, display:'flex', flexDirection:'column', gap:8, padding:8, minWidth:170, background:'var(--surface)', border:'1px solid var(--border)', borderRadius:12, boxShadow:'0 8px 24px rgba(0,0,0,.15)' }}>
+                  <button className="btn" style={{ background:'#009F6B', justifyContent:'center' }} onClick={() => { setExportMenuOpen(false); exportExcel(list, coaches, documents||[], visibleCols, ALL_COLS, lang, athleteSportsByAthlete) }}>
+                    <i className="ti ti-table-export" /> {tx('actions.exportExcel','Export Excel')}
+                  </button>
+                  <button className="btn" style={{ background:'#c0392b', justifyContent:'center' }} disabled={pdfExporting}
+                    onClick={() => { setExportMenuOpen(false); setShowExportSelector(true) }}>
+                    <i className="ti ti-file-type-pdf" /> {pdfExporting ? tx('actions.exporting','Exporting...') : tx('actions.exportPdf','Export PDF')}
+                  </button>
+                </div>
+              )}
+            </div>
           )}
           {showExportSelector && (
             <AthleteExportSelector
