@@ -199,6 +199,11 @@ export default function Requests({ profile, navState }) {
   const [deleteSubConfirm, setDeleteSubConfirm] = useState(null) // admin: submission pending permanent deletion
   const [deletingSub, setDeletingSub] = useState(false)
   const [bulkSel, setBulkSel] = useState(() => new Set()) // admin: manually selected submission ids (bulk export)
+  const [selectMode, setSelectMode] = useState(false) // admin: explicit multi-select mode
+  const [bulkDelConfirm, setBulkDelConfirm] = useState(false)
+  const [bulkDeleting, setBulkDeleting] = useState(false)
+  const [bulkDelResult, setBulkDelResult] = useState(null) // { ok, failed:[{label,msg}] }
+  const bulkDeletingRef = useRef(false)
   const [exportOpen, setExportOpen] = useState(false)
   const [exportScope, setExportScope] = useState('filtered')
   const [exportState, setExportState] = useState(null) // { running, progress, report, error }
@@ -615,6 +620,51 @@ export default function Requests({ profile, navState }) {
     setBulkSel(p => { const n = new Set(p); n.delete(sub.id); return n })
     setSelectedSub(p => p && p.id===sub.id ? null : p)
     fetchForms()
+  }
+
+  // Selection mode must never outlive the form-detail view or the form it
+  // was started in.
+  useEffect(() => {
+    if (view !== 'form-detail') { setSelectMode(false); setBulkSel(new Set()) }
+  }, [view])
+  useEffect(() => { setSelectMode(false); setBulkSel(new Set()) }, [selectedForm?.id])
+
+  function exitSelectMode() { setSelectMode(false); setBulkSel(new Set()) }
+
+  // Bulk delete: one admin-only RPC call per submission (server-side
+  // authorization + cascade for every call), sequential, with per-item
+  // failure tracking. Storage objects are removed only for submissions the
+  // server confirmed deleted.
+  async function doBulkDelete() {
+    if (bulkDeletingRef.current) return
+    bulkDeletingRef.current = true
+    setBulkDeleting(true)
+    const targets = formSubs.filter(s => bulkSel.has(s.id))
+    const failed = [], deletedIds = []
+    let storageFailed = 0
+    for (const sub of targets) {
+      const label = `${sub.is_guest ? (sub.guest_name||'Guest') : (sub.profiles?.full_name||'?')} (${sub.reference_number||sub.id.slice(0,8)})`
+      const { data, error } = await supabase.rpc('admin_delete_request_submission', { p_submission_id: sub.id })
+      if (error || data?.status !== 'ok') {
+        failed.push({ label, msg: data?.status === 'not_permitted' ? (ar?'غير مسموح':'Not permitted') : data?.status === 'not_found' ? (ar?'غير موجود':'Not found') : (error?.message || 'Failed') })
+        continue
+      }
+      deletedIds.push(sub.id)
+      const paths = data.file_paths || []
+      if (paths.length) {
+        const { error: rmErr } = await supabase.storage.from('request-attachments').remove(paths)
+        if (rmErr) storageFailed++
+      }
+    }
+    setFormSubs(p => p.filter(s => !deletedIds.includes(s.id)))
+    setBulkSel(new Set(failed.length ? targets.filter(t => !deletedIds.includes(t.id)).map(t => t.id) : []))
+    setBulkDelConfirm(false)
+    setBulkDelResult({ ok: deletedIds.length, failed, storageFailed })
+    if (!failed.length) setSelectMode(false)
+    if (selectedForm) fetchFormSubs(selectedForm.id)
+    fetchForms()
+    bulkDeletingRef.current = false
+    setBulkDeleting(false)
   }
 
   // Admin-only bulk export (any form type). PDFs come from the form's own
@@ -1225,7 +1275,8 @@ export default function Requests({ profile, navState }) {
           </div>
           {canEditData && (
           <div style={{display:'flex',gap:8}}>
-            <button className="action-btn action-btn-edit" onClick={()=>{setExportScope(bulkSel.size?'selected':'filtered');setExportState(null);setExportOpen(true)}}><i className="ti ti-file-zip"/> {ar?'تصدير الطلبات':'Export Submissions'}</button>
+            <button className={`action-btn action-btn-edit`} onClick={()=>selectMode?exitSelectMode():setSelectMode(true)}><i className="ti ti-checkbox"/> {selectMode?(ar?'إلغاء التحديد':'Cancel Selection'):(ar?'تحديد':'Select')}</button>
+            <button className="action-btn action-btn-edit" onClick={()=>{setExportScope('filtered');setExportState(null);setExportOpen(true)}}><i className="ti ti-file-zip"/> {ar?'تصدير الطلبات':'Export Submissions'}</button>
             <button className="action-btn action-btn-edit" onClick={()=>openEditForm(selectedForm)}><i className="ti ti-edit"/> {ar?'تعديل':'Edit'}</button>
             <button className="action-btn action-btn-delete" onClick={()=>setConfirmDel(selectedForm)}><i className="ti ti-trash"/></button>
           </div>
@@ -1247,6 +1298,19 @@ export default function Requests({ profile, navState }) {
           })}
         </div>
 
+        {selectMode && canEditData && (() => {
+          const nSel = formSubs.filter(x=>bulkSel.has(x.id)).length
+          return (
+            <div dir={ar?'rtl':'ltr'} style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',padding:'10px 14px',marginBottom:12,background:'var(--surface)',border:'1px solid var(--border)',borderRadius:12,boxShadow:'var(--shadow)'}}>
+              <span style={{fontWeight:600,fontSize:13,marginInlineEnd:'auto'}}>{nSel} {ar?'محدد':'selected'}</span>
+              <button className="action-btn action-btn-edit" disabled={bulkDeleting||!filteredSubs.length} onClick={()=>setBulkSel(p=>{const n=new Set(p); filteredSubs.forEach(x=>n.add(x.id)); return n})}>{ar?`تحديد كل المحمّل (${filteredSubs.length})`:`Select All Loaded (${filteredSubs.length})`}</button>
+              <button className="action-btn action-btn-edit" disabled={bulkDeleting||!nSel} onClick={()=>setBulkSel(new Set())}>{ar?'مسح التحديد':'Clear Selection'}</button>
+              <button className="action-btn action-btn-edit" disabled={bulkDeleting||!nSel} onClick={()=>{setExportScope('selected');setExportState(null);setExportOpen(true)}}><i className="ti ti-file-zip"/> {ar?'تصدير المحدد':'Export Selected'}</button>
+              <button className="action-btn action-btn-delete" disabled={bulkDeleting||!nSel} onClick={()=>setBulkDelConfirm(true)}><i className="ti ti-trash"/> {ar?'حذف المحدد':'Delete Selected'}</button>
+              <button className="btn-cancel" disabled={bulkDeleting} onClick={exitSelectMode}>{ar?'إلغاء':'Cancel'}</button>
+            </div>
+          )
+        })()}
         {filteredSubs.length===0
           ? <div className="empty">{ar?'لا توجد طلبات':'No submissions'}</div>
           : <div style={{display:'flex',flexDirection:'column',gap:8}}>
@@ -1258,8 +1322,10 @@ export default function Requests({ profile, navState }) {
                     style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:12,padding:'14px 18px',display:'flex',alignItems:'center',gap:14,cursor:'pointer',transition:'all .15s',boxShadow:'var(--shadow)'}}
                     onMouseEnter={e=>e.currentTarget.style.borderColor='var(--border2)'}
                     onMouseLeave={e=>e.currentTarget.style.borderColor='var(--border)'}
-                    onClick={()=>{setSelectedSub(s);fetchSubActions(s.id);fetchSubFiles(s.id);setActionNote('');setView('submission-view')}}>
-                    {canEditData && (
+                    onClick={()=>{
+                      if (selectMode) { setBulkSel(p=>{const n=new Set(p); n.has(s.id)?n.delete(s.id):n.add(s.id); return n}); return }
+                      setSelectedSub(s);fetchSubActions(s.id);fetchSubFiles(s.id);setActionNote('');setView('submission-view')}}>
+                    {canEditData && selectMode && (
                       <input type="checkbox" checked={bulkSel.has(s.id)} onClick={e=>e.stopPropagation()}
                         onChange={()=>setBulkSel(p=>{const n=new Set(p); n.has(s.id)?n.delete(s.id):n.add(s.id); return n})} />
                     )}
@@ -1277,7 +1343,7 @@ export default function Requests({ profile, navState }) {
                       </div>
                     </div>
                     {statusBadge(s.status)}
-                    {canEditData && (
+                    {canEditData && !selectMode && (
                       <button className="action-btn action-btn-delete" title={ar?'حذف الطلب':'Delete Submission'}
                         onClick={e=>{e.stopPropagation();setDeleteSubConfirm(s)}}>
                         <i className="ti ti-trash"/>
@@ -1337,6 +1403,35 @@ export default function Requests({ profile, navState }) {
             </div>
           )
         })()}
+        {bulkDelConfirm && canEditData && (
+          <ConfirmModal
+            title={ar?'حذف الطلبات المحددة نهائياً':'Delete Selected Submissions'}
+            message={ar?`سيتم حذف ${bulkSel.size} طلب نهائياً مع مرفقاتها وسجلها. لا يمكن التراجع عن هذا الإجراء.`:`You are about to permanently delete ${bulkSel.size} submission(s), including their attachments and history. This cannot be undone.`}
+            confirmLabel={bulkDeleting?(ar?'جارٍ الحذف…':'Deleting…'):(ar?`حذف ${bulkSel.size} نهائياً`:`Delete ${bulkSel.size} permanently`)}
+            onConfirm={doBulkDelete}
+            onCancel={()=>{ if(!bulkDeleting) setBulkDelConfirm(false) }}/>
+        )}
+        {bulkDelResult && (
+          <div className="modal-overlay" onClick={()=>setBulkDelResult(null)}>
+            <div className="modal-box modal-sm" dir={ar?'rtl':'ltr'} style={{width:460}} onClick={e=>e.stopPropagation()}>
+              <div className="modal-header">
+                <div className="modal-title">{ar?'نتيجة الحذف':'Deletion Result'}</div>
+                <button className="modal-close" onClick={()=>setBulkDelResult(null)}>×</button>
+              </div>
+              <div style={{padding:'18px 22px 20px',fontSize:13}}>
+                <div style={{fontWeight:600}}>{ar?'تم حذف':'Deleted'}: {bulkDelResult.ok}</div>
+                {bulkDelResult.storageFailed>0 && <div style={{color:'#EE334E',marginTop:6}}>{ar?`تعذر حذف مرفقات ${bulkDelResult.storageFailed} طلب`:`Attachments could not be removed for ${bulkDelResult.storageFailed} submission(s)`}</div>}
+                {bulkDelResult.failed.length>0 && <div style={{marginTop:8}}>
+                  <div style={{color:'#EE334E',fontWeight:600}}>{ar?'فشل حذف':'Failed'}: {bulkDelResult.failed.length}</div>
+                  {bulkDelResult.failed.map((f,i)=><div key={i} style={{color:'var(--text2)'}}>• {f.label} — {f.msg}</div>)}
+                </div>}
+                <div style={{display:'flex',justifyContent:'flex-end',marginTop:16}}>
+                  <button className="btn btn-blue" onClick={()=>setBulkDelResult(null)}>{ar?'إغلاق':'Close'}</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         {deleteSubConfirm && (
           <ConfirmModal
             title={ar?'حذف الطلب نهائياً':'Delete Submission'}
