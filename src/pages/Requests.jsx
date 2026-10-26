@@ -195,6 +195,8 @@ export default function Requests({ profile, navState }) {
   const [reviewNote, setReviewNote]     = useState('')
   const [reviewStatus, setReviewStatus] = useState('approved')
   const [cancelConfirm, setCancelConfirm] = useState(null) // submission pending cancel-confirmation
+  const [deleteSubConfirm, setDeleteSubConfirm] = useState(null) // admin: submission pending permanent deletion
+  const [deletingSub, setDeletingSub] = useState(false)
   const [pdfPreview, setPdfPreview] = useState(null) // { url, blob, filename, form, submission, returnView } — admin PDF preview page
   const [pdfPreviewLoading, setPdfPreviewLoading] = useState(false)
 
@@ -577,6 +579,35 @@ export default function Requests({ profile, navState }) {
     setFormSubs(p => p.map(s => s.id===sub.id ? {...s, status:'cancelled'} : s))
     setSelectedSub(p => p && p.id===sub.id ? {...p, status:'cancelled'} : p)
     await fetchMySubs()
+  }
+
+  // Admin-only permanent deletion. Authorization is enforced server-side by
+  // the admin_delete_request_submission RPC (SECURITY DEFINER, role='admin');
+  // the button being hidden for other roles is only a UX nicety. Dependent
+  // rows (files, actions) cascade; storage objects are removed afterwards.
+  async function doDeleteSubmission(sub) {
+    setDeletingSub(true)
+    const { data, error } = await supabase.rpc('admin_delete_request_submission', { p_submission_id: sub.id })
+    if (error || data?.status !== 'ok') {
+      setDeletingSub(false); setDeleteSubConfirm(null)
+      const msg = data?.status === 'not_permitted' ? (ar?'غير مسموح':'Not permitted')
+        : data?.status === 'not_found' ? (ar?'الطلب غير موجود':'Submission not found')
+        : (error?.message || (ar?'فشل الحذف':'Delete failed'))
+      return toast(msg, 'error')
+    }
+    const paths = data.file_paths || []
+    let storageFailed = false
+    if (paths.length) {
+      const { error: rmErr } = await supabase.storage.from('request-attachments').remove(paths)
+      if (rmErr) storageFailed = true
+    }
+    setDeletingSub(false); setDeleteSubConfirm(null)
+    toast(storageFailed
+      ? (ar?'تم حذف الطلب لكن تعذر حذف بعض المرفقات':'Submission deleted, but some attachments could not be removed')
+      : (ar?'تم حذف الطلب نهائياً':'Submission permanently deleted'), storageFailed ? 'error' : 'success')
+    setFormSubs(p => p.filter(s => s.id !== sub.id))
+    setSelectedSub(p => p && p.id===sub.id ? null : p)
+    fetchForms()
   }
 
   // Uploads immediately (while the person is still filling the form) into
@@ -1204,6 +1235,12 @@ export default function Requests({ profile, navState }) {
                       </div>
                     </div>
                     {statusBadge(s.status)}
+                    {canEditData && (
+                      <button className="action-btn action-btn-delete" title={ar?'حذف الطلب':'Delete Submission'}
+                        onClick={e=>{e.stopPropagation();setDeleteSubConfirm(s)}}>
+                        <i className="ti ti-trash"/>
+                      </button>
+                    )}
                     <i className="ti ti-chevron-right" style={{color:'var(--text3)',fontSize:16}}/>
                   </div>
                 )
@@ -1211,6 +1248,14 @@ export default function Requests({ profile, navState }) {
             </div>
         }
         {confirmDel && <ConfirmModal title={ar?'حذف النموذج':'Delete form'} message={`${ar?'حذف':'Delete'} "${confirmDel.title}"?`} onConfirm={()=>deleteForm(confirmDel)} onCancel={()=>setConfirmDel(null)}/>}
+        {deleteSubConfirm && (
+          <ConfirmModal
+            title={ar?'حذف الطلب نهائياً':'Delete Submission'}
+            message={`${ar?'سيتم حذف هذا الطلب ومرفقاته وسجله نهائياً ولا يمكن التراجع.':'This will permanently delete this submission, its attachments and history. This cannot be undone.'}\n\n${ar?'مقدم الطلب':'Applicant'}: ${deleteSubConfirm.is_guest ? (deleteSubConfirm.guest_name||'Guest') : (deleteSubConfirm.profiles?.full_name||'?')}\n${ar?'المرجع':'Reference'}: ${deleteSubConfirm.reference_number||deleteSubConfirm.id}`}
+            confirmLabel={deletingSub ? (ar?'جارٍ الحذف…':'Deleting…') : (ar?'حذف نهائي':'Delete permanently')}
+            onConfirm={()=>{ if(!deletingSub) doDeleteSubmission(deleteSubConfirm) }}
+            onCancel={()=>{ if(!deletingSub) setDeleteSubConfirm(null) }}/>
+        )}
         {formModalJsx}
       </div>
     )
