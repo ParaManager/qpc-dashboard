@@ -3838,7 +3838,7 @@ ${myDocs.length > 0 ? `<div class="section">
         <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
           {!editMode && (
             <div ref={exportMenuRef} style={{ position:'relative' }}>
-              <button className="btn" aria-haspopup="menu" aria-expanded={exportMenuOpen} onClick={() => setExportMenuOpen(o => !o)}>
+              <button className="btn btn-blue" aria-haspopup="menu" aria-expanded={exportMenuOpen} onClick={() => setExportMenuOpen(o => !o)}>
                 <i className="ti ti-download" /> {tx('actions.export','Export')} <i className={`ti ti-chevron-${exportMenuOpen ? 'up' : 'down'}`} style={{ fontSize:14 }} />
               </button>
               {exportMenuOpen && (
