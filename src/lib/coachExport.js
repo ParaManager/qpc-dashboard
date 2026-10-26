@@ -16,17 +16,17 @@ const s = v => (v === null || v === undefined || v === 'null' || v === 'undefine
 function buildColumns(ar) {
   const L = (en, a) => ar ? a : en
   return [
-    { key: 'idx',        label: '#',                          w: 24,  get: (c, i) => i + 1 },
-    { key: 'name',       label: L('English Name', 'الاسم بالإنجليزية'), w: 120, get: c => s(c.name) },
-    { key: 'name_ar',    label: L('Arabic Name', 'الاسم بالعربية'),     w: 110, arabic: true, get: c => s(c.name_ar) },
-    { key: 'designation',label: L('Designation', 'المسمى الوظيفي'),     w: 80,  get: (c, i, x) => ar ? (s(c.designation_ar) || s(c.designation)) : s(c.designation) },
-    { key: 'gender',     label: L('Gender', 'الجنس'),                   w: 44,  get: c => ar ? (GENDER_AR[c.gender] || s(c.gender)) : s(c.gender) },
-    { key: 'nationality',label: L('Nationality', 'الجنسية'),            w: 70,  get: (c, i, x) => x.tc(s(c.nationality)) },
-    { key: 'sport',      label: L('Sport', 'الرياضة'),                  w: 90,  get: c => c.sport ? s(sportLabel(c.sport, c.sport_category, ar)) : '' },
-    { key: 'category',   label: L('Sport Category', 'فئة الرياضة'),     w: 80,  get: c => ar ? (SPORT_CATEGORY_NAMES_AR[c.sport_category] || s(c.sport_category)) : s(c.sport_category) },
-    { key: 'status',     label: L('Status', 'الحالة'),                  w: 60,  get: c => { const st = effectiveStatus(c); return ar ? (STATUS_AR[st] || s(st)) : s(st) } },
-    { key: 'count',      label: L('Athletes', 'عدد الرياضيين'),         w: 44,  get: (c, i, x) => x.athletesFor(c.id).length },
-    { key: 'athletes',   label: L('Assigned Athletes', 'الرياضيون المعينون'), w: 0, get: (c, i, x) => x.athletesFor(c.id).map(a => (ar && a.name_ar) ? a.name_ar : a.name).filter(Boolean).join('، ') },
+    { key: 'idx',        label: '#',                          w: 20,  get: (c, i) => i + 1 },
+    { key: 'name',       label: L('English Name', 'الاسم بالإنجليزية'), w: 100, get: c => s(c.name) },
+    { key: 'name_ar',    label: L('Arabic Name', 'الاسم بالعربية'),     w: 90, arabic: true, get: c => s(c.name_ar) },
+    { key: 'designation',label: L('Designation', 'المسمى الوظيفي'),     w: 65,  get: (c, i, x) => ar ? (s(c.designation_ar) || s(c.designation)) : s(c.designation) },
+    { key: 'gender',     label: L('Gender', 'الجنس'),                   w: 36,  get: c => ar ? (GENDER_AR[c.gender] || s(c.gender)) : s(c.gender) },
+    { key: 'nationality',label: L('Nationality', 'الجنسية'),            w: 55,  get: (c, i, x) => x.tc(s(c.nationality)) },
+    { key: 'sport',      label: L('Sport', 'الرياضة'),                  w: 75,  get: c => c.sport ? s(sportLabel(c.sport, c.sport_category, ar)) : '' },
+    { key: 'category',   label: L('Sport Category', 'فئة الرياضة'),     w: 65,  get: c => ar ? (SPORT_CATEGORY_NAMES_AR[c.sport_category] || s(c.sport_category)) : s(c.sport_category) },
+    { key: 'status',     label: L('Status', 'الحالة'),                  w: 50,  get: c => { const st = effectiveStatus(c); return ar ? (STATUS_AR[st] || s(st)) : s(st) } },
+    { key: 'count',      label: L('Athletes', 'عدد الرياضيين'),         w: 36,  get: (c, i, x) => x.athletesFor(c.id).length },
+    { key: 'athletes',   label: L('Assigned Athletes', 'الرياضيون المعينون'), w: 0, get: (c, i, x) => x.athletesFor(c.id).map(a => (ar && a.name_ar) ? a.name_ar : a.name).filter(Boolean).join(ar ? '، ' : ', ') },
   ]
 }
 
@@ -88,7 +88,7 @@ export async function exportCoachesPdf(coaches, ctx) {
     doc.setFont(FONT, 'bold'); doc.setFontSize(12.5); doc.setTextColor(20, 20, 20)
     doc.text(L('Qatar Paralympic Committee', 'اللجنة البارالمبية القطرية'), pageW / 2, y + 12, { align: 'center' })
     doc.setFont(FONT, 'normal'); doc.setFontSize(9.5)
-    doc.text(`${L('Coaches List', 'قائمة المدربين')} (${coaches.length})`, pageW / 2, y + 25, { align: 'center' })
+    doc.text(ar ? 'قائمة المدربين' : `Coaches List (${coaches.length})`, pageW / 2, y + 25, { align: 'center' })
     doc.setFontSize(8); doc.setTextColor(110, 110, 110)
     doc.text(`${L('Season', 'الموسم')} ${getCurrentSeason()}`, pageW / 2, y + 36, { align: 'center' })
     doc.text(`${L('Export date', 'تاريخ التصدير')}: ${new Date().toISOString().slice(0, 10)}`, ar ? 36 : pageW - 36, y + 10, { align: ar ? 'left' : 'right' })
@@ -104,11 +104,12 @@ export async function exportCoachesPdf(coaches, ctx) {
     body: rows.map(r => idxs.map(i => String(r[i] ?? ''))),
     startY: 76,
     margin: { top: 76, left: 36, right: 36, bottom: 26 },
-    styles: { font: FONT, fontSize: 8, cellPadding: 4, valign: 'middle', overflow: 'linebreak', halign: ar ? 'right' : 'left', lineColor: [232, 220, 224], lineWidth: 0.4 },
+    styles: { font: FONT, fontSize: 7.5, cellPadding: 3.5, valign: 'middle', overflow: 'linebreak', halign: ar ? 'right' : 'left', lineColor: [232, 220, 224], lineWidth: 0.4 },
     headStyles: { font: FONT, fillColor: MAROON, textColor: 255, fontStyle: 'bold', halign: ar ? 'right' : 'left' },
     alternateRowStyles: { fillColor: [249, 244, 245] },
     columnStyles: colStyles,
     showHead: 'everyPage',
+    rowPageBreak: 'avoid',
     didParseCell: d => {
       if (arabicOk && arabicColIdx.has(d.column.index)) { d.cell.styles.font = 'Amiri'; d.cell.styles.halign = 'right' }
     },

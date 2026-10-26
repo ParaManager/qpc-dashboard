@@ -24,18 +24,6 @@ function exportCoachPDF(coach, myAthletes, lang) {
     const clean = (v === null || v === undefined || v === 'null' || v === 'undefined' || v === '') ? null : v
     return clean ? `<div class="field"><span class="k">${k}</span><span class="v">${clean}</span></div>` : ''
   }
-  // Exports exactly the coaches currently shown (search/filters/sort applied).
-  async function runCoachExport(kind) {
-    const ctx = { lang, tc, athletesFor: athletesForCoach,
-      filterSummary: hasFilters ? (lang==='ar' ? 'مفلتر' : 'Filtered') + `: ${list.length} / ${visibleCoaches.length}` : '' }
-    try {
-      if (kind === 'excel') exportCoachesExcel(list, ctx)
-      else { setExportingPdf(true); await exportCoachesPdf(list, ctx) }
-    } catch (err) {
-      console.error('Coaches export failed', err)
-      toast(lang==='ar' ? 'تعذر إنشاء الملف' : 'Could not generate the export', 'error')
-    } finally { setExportingPdf(false) }
-  }
   const STATUS_AR = {'Active':'نشط','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي','Inactive':'غير نشط','Suspended':'موقوف'}
   const COUNTRY_AR = {'Qatar':'قطر','Egypt':'مصر','Algeria':'الجزائر','Jordan':'الأردن','Tunisia':'تونس','Morocco':'المغرب','Saudi Arabia':'المملكة العربية السعودية','Somalia':'الصومال','Ireland':'أيرلندا','Spain':'إسبانيا','France':'فرنسا','UK':'المملكة المتحدة','USA':'الولايات المتحدة'}
   const totalMedals = myAthletes.reduce((s,a) => s+(a.medals_gold||0)+(a.medals_silver||0)+(a.medals_bronze||0), 0)
@@ -292,6 +280,18 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
       const sportNames = bySportRows.filter(r => r.athlete_id === id).map(r => r.sports?.name).filter(Boolean)
       return { ...athlete, _linkedSports: sportNames }
     }).filter(Boolean)
+  }
+  // Exports exactly the coaches currently shown (search/filters/sort applied).
+  async function runCoachExport(kind) {
+    const ctx = { lang, tc, athletesFor: athletesForCoach,
+      filterSummary: hasFilters ? (lang==='ar' ? 'مفلتر' : 'Filtered') + `: ${list.length} / ${visibleCoaches.length}` : '' }
+    try {
+      if (kind === 'excel') exportCoachesExcel(list, ctx)
+      else { setExportingPdf(true); await exportCoachesPdf(list, ctx) }
+    } catch (err) {
+      console.error('Coaches export failed', err)
+      toast(lang==='ar' ? 'تعذر إنشاء الملف' : 'Could not generate the export', 'error')
+    } finally { setExportingPdf(false) }
   }
   const STATUS_AR = {'Active':'نشط','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي','Inactive':'غير نشط','Suspended':'موقوف'}
   useEffect(() => { if (initCoachId) setSelected(initCoachId) }, [initCoachId])
