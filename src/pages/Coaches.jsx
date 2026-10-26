@@ -14,6 +14,7 @@ import { useLang } from '../lib/LangContext.jsx'
 import PersonDocuments from '../components/PersonDocuments'
 import EmployeeCardButton from '../components/EmployeeCard'
 import PhotoCropModal from '../components/PhotoCropModal'
+import { exportCoachesExcel, exportCoachesPdf } from '../lib/coachExport'
 
 function exportCoachPDF(coach, myAthletes, lang) {
   const isAr = lang === 'ar'
@@ -22,6 +23,18 @@ function exportCoachPDF(coach, myAthletes, lang) {
   const field = (k, v) => {
     const clean = (v === null || v === undefined || v === 'null' || v === 'undefined' || v === '') ? null : v
     return clean ? `<div class="field"><span class="k">${k}</span><span class="v">${clean}</span></div>` : ''
+  }
+  // Exports exactly the coaches currently shown (search/filters/sort applied).
+  async function runCoachExport(kind) {
+    const ctx = { lang, tc, athletesFor: athletesForCoach,
+      filterSummary: hasFilters ? (lang==='ar' ? 'مفلتر' : 'Filtered') + `: ${list.length} / ${visibleCoaches.length}` : '' }
+    try {
+      if (kind === 'excel') exportCoachesExcel(list, ctx)
+      else { setExportingPdf(true); await exportCoachesPdf(list, ctx) }
+    } catch (err) {
+      console.error('Coaches export failed', err)
+      toast(lang==='ar' ? 'تعذر إنشاء الملف' : 'Could not generate the export', 'error')
+    } finally { setExportingPdf(false) }
   }
   const STATUS_AR = {'Active':'نشط','On Leave':'في إجازة','In Competition':'في منافسة','In Training Camp':'في معسكر تدريبي','Inactive':'غير نشط','Suspended':'موقوف'}
   const COUNTRY_AR = {'Qatar':'قطر','Egypt':'مصر','Algeria':'الجزائر','Jordan':'الأردن','Tunisia':'تونس','Morocco':'المغرب','Saudi Arabia':'المملكة العربية السعودية','Somalia':'الصومال','Ireland':'أيرلندا','Spain':'إسبانيا','France':'فرنسا','UK':'المملكة المتحدة','USA':'الولايات المتحدة'}
@@ -228,6 +241,16 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
   const selectedCoachForRoles = coaches.find(x => x.id === selected)
   const { roles: personRolesCoach } = usePersonRoles(selectedCoachForRoles?.person_id)
   const [form, setForm]         = useState(null)
+  const [exportMenuOpen, setExportMenuOpen] = useState(false)
+  const [exportingPdf, setExportingPdf] = useState(false)
+  const exportMenuRef = useRef(null)
+  useEffect(() => {
+    if (!exportMenuOpen) return
+    const onDown = e => { if (exportMenuRef.current && !exportMenuRef.current.contains(e.target)) setExportMenuOpen(false) }
+    const onKey = e => { if (e.key === 'Escape') setExportMenuOpen(false) }
+    document.addEventListener('mousedown', onDown); document.addEventListener('touchstart', onDown); document.addEventListener('keydown', onKey)
+    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('touchstart', onDown); document.removeEventListener('keydown', onKey) }
+  }, [exportMenuOpen])
   const [confirm, setConfirm]   = useState(null)
   const [uploading, setUploading] = useState(false)
   const [showAllAthletes, setShowAllAthletes] = useState(false)
@@ -868,6 +891,23 @@ export default function Coaches({ coaches, athletes, employees, personDocs, onRe
               style={{ display:'flex', alignItems:'center', gap:5, padding:'8px 12px', borderRadius:9, border:'1px solid #fca5a5', background:'#fef2f2', color:'#dc2626', fontSize:12, cursor:'pointer', fontFamily:'DM Sans, sans-serif' }}>
               <i className="ti ti-x" style={{ fontSize:13 }} /> {tx('actions.resetFilters','Reset filters')}
             </button>
+          )}
+          {isAdminRole(profile) && (
+            <div ref={exportMenuRef} style={{ position:'relative' }}>
+              <button className="btn btn-blue" aria-haspopup="menu" aria-expanded={exportMenuOpen} onClick={() => setExportMenuOpen(o => !o)}>
+                <i className="ti ti-download" /> {tx('actions.export','Export')} <i className={`ti ti-chevron-${exportMenuOpen ? 'up' : 'down'}`} style={{ fontSize:14 }} />
+              </button>
+              {exportMenuOpen && (
+                <div role="menu" style={{ position:'absolute', top:'calc(100% + 6px)', insetInlineEnd:0, zIndex:1000, display:'flex', flexDirection:'column', gap:8, padding:8, minWidth:170, background:'var(--surface)', border:'1px solid var(--border)', borderRadius:12, boxShadow:'0 8px 24px rgba(0,0,0,.15)' }}>
+                  <button className="btn" style={{ background:'#009F6B', justifyContent:'center' }} onClick={() => { setExportMenuOpen(false); runCoachExport('excel') }}>
+                    <i className="ti ti-table-export" /> {tx('actions.exportExcel','Export Excel')}
+                  </button>
+                  <button className="btn" style={{ background:'#c0392b', justifyContent:'center' }} disabled={exportingPdf} onClick={() => { setExportMenuOpen(false); runCoachExport('pdf') }}>
+                    <i className="ti ti-file-type-pdf" /> {exportingPdf ? tx('actions.exporting','Exporting...') : tx('actions.exportPdf','Export PDF')}
+                  </button>
+                </div>
+              )}
+            </div>
           )}
           {canEdit(profile) && (
             <button className="btn btn-green" onClick={() => setForm('new')}><i className="ti ti-plus" /> {tx('coaches.addCoach','Add coach')}</button>
